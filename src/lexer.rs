@@ -55,7 +55,25 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<SpannedToken> {
+    fn read_string(&mut self) -> Result<Token, String> {
+        let start_line = self.line;
+        self.advance(); // opening "
+        let mut text = String::new();
+        while let Some(c) = self.peek() {
+            if c == '"' {
+                self.advance(); // closing "
+                return Ok(Token::Str(text));
+            }
+            if c == '\n' {
+                self.line += 1;
+            }
+            text.push(c);
+            self.advance();
+        }
+        Err(format!("Line {}: unterminated string", start_line))
+    }
+
+    pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, String> {
         let mut tokens = Vec::new();
 
         while let Some(c) = self.peek() {
@@ -84,6 +102,12 @@ impl Lexer {
                 continue;
             }
 
+            if c == '"' {
+                let token = self.read_string()?;
+                tokens.push(SpannedToken { token, line });
+                continue;
+            }
+
             let token = match c {
                 ':' => Token::Colon,
                 '=' => Token::Equal,
@@ -94,13 +118,13 @@ impl Lexer {
                 '/' => Token::Slash,
                 '(' => Token::LParen,
                 ')' => Token::RParen,
-                _ => break, 
+                _ => return Err(format!("Line {}: unexpected character '{}'", line, c)),
             };
             tokens.push(SpannedToken { token, line });
             self.advance();
         }
 
         tokens.push(SpannedToken { token: Token::Eof, line: self.line });
-        tokens
+        Ok(tokens)
     }
 }

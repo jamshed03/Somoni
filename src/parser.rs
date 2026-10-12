@@ -129,6 +129,10 @@ impl Parser {
                 self.advance();
                 Ok(Expr::Int(n))
             }
+            Token::Str(s) => {
+                self.advance();
+                Ok(Expr::Str(s))
+            }
             Token::True => {
                 self.advance();
                 Ok(Expr::Bool(true))

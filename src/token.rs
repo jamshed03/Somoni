@@ -11,6 +11,7 @@ pub enum Token {
     // Namen und Werte
     Ident(String),
     Int(i64),
+    Str(String),
 
     // Symbole
     Colon,

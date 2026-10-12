@@ -1,4 +1,3 @@
-print(true);
-print(false);
-const ok: bool = true;
-print(ok);
+const name: string = "Ali";
+print("Hallo " + name);
+print("5" + 1);

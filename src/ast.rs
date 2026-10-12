@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Int(i64),
+    Str(String),
     Ident(String),
     Binary {
         left: Box<Expr>,

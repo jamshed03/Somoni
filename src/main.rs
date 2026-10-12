@@ -27,7 +27,13 @@ fn main() {
         }
     };
 
-    let tokens = Lexer::new(&source).tokenize();
+    let tokens = match Lexer::new(&source).tokenize() {
+        Ok(tokens) => tokens,
+        Err(msg) => {
+            eprintln!("Lex error: {}", msg);
+            process::exit(1);
+        }
+    };
 
     let stmts = match Parser::new(tokens).parse_program() {
         Ok(stmts) => stmts,

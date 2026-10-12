@@ -6,6 +6,7 @@ use crate::ast::{BinaryOp, Expr, Stmt};
 pub enum Value {
     Int(i64),
     Bool(bool),
+    Str(String),
 }
 
 struct Variable {
@@ -40,6 +41,7 @@ impl Interpreter {
                 let v = self.eval(value)?;
                 match v {
                     Value::Int(n) => println!("{}", n),
+                    Value::Str(s) => println!("{}", s),
                     Value::Bool(b) => println!("{}", b),
                 }
                 Ok(())
@@ -50,6 +52,7 @@ impl Interpreter {
     fn eval(&self, expr: &Expr) -> Result<Value, String> {
         match expr {
             Expr::Int(n) => Ok(Value::Int(*n)),
+            Expr::Str(s) => Ok(Value::Str(s.clone())),
             Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Ident(name) => match self.vars.get(name) {
                 Some(var) => Ok(var.value.clone()),
@@ -73,6 +76,10 @@ impl Interpreter {
                                 Ok(Value::Int(a / b))
                             }
                         }
+                    },
+                    (Value::Str(a), Value::Str(b)) => match op {
+                        BinaryOp::Add => Ok(Value::Str(a + &b)),
+                        _ => Err("Operator not supported for strings".to_string()),
                     },
                     _ => Err("Operator not supported for these types".to_string()),
                 }
