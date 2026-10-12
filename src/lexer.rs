@@ -21,12 +21,52 @@ impl Lexer {
         self.pos += 1;
     }
 
+    fn read_number(&mut self) -> Token {
+        let mut text = String::new();
+        while let Some(c) = self.peek() {
+            if c.is_ascii_digit() {
+                text.push(c);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        Token::Int(text.parse().unwrap())
+    }
+
+    fn read_word(&mut self) -> Token {
+        let mut text = String::new();
+        while let Some(c) = self.peek() {
+            if c.is_alphanumeric() || c == '_' {
+                text.push(c);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        match text.as_str() {
+            "var" => Token::Var,
+            "const" => Token::Const,
+            _ => Token::Ident(text),
+        }
+    }
+
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
 
         while let Some(c) = self.peek() {
             if c.is_whitespace() {
                 self.advance();
+                continue;
+            }
+
+            if c.is_ascii_digit() {
+                tokens.push(self.read_number());
+                continue;
+            }
+
+            if c.is_alphabetic() || c == '_' {
+                tokens.push(self.read_word());
                 continue;
             }
 
