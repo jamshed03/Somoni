@@ -74,6 +74,12 @@ impl Lexer {
                 ':' => tokens.push(Token::Colon),
                 '=' => tokens.push(Token::Equal),
                 ';' => tokens.push(Token::Semicolon),
+                '+' => tokens.push(Token::Plus),
+                '-' => tokens.push(Token::Minus),
+                '*' => tokens.push(Token::Star),
+                '/' => tokens.push(Token::Slash),
+                '(' => tokens.push(Token::LParen),
+                ')' => tokens.push(Token::RParen),
                 _ => break,
             }
             self.advance();

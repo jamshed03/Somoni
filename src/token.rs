@@ -14,6 +14,12 @@ pub enum Token {
     Colon,
     Equal,
     Semicolon,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    LParen,
+    RParen,
 
     // Ende der Eingabe
     Eof,
