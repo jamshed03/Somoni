@@ -1,10 +1,18 @@
+mod ast;
 mod lexer;
 mod token;
 
-use lexer::Lexer;
+use ast::{BinaryOp, Expr};
 
 fn main() {
-    let mut lexer = Lexer::new("var x: int = 5;\nvar y: int = 3;");
-    let tokens = lexer.tokenize();
-    println!("{:?}", tokens);
+    let expr = Expr::Binary {
+        left: Box::new(Expr::Binary {
+            left: Box::new(Expr::Int(5)),
+            op: BinaryOp::Add,
+            right: Box::new(Expr::Int(3)),
+        }),
+        op: BinaryOp::Mul,
+        right: Box::new(Expr::Int(2)),
+    };
+    println!("{:#?}", expr);
 }
