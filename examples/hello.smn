@@ -1,0 +1,10 @@
+const name: string = "Ali";
+var x: int = 5;
+x = x + 1;
+const pi: float = 3.14;
+const ok: bool = true;
+
+print("Hallo " + name);
+print(x);
+print(pi * 2.0);
+print(ok);

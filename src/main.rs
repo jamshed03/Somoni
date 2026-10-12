@@ -51,4 +51,9 @@ fn main() {
         eprintln!("Type error: {}", msg);
         process::exit(1);
     }
+
+    if let Err(msg) = Interpreter::new().run(&stmts) {
+        eprintln!("Runtime error: {}", msg);
+        process::exit(1);
+    }
 }

@@ -10,13 +10,8 @@ pub enum Value {
     Str(String),
 }
 
-struct Variable {
-    value: Value,
-    mutable: bool,
-}
-
 pub struct Interpreter {
-    vars: HashMap<String, Variable>,
+    vars: HashMap<String, Value>,
 }
 
 impl Interpreter {
@@ -33,9 +28,9 @@ impl Interpreter {
 
     fn exec(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
-            Stmt::VarDecl { name, value, mutable, .. } => {
+            Stmt::VarDecl { name, value, .. } => {
                 let v = self.eval(value)?;
-                self.vars.insert(name.clone(), Variable { value: v, mutable: *mutable });
+                self.vars.insert(name.clone(), v);
                 Ok(())
             }
             Stmt::Print { value, .. } => {
@@ -52,7 +47,7 @@ impl Interpreter {
                 let v = self.eval(value)?;
                 match self.vars.get_mut(name) {
                     Some(var) => {
-                        var.value = v;
+                        *var = v;
                         Ok(())
                     }
                     None => Err(format!("Unknown variable '{}'", name)),
@@ -68,7 +63,7 @@ impl Interpreter {
             Expr::Str(s) => Ok(Value::Str(s.clone())),
             Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Ident(name) => match self.vars.get(name) {
-                Some(var) => Ok(var.value.clone()),
+                Some(value) => Ok(value.clone()),
                 None => Err(format!("Unknown variable '{}'", name)),
             },
             Expr::Binary { left, op, right } => {
