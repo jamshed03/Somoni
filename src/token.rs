@@ -25,6 +25,16 @@ pub enum Token {
     LParen,
     RParen,
 
+    EqualEqual,
+    BangEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    AndAnd,
+    OrOr,
+    Bang,
+
     // Ende der Eingabe
     Eof,
 }

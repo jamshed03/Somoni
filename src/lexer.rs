@@ -19,6 +19,10 @@ impl Lexer {
         self.chars.get(self.pos).copied()
     }
 
+    fn peek_next(&self) -> Option<char> {
+        self.chars.get(self.pos + 1).copied()
+    }
+
     fn advance(&mut self) {
         self.pos += 1;
     }
@@ -135,20 +139,31 @@ impl Lexer {
                 continue;
             }
 
-            let token = match c {
-                ':' => Token::Colon,
-                '=' => Token::Equal,
-                ';' => Token::Semicolon,
-                '+' => Token::Plus,
-                '-' => Token::Minus,
-                '*' => Token::Star,
-                '/' => Token::Slash,
-                '(' => Token::LParen,
-                ')' => Token::RParen,
+            let (token, len) = match c {
+                ':' => (Token::Colon, 1),
+                ';' => (Token::Semicolon, 1),
+                '+' => (Token::Plus, 1),
+                '-' => (Token::Minus, 1),
+                '*' => (Token::Star, 1),
+                '/' => (Token::Slash, 1),
+                '(' => (Token::LParen, 1),
+                ')' => (Token::RParen, 1),
+                '=' if self.peek_next() == Some('=') => (Token::EqualEqual, 2),
+                '=' => (Token::Equal, 1),
+                '!' if self.peek_next() == Some('=') => (Token::BangEqual, 2),
+                '!' => (Token::Bang, 1),
+                '<' if self.peek_next() == Some('=') => (Token::LessEqual, 2),
+                '<' => (Token::Less, 1),
+                '>' if self.peek_next() == Some('=') => (Token::GreaterEqual, 2),
+                '>' => (Token::Greater, 1),
+                '&' if self.peek_next() == Some('&') => (Token::AndAnd, 2),
+                '|' if self.peek_next() == Some('|') => (Token::OrOr, 2),
                 _ => return Err(format!("Line {}: unexpected character '{}'", line, c)),
             };
             tokens.push(SpannedToken { token, line });
-            self.advance();
+            for _ in 0..len {
+                self.advance();
+            }
         }
 
         tokens.push(SpannedToken { token: Token::Eof, line: self.line });
