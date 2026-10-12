@@ -23,7 +23,8 @@ impl Lexer {
         self.pos += 1;
     }
 
-    fn read_number(&mut self) -> Token {
+    fn read_number(&mut self) -> Result<Token, String> {
+        let line = self.line;
         let mut text = String::new();
         while let Some(c) = self.peek() {
             if c.is_ascii_digit() {
@@ -33,7 +34,33 @@ impl Lexer {
                 break;
             }
         }
-        Token::Int(text.parse().unwrap())
+
+        // a '.' only belongs to the number if a digit follows
+        let next_is_digit = self
+            .chars
+            .get(self.pos + 1)
+            .map_or(false, |c| c.is_ascii_digit());
+
+        if self.peek() == Some('.') && next_is_digit {
+            text.push('.');
+            self.advance();
+            while let Some(c) = self.peek() {
+                if c.is_ascii_digit() {
+                    text.push(c);
+                    self.advance();
+                } else {
+                    break;
+                }
+            }
+            return text
+                .parse::<f64>()
+                .map(Token::Float)
+                .map_err(|_| format!("Line {}: invalid float '{}'", line, text));
+        }
+
+        text.parse::<i64>()
+            .map(Token::Int)
+            .map_err(|_| format!("Line {}: integer too large '{}'", line, text))
     }
 
     fn read_word(&mut self) -> Token {
@@ -91,7 +118,7 @@ impl Lexer {
             let line = self.line;
 
             if c.is_ascii_digit() {
-                let token = self.read_number();
+                let token = self.read_number()?;
                 tokens.push(SpannedToken { token, line });
                 continue;
             }

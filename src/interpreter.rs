@@ -5,6 +5,7 @@ use crate::ast::{BinaryOp, Expr, Stmt};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
+    Float(f64),
     Bool(bool),
     Str(String),
 }
@@ -41,6 +42,7 @@ impl Interpreter {
                 let v = self.eval(value)?;
                 match v {
                     Value::Int(n) => println!("{}", n),
+                    Value::Float(f) => println!("{}", f),
                     Value::Str(s) => println!("{}", s),
                     Value::Bool(b) => println!("{}", b),
                 }
@@ -52,6 +54,7 @@ impl Interpreter {
     fn eval(&self, expr: &Expr) -> Result<Value, String> {
         match expr {
             Expr::Int(n) => Ok(Value::Int(*n)),
+            Expr::Float(f) => Ok(Value::Float(*f)),
             Expr::Str(s) => Ok(Value::Str(s.clone())),
             Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Ident(name) => match self.vars.get(name) {
@@ -80,6 +83,12 @@ impl Interpreter {
                     (Value::Str(a), Value::Str(b)) => match op {
                         BinaryOp::Add => Ok(Value::Str(a + &b)),
                         _ => Err("Operator not supported for strings".to_string()),
+                    },
+                    (Value::Float(a), Value::Float(b)) => match op {
+                        BinaryOp::Add => Ok(Value::Float(a + b)),
+                        BinaryOp::Sub => Ok(Value::Float(a - b)),
+                        BinaryOp::Mul => Ok(Value::Float(a * b)),
+                        BinaryOp::Div => Ok(Value::Float(a / b)),
                     },
                     _ => Err("Operator not supported for these types".to_string()),
                 }

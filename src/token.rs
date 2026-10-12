@@ -12,6 +12,7 @@ pub enum Token {
     Ident(String),
     Int(i64),
     Str(String),
+    Float(f64),
 
     // Symbole
     Colon,
