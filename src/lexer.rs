@@ -49,6 +49,8 @@ impl Lexer {
         match text.as_str() {
             "var" => Token::Var,
             "const" => Token::Const,
+            "true" => Token::True,
+            "false" => Token::False,
             _ => Token::Ident(text),
         }
     }

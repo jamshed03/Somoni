@@ -1,4 +1,4 @@
-const a: int = 7;
-var x: int = 5;
-print(x + a);
-print((x + a) * 2);
+print(true);
+print(false);
+const ok: bool = true;
+print(ok);

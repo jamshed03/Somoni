@@ -5,6 +5,7 @@ use crate::ast::{BinaryOp, Expr, Stmt};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
+    Bool(bool),
 }
 
 struct Variable {
@@ -39,6 +40,7 @@ impl Interpreter {
                 let v = self.eval(value)?;
                 match v {
                     Value::Int(n) => println!("{}", n),
+                    Value::Bool(b) => println!("{}", b),
                 }
                 Ok(())
             }
@@ -48,6 +50,7 @@ impl Interpreter {
     fn eval(&self, expr: &Expr) -> Result<Value, String> {
         match expr {
             Expr::Int(n) => Ok(Value::Int(*n)),
+            Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Ident(name) => match self.vars.get(name) {
                 Some(var) => Ok(var.value.clone()),
                 None => Err(format!("Unknown variable '{}'", name)),
@@ -71,6 +74,7 @@ impl Interpreter {
                             }
                         }
                     },
+                    _ => Err("Operator not supported for these types".to_string()),
                 }
             }
         }

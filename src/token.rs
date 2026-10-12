@@ -5,6 +5,8 @@ pub enum Token {
     // Schlüsselwörter
     Var,
     Const,
+    True,
+    False,
 
     // Namen und Werte
     Ident(String),

@@ -7,6 +7,7 @@ pub enum Expr {
         op: BinaryOp,
         right: Box<Expr>,
     },
+    Bool(bool),
 }
 
 #[derive(Debug, Clone, PartialEq)]
