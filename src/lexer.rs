@@ -1,8 +1,9 @@
-use crate::token::Token;
+use crate::token::{SpannedToken, Token};
 
 pub struct Lexer {
     chars: Vec<char>,
     pos: usize,
+    line: usize,
 }
 
 impl Lexer {
@@ -10,6 +11,7 @@ impl Lexer {
         Lexer {
             chars: input.chars().collect(),
             pos: 0,
+            line: 1,
         }
     }
 
@@ -51,41 +53,52 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    pub fn tokenize(&mut self) -> Vec<SpannedToken> {
         let mut tokens = Vec::new();
 
         while let Some(c) = self.peek() {
+            if c == '\n' {
+                self.line += 1;
+                self.advance();
+                continue;
+            }
+
             if c.is_whitespace() {
                 self.advance();
                 continue;
             }
 
+            let line = self.line;
+
             if c.is_ascii_digit() {
-                tokens.push(self.read_number());
+                let token = self.read_number();
+                tokens.push(SpannedToken { token, line });
                 continue;
             }
 
             if c.is_alphabetic() || c == '_' {
-                tokens.push(self.read_word());
+                let token = self.read_word();
+                tokens.push(SpannedToken { token, line });
                 continue;
             }
 
-            match c {
-                ':' => tokens.push(Token::Colon),
-                '=' => tokens.push(Token::Equal),
-                ';' => tokens.push(Token::Semicolon),
-                '+' => tokens.push(Token::Plus),
-                '-' => tokens.push(Token::Minus),
-                '*' => tokens.push(Token::Star),
-                '/' => tokens.push(Token::Slash),
-                '(' => tokens.push(Token::LParen),
-                ')' => tokens.push(Token::RParen),
-                _ => break,
-            }
+            let token = match c {
+                ':' => Token::Colon,
+                '=' => Token::Equal,
+                ';' => Token::Semicolon,
+                '+' => Token::Plus,
+                '-' => Token::Minus,
+                '*' => Token::Star,
+                '/' => Token::Slash,
+                '(' => Token::LParen,
+                ')' => Token::RParen,
+                _ => break, 
+            };
+            tokens.push(SpannedToken { token, line });
             self.advance();
         }
 
-        tokens.push(Token::Eof);
+        tokens.push(SpannedToken { token: Token::Eof, line: self.line });
         tokens
     }
 }
