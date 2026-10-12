@@ -33,4 +33,9 @@ pub enum Stmt {
         value: Expr,
         line: usize,
     },
+    Assign {
+        name: String,
+        value: Expr,
+        line: usize,
+    },
 }

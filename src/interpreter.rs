@@ -48,6 +48,16 @@ impl Interpreter {
                 }
                 Ok(())
             }
+            Stmt::Assign { name, value, .. } => {
+                let v = self.eval(value)?;
+                match self.vars.get_mut(name) {
+                    Some(var) => {
+                        var.value = v;
+                        Ok(())
+                    }
+                    None => Err(format!("Unknown variable '{}'", name)),
+                }
+            }
         }
     }
 

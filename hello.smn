@@ -1,2 +1,5 @@
-print("start");
-var x: int = "a";
+var x: int = 5;
+x = x + 1;
+print(x);
+const a: int = 1;
+a = 2;

@@ -3,8 +3,13 @@ use std::collections::HashMap;
 use crate::ast::{BinaryOp, Expr, Stmt};
 use crate::types::Type;
 
+struct VarInfo {
+    ty: Type,
+    mutable: bool,
+}
+
 pub struct TypeChecker {
-    vars: HashMap<String, Type>,
+    vars: HashMap<String, VarInfo>,
 }
 
 impl TypeChecker {
@@ -21,7 +26,7 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
-            Stmt::VarDecl { name, type_name, value, line, .. } => {
+            Stmt::VarDecl { name, type_name, value, mutable, line } => {
                 let declared = Type::from_name(type_name)
                     .ok_or(format!("Line {}: unknown type '{}'", line, type_name))?;
                 let actual = self.check_expr(value, *line)?;
@@ -33,11 +38,31 @@ impl TypeChecker {
                         declared.name()
                     ));
                 }
-                self.vars.insert(name.clone(), declared);
+                self.vars.insert(name.clone(), VarInfo { ty: declared, mutable: *mutable });
                 Ok(())
             }
             Stmt::Print { value, line } => {
                 self.check_expr(value, *line)?;
+                Ok(())
+            },
+            Stmt::Assign { name, value, line } => {
+                let info = self
+                    .vars
+                    .get(name)
+                    .ok_or(format!("Line {}: unknown variable '{}'", line, name))?;
+                if !info.mutable {
+                    return Err(format!("Line {}: cannot assign to const '{}'", line, name));
+                }
+                let expected = info.ty;
+                let actual = self.check_expr(value, *line)?;
+                if expected != actual {
+                    return Err(format!(
+                        "Line {}: cannot assign {} to {}",
+                        line,
+                        actual.name(),
+                        expected.name()
+                    ));
+                }
                 Ok(())
             }
         }
@@ -52,7 +77,7 @@ impl TypeChecker {
             Expr::Ident(name) => self
                 .vars
                 .get(name)
-                .copied()
+                .map(|info| info.ty)
                 .ok_or(format!("Line {}: unknown variable '{}'", line, name)),
             Expr::Binary { left, op, right } => {
                 let l = self.check_expr(left, line)?;

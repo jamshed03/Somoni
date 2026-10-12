@@ -56,8 +56,17 @@ impl Parser {
             Token::Var => self.parse_var_decl(true, line),
             Token::Const => self.parse_var_decl(false, line),
             Token::Ident(name) if name == "print" => self.parse_print(line),
+            Token::Ident(name) => self.parse_assign(name, line),
             other => Err(format!("Line {}: unexpected token {:?}", line, other)),
         }
+    }
+
+    fn parse_assign(&mut self, name: String, line: usize) -> Result<Stmt, String> {
+        self.advance(); // name
+        self.expect(Token::Equal, "'='")?;
+        let value = self.parse_expr()?;
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(Stmt::Assign { name, value, line })
     }
 
     fn parse_var_decl(&mut self, mutable: bool, line: usize) -> Result<Stmt, String> {
