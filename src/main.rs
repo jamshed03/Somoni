@@ -3,6 +3,8 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod token;
+mod types;
+mod typechecker;
 
 use std::env;
 use std::fs;
@@ -11,6 +13,8 @@ use std::process;
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
+
+use typechecker::TypeChecker;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -43,8 +47,8 @@ fn main() {
         }
     };
 
-    if let Err(msg) = Interpreter::new().run(&stmts) {
-        eprintln!("Runtime error: {}", msg);
+    if let Err(msg) = TypeChecker::new().check(&stmts) {
+        eprintln!("Type error: {}", msg);
         process::exit(1);
     }
 }

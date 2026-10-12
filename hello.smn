@@ -1,4 +1,2 @@
-const pi: float = 3.14;
-print(pi * 2.0);
-print(1.5 + 2.5);
-print(1 + 1.5);
+print("start");
+var x: int = "a";
