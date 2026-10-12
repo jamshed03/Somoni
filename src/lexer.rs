@@ -27,9 +27,16 @@ impl Lexer {
         while let Some(c) = self.peek() {
             if c.is_whitespace() {
                 self.advance();
-            } else {
-                break;
+                continue;
             }
+
+            match c {
+                ':' => tokens.push(Token::Colon),
+                '=' => tokens.push(Token::Equal),
+                ';' => tokens.push(Token::Semicolon),
+                _ => break,
+            }
+            self.advance();
         }
 
         tokens.push(Token::Eof);
