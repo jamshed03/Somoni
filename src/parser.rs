@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, Expr};
+use crate::ast::{BinaryOp, Expr, Stmt};
 use crate::token::{SpannedToken, Token};
 
 pub struct Parser {
@@ -18,6 +18,52 @@ impl Parser {
     fn advance(&mut self) {
         if self.pos < self.tokens.len() - 1 {
             self.pos += 1;
+        }
+    }
+
+    pub fn parse_program(&mut self) -> Result<Vec<Stmt>, String> {
+        let mut stmts = Vec::new();
+        while *self.peek() != Token::Eof {
+            stmts.push(self.parse_stmt()?);
+        }
+        Ok(stmts)
+    }
+
+    fn expect(&mut self, expected: Token, what: &str) -> Result<(), String> {
+        let line = self.tokens[self.pos].line;
+        if *self.peek() == expected {
+            self.advance();
+            Ok(())
+        } else {
+            Err(format!("Line {}: expected {}", line, what))
+        }
+    }
+
+    fn expect_ident(&mut self, what: &str) -> Result<String, String> {
+        let line = self.tokens[self.pos].line;
+        match self.peek().clone() {
+            Token::Ident(name) => {
+                self.advance();
+                Ok(name)
+            }
+            _ => Err(format!("Line {}: expected {}", line, what)),
+        }
+    }
+
+    fn parse_stmt(&mut self) -> Result<Stmt, String> {
+        let line = self.tokens[self.pos].line;
+        match self.peek() {
+            Token::Var => {
+                self.advance();
+                let name = self.expect_ident("variable name")?;
+                self.expect(Token::Colon, "':'")?;
+                let type_name = self.expect_ident("type name")?;
+                self.expect(Token::Equal, "'='")?;
+                let value = self.parse_expr()?;
+                self.expect(Token::Semicolon, "';'")?;
+                Ok(Stmt::VarDecl { name, type_name, value, line })
+            }
+            other => Err(format!("Line {}: unexpected token {:?}", line, other)),
         }
     }
 

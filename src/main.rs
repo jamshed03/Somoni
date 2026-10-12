@@ -7,12 +7,13 @@ use lexer::Lexer;
 use parser::Parser;
 
 fn main() {
-    let mut lexer = Lexer::new("(5 + 3) * 2");
+    let source = "var x: int = 5;\nvar y: int = (x + 3) * 2;";
+    let mut lexer = Lexer::new(source);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);
 
-    match parser.parse_expr() {
-        Ok(expr) => println!("{:#?}", expr),
+    match parser.parse_program() {
+        Ok(stmts) => println!("{:#?}", stmts),
         Err(msg) => println!("Error: {}", msg),
     }
 }
