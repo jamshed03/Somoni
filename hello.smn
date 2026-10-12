@@ -1,0 +1,4 @@
+const a: int = 7;
+var x: int = 5;
+print(x + a);
+print((x + a) * 2);
