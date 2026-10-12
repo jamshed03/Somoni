@@ -7,7 +7,7 @@ use lexer::Lexer;
 use parser::Parser;
 
 fn main() {
-    let source = "var x: int = 5;\nvar y: int = (x + 3) * 2;";
+    let source = "const a: int = 7;\nvar x: int = 5;\nprint(x + a);";
     let mut lexer = Lexer::new(source);
     let tokens = lexer.tokenize();
     let mut parser = Parser::new(tokens);

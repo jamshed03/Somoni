@@ -52,19 +52,32 @@ impl Parser {
 
     fn parse_stmt(&mut self) -> Result<Stmt, String> {
         let line = self.tokens[self.pos].line;
-        match self.peek() {
-            Token::Var => {
-                self.advance();
-                let name = self.expect_ident("variable name")?;
-                self.expect(Token::Colon, "':'")?;
-                let type_name = self.expect_ident("type name")?;
-                self.expect(Token::Equal, "'='")?;
-                let value = self.parse_expr()?;
-                self.expect(Token::Semicolon, "';'")?;
-                Ok(Stmt::VarDecl { name, type_name, value, line })
-            }
+        match self.peek().clone() {
+            Token::Var => self.parse_var_decl(true, line),
+            Token::Const => self.parse_var_decl(false, line),
+            Token::Ident(name) if name == "print" => self.parse_print(line),
             other => Err(format!("Line {}: unexpected token {:?}", line, other)),
         }
+    }
+
+    fn parse_var_decl(&mut self, mutable: bool, line: usize) -> Result<Stmt, String> {
+        self.advance(); // var or const
+        let name = self.expect_ident("variable name")?;
+        self.expect(Token::Colon, "':'")?;
+        let type_name = self.expect_ident("type name")?;
+        self.expect(Token::Equal, "'='")?;
+        let value = self.parse_expr()?;
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(Stmt::VarDecl { name, type_name, value, mutable, line })
+    }
+
+    fn parse_print(&mut self, line: usize) -> Result<Stmt, String> {
+        self.advance(); // print
+        self.expect(Token::LParen, "'('")?;
+        let value = self.parse_expr()?;
+        self.expect(Token::RParen, "')'")?;
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(Stmt::Print { value, line })
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, String> {

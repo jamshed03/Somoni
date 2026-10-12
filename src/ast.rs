@@ -23,6 +23,11 @@ pub enum Stmt {
         name: String,
         type_name: String,
         value: Expr,
+        mutable: bool,
+        line: usize,
+    },
+    Print {
+        value: Expr,
         line: usize,
     },
 }
