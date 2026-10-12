@@ -1,16 +1,10 @@
+mod lexer;
 mod token;
-use token::Token;
+
+use lexer::Lexer;
 
 fn main() {
-    let tokens = vec![
-        Token::Var,
-        Token::Ident("x".to_string()),
-        Token::Colon,
-        Token::Ident("int".to_string()),
-        Token::Equal,
-        Token::Int(5),
-        Token::Semicolon,
-        Token::Eof,
-    ];
+    let mut lexer = Lexer::new("   \n  ");
+    let tokens = lexer.tokenize();
     println!("{:?}", tokens);
 }
