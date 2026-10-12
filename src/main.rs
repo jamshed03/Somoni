@@ -1,18 +1,18 @@
 mod ast;
 mod lexer;
+mod parser;
 mod token;
 
-use ast::{BinaryOp, Expr};
+use lexer::Lexer;
+use parser::Parser;
 
 fn main() {
-    let expr = Expr::Binary {
-        left: Box::new(Expr::Binary {
-            left: Box::new(Expr::Int(5)),
-            op: BinaryOp::Add,
-            right: Box::new(Expr::Int(3)),
-        }),
-        op: BinaryOp::Mul,
-        right: Box::new(Expr::Int(2)),
-    };
-    println!("{:#?}", expr);
+    let mut lexer = Lexer::new("(5 + 3) * 2");
+    let tokens = lexer.tokenize();
+    let mut parser = Parser::new(tokens);
+
+    match parser.parse_expr() {
+        Ok(expr) => println!("{:#?}", expr),
+        Err(msg) => println!("Error: {}", msg),
+    }
 }
