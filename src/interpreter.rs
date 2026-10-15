@@ -100,10 +100,18 @@ impl Interpreter {
                                 Ok(Value::Int(a / b))
                             }
                         }
+                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
+                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
+                        BinaryOp::Less => Ok(Value::Bool(a < b)),
+                        BinaryOp::Greater => Ok(Value::Bool(a > b)),
+                        BinaryOp::LessEq => Ok(Value::Bool(a <= b)),
+                        BinaryOp::GreaterEq => Ok(Value::Bool(a >= b)),
                         _ => Err("Operator not supported for integers".to_string()),
                     },
                     (Value::Str(a), Value::Str(b)) => match op {
                         BinaryOp::Add => Ok(Value::Str(a + &b)),
+                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
+                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
                         _ => Err("Operator not supported for strings".to_string()),
                     },
                     (Value::Float(a), Value::Float(b)) => match op {
@@ -111,10 +119,18 @@ impl Interpreter {
                         BinaryOp::Sub => Ok(Value::Float(a - b)),
                         BinaryOp::Mul => Ok(Value::Float(a * b)),
                         BinaryOp::Div => Ok(Value::Float(a / b)),
+                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
+                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
+                        BinaryOp::Less => Ok(Value::Bool(a < b)),
+                        BinaryOp::Greater => Ok(Value::Bool(a > b)),
+                        BinaryOp::LessEq => Ok(Value::Bool(a <= b)),
+                        BinaryOp::GreaterEq => Ok(Value::Bool(a >= b)),
                         _ => Err("Operator not supported for floats".to_string()),
                     },
-                    (Value::Bool(_), Value::Bool(b)) => match op {
+                    (Value::Bool(a), Value::Bool(b)) => match op {
                         BinaryOp::And | BinaryOp::Or => Ok(Value::Bool(b)),
+                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
+                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
                         _ => Err("Operator not supported for bool".to_string()),
                     },
                     _ => Err("Operator not supported for these types".to_string()),

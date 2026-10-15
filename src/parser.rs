@@ -106,14 +106,60 @@ impl Parser {
     }
 
     fn parse_and(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_additive()?;
+        let mut left = self.parse_equality()?;
 
         while *self.peek() == Token::AndAnd {
+            self.advance();
+            let right = self.parse_equality()?;
+            left = Expr::Binary {
+                left: Box::new(left),
+                op: BinaryOp::And,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    // == and !=
+    fn parse_equality(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_comparison()?;
+
+        loop {
+            let op = match self.peek() {
+                Token::EqualEqual => BinaryOp::Eq,
+                Token::BangEqual => BinaryOp::NotEq,
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_comparison()?;
+            left = Expr::Binary {
+                left: Box::new(left),
+                op,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    // < > <= >=
+    fn parse_comparison(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_additive()?;
+
+        loop {
+            let op = match self.peek() {
+                Token::Less => BinaryOp::Less,
+                Token::Greater => BinaryOp::Greater,
+                Token::LessEqual => BinaryOp::LessEq,
+                Token::GreaterEqual => BinaryOp::GreaterEq,
+                _ => break,
+            };
             self.advance();
             let right = self.parse_additive()?;
             left = Expr::Binary {
                 left: Box::new(left),
-                op: BinaryOp::And,
+                op,
                 right: Box::new(right),
             };
         }

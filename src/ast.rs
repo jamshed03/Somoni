@@ -22,6 +22,12 @@ pub enum BinaryOp {
     Sub,
     Mul,
     Div,
+    Eq,
+    NotEq,
+    Less,
+    Greater,
+    LessEq,
+    GreaterEq,
     And,
     Or,
 }
