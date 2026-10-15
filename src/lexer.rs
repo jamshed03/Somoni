@@ -130,6 +130,31 @@ impl Lexer {
                 continue;
             }
 
+            // block comment: /* ... */ over several lines, not nested
+            if c == '/' && self.peek_next() == Some('*') {
+                let start_line = self.line;
+                self.advance(); // '/'
+                self.advance(); // '*'
+                loop {
+                    match self.peek() {
+                        None => {
+                            return Err(format!("Line {}: unterminated comment", start_line));
+                        }
+                        Some('*') if self.peek_next() == Some('/') => {
+                            self.advance(); // '*'
+                            self.advance(); // '/'
+                            break;
+                        }
+                        Some('\n') => {
+                            self.line += 1;
+                            self.advance();
+                        }
+                        Some(_) => self.advance(),
+                    }
+                }
+                continue;
+            }
+
             let line = self.line;
 
             if c.is_ascii_digit() {
