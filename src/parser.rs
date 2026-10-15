@@ -15,6 +15,11 @@ impl Parser {
         &self.tokens[self.pos].token
     }
 
+    fn line_after_last_token(&self) -> usize {
+        let index = self.pos.saturating_sub(1);
+        self.tokens[index].line
+    }
+
     fn advance(&mut self) {
         if self.pos < self.tokens.len() - 1 {
             self.pos += 1;
@@ -30,23 +35,21 @@ impl Parser {
     }
 
     fn expect(&mut self, expected: Token, what: &str) -> Result<(), String> {
-        let line = self.tokens[self.pos].line;
         if *self.peek() == expected {
             self.advance();
             Ok(())
         } else {
-            Err(format!("Line {}: expected {}", line, what))
+            Err(format!("Line {}: expected {}", self.line_after_last_token(), what))
         }
     }
 
     fn expect_ident(&mut self, what: &str) -> Result<String, String> {
-        let line = self.tokens[self.pos].line;
         match self.peek().clone() {
             Token::Ident(name) => {
                 self.advance();
                 Ok(name)
             }
-            _ => Err(format!("Line {}: expected {}", line, what)),
+            _ => Err(format!("Line {}: expected {}", self.line_after_last_token(), what)),
         }
     }
 
@@ -255,7 +258,10 @@ impl Parser {
                 self.advance();
                 let expr = self.parse_expr()?;
                 if *self.peek() != Token::RParen {
-                    return Err(format!("Line {}: expected ')'", line));
+                    return Err(format!(
+                        "Line {}: expected ')'",
+                        self.line_after_last_token()
+                    ));
                 }
                 self.advance();
                 Ok(expr)
