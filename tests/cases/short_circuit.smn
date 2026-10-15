@@ -1,0 +1,4 @@
+// the right side must not run, otherwise "Division by zero" would stop the program
+print(false && 1 / 0 == 0);
+print(true || 1 / 0 == 0);
+print(true && 1 / 0 == 0);

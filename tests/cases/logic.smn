@@ -1,0 +1,10 @@
+const t: bool = true;
+const f: bool = false;
+print(t && f);
+print(t || f);
+print(t || f && f);
+print((t || f) && f);
+print(f && t || t);
+const a: int = 3;
+print(a > 1 && a < 5);
+print(a < 1 || a == 3);

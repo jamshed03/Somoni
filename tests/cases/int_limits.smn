@@ -1,0 +1,4 @@
+const min: int = -9223372036854775807 - 1;
+print(min);
+print(min / 2);
+print(min + 1);

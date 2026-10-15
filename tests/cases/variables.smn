@@ -1,0 +1,12 @@
+const name: string = "Ali";
+var x: int = 5;
+print(name);
+print(x);
+x = x + 3;
+print(x);
+var f: float = 1.5;
+f = f * 2.0;
+print(f);
+var b: bool = false;
+b = !b;
+print(b);

@@ -1,0 +1,9 @@
+// full line comment
+const name: string = "Ali"; // trailing comment
+/* block
+   comment over several lines, with // and * and / inside */
+var x: int = 5; /* inline */ print(x /* in the middle */ + 1);
+print(10 / 2 * 3);
+print("a // b");
+print("a /* b */ c");
+// last line without newline

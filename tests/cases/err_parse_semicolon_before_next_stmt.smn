@@ -1,0 +1,3 @@
+var x: int = 5;
+var y: int = 6
+print(x + y);
