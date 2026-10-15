@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinaryOp, Expr, Stmt};
+use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
 use crate::types::Type;
 
 struct VarInfo {
@@ -91,9 +91,26 @@ impl TypeChecker {
                     ));
                 }
                 match (l, op) {
-                    (Type::Int | Type::Float, _) => Ok(l),
+                    (
+                        Type::Int | Type::Float,
+                        BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
+                    ) => Ok(l),
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
+                    (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
                     _ => Err(format!("Line {}: operator not allowed for {}", line, l.name())),
+                }
+            }
+            Expr::Unary { op, operand } => {
+                let t = self.check_expr(operand, line)?;
+                match (op, t) {
+                    (UnaryOp::Not, Type::Bool) => Ok(Type::Bool),
+                    (UnaryOp::Not, _) => {
+                        Err(format!("Line {}: '!' needs bool, got {}", line, t.name()))
+                    }
+                    (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
+                    (UnaryOp::Neg, _) => {
+                        Err(format!("Line {}: '-' needs int or float, got {}", line, t.name()))
+                    }
                 }
             }
         }

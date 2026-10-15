@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinaryOp, Expr, Stmt};
+use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -66,8 +66,24 @@ impl Interpreter {
                 Some(value) => Ok(value.clone()),
                 None => Err(format!("Unknown variable '{}'", name)),
             },
+            Expr::Unary { op, operand } => match (op, self.eval(operand)?) {
+                (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
+                (UnaryOp::Neg, Value::Int(n)) => n
+                    .checked_neg()
+                    .map(Value::Int)
+                    .ok_or("Integer overflow".to_string()),
+                (UnaryOp::Neg, Value::Float(f)) => Ok(Value::Float(-f)),
+                _ => Err("Operator not supported for this type".to_string()),
+            },
             Expr::Binary { left, op, right } => {
                 let l = self.eval(left)?;
+
+                match (op, &l) {
+                    (BinaryOp::And, Value::Bool(false)) => return Ok(Value::Bool(false)),
+                    (BinaryOp::Or, Value::Bool(true)) => return Ok(Value::Bool(true)),
+                    _ => {}
+                }
+
                 let r = self.eval(right)?;
                 match (l, r) {
                     (Value::Int(a), Value::Int(b)) => match op {
@@ -84,6 +100,7 @@ impl Interpreter {
                                 Ok(Value::Int(a / b))
                             }
                         }
+                        _ => Err("Operator not supported for integers".to_string()),
                     },
                     (Value::Str(a), Value::Str(b)) => match op {
                         BinaryOp::Add => Ok(Value::Str(a + &b)),
@@ -94,6 +111,11 @@ impl Interpreter {
                         BinaryOp::Sub => Ok(Value::Float(a - b)),
                         BinaryOp::Mul => Ok(Value::Float(a * b)),
                         BinaryOp::Div => Ok(Value::Float(a / b)),
+                        _ => Err("Operator not supported for floats".to_string()),
+                    },
+                    (Value::Bool(_), Value::Bool(b)) => match op {
+                        BinaryOp::And | BinaryOp::Or => Ok(Value::Bool(b)),
+                        _ => Err("Operator not supported for bool".to_string()),
                     },
                     _ => Err("Operator not supported for these types".to_string()),
                 }

@@ -9,6 +9,10 @@ pub enum Expr {
         op: BinaryOp,
         right: Box<Expr>,
     },
+    Unary {
+        op: UnaryOp,
+        operand: Box<Expr>,
+    },
     Bool(bool),
 }
 
@@ -18,6 +22,14 @@ pub enum BinaryOp {
     Sub,
     Mul,
     Div,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnaryOp {
+    Not,
+    Neg,
 }
 
 #[derive(Debug, Clone, PartialEq)]

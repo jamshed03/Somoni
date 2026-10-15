@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, Expr, Stmt};
+use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
 use crate::token::{SpannedToken, Token};
 
 pub struct Parser {
@@ -90,6 +90,38 @@ impl Parser {
     }
 
     pub fn parse_expr(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_and()?;
+
+        while *self.peek() == Token::OrOr {
+            self.advance();
+            let right = self.parse_and()?;
+            left = Expr::Binary {
+                left: Box::new(left),
+                op: BinaryOp::Or,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    fn parse_and(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_additive()?;
+
+        while *self.peek() == Token::AndAnd {
+            self.advance();
+            let right = self.parse_additive()?;
+            left = Expr::Binary {
+                left: Box::new(left),
+                op: BinaryOp::And,
+                right: Box::new(right),
+            };
+        }
+
+        Ok(left)
+    }
+
+    fn parse_additive(&mut self) -> Result<Expr, String> {
         let mut left = self.parse_term()?;
 
         loop {
@@ -111,7 +143,7 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_primary()?;
+        let mut left = self.parse_unary()?;
 
         loop {
             let op = match self.peek() {
@@ -120,7 +152,7 @@ impl Parser {
                 _ => break,
             };
             self.advance();
-            let right = self.parse_primary()?;
+            let right = self.parse_unary()?;
             left = Expr::Binary {
                 left: Box::new(left),
                 op,
@@ -129,6 +161,20 @@ impl Parser {
         }
 
         Ok(left)
+    }
+
+    fn parse_unary(&mut self) -> Result<Expr, String> {
+        let op = match self.peek() {
+            Token::Bang => UnaryOp::Not,
+            Token::Minus => UnaryOp::Neg,
+            _ => return self.parse_primary(),
+        };
+        self.advance();
+        let operand = self.parse_unary()?;
+        Ok(Expr::Unary {
+            op,
+            operand: Box::new(operand),
+        })
     }
 
     fn parse_primary(&mut self) -> Result<Expr, String> {
