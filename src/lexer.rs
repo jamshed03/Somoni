@@ -119,6 +119,17 @@ impl Lexer {
                 continue;
             }
 
+            // comment: skip to the end of the line (the '\n' itself is left for the line counter)
+            if c == '/' && self.peek_next() == Some('/') {
+                while let Some(c) = self.peek() {
+                    if c == '\n' {
+                        break;
+                    }
+                    self.advance();
+                }
+                continue;
+            }
+
             let line = self.line;
 
             if c.is_ascii_digit() {
