@@ -97,7 +97,8 @@ impl Interpreter {
                             if b == 0 {
                                 Err("Division by zero".to_string())
                             } else {
-                                Ok(Value::Int(a / b))
+                                a.checked_div(b).map(Value::Int)
+                                    .ok_or("Integer overflow".to_string())
                             }
                         }
                         BinaryOp::Mod => {
