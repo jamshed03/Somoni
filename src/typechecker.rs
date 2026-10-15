@@ -92,6 +92,7 @@ impl TypeChecker {
                 }
                 match (l, op) {
                     (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
+                    (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
                     (
                         Type::Int | Type::Float,
                         BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEq | BinaryOp::GreaterEq,

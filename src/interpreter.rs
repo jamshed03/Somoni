@@ -100,6 +100,14 @@ impl Interpreter {
                                 Ok(Value::Int(a / b))
                             }
                         }
+                        BinaryOp::Mod => {
+                            if b == 0 {
+                                Err("Division by zero".to_string())
+                            } else {
+                                a.checked_rem(b).map(Value::Int)
+                                    .ok_or("Integer overflow".to_string())
+                            }
+                        }
                         BinaryOp::Eq => Ok(Value::Bool(a == b)),
                         BinaryOp::NotEq => Ok(Value::Bool(a != b)),
                         BinaryOp::Less => Ok(Value::Bool(a < b)),

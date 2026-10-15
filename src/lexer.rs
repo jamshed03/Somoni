@@ -146,6 +146,7 @@ impl Lexer {
                 '-' => (Token::Minus, 1),
                 '*' => (Token::Star, 1),
                 '/' => (Token::Slash, 1),
+                '%' => (Token::Percent, 1),
                 '(' => (Token::LParen, 1),
                 ')' => (Token::RParen, 1),
                 '=' if self.peek_next() == Some('=') => (Token::EqualEqual, 2),
