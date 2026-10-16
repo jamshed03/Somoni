@@ -38,6 +38,7 @@ pub enum ErrorCode {
     },
     BlockNotClosed,
     ForStartConst,
+    FnNotTopLevel,
 
     // type checker
     UnknownType {
@@ -79,13 +80,24 @@ pub enum ErrorCode {
         name: String,
     },
     WrongArgCount {
-        name: &'static str,
+        name: String,
         expected: usize,
         found: usize,
     },
     WrongArgType {
-        name: &'static str,
+        name: String,
         found: Type,
+    },
+    DuplicateFunction {
+        name: String,
+    },
+    BuiltinRedeclared {
+        name: String,
+    },
+    ReturnOutsideFunction,
+    ReturnType {
+        found: Type,
+        expected: Type,
     },
 
     // runtime
@@ -113,6 +125,7 @@ impl ErrorCode {
             ErrorCode::UnexpectedToken { .. } => "P002",
             ErrorCode::BlockNotClosed => "P003",
             ErrorCode::ForStartConst => "P004",
+            ErrorCode::FnNotTopLevel => "P005",
 
             ErrorCode::UnknownType { .. } => "T001",
             ErrorCode::UnknownVariable { .. } => "T002",
@@ -128,6 +141,10 @@ impl ErrorCode {
             ErrorCode::UnknownFunction { .. } => "T012",
             ErrorCode::WrongArgCount { .. } => "T013",
             ErrorCode::WrongArgType { .. } => "T014",
+            ErrorCode::DuplicateFunction { .. } => "T015",
+            ErrorCode::BuiltinRedeclared { .. } => "T016",
+            ErrorCode::ReturnOutsideFunction => "T017",
+            ErrorCode::ReturnType { .. } => "T018",
 
             // should never happen: the type checker rejects such programs (a bug in Somoni)
             ErrorCode::Internal { .. } => "R000",
@@ -148,7 +165,8 @@ impl ErrorCode {
             ErrorCode::Expected { .. }
             | ErrorCode::UnexpectedToken { .. }
             | ErrorCode::BlockNotClosed
-            | ErrorCode::ForStartConst => ErrorKind::Parse,
+            | ErrorCode::ForStartConst
+            | ErrorCode::FnNotTopLevel => ErrorKind::Parse,
 
             ErrorCode::UnknownType { .. }
             | ErrorCode::UnknownVariable { .. }
@@ -163,7 +181,11 @@ impl ErrorCode {
             | ErrorCode::OutsideLoop { .. }
             | ErrorCode::UnknownFunction { .. }
             | ErrorCode::WrongArgCount { .. }
-            | ErrorCode::WrongArgType { .. } => ErrorKind::Type,
+            | ErrorCode::WrongArgType { .. }
+            | ErrorCode::DuplicateFunction { .. }
+            | ErrorCode::BuiltinRedeclared { .. }
+            | ErrorCode::ReturnOutsideFunction
+            | ErrorCode::ReturnType { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -185,6 +207,9 @@ impl ErrorCode {
             ErrorCode::UnexpectedToken { found } => format!("unexpected token {:?}", found),
             ErrorCode::BlockNotClosed => "block is not closed, expected '}'".to_string(),
             ErrorCode::ForStartConst => "for loop start must be 'var', not 'const'".to_string(),
+            ErrorCode::FnNotTopLevel => {
+                "functions can only be declared at the top level".to_string()
+            }
 
             ErrorCode::UnknownType { name } => format!("unknown type '{}'", name),
             ErrorCode::UnknownVariable { name } => format!("unknown variable '{}'", name),
@@ -229,6 +254,16 @@ impl ErrorCode {
             ErrorCode::WrongArgType { name, found } => {
                 format!("cannot use {} as argument of '{}'", found.name(), name)
             }
+            ErrorCode::DuplicateFunction { name } => {
+                format!("function '{}' is already declared", name)
+            }
+            ErrorCode::BuiltinRedeclared { name } => format!("'{}' is a built-in function", name),
+            ErrorCode::ReturnOutsideFunction => "'return' outside of a function".to_string(),
+            ErrorCode::ReturnType { found, expected } => format!(
+                "function must return {}, got {}",
+                expected.name(),
+                found.name()
+            ),
 
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),

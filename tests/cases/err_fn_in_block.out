@@ -1,0 +1,3 @@
+Parse error [P005]: Line 2: functions can only be declared at the top level
+  2 |     fn f(): void {
+    |     ^^

@@ -1,0 +1,3 @@
+Type error [T016]: Line 1: 'print' is a built-in function
+  1 | fn print(x: int): void {
+    |    ^^^^^

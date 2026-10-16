@@ -1,0 +1,4 @@
+fn outer(): void {
+    fn inner(): void {
+    }
+}

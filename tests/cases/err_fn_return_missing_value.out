@@ -1,0 +1,3 @@
+Type error [T018]: Line 2: function must return int, got void
+  2 |     return;
+    |     ^^^^^^

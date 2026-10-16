@@ -18,6 +18,13 @@ impl Type {
         }
     }
 
+    pub fn from_return_name(name: &str) -> Option<Type> {
+        match name {
+            "void" => Some(Type::Void),
+            _ => Type::from_name(name),
+        }
+    }
+
     pub fn name(&self) -> &'static str {
         match self {
             Type::Int => "int",

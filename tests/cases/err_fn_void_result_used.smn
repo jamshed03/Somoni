@@ -1,0 +1,3 @@
+fn f(): void {
+}
+var x: int = f();

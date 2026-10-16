@@ -13,6 +13,8 @@ pub enum Token {
     For,
     Break,
     Continue,
+    Fn,
+    Return,
 
     // Namen und Werte
     Ident(String),

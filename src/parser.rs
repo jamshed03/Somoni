@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Function, Param, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
@@ -50,7 +50,12 @@ impl Parser {
     pub fn parse_program(&mut self) -> Result<Vec<Stmt>, SomoniError> {
         let mut stmts = Vec::new();
         while *self.peek() != Token::Eof {
-            stmts.push(self.parse_stmt()?);
+            // fn is only allowed here, at the top level
+            if *self.peek() == Token::Fn {
+                stmts.push(self.parse_fn()?);
+            } else {
+                stmts.push(self.parse_stmt()?);
+            }
         }
         Ok(stmts)
     }
@@ -94,6 +99,18 @@ impl Parser {
                 self.expect(Token::Semicolon, "';' after 'continue'")?;
                 Ok(Stmt::Continue { span: start })
             }
+            Token::Fn => Err(SomoniError::at(start, ErrorCode::FnNotTopLevel)),
+            Token::Return => {
+                self.advance(); // 'return'
+                let value = if *self.peek() == Token::Semicolon {
+                    None
+                } else {
+                    Some(self.parse_expr()?)
+                };
+                let span = self.since(start);
+                self.expect(Token::Semicolon, "';'")?;
+                Ok(Stmt::Return { value, span })
+            }
             Token::Ident(name) if *self.peek_next() == Token::LParen => {
                 let expr = self.parse_call(name, start)?;
                 let span = self.since(start);
@@ -108,9 +125,53 @@ impl Parser {
         }
     }
 
+    // fn name(a: int, b: int): int { ... }
+    fn parse_fn(&mut self) -> Result<Stmt, SomoniError> {
+        self.advance(); // 'fn'
+        let (name, name_span) = self.expect_ident("function name")?;
+        self.expect(Token::LParen, "'(' after function name")?;
+        let mut params = Vec::new();
+        if *self.peek() == Token::RParen {
+            self.advance();
+        } else {
+            loop {
+                let (name, name_span) = self.expect_ident("parameter name")?;
+                self.expect(Token::Colon, "':' after parameter name")?;
+                let (type_name, type_span) = self.expect_ident("parameter type")?;
+                params.push(Param {
+                    name,
+                    name_span,
+                    type_name,
+                    type_span,
+                });
+                if *self.peek() == Token::Comma {
+                    self.advance();
+                    continue;
+                }
+                self.expect(Token::RParen, "')'")?;
+                break;
+            }
+        }
+        self.expect(Token::Colon, "':' and a return type after ')'")?;
+        let (return_type, return_type_span) = self.expect_ident("return type")?;
+        let body = self.expect_block_stmts("after function header")?;
+        Ok(Stmt::FnDecl(Function {
+            name,
+            name_span,
+            params,
+            return_type,
+            return_type_span,
+            body,
+        }))
+    }
+
     // { stmt* } – no ';' after the closing brace
     // `open` is the '{', an unclosed block points there
     fn parse_block(&mut self, open: Span) -> Result<Stmt, SomoniError> {
+        Ok(Stmt::Block(self.parse_block_stmts(open)?))
+    }
+
+    fn parse_block_stmts(&mut self, open: Span) -> Result<Vec<Stmt>, SomoniError> {
         self.advance(); // '{'
         let mut stmts = Vec::new();
         while *self.peek() != Token::RBrace {
@@ -120,16 +181,20 @@ impl Parser {
             stmts.push(self.parse_stmt()?);
         }
         self.advance(); // '}'
-        Ok(Stmt::Block(stmts))
+        Ok(stmts)
     }
 
     // a block where the language requires one, e.g. after `if (...)`
     fn expect_block(&mut self, what: &str) -> Result<Stmt, SomoniError> {
+        Ok(Stmt::Block(self.expect_block_stmts(what)?))
+    }
+
+    fn expect_block_stmts(&mut self, what: &str) -> Result<Vec<Stmt>, SomoniError> {
         if *self.peek() != Token::LBrace {
             return Err(self.expected(format!("'{{' {}", what)));
         }
         let open = self.current_span();
-        self.parse_block(open)
+        self.parse_block_stmts(open)
     }
 
     // if (cond) { ... } [else if (cond) { ... }]* [else { ... }]

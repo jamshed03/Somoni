@@ -103,6 +103,30 @@ pub enum Stmt {
     Continue {
         span: Span,
     },
+    FnDecl(Function),
+    Return {
+        value: Option<Expr>,
+        span: Span,
+    },
+}
+
+// fn name(param: type, ...): return_type { body }
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    pub name: String,
+    pub name_span: Span,
+    pub params: Vec<Param>,
+    pub return_type: String,
+    pub return_type_span: Span,
+    pub body: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Param {
+    pub name: String,
+    pub name_span: Span,
+    pub type_name: String,
+    pub type_span: Span,
 }
 
 impl Stmt {
@@ -115,7 +139,9 @@ impl Stmt {
             | Stmt::While { span, .. }
             | Stmt::For { span, .. }
             | Stmt::Break { span }
-            | Stmt::Continue { span } => Some(*span),
+            | Stmt::Continue { span }
+            | Stmt::Return { span, .. } => Some(*span),
+            Stmt::FnDecl(function) => Some(function.name_span),
             Stmt::Block(_) => None,
         }
     }

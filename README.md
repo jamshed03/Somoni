@@ -50,6 +50,7 @@ Version 0.1.0, in progress:
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
 -   `while` and `for` loops with `break` and `continue`
 -   Built-in functions `print`, `int`, `float`, `string`, `len` (conversions are always explicit)
+-   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters
 -   Comments `//` and `/* */`
 
-Next: own functions (`fn`).
+Next: check that every path of a function returns a value, then performance.

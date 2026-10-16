@@ -113,12 +113,13 @@ impl Lexer {
             "for" => Token::For,
             "break" => Token::Break,
             "continue" => Token::Continue,
+            "fn" => Token::Fn,
+            "return" => Token::Return,
             _ => Token::Ident(text),
         }
     }
 
     fn read_string(&mut self) -> Result<Token, SomoniError> {
-        // an open string points to its opening quote
         let start = Span::in_line(self.line, self.col(), 1);
         self.advance(); // opening "
         let mut text = String::new();

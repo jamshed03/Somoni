@@ -1,0 +1,4 @@
+fn f(a: int): int {
+    a = 2;
+    return a;
+}

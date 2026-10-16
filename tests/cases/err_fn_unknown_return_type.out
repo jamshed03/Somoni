@@ -1,0 +1,3 @@
+Type error [T001]: Line 1: unknown type 'text'
+  1 | fn f(): text {
+    |         ^^^^

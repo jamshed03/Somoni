@@ -1,0 +1,3 @@
+Type error [T015]: Line 3: function 'f' is already declared
+  3 | fn f(): void {
+    |    ^

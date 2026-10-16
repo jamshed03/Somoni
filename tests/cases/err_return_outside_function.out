@@ -1,0 +1,3 @@
+Type error [T017]: Line 2: 'return' outside of a function
+  2 | return;
+    | ^^^^^^

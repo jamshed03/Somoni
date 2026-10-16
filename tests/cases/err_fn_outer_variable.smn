@@ -1,0 +1,4 @@
+var count: int = 5;
+fn show(): void {
+    print(count);
+}

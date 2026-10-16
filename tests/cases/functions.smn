@@ -1,0 +1,64 @@
+fn add(a: int, b: int): int {
+    return a + b;
+}
+
+fn greet(name: string): void {
+    print("Hallo " + name);
+}
+
+// called before its declaration: the order of functions does not matter
+print(square(4));
+
+fn square(x: int): int {
+    return x * x;
+}
+
+print(add(2, 3));
+greet("Ali");
+print(add(square(2), 1));
+
+fn sign(n: int): string {
+    if (n < 0) {
+        return "negative";
+    }
+    return "positive";
+}
+print(sign(-1));
+print(sign(1));
+
+// return ends the function at once, also from inside a loop
+fn first_even_from(start: int): int {
+    var i: int = start;
+    while (true) {
+        if (i % 2 == 0) {
+            return i;
+        }
+        i = i + 1;
+    }
+    return -1;
+}
+print(first_even_from(7));
+
+// a void function may end early with return;
+fn show_if_positive(n: int): void {
+    if (n < 0) {
+        return;
+    }
+    print(n);
+}
+show_if_positive(-5);
+show_if_positive(3);
+
+// a function has its own variables: this x is not the x outside
+var x: int = 100;
+fn own_x(): int {
+    var x: int = 1;
+    return x;
+}
+print(own_x());
+print(x);
+
+fn no_args(): string {
+    return "ok";
+}
+print(no_args());

@@ -1,0 +1,3 @@
+Type error [T011]: Line 2: 'break' outside of a loop
+  2 |     break;
+    |     ^^^^^

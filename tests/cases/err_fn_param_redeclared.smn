@@ -1,0 +1,3 @@
+fn f(a: int): void {
+    var a: int = 1;
+}

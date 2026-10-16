@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::fmt;
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Function, Stmt, UnaryOp};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
@@ -26,27 +27,56 @@ impl fmt::Display for Value {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+// Return carries the value up to the call, like Break carries "leave the loop"
+#[derive(Debug, Clone, PartialEq)]
 enum ControlFlow {
     Normal,
     Break,
     Continue,
+    Return(Value),
 }
 
-pub struct Interpreter {
+pub struct Interpreter<'a> {
     scopes: Scopes<Value>,
+    functions: HashMap<&'a str, &'a Function>,
 }
 
-impl Interpreter {
-    pub fn new() -> Interpreter {
+impl<'a> Interpreter<'a> {
+    pub fn new() -> Interpreter<'a> {
         Interpreter {
             scopes: Scopes::new(),
+            functions: HashMap::new(),
         }
     }
 
-    pub fn run(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+    pub fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), SomoniError> {
+        for stmt in stmts {
+            if let Stmt::FnDecl(function) = stmt {
+                self.functions.insert(&function.name, function);
+            }
+        }
         self.exec_all(stmts)?;
         Ok(())
+    }
+
+    fn call_function(
+        &mut self,
+        function: &Function,
+        args: Vec<Value>,
+    ) -> Result<Value, SomoniError> {
+        let caller_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
+        for (param, value) in function.params.iter().zip(args) {
+            self.scopes.declare(&param.name, value);
+        }
+        let result = self.exec_all(&function.body);
+        self.scopes = caller_scopes;
+        match result? {
+            ControlFlow::Return(value) => Ok(value),
+            ControlFlow::Normal => Ok(Value::Void),
+            ControlFlow::Break | ControlFlow::Continue => {
+                Err(SomoniError::internal("break or continue outside of a loop"))
+            }
+        }
     }
 
     fn exec_all(&mut self, stmts: &[Stmt]) -> Result<ControlFlow, SomoniError> {
@@ -125,6 +155,14 @@ impl Interpreter {
                 self.scopes.pop();
                 result
             }
+            Stmt::FnDecl(_) => Ok(ControlFlow::Normal),
+            Stmt::Return { value, .. } => {
+                let value = match value {
+                    Some(value) => self.eval(value)?,
+                    None => Value::Void,
+                };
+                Ok(ControlFlow::Return(value))
+            }
             Stmt::Break { .. } => Ok(ControlFlow::Break),
             Stmt::Continue { .. } => Ok(ControlFlow::Continue),
         }
@@ -141,8 +179,6 @@ impl Interpreter {
         self.run_loop(condition, body, Some(step))
     }
 
-    // Shared by while and for. The condition is evaluated again before every round.
-    // `step` (only for `for`) runs after every round, also after `continue`.
     fn run_loop(
         &mut self,
         condition: &Expr,
@@ -153,6 +189,7 @@ impl Interpreter {
             match self.exec(body)? {
                 ControlFlow::Break => break,
                 ControlFlow::Continue | ControlFlow::Normal => {}
+                flow @ ControlFlow::Return(_) => return Ok(flow),
             }
             if let Some(step) = step {
                 self.exec(step)?;
@@ -161,21 +198,19 @@ impl Interpreter {
         Ok(ControlFlow::Normal)
     }
 
-    // the type checker made sure it is a bool
-    fn eval_condition(&self, condition: &Expr) -> Result<bool, SomoniError> {
+    fn eval_condition(&mut self, condition: &Expr) -> Result<bool, SomoniError> {
         match self.eval(condition)? {
             Value::Bool(b) => Ok(b),
             _ => Err(SomoniError::internal("condition is not a bool")),
         }
     }
 
-    // a runtime error without a place gets the place of this expression; the innermost wins
-    fn eval(&self, expr: &Expr) -> Result<Value, SomoniError> {
+    fn eval(&mut self, expr: &Expr) -> Result<Value, SomoniError> {
         self.eval_kind(&expr.kind)
             .map_err(|error| error.with_span_if_missing(Some(expr.span)))
     }
 
-    fn eval_kind(&self, kind: &ExprKind) -> Result<Value, SomoniError> {
+    fn eval_kind(&mut self, kind: &ExprKind) -> Result<Value, SomoniError> {
         match kind {
             ExprKind::Int(n) => Ok(Value::Int(*n)),
             ExprKind::Float(f) => Ok(Value::Float(*f)),
@@ -189,13 +224,23 @@ impl Interpreter {
                 ))),
             },
             ExprKind::Call { name, args, .. } => {
-                let builtin = Builtin::from_name(name)
-                    .ok_or_else(|| SomoniError::internal(format!("unknown function '{}'", name)))?;
-                let Some(arg) = args.first() else {
-                    return Err(SomoniError::internal("call without argument"));
+                let mut values = Vec::new();
+                for arg in args {
+                    values.push(self.eval(arg)?);
+                }
+                if let Some(builtin) = Builtin::from_name(name) {
+                    let Some(value) = values.pop() else {
+                        return Err(SomoniError::internal("call without argument"));
+                    };
+                    return builtin.call(value);
+                }
+                let Some(&function) = self.functions.get(name.as_str()) else {
+                    return Err(SomoniError::internal(format!(
+                        "unknown function '{}'",
+                        name
+                    )));
                 };
-                let value = self.eval(arg)?;
-                builtin.call(value)
+                self.call_function(function, values)
             }
             ExprKind::Unary { op, operand } => match (op, self.eval(operand)?) {
                 (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),

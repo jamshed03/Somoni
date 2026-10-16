@@ -1,0 +1,32 @@
+fn fakultaet(n: int): int {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * fakultaet(n - 1);
+}
+print(fakultaet(5));
+print(fakultaet(20));
+
+fn fib(n: int): int {
+    if (n < 2) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+print(fib(20));
+
+// two functions calling each other
+fn is_even(n: int): bool {
+    if (n == 0) {
+        return true;
+    }
+    return is_odd(n - 1);
+}
+fn is_odd(n: int): bool {
+    if (n == 0) {
+        return false;
+    }
+    return is_even(n - 1);
+}
+print(is_even(10));
+print(is_odd(7));

@@ -1,0 +1,4 @@
+if (true) {
+    fn f(): void {
+    }
+}
