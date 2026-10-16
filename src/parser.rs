@@ -15,6 +15,10 @@ impl Parser {
         &self.tokens[self.pos].token
     }
 
+    fn current_line(&self) -> usize {
+        self.tokens[self.pos].line
+    }
+
     fn line_after_last_token(&self) -> usize {
         let index = self.pos.saturating_sub(1);
         self.tokens[index].line
@@ -62,7 +66,7 @@ impl Parser {
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt, String> {
-        let line = self.tokens[self.pos].line;
+        let line = self.current_line();
         match self.peek().clone() {
             Token::Var => self.parse_var_decl(true, line),
             Token::Const => self.parse_var_decl(false, line),
@@ -100,7 +104,7 @@ impl Parser {
                 what
             ));
         }
-        let open_line = self.tokens[self.pos].line;
+        let open_line = self.current_line();
         self.parse_block(open_line)
     }
 
@@ -114,7 +118,7 @@ impl Parser {
 
         let else_branch = if *self.peek() == Token::Else {
             self.advance(); // 'else'
-            let else_line = self.tokens[self.pos].line;
+            let else_line = self.current_line();
             match self.peek() {
                 // `else if` is an else whose only content is another if
                 Token::If => Some(Box::new(self.parse_if(else_line)?)),
@@ -255,7 +259,7 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Result<Expr, String> {
-        let line = self.tokens[self.pos].line;
+        let line = self.current_line();
         match self.peek().clone() {
             Token::Int(n) => {
                 self.advance();
