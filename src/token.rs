@@ -25,6 +25,8 @@ pub enum Token {
     Percent,
     LParen,
     RParen,
+    LBrace,
+    RBrace,
 
     EqualEqual,
     BangEqual,

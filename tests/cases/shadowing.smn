@@ -1,0 +1,21 @@
+var x: int = 1;
+{
+    var x: int = 2;          // hides the outer x only inside this block
+    print(x);
+    x = 3;
+    print(x);
+}
+print(x);                    // outer x is untouched
+{
+    const x: string = "text"; // other type is fine
+    print(x);
+}
+print(x);
+{
+    var a: int = 1;
+    {
+        var a: int = 2;
+        print(a);
+    }
+    print(a);
+}

@@ -1,0 +1,17 @@
+var x: int = 1;
+{
+    print(x);        // outer variable is visible inside
+    x = x + 10;      // and can be changed
+    var y: int = 5;
+    print(y);
+}
+print(x);            // change stays after the block
+{
+    {
+        var deep: int = 7;
+        print(deep + x);
+    }
+}
+{}                   // empty block
+{ { } }
+print("done");

@@ -11,12 +11,34 @@ pub enum Value {
 }
 
 pub struct Interpreter {
-    vars: HashMap<String, Value>,
+    // one map per open block; the first entry is the top level, the last one the innermost block
+    scopes: Vec<HashMap<String, Value>>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
-        Interpreter { vars: HashMap::new() }
+        Interpreter { scopes: vec![HashMap::new()] }
+    }
+
+    fn declare(&mut self, name: &str, value: Value) {
+        let scope = self.scopes.last_mut().expect("scope stack is never empty");
+        scope.insert(name.to_string(), value);
+    }
+
+    // innermost block first
+    fn lookup(&self, name: &str) -> Option<&Value> {
+        self.scopes.iter().rev().find_map(|scope| scope.get(name))
+    }
+
+    // changes the variable in the block where it was declared
+    fn assign(&mut self, name: &str, value: Value) -> Result<(), String> {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(slot) = scope.get_mut(name) {
+                *slot = value;
+                return Ok(());
+            }
+        }
+        Err(format!("Unknown variable '{}'", name))
     }
 
     pub fn run(&mut self, stmts: &[Stmt]) -> Result<(), String> {
@@ -30,7 +52,7 @@ impl Interpreter {
         match stmt {
             Stmt::VarDecl { name, value, .. } => {
                 let v = self.eval(value)?;
-                self.vars.insert(name.clone(), v);
+                self.declare(name, v);
                 Ok(())
             }
             Stmt::Print { value, .. } => {
@@ -45,13 +67,13 @@ impl Interpreter {
             }
             Stmt::Assign { name, value, .. } => {
                 let v = self.eval(value)?;
-                match self.vars.get_mut(name) {
-                    Some(var) => {
-                        *var = v;
-                        Ok(())
-                    }
-                    None => Err(format!("Unknown variable '{}'", name)),
-                }
+                self.assign(name, v)
+            }
+            Stmt::Block(stmts) => {
+                self.scopes.push(HashMap::new());
+                let result = self.run(stmts);
+                self.scopes.pop();
+                result
             }
         }
     }
@@ -62,7 +84,7 @@ impl Interpreter {
             Expr::Float(f) => Ok(Value::Float(*f)),
             Expr::Str(s) => Ok(Value::Str(s.clone())),
             Expr::Bool(b) => Ok(Value::Bool(*b)),
-            Expr::Ident(name) => match self.vars.get(name) {
+            Expr::Ident(name) => match self.lookup(name) {
                 Some(value) => Ok(value.clone()),
                 None => Err(format!("Unknown variable '{}'", name)),
             },

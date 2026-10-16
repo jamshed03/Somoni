@@ -9,12 +9,28 @@ struct VarInfo {
 }
 
 pub struct TypeChecker {
-    vars: HashMap<String, VarInfo>,
+    // one map per open block; the first entry is the top level, the last one the innermost block
+    scopes: Vec<HashMap<String, VarInfo>>,
 }
 
 impl TypeChecker {
     pub fn new() -> TypeChecker {
-        TypeChecker { vars: HashMap::new() }
+        TypeChecker { scopes: vec![HashMap::new()] }
+    }
+
+    // a name may exist only once per block (it may hide a name of an outer block)
+    fn declare(&mut self, name: &str, info: VarInfo, line: usize) -> Result<(), String> {
+        let scope = self.scopes.last_mut().expect("scope stack is never empty");
+        if scope.contains_key(name) {
+            return Err(format!("Line {}: '{}' is already declared in this block", line, name));
+        }
+        scope.insert(name.to_string(), info);
+        Ok(())
+    }
+
+    // innermost block first
+    fn lookup(&self, name: &str) -> Option<&VarInfo> {
+        self.scopes.iter().rev().find_map(|scope| scope.get(name))
     }
 
     pub fn check(&mut self, stmts: &[Stmt]) -> Result<(), String> {
@@ -38,8 +54,7 @@ impl TypeChecker {
                         declared.name()
                     ));
                 }
-                self.vars.insert(name.clone(), VarInfo { ty: declared, mutable: *mutable });
-                Ok(())
+                self.declare(name, VarInfo { ty: declared, mutable: *mutable }, *line)
             }
             Stmt::Print { value, line } => {
                 self.check_expr(value, *line)?;
@@ -47,8 +62,7 @@ impl TypeChecker {
             },
             Stmt::Assign { name, value, line } => {
                 let info = self
-                    .vars
-                    .get(name)
+                    .lookup(name)
                     .ok_or(format!("Line {}: unknown variable '{}'", line, name))?;
                 if !info.mutable {
                     return Err(format!("Line {}: cannot assign to const '{}'", line, name));
@@ -65,6 +79,12 @@ impl TypeChecker {
                 }
                 Ok(())
             }
+            Stmt::Block(stmts) => {
+                self.scopes.push(HashMap::new());
+                let result = self.check(stmts);
+                self.scopes.pop();
+                result
+            }
         }
     }
 
@@ -75,8 +95,7 @@ impl TypeChecker {
             Expr::Bool(_) => Ok(Type::Bool),
             Expr::Str(_) => Ok(Type::Str),
             Expr::Ident(name) => self
-                .vars
-                .get(name)
+                .lookup(name)
                 .map(|info| info.ty)
                 .ok_or(format!("Line {}: unknown variable '{}'", line, name)),
             Expr::Binary { left, op, right } => {

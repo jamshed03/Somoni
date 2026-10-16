@@ -57,4 +57,5 @@ pub enum Stmt {
         value: Expr,
         line: usize,
     },
+    Block(Vec<Stmt>),
 }

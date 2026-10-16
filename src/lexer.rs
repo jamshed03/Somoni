@@ -185,6 +185,8 @@ impl Lexer {
                 '%' => (Token::Percent, 1),
                 '(' => (Token::LParen, 1),
                 ')' => (Token::RParen, 1),
+                '{' => (Token::LBrace, 1),
+                '}' => (Token::RBrace, 1),
                 '=' if self.peek_next() == Some('=') => (Token::EqualEqual, 2),
                 '=' => (Token::Equal, 1),
                 '!' if self.peek_next() == Some('=') => (Token::BangEqual, 2),

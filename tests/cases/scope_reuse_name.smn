@@ -1,0 +1,10 @@
+{
+    var i: int = 1;
+    print(i);
+}
+{
+    var i: string = "again";  // the name is free again after the block
+    print(i);
+}
+var i: float = 2.5;
+print(i);

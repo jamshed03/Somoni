@@ -1,0 +1,4 @@
+{
+    var inner: int = 1;
+}
+inner = 2;

@@ -1,0 +1,5 @@
+{
+    const a: int = 1;
+    print(a);
+    var a: string = "no";
+}

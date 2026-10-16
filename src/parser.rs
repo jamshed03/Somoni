@@ -58,10 +58,25 @@ impl Parser {
         match self.peek().clone() {
             Token::Var => self.parse_var_decl(true, line),
             Token::Const => self.parse_var_decl(false, line),
+            Token::LBrace => self.parse_block(line),
             Token::Ident(name) if name == "print" => self.parse_print(line),
             Token::Ident(name) => self.parse_assign(name, line),
             other => Err(format!("Line {}: unexpected token {:?}", line, other)),
         }
+    }
+
+    // { stmt* } – no ';' after the closing brace
+    fn parse_block(&mut self, open_line: usize) -> Result<Stmt, String> {
+        self.advance(); // '{'
+        let mut stmts = Vec::new();
+        while *self.peek() != Token::RBrace {
+            if *self.peek() == Token::Eof {
+                return Err(format!("Line {}: block is not closed, expected '}}'", open_line));
+            }
+            stmts.push(self.parse_stmt()?);
+        }
+        self.advance(); // '}'
+        Ok(Stmt::Block(stmts))
     }
 
     fn parse_assign(&mut self, name: String, line: usize) -> Result<Stmt, String> {
