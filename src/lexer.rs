@@ -216,6 +216,7 @@ impl Lexer {
 
             let (token, len) = match c {
                 ':' => (Token::Colon, 1),
+                ',' => (Token::Comma, 1),
                 ';' => (Token::Semicolon, 1),
                 '+' => (Token::Plus, 1),
                 '-' => (Token::Minus, 1),

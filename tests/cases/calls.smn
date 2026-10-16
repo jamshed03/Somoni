@@ -1,0 +1,6 @@
+// print is a normal built-in function now
+print(1);
+print ( "spaces are fine" ) ;
+print((1 + 2) * 3);
+var count: int = 2;
+print(count);

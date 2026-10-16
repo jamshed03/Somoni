@@ -23,6 +23,11 @@ pub enum ExprKind {
         operand: Box<Expr>,
     },
     Bool(bool),
+    Call {
+        name: String,
+        name_span: Span,
+        args: Vec<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,8 +66,8 @@ pub enum Stmt {
         mutable: bool,
         span: Span,
     },
-    Print {
-        value: Expr,
+    Expr {
+        expr: Expr,
         span: Span,
     },
     Assign {
@@ -72,7 +77,6 @@ pub enum Stmt {
         span: Span,
     },
     Block(Vec<Stmt>),
-    // then_branch is always a Block; else_branch is a Block or another If (for `else if`)
     If {
         condition: Expr,
         then_branch: Box<Stmt>,
@@ -105,7 +109,7 @@ impl Stmt {
     pub fn span(&self) -> Option<Span> {
         match self {
             Stmt::VarDecl { span, .. }
-            | Stmt::Print { span, .. }
+            | Stmt::Expr { span, .. }
             | Stmt::Assign { span, .. }
             | Stmt::If { span, .. }
             | Stmt::While { span, .. }

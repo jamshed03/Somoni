@@ -1,4 +1,7 @@
+use std::fmt;
+
 use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
+use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
 
@@ -8,6 +11,19 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     Str(String),
+    Void,
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::Int(n) => write!(f, "{}", n),
+            Value::Float(x) => write!(f, "{}", x),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Str(s) => write!(f, "{}", s),
+            Value::Void => write!(f, "void"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,14 +71,8 @@ impl Interpreter {
                 self.scopes.declare(name, v);
                 Ok(ControlFlow::Normal)
             }
-            Stmt::Print { value, .. } => {
-                let v = self.eval(value)?;
-                match v {
-                    Value::Int(n) => println!("{}", n),
-                    Value::Float(f) => println!("{}", f),
-                    Value::Str(s) => println!("{}", s),
-                    Value::Bool(b) => println!("{}", b),
-                }
+            Stmt::Expr { expr, .. } => {
+                self.eval(expr)?;
                 Ok(ControlFlow::Normal)
             }
             Stmt::Assign { name, value, .. } => {
@@ -178,6 +188,15 @@ impl Interpreter {
                     name
                 ))),
             },
+            ExprKind::Call { name, args, .. } => {
+                let builtin = Builtin::from_name(name)
+                    .ok_or_else(|| SomoniError::internal(format!("unknown function '{}'", name)))?;
+                let Some(arg) = args.first() else {
+                    return Err(SomoniError::internal("call without argument"));
+                };
+                let value = self.eval(arg)?;
+                builtin.call(value)
+            }
             ExprKind::Unary { op, operand } => match (op, self.eval(operand)?) {
                 (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
                 (UnaryOp::Neg, Value::Int(n)) => n

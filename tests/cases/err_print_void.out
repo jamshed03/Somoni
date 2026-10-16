@@ -1,0 +1,3 @@
+Type error [T014]: Line 1: cannot use void as argument of 'print'
+  1 | print(print(1));
+    |       ^^^^^^^^

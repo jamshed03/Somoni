@@ -1,0 +1,3 @@
+Type error [T007]: Line 1: operator not allowed for void
+  1 | if (print(1) == print(2)) {
+    |              ^^

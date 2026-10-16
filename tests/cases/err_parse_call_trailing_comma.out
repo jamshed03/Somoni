@@ -1,0 +1,3 @@
+Parse error [P002]: Line 1: unexpected token RParen
+  1 | print(1,);
+    |         ^

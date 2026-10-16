@@ -17,6 +17,11 @@ impl Parser {
         &self.tokens[self.pos].token
     }
 
+    fn peek_next(&self) -> &Token {
+        let index = (self.pos + 1).min(self.tokens.len() - 1);
+        &self.tokens[index].token
+    }
+
     fn current_span(&self) -> Span {
         self.tokens[self.pos].span
     }
@@ -89,7 +94,12 @@ impl Parser {
                 self.expect(Token::Semicolon, "';' after 'continue'")?;
                 Ok(Stmt::Continue { span: start })
             }
-            Token::Ident(name) if name == "print" => self.parse_print(start),
+            Token::Ident(name) if *self.peek_next() == Token::LParen => {
+                let expr = self.parse_call(name, start)?;
+                let span = self.since(start);
+                self.expect(Token::Semicolon, "';'")?;
+                Ok(Stmt::Expr { expr, span })
+            }
             Token::Ident(name) => self.parse_assign(name, start),
             other => Err(SomoniError::at(
                 start,
@@ -254,14 +264,31 @@ impl Parser {
         })
     }
 
-    fn parse_print(&mut self, start: Span) -> Result<Stmt, SomoniError> {
-        self.advance(); // print
-        self.expect(Token::LParen, "'('")?;
-        let value = self.parse_expr()?;
-        self.expect(Token::RParen, "')'")?;
-        let span = self.since(start);
-        self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::Print { value, span })
+    fn parse_call(&mut self, name: String, name_span: Span) -> Result<Expr, SomoniError> {
+        self.advance(); // name
+        self.advance(); // '('
+        let mut args = Vec::new();
+        if *self.peek() == Token::RParen {
+            self.advance();
+        } else {
+            loop {
+                args.push(self.parse_expr()?);
+                if *self.peek() == Token::Comma {
+                    self.advance();
+                    continue;
+                }
+                self.expect(Token::RParen, "')'")?;
+                break;
+            }
+        }
+        Ok(Expr {
+            kind: ExprKind::Call {
+                name,
+                name_span,
+                args,
+            },
+            span: self.since(name_span),
+        })
     }
 
     fn parse_binary(
@@ -365,6 +392,9 @@ impl Parser {
             Token::Str(s) => ExprKind::Str(s),
             Token::True => ExprKind::Bool(true),
             Token::False => ExprKind::Bool(false),
+            Token::Ident(name) if *self.peek_next() == Token::LParen => {
+                return self.parse_call(name, span);
+            }
             Token::Ident(name) => ExprKind::Ident(name),
             Token::LParen => {
                 self.advance();

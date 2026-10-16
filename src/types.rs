@@ -4,6 +4,7 @@ pub enum Type {
     Float,
     Bool,
     Str,
+    Void,
 }
 
 impl Type {
@@ -23,6 +24,7 @@ impl Type {
             Type::Float => "float",
             Type::Bool => "bool",
             Type::Str => "string",
+            Type::Void => "void",
         }
     }
 }

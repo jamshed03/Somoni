@@ -22,6 +22,7 @@ pub enum Token {
 
     // Symbole
     Colon,
+    Comma,
     Equal,
     Semicolon,
     Plus,

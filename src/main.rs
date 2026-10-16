@@ -1,4 +1,5 @@
 mod ast;
+mod builtins;
 mod error;
 mod interpreter;
 mod lexer;

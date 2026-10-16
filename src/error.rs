@@ -17,33 +17,81 @@ pub enum ErrorKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorCode {
     // lexer
-    UnexpectedCharacter { found: char },
+    UnexpectedCharacter {
+        found: char,
+    },
     UnterminatedString,
     UnterminatedComment,
-    IntegerTooLarge { text: String },
-    InvalidFloat { text: String },
+    IntegerTooLarge {
+        text: String,
+    },
+    InvalidFloat {
+        text: String,
+    },
 
     // parser
-    Expected { what: String },
-    UnexpectedToken { found: Token },
+    Expected {
+        what: String,
+    },
+    UnexpectedToken {
+        found: Token,
+    },
     BlockNotClosed,
     ForStartConst,
 
     // type checker
-    UnknownType { name: String },
-    UnknownVariable { name: String },
-    CannotAssign { found: Type, expected: Type },
-    AlreadyDeclared { name: String },
-    AssignToConst { name: String },
-    OperandTypesDiffer { left: Type, right: Type },
-    OperatorNotAllowed { found: Type },
-    NotNeedsBool { found: Type },
-    NegNeedsNumber { found: Type },
-    ConditionNotBool { found: Type },
-    OutsideLoop { keyword: &'static str },
+    UnknownType {
+        name: String,
+    },
+    UnknownVariable {
+        name: String,
+    },
+    CannotAssign {
+        found: Type,
+        expected: Type,
+    },
+    AlreadyDeclared {
+        name: String,
+    },
+    AssignToConst {
+        name: String,
+    },
+    OperandTypesDiffer {
+        left: Type,
+        right: Type,
+    },
+    OperatorNotAllowed {
+        found: Type,
+    },
+    NotNeedsBool {
+        found: Type,
+    },
+    NegNeedsNumber {
+        found: Type,
+    },
+    ConditionNotBool {
+        found: Type,
+    },
+    OutsideLoop {
+        keyword: &'static str,
+    },
+    UnknownFunction {
+        name: String,
+    },
+    WrongArgCount {
+        name: &'static str,
+        expected: usize,
+        found: usize,
+    },
+    WrongArgType {
+        name: &'static str,
+        found: Type,
+    },
 
     // runtime
-    Internal { message: String },
+    Internal {
+        message: String,
+    },
     DivisionByZero,
     IntegerOverflow,
 }
@@ -73,6 +121,9 @@ impl ErrorCode {
             ErrorCode::NegNeedsNumber { .. } => "T009",
             ErrorCode::ConditionNotBool { .. } => "T010",
             ErrorCode::OutsideLoop { .. } => "T011",
+            ErrorCode::UnknownFunction { .. } => "T012",
+            ErrorCode::WrongArgCount { .. } => "T013",
+            ErrorCode::WrongArgType { .. } => "T014",
 
             // should never happen: the type checker rejects such programs (a bug in Somoni)
             ErrorCode::Internal { .. } => "R000",
@@ -104,7 +155,10 @@ impl ErrorCode {
             | ErrorCode::NotNeedsBool { .. }
             | ErrorCode::NegNeedsNumber { .. }
             | ErrorCode::ConditionNotBool { .. }
-            | ErrorCode::OutsideLoop { .. } => ErrorKind::Type,
+            | ErrorCode::OutsideLoop { .. }
+            | ErrorCode::UnknownFunction { .. }
+            | ErrorCode::WrongArgCount { .. }
+            | ErrorCode::WrongArgType { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. } | ErrorCode::DivisionByZero | ErrorCode::IntegerOverflow => {
                 ErrorKind::Runtime
@@ -153,6 +207,22 @@ impl ErrorCode {
                 format!("condition must be bool, got {}", found.name())
             }
             ErrorCode::OutsideLoop { keyword } => format!("'{}' outside of a loop", keyword),
+            ErrorCode::UnknownFunction { name } => format!("unknown function '{}'", name),
+            ErrorCode::WrongArgCount {
+                name,
+                expected,
+                found,
+            } => {
+                let word = if *expected == 1 {
+                    "argument"
+                } else {
+                    "arguments"
+                };
+                format!("'{}' expects {} {}, got {}", name, expected, word, found)
+            }
+            ErrorCode::WrongArgType { name, found } => {
+                format!("cannot use {} as argument of '{}'", found.name(), name)
+            }
 
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),

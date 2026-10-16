@@ -1,4 +1,5 @@
 use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
+use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
 use crate::span::Span;
@@ -70,8 +71,8 @@ impl TypeChecker {
                 }
                 Ok(())
             }
-            Stmt::Print { value, .. } => {
-                self.check_expr(value)?;
+            Stmt::Expr { expr, .. } => {
+                self.check_expr(expr)?;
                 Ok(())
             }
             Stmt::Assign {
@@ -215,6 +216,10 @@ impl TypeChecker {
                     ));
                 }
                 match (l, op) {
+                    (Type::Void, _) => Err(SomoniError::at(
+                        *op_span,
+                        ErrorCode::OperatorNotAllowed { found: l },
+                    )),
                     (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
                     (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
                     (
@@ -232,6 +237,39 @@ impl TypeChecker {
                         ErrorCode::OperatorNotAllowed { found: l },
                     )),
                 }
+            }
+            ExprKind::Call {
+                name,
+                name_span,
+                args,
+            } => {
+                let builtin = Builtin::from_name(name).ok_or_else(|| {
+                    SomoniError::at(
+                        *name_span,
+                        ErrorCode::UnknownFunction { name: name.clone() },
+                    )
+                })?;
+                if args.len() != builtin.arity() {
+                    return Err(SomoniError::at(
+                        expr.span,
+                        ErrorCode::WrongArgCount {
+                            name: builtin.name(),
+                            expected: builtin.arity(),
+                            found: args.len(),
+                        },
+                    ));
+                }
+                let arg = &args[0];
+                let arg_type = self.check_expr(arg)?;
+                builtin.result_type(arg_type).ok_or_else(|| {
+                    SomoniError::at(
+                        arg.span,
+                        ErrorCode::WrongArgType {
+                            name: builtin.name(),
+                            found: arg_type,
+                        },
+                    )
+                })
             }
             ExprKind::Unary { op, operand } => {
                 let t = self.check_expr(operand)?;
