@@ -371,7 +371,7 @@ impl Parser {
             left = Expr {
                 kind: ExprKind::Binary {
                     left: Box::new(left),
-                    op: op.clone(),
+                    op: *op,
                     op_span,
                     right: Box::new(right),
                 },

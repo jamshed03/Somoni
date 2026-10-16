@@ -236,117 +236,115 @@ impl<'a> Interpreter<'a> {
                     name
                 ))),
             },
-            ExprKind::Call { name, args, .. } => {
-                let mut values = Vec::new();
-                for arg in args {
-                    values.push(self.eval(arg)?);
-                }
-                if let Some(builtin) = Builtin::from_name(name) {
-                    let Some(value) = values.pop() else {
-                        return Err(SomoniError::internal("call without argument"));
-                    };
-                    return builtin.call(value);
-                }
-                let Some(&function) = self.functions.get(name.as_str()) else {
-                    return Err(SomoniError::internal(format!(
-                        "unknown function '{}'",
-                        name
-                    )));
-                };
-                self.call_function(function, values)
+            ExprKind::Call { name, args, .. } => self.eval_call(name, args),
+            ExprKind::Unary { op, operand } => {
+                let value = self.eval(operand)?;
+                unary(*op, value)
             }
-            ExprKind::Unary { op, operand } => match (op, self.eval(operand)?) {
-                (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
-                (UnaryOp::Neg, Value::Int(n)) => n
-                    .checked_neg()
-                    .map(Value::Int)
-                    .ok_or(ErrorCode::IntegerOverflow.into()),
-                (UnaryOp::Neg, Value::Float(f)) => Ok(Value::Float(-f)),
-                _ => Err(SomoniError::internal(
-                    "operator not supported for this type",
-                )),
-            },
             ExprKind::Binary {
                 left, op, right, ..
-            } => {
-                let l = self.eval(left)?;
+            } => self.eval_binary(*op, left, right),
+        }
+    }
 
-                match (op, &l) {
-                    (BinaryOp::And, Value::Bool(false)) => return Ok(Value::Bool(false)),
-                    (BinaryOp::Or, Value::Bool(true)) => return Ok(Value::Bool(true)),
-                    _ => {}
-                }
+    fn eval_call(&mut self, name: &str, args: &[Expr]) -> Result<Value, SomoniError> {
+        let mut values = Vec::new();
+        for arg in args {
+            values.push(self.eval(arg)?);
+        }
+        if let Some(builtin) = Builtin::from_name(name) {
+            let Some(value) = values.pop() else {
+                return Err(SomoniError::internal("call without argument"));
+            };
+            return builtin.call(value);
+        }
+        let Some(&function) = self.functions.get(name) else {
+            return Err(SomoniError::internal(format!(
+                "unknown function '{}'",
+                name
+            )));
+        };
+        self.call_function(function, values)
+    }
 
-                let r = self.eval(right)?;
-                if let Some(result) = compare(op, &l, &r) {
-                    return Ok(Value::Bool(result));
-                }
+    fn eval_binary(
+        &mut self,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+    ) -> Result<Value, SomoniError> {
+        let l = self.eval(left)?;
 
-                match (l, r) {
-                    (Value::Int(a), Value::Int(b)) => match op {
-                        BinaryOp::Add => a
-                            .checked_add(b)
-                            .map(Value::Int)
-                            .ok_or(ErrorCode::IntegerOverflow.into()),
-                        BinaryOp::Sub => a
-                            .checked_sub(b)
-                            .map(Value::Int)
-                            .ok_or(ErrorCode::IntegerOverflow.into()),
-                        BinaryOp::Mul => a
-                            .checked_mul(b)
-                            .map(Value::Int)
-                            .ok_or(ErrorCode::IntegerOverflow.into()),
-                        BinaryOp::Div => {
-                            if b == 0 {
-                                Err(ErrorCode::DivisionByZero.into())
-                            } else {
-                                a.checked_div(b)
-                                    .map(Value::Int)
-                                    .ok_or(ErrorCode::IntegerOverflow.into())
-                            }
-                        }
-                        BinaryOp::Mod => {
-                            if b == 0 {
-                                Err(ErrorCode::DivisionByZero.into())
-                            } else {
-                                a.checked_rem(b)
-                                    .map(Value::Int)
-                                    .ok_or(ErrorCode::IntegerOverflow.into())
-                            }
-                        }
-                        _ => Err(SomoniError::internal("operator not supported for integers")),
-                    },
-                    (Value::Str(a), Value::Str(b)) => match op {
-                        BinaryOp::Add => Ok(Value::Str(a + &b)),
-                        _ => Err(SomoniError::internal("operator not supported for strings")),
-                    },
-                    (Value::Float(a), Value::Float(b)) => match op {
-                        BinaryOp::Add => Ok(Value::Float(a + b)),
-                        BinaryOp::Sub => Ok(Value::Float(a - b)),
-                        BinaryOp::Mul => Ok(Value::Float(a * b)),
-                        BinaryOp::Div => {
-                            if b == 0.0 {
-                                Err(ErrorCode::DivisionByZero.into())
-                            } else {
-                                Ok(Value::Float(a / b))
-                            }
-                        }
-                        _ => Err(SomoniError::internal("operator not supported for floats")),
-                    },
-                    (Value::Bool(_), Value::Bool(b)) => match op {
-                        BinaryOp::And | BinaryOp::Or => Ok(Value::Bool(b)),
-                        _ => Err(SomoniError::internal("operator not supported for bool")),
-                    },
-                    _ => Err(SomoniError::internal(
-                        "operator not supported for these types",
-                    )),
-                }
+        match (op, &l) {
+            (BinaryOp::And, Value::Bool(false)) => return Ok(Value::Bool(false)),
+            (BinaryOp::Or, Value::Bool(true)) => return Ok(Value::Bool(true)),
+            _ => {}
+        }
+
+        let r = self.eval(right)?;
+        if let Some(result) = compare(op, &l, &r) {
+            return Ok(Value::Bool(result));
+        }
+
+        match (l, r) {
+            (Value::Int(a), Value::Int(b)) => int_arithmetic(op, a, b),
+            (Value::Float(a), Value::Float(b)) => float_arithmetic(op, a, b),
+            (Value::Str(a), Value::Str(b)) if op == BinaryOp::Add => Ok(Value::Str(a + &b)),
+            (Value::Bool(_), Value::Bool(b)) if matches!(op, BinaryOp::And | BinaryOp::Or) => {
+                Ok(Value::Bool(b))
             }
+            _ => Err(SomoniError::internal(
+                "operator not supported for these values",
+            )),
         }
     }
 }
 
-fn compare(op: &BinaryOp, l: &Value, r: &Value) -> Option<bool> {
+fn unary(op: UnaryOp, value: Value) -> Result<Value, SomoniError> {
+    match (op, value) {
+        (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
+        (UnaryOp::Neg, Value::Int(n)) => int_or_overflow(n.checked_neg()),
+        (UnaryOp::Neg, Value::Float(f)) => Ok(Value::Float(-f)),
+        _ => Err(SomoniError::internal(
+            "operator not supported for this value",
+        )),
+    }
+}
+
+// + - * / % for int: overflow and division by zero are runtime errors, never silent
+fn int_arithmetic(op: BinaryOp, a: i64, b: i64) -> Result<Value, SomoniError> {
+    let result = match op {
+        BinaryOp::Div | BinaryOp::Mod if b == 0 => return Err(ErrorCode::DivisionByZero.into()),
+        BinaryOp::Add => a.checked_add(b),
+        BinaryOp::Sub => a.checked_sub(b),
+        BinaryOp::Mul => a.checked_mul(b),
+        BinaryOp::Div => a.checked_div(b),
+        BinaryOp::Mod => a.checked_rem(b),
+        _ => return Err(SomoniError::internal("operator not supported for int")),
+    };
+    int_or_overflow(result)
+}
+
+// checked_* gives None on overflow
+fn int_or_overflow(result: Option<i64>) -> Result<Value, SomoniError> {
+    result
+        .map(Value::Int)
+        .ok_or_else(|| ErrorCode::IntegerOverflow.into())
+}
+
+fn float_arithmetic(op: BinaryOp, a: f64, b: f64) -> Result<Value, SomoniError> {
+    let result = match op {
+        BinaryOp::Div if b == 0.0 => return Err(ErrorCode::DivisionByZero.into()),
+        BinaryOp::Add => a + b,
+        BinaryOp::Sub => a - b,
+        BinaryOp::Mul => a * b,
+        BinaryOp::Div => a / b,
+        _ => return Err(SomoniError::internal("operator not supported for float")),
+    };
+    Ok(Value::Float(result))
+}
+
+fn compare(op: BinaryOp, l: &Value, r: &Value) -> Option<bool> {
     match (op, l, r) {
         (BinaryOp::Eq, _, _) => Some(l == r),
         (BinaryOp::NotEq, _, _) => Some(l != r),
@@ -356,7 +354,7 @@ fn compare(op: &BinaryOp, l: &Value, r: &Value) -> Option<bool> {
     }
 }
 
-fn order<T: PartialOrd>(op: &BinaryOp, a: T, b: T) -> Option<bool> {
+fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
     match op {
         BinaryOp::Less => Some(a < b),
         BinaryOp::Greater => Some(a > b),
