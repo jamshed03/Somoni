@@ -40,10 +40,7 @@ impl Lexer {
         }
 
         // a '.' only belongs to the number if a digit follows
-        let next_is_digit = self
-            .chars
-            .get(self.pos + 1)
-            .map_or(false, |c| c.is_ascii_digit());
+        let next_is_digit = self.peek_next().is_some_and(|c| c.is_ascii_digit());
 
         if self.peek() == Some('.') && next_is_digit {
             text.push('.');
