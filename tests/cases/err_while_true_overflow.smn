@@ -1,0 +1,5 @@
+// while (true) runs until something stops it, here an integer overflow
+var x: int = 1;
+while (true) {
+    x = x * 2;
+}

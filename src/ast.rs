@@ -65,4 +65,10 @@ pub enum Stmt {
         else_branch: Option<Box<Stmt>>,
         line: usize,
     },
+    // body is always a Block, so every round starts with a fresh scope
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
+        line: usize,
+    },
 }

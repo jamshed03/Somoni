@@ -93,14 +93,7 @@ impl TypeChecker {
                 else_branch,
                 line,
             } => {
-                let ty = self.check_expr(condition, *line)?;
-                if ty != Type::Bool {
-                    return Err(format!(
-                        "Line {}: condition must be bool, got {}",
-                        line,
-                        ty.name()
-                    ));
-                }
+                self.check_condition(condition, *line)?;
                 // both branches are checked, even the one that will not run
                 self.check_stmt(then_branch)?;
                 if let Some(else_branch) = else_branch {
@@ -108,7 +101,29 @@ impl TypeChecker {
                 }
                 Ok(())
             }
+            Stmt::While {
+                condition,
+                body,
+                line,
+            } => {
+                self.check_condition(condition, *line)?;
+                // checked once, even if it runs many times (or never)
+                self.check_stmt(body)
+            }
         }
+    }
+
+    // conditions of if and while must be bool, `if (1)` is an error
+    fn check_condition(&self, condition: &Expr, line: usize) -> Result<(), String> {
+        let ty = self.check_expr(condition, line)?;
+        if ty != Type::Bool {
+            return Err(format!(
+                "Line {}: condition must be bool, got {}",
+                line,
+                ty.name()
+            ));
+        }
+        Ok(())
     }
 
     fn check_expr(&self, expr: &Expr, line: usize) -> Result<Type, String> {

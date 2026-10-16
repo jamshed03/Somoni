@@ -1,0 +1,4 @@
+while (false) {
+    var z: int = 1;
+}
+print(z);

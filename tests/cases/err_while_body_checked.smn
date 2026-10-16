@@ -1,0 +1,4 @@
+// the body never runs, but it is still type checked
+while (false) {
+    print(1 + true);
+}

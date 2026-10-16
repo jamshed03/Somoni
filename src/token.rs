@@ -7,6 +7,7 @@ pub enum Token {
     False,
     If,
     Else,
+    While,
 
     // Namen und Werte
     Ident(String),

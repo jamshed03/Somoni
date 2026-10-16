@@ -72,6 +72,7 @@ impl Parser {
             Token::Const => self.parse_var_decl(false, line),
             Token::LBrace => self.parse_block(line),
             Token::If => self.parse_if(line),
+            Token::While => self.parse_while(line),
             Token::Ident(name) if name == "print" => self.parse_print(line),
             Token::Ident(name) => self.parse_assign(name, line),
             other => Err(format!("Line {}: unexpected token {:?}", line, other)),
@@ -138,6 +139,20 @@ impl Parser {
             condition,
             then_branch: Box::new(then_branch),
             else_branch,
+            line,
+        })
+    }
+
+    // while (cond) { ... }
+    fn parse_while(&mut self, line: usize) -> Result<Stmt, String> {
+        self.advance(); // 'while'
+        self.expect(Token::LParen, "'(' after 'while'")?;
+        let condition = self.parse_expr()?;
+        self.expect(Token::RParen, "')' after while condition")?;
+        let body = self.expect_block("after while condition")?;
+        Ok(Stmt::While {
+            condition,
+            body: Box::new(body),
             line,
         })
     }

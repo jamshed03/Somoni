@@ -1,0 +1,49 @@
+// count 0..2
+var i: int = 0;
+while (i < 3) {
+    print(i);
+    i = i + 1;
+}
+print(i);
+
+// sum 1..100
+var sum: int = 0;
+var n: int = 1;
+while (n <= 100) {
+    sum = sum + n;
+    n = n + 1;
+}
+print(sum);
+
+// condition false at the start: the body runs 0 times
+while (false) {
+    print("never");
+}
+
+// a variable in the body is new in every round (no "already declared")
+var k: int = 0;
+while (k < 2) {
+    var square: int = k * k;
+    print(square);
+    k = k + 1;
+}
+
+// nested loops
+var a: int = 1;
+while (a <= 2) {
+    var b: int = 1;
+    while (b <= 2) {
+        print(a * 10 + b);
+        b = b + 1;
+    }
+    a = a + 1;
+}
+
+// if inside while: only even numbers
+var e: int = 0;
+while (e < 6) {
+    if (e % 2 == 0) {
+        print(e);
+    }
+    e = e + 1;
+}

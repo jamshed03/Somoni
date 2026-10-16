@@ -67,14 +67,32 @@ impl Interpreter {
                 then_branch,
                 else_branch,
                 ..
-            } => match self.eval(condition)? {
-                Value::Bool(true) => self.exec(then_branch),
-                Value::Bool(false) => match else_branch {
-                    Some(else_branch) => self.exec(else_branch),
-                    None => Ok(()),
-                },
-                _ => Err("Condition is not a bool".to_string()),
-            },
+            } => {
+                if self.eval_condition(condition)? {
+                    self.exec(then_branch)
+                } else if let Some(else_branch) = else_branch {
+                    self.exec(else_branch)
+                } else {
+                    Ok(())
+                }
+            }
+            Stmt::While {
+                condition, body, ..
+            } => {
+                // the condition is evaluated again before every round
+                while self.eval_condition(condition)? {
+                    self.exec(body)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    // the type checker made sure it is a bool
+    fn eval_condition(&self, condition: &Expr) -> Result<bool, String> {
+        match self.eval(condition)? {
+            Value::Bool(b) => Ok(b),
+            _ => Err("Condition is not a bool".to_string()),
         }
     }
 

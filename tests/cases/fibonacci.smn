@@ -1,0 +1,11 @@
+// the first 10 Fibonacci numbers
+var a: int = 0;
+var b: int = 1;
+var count: int = 0;
+while (count < 10) {
+    print(a);
+    var next: int = a + b;
+    a = b;
+    b = next;
+    count = count + 1;
+}
