@@ -1,0 +1,8 @@
+// same level is evaluated left to right: a - b - c == (a - b) - c
+print(10 - 4 - 3);      // (10 - 4) - 3 = 3, right to left would give 9
+print(10 - 2 + 3);      // (10 - 2) + 3 = 11, right to left would give 5
+print(100 / 10 / 5);    // (100 / 10) / 5 = 2, right to left would give 50
+print(50 % 20 % 7);     // (50 % 20) % 7 = 3, right to left would give 2
+print(2 * 3 % 4);       // (2 * 3) % 4 = 2
+print(1 == 1 == true);  // (1 == 1) == true, right to left would be a type error
+print(1 < 2 == 2 < 3);  // (1 < 2) == (2 < 3): comparison binds tighter than equality

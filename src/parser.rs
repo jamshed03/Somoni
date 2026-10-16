@@ -124,125 +124,73 @@ impl Parser {
         Ok(Stmt::Print { value, line })
     }
 
-    pub fn parse_expr(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_and()?;
+    fn parse_binary(
+        &mut self,
+        next: fn(&mut Self) -> Result<Expr, String>,
+        ops: &[(Token, BinaryOp)],
+    ) -> Result<Expr, String> {
+        let mut left = next(self)?;
 
-        while *self.peek() == Token::OrOr {
+        while let Some((_, op)) = ops.iter().find(|(token, _)| token == self.peek()) {
             self.advance();
-            let right = self.parse_and()?;
+            let right = next(self)?;
             left = Expr::Binary {
                 left: Box::new(left),
-                op: BinaryOp::Or,
+                op: op.clone(),
                 right: Box::new(right),
             };
         }
 
         Ok(left)
+    }
+
+
+    pub fn parse_expr(&mut self) -> Result<Expr, String> {
+        self.parse_binary(Self::parse_and, &[(Token::OrOr, BinaryOp::Or)])
     }
 
     fn parse_and(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_equality()?;
-
-        while *self.peek() == Token::AndAnd {
-            self.advance();
-            let right = self.parse_equality()?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op: BinaryOp::And,
-                right: Box::new(right),
-            };
-        }
-
-        Ok(left)
+        self.parse_binary(Self::parse_equality, &[(Token::AndAnd, BinaryOp::And)])
     }
 
-    // == and !=
     fn parse_equality(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_comparison()?;
-
-        loop {
-            let op = match self.peek() {
-                Token::EqualEqual => BinaryOp::Eq,
-                Token::BangEqual => BinaryOp::NotEq,
-                _ => break,
-            };
-            self.advance();
-            let right = self.parse_comparison()?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            };
-        }
-
-        Ok(left)
+        self.parse_binary(
+            Self::parse_comparison,
+            &[
+                (Token::EqualEqual, BinaryOp::Eq),
+                (Token::BangEqual, BinaryOp::NotEq),
+            ],
+        )
     }
 
-    // < > <= >=
     fn parse_comparison(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_additive()?;
-
-        loop {
-            let op = match self.peek() {
-                Token::Less => BinaryOp::Less,
-                Token::Greater => BinaryOp::Greater,
-                Token::LessEqual => BinaryOp::LessEq,
-                Token::GreaterEqual => BinaryOp::GreaterEq,
-                _ => break,
-            };
-            self.advance();
-            let right = self.parse_additive()?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            };
-        }
-
-        Ok(left)
+        self.parse_binary(
+            Self::parse_additive,
+            &[
+                (Token::Less, BinaryOp::Less),
+                (Token::Greater, BinaryOp::Greater),
+                (Token::LessEqual, BinaryOp::LessEq),
+                (Token::GreaterEqual, BinaryOp::GreaterEq),
+            ],
+        )
     }
 
     fn parse_additive(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_term()?;
-
-        loop {
-            let op = match self.peek() {
-                Token::Plus => BinaryOp::Add,
-                Token::Minus => BinaryOp::Sub,
-                _ => break,
-            };
-            self.advance();
-            let right = self.parse_term()?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            };
-        }
-
-        Ok(left)
+        self.parse_binary(
+            Self::parse_term,
+            &[(Token::Plus, BinaryOp::Add), (Token::Minus, BinaryOp::Sub)],
+        )
     }
 
     fn parse_term(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_unary()?;
-
-        loop {
-            let op = match self.peek() {
-                Token::Star => BinaryOp::Mul,
-                Token::Slash => BinaryOp::Div,
-                Token::Percent => BinaryOp::Mod,
-                _ => break,
-            };
-            self.advance();
-            let right = self.parse_unary()?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op,
-                right: Box::new(right),
-            };
-        }
-
-        Ok(left)
+        self.parse_binary(
+            Self::parse_unary,
+            &[
+                (Token::Star, BinaryOp::Mul),
+                (Token::Slash, BinaryOp::Div),
+                (Token::Percent, BinaryOp::Mod),
+            ],
+        )
     }
 
     fn parse_unary(&mut self) -> Result<Expr, String> {
