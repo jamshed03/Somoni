@@ -17,12 +17,13 @@ impl Parser {
     }
 
     fn current_line(&self) -> usize {
-        self.tokens[self.pos].line
+        self.tokens[self.pos].span.line
     }
 
+    // end_line: a string token can span several lines
     fn line_after_last_token(&self) -> usize {
         let index = self.pos.saturating_sub(1);
-        self.tokens[index].line
+        self.tokens[index].span.end_line
     }
 
     // "expected X": X is missing after the last token, so the error points to that line

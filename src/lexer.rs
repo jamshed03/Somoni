@@ -1,10 +1,13 @@
 use crate::error::{ErrorCode, SomoniError};
+use crate::span::Span;
 use crate::token::{SpannedToken, Token};
 
 pub struct Lexer {
     chars: Vec<char>,
     pos: usize,
     line: usize,
+    // position of the first character of the current line, for the column
+    line_start: usize,
 }
 
 impl Lexer {
@@ -13,6 +16,7 @@ impl Lexer {
             chars: input.chars().collect(),
             pos: 0,
             line: 1,
+            line_start: 0,
         }
     }
 
@@ -26,6 +30,27 @@ impl Lexer {
 
     fn advance(&mut self) {
         self.pos += 1;
+    }
+
+    // skip a '\n' and start the next line
+    fn newline(&mut self) {
+        self.advance();
+        self.line += 1;
+        self.line_start = self.pos;
+    }
+
+    fn col(&self) -> usize {
+        self.pos - self.line_start + 1
+    }
+
+    // from (line, col) up to the current position
+    fn span_from(&self, line: usize, col: usize) -> Span {
+        Span {
+            line,
+            col,
+            end_line: self.line,
+            end_col: self.col(),
+        }
     }
 
     fn read_number(&mut self) -> Result<Token, SomoniError> {
@@ -99,11 +124,12 @@ impl Lexer {
                 self.advance(); // closing "
                 return Ok(Token::Str(text));
             }
-            if c == '\n' {
-                self.line += 1;
-            }
             text.push(c);
-            self.advance();
+            if c == '\n' {
+                self.newline();
+            } else {
+                self.advance();
+            }
         }
         Err(SomoniError::at(start_line, ErrorCode::UnterminatedString))
     }
@@ -113,8 +139,7 @@ impl Lexer {
 
         while let Some(c) = self.peek() {
             if c == '\n' {
-                self.line += 1;
-                self.advance();
+                self.newline();
                 continue;
             }
 
@@ -152,10 +177,7 @@ impl Lexer {
                             self.advance(); // '/'
                             break;
                         }
-                        Some('\n') => {
-                            self.line += 1;
-                            self.advance();
-                        }
+                        Some('\n') => self.newline(),
                         Some(_) => self.advance(),
                     }
                 }
@@ -163,22 +185,32 @@ impl Lexer {
             }
 
             let line = self.line;
+            let col = self.col();
 
             if c.is_ascii_digit() {
                 let token = self.read_number()?;
-                tokens.push(SpannedToken { token, line });
+                tokens.push(SpannedToken {
+                    token,
+                    span: self.span_from(line, col),
+                });
                 continue;
             }
 
             if c.is_alphabetic() || c == '_' {
                 let token = self.read_word();
-                tokens.push(SpannedToken { token, line });
+                tokens.push(SpannedToken {
+                    token,
+                    span: self.span_from(line, col),
+                });
                 continue;
             }
 
             if c == '"' {
                 let token = self.read_string()?;
-                tokens.push(SpannedToken { token, line });
+                tokens.push(SpannedToken {
+                    token,
+                    span: self.span_from(line, col),
+                });
                 continue;
             }
 
@@ -211,16 +243,67 @@ impl Lexer {
                     ));
                 }
             };
-            tokens.push(SpannedToken { token, line });
             for _ in 0..len {
                 self.advance();
             }
+            tokens.push(SpannedToken {
+                token,
+                span: self.span_from(line, col),
+            });
         }
 
+        // Eof has no width: it sits right after the last character
         tokens.push(SpannedToken {
             token: Token::Eof,
-            line: self.line,
+            span: self.span_from(self.line, self.col()),
         });
         Ok(tokens)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // (line, col, end_line, end_col) of every token, Eof included
+    fn spans(source: &str) -> Vec<(usize, usize, usize, usize)> {
+        Lexer::new(source)
+            .tokenize()
+            .unwrap()
+            .iter()
+            .map(|t| (t.span.line, t.span.col, t.span.end_line, t.span.end_col))
+            .collect()
+    }
+
+    #[test]
+    fn columns_count_characters() {
+        // "ä" is one character (but two bytes in UTF-8)
+        assert_eq!(
+            spans("x == \"ä\";"),
+            vec![
+                (1, 1, 1, 2),
+                (1, 3, 1, 5),
+                (1, 6, 1, 9),
+                (1, 9, 1, 10),
+                (1, 10, 1, 10)
+            ]
+        );
+    }
+
+    #[test]
+    fn new_line_starts_at_column_one() {
+        // line 4 is " y */ c": the space counts, so `c` is in column 7
+        assert_eq!(
+            spans("a\n\tb // comment\n/* x\n y */ c"),
+            vec![(1, 1, 1, 2), (2, 2, 2, 3), (4, 7, 4, 8), (4, 8, 4, 8)]
+        );
+    }
+
+    #[test]
+    fn string_over_two_lines() {
+        assert_eq!(
+            spans("\"a\nb\" x"),
+            vec![(1, 1, 2, 3), (2, 4, 2, 5), (2, 5, 2, 5)]
+        );
     }
 }

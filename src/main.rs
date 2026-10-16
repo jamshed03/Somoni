@@ -4,6 +4,7 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod scope;
+mod span;
 mod token;
 mod typechecker;
 mod types;

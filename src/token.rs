@@ -1,3 +1,5 @@
+use crate::span::Span;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // Schlüsselwörter
@@ -49,5 +51,5 @@ pub enum Token {
 #[derive(Debug, PartialEq, Clone)]
 pub struct SpannedToken {
     pub token: Token,
-    pub line: usize,
+    pub span: Span,
 }
