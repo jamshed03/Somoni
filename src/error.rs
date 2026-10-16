@@ -94,6 +94,10 @@ pub enum ErrorCode {
     },
     DivisionByZero,
     IntegerOverflow,
+    InvalidConversion {
+        text: String,
+        target: Type,
+    },
 }
 
 impl ErrorCode {
@@ -129,6 +133,7 @@ impl ErrorCode {
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
             ErrorCode::IntegerOverflow => "R002",
+            ErrorCode::InvalidConversion { .. } => "R003",
         }
     }
 
@@ -160,9 +165,10 @@ impl ErrorCode {
             | ErrorCode::WrongArgCount { .. }
             | ErrorCode::WrongArgType { .. } => ErrorKind::Type,
 
-            ErrorCode::Internal { .. } | ErrorCode::DivisionByZero | ErrorCode::IntegerOverflow => {
-                ErrorKind::Runtime
-            }
+            ErrorCode::Internal { .. }
+            | ErrorCode::DivisionByZero
+            | ErrorCode::IntegerOverflow
+            | ErrorCode::InvalidConversion { .. } => ErrorKind::Runtime,
         }
     }
 
@@ -227,6 +233,9 @@ impl ErrorCode {
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),
             ErrorCode::IntegerOverflow => "integer overflow".to_string(),
+            ErrorCode::InvalidConversion { text, target } => {
+                format!("cannot convert '{}' to {}", text, target.name())
+            }
         }
     }
 }

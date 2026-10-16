@@ -49,6 +49,7 @@ Version 0.1.0, in progress:
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
 -   `while` and `for` loops with `break` and `continue`
+-   Built-in functions `print`, `int`, `float`, `string`, `len` (conversions are always explicit)
 -   Comments `//` and `/* */`
 
-Next: better error messages, built-in and own functions.
+Next: own functions (`fn`).

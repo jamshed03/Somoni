@@ -1,0 +1,3 @@
+Type error [T014]: Line 1: cannot use bool as argument of 'int'
+  1 | print(int(true));
+    |           ^^^^
