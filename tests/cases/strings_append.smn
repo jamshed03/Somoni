@@ -1,0 +1,29 @@
+// `s = s + text` appends to s directly; the result must be the same as before
+var s: string = "a";
+s = s + "b";
+print(s);
+s = s + s;                  // the right side reads s itself
+print(s);
+fn exclaim(t: string): string {
+    return t + "!";
+}
+s = s + exclaim("c");       // a function call on the right side
+print(s);
+s = "x" + s;                // not the append form, still correct
+print(s);
+
+// another variable with the same text must not change
+var copy: string = s;
+s = s + "z";
+print(copy);
+print(s);
+
+var n: int = 1;
+n = n + 2;                  // the same form with int
+print(n);
+
+var big: string = "";
+for (var i: int = 0; i < 1000; i = i + 1) {
+    big = big + "x";
+}
+print(len(big));

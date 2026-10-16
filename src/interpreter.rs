@@ -108,9 +108,13 @@ impl<'a> Interpreter<'a> {
 
     fn exec_stmt(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
         match stmt {
-            Stmt::VarDecl { value, slot, .. } | Stmt::Assign { value, slot, .. } => {
+            Stmt::VarDecl { value, slot, .. } => {
                 let v = self.eval(value)?;
                 self.set(*slot, v)?;
+                Ok(ControlFlow::Normal)
+            }
+            Stmt::Assign { value, slot, .. } => {
+                self.assign(*slot, value)?;
                 Ok(ControlFlow::Normal)
             }
             Stmt::Expr { expr, .. } => {
@@ -157,6 +161,23 @@ impl<'a> Interpreter<'a> {
             Stmt::Break { .. } => Ok(ControlFlow::Break),
             Stmt::Continue { .. } => Ok(ControlFlow::Continue),
         }
+    }
+
+    fn assign(&mut self, slot: Option<usize>, value: &Expr) -> Result<(), SomoniError> {
+        if let Some(slot) = slot
+            && let Some(text) = appended_text(slot, value)
+            && let Some(Value::Str(_)) = self.frame.get(slot)
+        {
+            let Value::Str(text) = self.eval(text)? else {
+                return Err(SomoniError::internal("string + non-string"));
+            };
+            if let Some(Value::Str(target)) = self.frame.get_mut(slot) {
+                target.push_str(&text);
+                return Ok(());
+            }
+        }
+        let v = self.eval(value)?;
+        self.set(slot, v)
     }
 
     // the value of a variable; the type checker filled in every slot
@@ -353,4 +374,25 @@ fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
         BinaryOp::GreaterEq => Some(a >= b),
         _ => None,
     }
+}
+
+// the `text` in `s = s + text`, if `value` has this form for the variable in `slot`
+fn appended_text(slot: usize, value: &Expr) -> Option<&Expr> {
+    let ExprKind::Binary {
+        left,
+        op: BinaryOp::Add,
+        right,
+        ..
+    } = &value.kind
+    else {
+        return None;
+    };
+    let ExprKind::Ident {
+        slot: Some(left_slot),
+        ..
+    } = left.kind
+    else {
+        return None;
+    };
+    (left_slot == slot).then_some(right)
 }
