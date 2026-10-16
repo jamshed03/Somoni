@@ -23,7 +23,7 @@ print(x % 3);
 
 Every test is a Somoni program with its expected output in `tests/cases/`:
 `name.smn` is the program, `name.out` is stdout followed by stderr.
-Programs that should fail start with `err_`.
+Programs that should fail start with `err_` and must exit with code 1, all others with 0.
 
 -   New features need new tests (one that works, one `err_` case per new error).
 -   If a change modifies an output on purpose, update the affected `.out` files and check them by hand.

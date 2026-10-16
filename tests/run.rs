@@ -46,6 +46,16 @@ fn smn_programs_match_expected_output() {
                 name, expected, actual
             ));
         }
+
+        let expected_code = if name.starts_with("err_") { 1 } else { 0 };
+        if output.status.code() != Some(expected_code) {
+            failures.push(format!(
+                "{}: exit code {:?}, expected {}",
+                name,
+                output.status.code(),
+                expected_code
+            ));
+        }
     }
 
     assert!(
