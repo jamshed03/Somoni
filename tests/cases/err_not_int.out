@@ -1,1 +1,3 @@
 Type error [T008]: Line 1: '!' needs bool, got int
+  1 | print(!5);
+    |       ^^

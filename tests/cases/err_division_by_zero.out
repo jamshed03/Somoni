@@ -1,2 +1,4 @@
 1
 Runtime error [R001]: Line 2: division by zero
+  2 | print(5 / 0);
+    |       ^^^^^

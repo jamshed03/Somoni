@@ -1,1 +1,3 @@
 Type error [T002]: Line 4: unknown variable 'inner'
+  4 | inner = 2;
+    | ^^^^^

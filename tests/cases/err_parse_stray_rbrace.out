@@ -1,1 +1,3 @@
 Parse error [P002]: Line 2: unexpected token RBrace
+  2 | }
+    | ^

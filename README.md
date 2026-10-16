@@ -31,7 +31,13 @@ Programs that should fail start with `err_` and must exit with code 1, all other
 ## How it works
 
 Pipeline: source text, lexer (tokens), parser (AST), type checker, interpreter.
-Type errors are reported with a line number before anything runs.
+Type errors are reported before anything runs. Every error has a code and points to the exact place:
+
+```
+Type error [T006]: Line 1: cannot use operator on int and bool
+  1 | var x: int = 1 + true;
+    |                ^
+```
 
 ## Status
 

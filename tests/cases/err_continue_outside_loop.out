@@ -1,1 +1,3 @@
 Type error [T011]: Line 2: 'continue' outside of a loop
+  2 |     continue;
+    |     ^^^^^^^^

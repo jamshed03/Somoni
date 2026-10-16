@@ -183,6 +183,40 @@ impl SomoniError {
         .into()
     }
 
+    pub fn render(&self, source: &str) -> String {
+        let header = self.to_string();
+        let Some(span) = self.span else {
+            return header;
+        };
+        let Some(text) = source.lines().nth(span.line - 1) else {
+            return header;
+        };
+
+        let end_col = if span.end_line == span.line {
+            span.end_col
+        } else {
+            text.chars().count() + 1
+        };
+        let width = end_col.saturating_sub(span.col).max(1);
+        let indent: String = text
+            .chars()
+            .take(span.col - 1)
+            .map(|c| if c == '\t' { '\t' } else { ' ' })
+            .collect();
+
+        let number = span.line.to_string();
+        let gutter = " ".repeat(number.len());
+        format!(
+            "{}\n  {} | {}\n  {} | {}{}",
+            header,
+            number,
+            text,
+            gutter,
+            indent,
+            "^".repeat(width)
+        )
+    }
+
     pub fn with_span_if_missing(mut self, span: Option<Span>) -> SomoniError {
         if self.span.is_none() {
             self.span = span;

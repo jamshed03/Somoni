@@ -1,1 +1,3 @@
 Parse error [P004]: Line 1: for loop start must be 'var', not 'const'
+  1 | for (const i: int = 0; i < 3; i = i + 1) {
+    |      ^^^^^

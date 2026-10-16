@@ -1,1 +1,3 @@
 Lex error [L002]: Line 1: unterminated string
+  1 | print("abc);
+    |       ^

@@ -1,1 +1,3 @@
 Runtime error [R001]: Line 1: division by zero
+  1 | print(5 % 0);
+    |       ^^^^^

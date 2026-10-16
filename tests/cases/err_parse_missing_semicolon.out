@@ -1,1 +1,3 @@
 Parse error [P001]: Line 1: expected ';'
+  1 | print(1)
+    |         ^

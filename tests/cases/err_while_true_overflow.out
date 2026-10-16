@@ -1,1 +1,3 @@
 Runtime error [R002]: Line 4: integer overflow
+  4 |     x = x * 2;
+    |         ^^^^^

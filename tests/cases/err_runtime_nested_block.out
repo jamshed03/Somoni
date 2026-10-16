@@ -1,1 +1,3 @@
 Runtime error [R001]: Line 5: division by zero
+  5 |             x = x / 0;
+    |                 ^^^^^

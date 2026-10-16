@@ -1,1 +1,3 @@
 Type error [T006]: Line 3: cannot use operator on int and bool
+  3 |     print(1 + true);
+    |             ^

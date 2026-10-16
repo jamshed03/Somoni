@@ -1,3 +1,5 @@
 9223372036854775806
 9223372036854775807
 Runtime error [R002]: Line 2: integer overflow
+  2 | for (var i: int = 9223372036854775806; i > 0; i = i + 1) {
+    |                                                   ^^^^^

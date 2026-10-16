@@ -1,1 +1,3 @@
 Type error [T002]: Line 4: unknown variable 'y'
+  4 | print(y);
+    |       ^

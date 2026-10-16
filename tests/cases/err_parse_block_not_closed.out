@@ -1,1 +1,3 @@
 Parse error [P003]: Line 2: block is not closed, expected '}'
+  2 | {
+    | ^

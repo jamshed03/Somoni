@@ -1,1 +1,3 @@
 Type error [T009]: Line 1: '-' needs int or float, got bool
+  1 | print(-true);
+    |       ^^^^^

@@ -1,1 +1,3 @@
 Type error [T004]: Line 4: 'a' is already declared in this block
+  4 |     var a: string = "no";
+    |         ^

@@ -35,13 +35,11 @@ fn main() {
     };
 
     if let Err(error) = run(&source) {
-        eprintln!("{}", error);
+        eprintln!("{}", error.render(&source));
         process::exit(1);
     }
 }
 
-// The pipeline: every station gets the output of the one before.
-// `?` stops at the first error, later stations do not run.
 fn run(source: &str) -> Result<(), SomoniError> {
     let tokens = Lexer::new(source).tokenize()?;
     let stmts = Parser::new(tokens).parse_program()?;
