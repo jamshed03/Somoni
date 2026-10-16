@@ -1,3 +1,4 @@
+use crate::error::SomoniError;
 use crate::token::{SpannedToken, Token};
 
 pub struct Lexer {
@@ -27,7 +28,7 @@ impl Lexer {
         self.pos += 1;
     }
 
-    fn read_number(&mut self) -> Result<Token, String> {
+    fn read_number(&mut self) -> Result<Token, SomoniError> {
         let line = self.line;
         let mut text = String::new();
         while let Some(c) = self.peek() {
@@ -56,12 +57,12 @@ impl Lexer {
             return text
                 .parse::<f64>()
                 .map(Token::Float)
-                .map_err(|_| format!("Line {}: invalid float '{}'", line, text));
+                .map_err(|_| SomoniError::lex(line, format!("invalid float '{}'", text)));
         }
 
         text.parse::<i64>()
             .map(Token::Int)
-            .map_err(|_| format!("Line {}: integer too large '{}'", line, text))
+            .map_err(|_| SomoniError::lex(line, format!("integer too large '{}'", text)))
     }
 
     fn read_word(&mut self) -> Token {
@@ -89,7 +90,7 @@ impl Lexer {
         }
     }
 
-    fn read_string(&mut self) -> Result<Token, String> {
+    fn read_string(&mut self) -> Result<Token, SomoniError> {
         let start_line = self.line;
         self.advance(); // opening "
         let mut text = String::new();
@@ -104,10 +105,10 @@ impl Lexer {
             text.push(c);
             self.advance();
         }
-        Err(format!("Line {}: unterminated string", start_line))
+        Err(SomoniError::lex(start_line, "unterminated string"))
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, String> {
+    pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
         let mut tokens = Vec::new();
 
         while let Some(c) = self.peek() {
@@ -141,7 +142,7 @@ impl Lexer {
                 loop {
                     match self.peek() {
                         None => {
-                            return Err(format!("Line {}: unterminated comment", start_line));
+                            return Err(SomoniError::lex(start_line, "unterminated comment"));
                         }
                         Some('*') if self.peek_next() == Some('/') => {
                             self.advance(); // '*'
@@ -200,7 +201,12 @@ impl Lexer {
                 '>' => (Token::Greater, 1),
                 '&' if self.peek_next() == Some('&') => (Token::AndAnd, 2),
                 '|' if self.peek_next() == Some('|') => (Token::OrOr, 2),
-                _ => return Err(format!("Line {}: unexpected character '{}'", line, c)),
+                _ => {
+                    return Err(SomoniError::lex(
+                        line,
+                        format!("unexpected character '{}'", c),
+                    ));
+                }
             };
             tokens.push(SpannedToken { token, line });
             for _ in 0..len {

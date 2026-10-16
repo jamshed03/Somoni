@@ -1,4 +1,5 @@
 use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::error::SomoniError;
 use crate::scope::Scopes;
 use crate::types::Type;
 
@@ -20,14 +21,14 @@ impl TypeChecker {
         }
     }
 
-    pub fn check(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub fn check(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for stmt in stmts {
             self.check_stmt(stmt)?;
         }
         Ok(())
     }
 
-    fn check_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
+    fn check_stmt(&mut self, stmt: &Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl {
                 name,
@@ -36,15 +37,15 @@ impl TypeChecker {
                 mutable,
                 line,
             } => {
-                let declared = Type::from_name(type_name)
-                    .ok_or(format!("Line {}: unknown type '{}'", line, type_name))?;
+                let declared = Type::from_name(type_name).ok_or(SomoniError::type_error(
+                    *line,
+                    format!("unknown type '{}'", type_name),
+                ))?;
                 let actual = self.check_expr(value, *line)?;
                 if declared != actual {
-                    return Err(format!(
-                        "Line {}: cannot assign {} to {}",
-                        line,
-                        actual.name(),
-                        declared.name()
+                    return Err(SomoniError::type_error(
+                        *line,
+                        format!("cannot assign {} to {}", actual.name(), declared.name()),
                     ));
                 }
                 let info = VarInfo {
@@ -52,9 +53,9 @@ impl TypeChecker {
                     mutable: *mutable,
                 };
                 if !self.scopes.declare(name, info) {
-                    return Err(format!(
-                        "Line {}: '{}' is already declared in this block",
-                        line, name
+                    return Err(SomoniError::type_error(
+                        *line,
+                        format!("'{}' is already declared in this block", name),
                     ));
                 }
                 Ok(())
@@ -64,21 +65,22 @@ impl TypeChecker {
                 Ok(())
             }
             Stmt::Assign { name, value, line } => {
-                let info = self
-                    .scopes
-                    .lookup(name)
-                    .ok_or(format!("Line {}: unknown variable '{}'", line, name))?;
+                let info = self.scopes.lookup(name).ok_or(SomoniError::type_error(
+                    *line,
+                    format!("unknown variable '{}'", name),
+                ))?;
                 if !info.mutable {
-                    return Err(format!("Line {}: cannot assign to const '{}'", line, name));
+                    return Err(SomoniError::type_error(
+                        *line,
+                        format!("cannot assign to const '{}'", name),
+                    ));
                 }
                 let expected = info.ty;
                 let actual = self.check_expr(value, *line)?;
                 if expected != actual {
-                    return Err(format!(
-                        "Line {}: cannot assign {} to {}",
-                        line,
-                        actual.name(),
-                        expected.name()
+                    return Err(SomoniError::type_error(
+                        *line,
+                        format!("cannot assign {} to {}", actual.name(), expected.name()),
                     ));
                 }
                 Ok(())
@@ -137,60 +139,64 @@ impl TypeChecker {
         step: &Stmt,
         body: &Stmt,
         line: usize,
-    ) -> Result<(), String> {
+    ) -> Result<(), SomoniError> {
         self.check_stmt(init)?;
         self.check_condition(condition, line)?;
         self.check_stmt(step)?;
         self.check_loop_body(body)
     }
 
-    fn check_loop_body(&mut self, body: &Stmt) -> Result<(), String> {
+    fn check_loop_body(&mut self, body: &Stmt) -> Result<(), SomoniError> {
         self.loop_depth += 1;
         let result = self.check_stmt(body);
         self.loop_depth -= 1;
         result
     }
 
-    fn check_inside_loop(&self, keyword: &str, line: usize) -> Result<(), String> {
+    fn check_inside_loop(&self, keyword: &str, line: usize) -> Result<(), SomoniError> {
         if self.loop_depth == 0 {
-            return Err(format!("Line {}: '{}' outside of a loop", line, keyword));
-        }
-        Ok(())
-    }
-
-    // conditions of if and while must be bool, `if (1)` is an error
-    fn check_condition(&self, condition: &Expr, line: usize) -> Result<(), String> {
-        let ty = self.check_expr(condition, line)?;
-        if ty != Type::Bool {
-            return Err(format!(
-                "Line {}: condition must be bool, got {}",
+            return Err(SomoniError::type_error(
                 line,
-                ty.name()
+                format!("'{}' outside of a loop", keyword),
             ));
         }
         Ok(())
     }
 
-    fn check_expr(&self, expr: &Expr, line: usize) -> Result<Type, String> {
+    // conditions of if and while must be bool, `if (1)` is an error
+    fn check_condition(&self, condition: &Expr, line: usize) -> Result<(), SomoniError> {
+        let ty = self.check_expr(condition, line)?;
+        if ty != Type::Bool {
+            return Err(SomoniError::type_error(
+                line,
+                format!("condition must be bool, got {}", ty.name()),
+            ));
+        }
+        Ok(())
+    }
+
+    fn check_expr(&self, expr: &Expr, line: usize) -> Result<Type, SomoniError> {
         match expr {
             Expr::Int(_) => Ok(Type::Int),
             Expr::Float(_) => Ok(Type::Float),
             Expr::Bool(_) => Ok(Type::Bool),
             Expr::Str(_) => Ok(Type::Str),
-            Expr::Ident(name) => self
-                .scopes
-                .lookup(name)
-                .map(|info| info.ty)
-                .ok_or(format!("Line {}: unknown variable '{}'", line, name)),
+            Expr::Ident(name) => {
+                self.scopes
+                    .lookup(name)
+                    .map(|info| info.ty)
+                    .ok_or(SomoniError::type_error(
+                        line,
+                        format!("unknown variable '{}'", name),
+                    ))
+            }
             Expr::Binary { left, op, right } => {
                 let l = self.check_expr(left, line)?;
                 let r = self.check_expr(right, line)?;
                 if l != r {
-                    return Err(format!(
-                        "Line {}: cannot use operator on {} and {}",
+                    return Err(SomoniError::type_error(
                         line,
-                        l.name(),
-                        r.name()
+                        format!("cannot use operator on {} and {}", l.name(), r.name()),
                     ));
                 }
                 match (l, op) {
@@ -206,10 +212,9 @@ impl TypeChecker {
                     ) => Ok(l),
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
                     (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
-                    _ => Err(format!(
-                        "Line {}: operator not allowed for {}",
+                    _ => Err(SomoniError::type_error(
                         line,
-                        l.name()
+                        format!("operator not allowed for {}", l.name()),
                     )),
                 }
             }
@@ -217,14 +222,14 @@ impl TypeChecker {
                 let t = self.check_expr(operand, line)?;
                 match (op, t) {
                     (UnaryOp::Not, Type::Bool) => Ok(Type::Bool),
-                    (UnaryOp::Not, _) => {
-                        Err(format!("Line {}: '!' needs bool, got {}", line, t.name()))
-                    }
-                    (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
-                    (UnaryOp::Neg, _) => Err(format!(
-                        "Line {}: '-' needs int or float, got {}",
+                    (UnaryOp::Not, _) => Err(SomoniError::type_error(
                         line,
-                        t.name()
+                        format!("'!' needs bool, got {}", t.name()),
+                    )),
+                    (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
+                    (UnaryOp::Neg, _) => Err(SomoniError::type_error(
+                        line,
+                        format!("'-' needs int or float, got {}", t.name()),
                     )),
                 }
             }

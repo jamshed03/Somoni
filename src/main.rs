@@ -1,4 +1,5 @@
 mod ast;
+mod error;
 mod interpreter;
 mod lexer;
 mod parser;
@@ -11,10 +12,10 @@ use std::env;
 use std::fs;
 use std::process;
 
+use error::SomoniError;
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
-
 use typechecker::TypeChecker;
 
 fn main() {
@@ -32,29 +33,17 @@ fn main() {
         }
     };
 
-    let tokens = match Lexer::new(&source).tokenize() {
-        Ok(tokens) => tokens,
-        Err(msg) => {
-            eprintln!("Lex error: {}", msg);
-            process::exit(1);
-        }
-    };
-
-    let stmts = match Parser::new(tokens).parse_program() {
-        Ok(stmts) => stmts,
-        Err(msg) => {
-            eprintln!("Parse error: {}", msg);
-            process::exit(1);
-        }
-    };
-
-    if let Err(msg) = TypeChecker::new().check(&stmts) {
-        eprintln!("Type error: {}", msg);
+    if let Err(error) = run(&source) {
+        eprintln!("{}", error);
         process::exit(1);
     }
+}
 
-    if let Err(msg) = Interpreter::new().run(&stmts) {
-        eprintln!("Runtime error: {}", msg);
-        process::exit(1);
-    }
+// The pipeline: every station gets the output of the one before.
+// `?` stops at the first error, later stations do not run.
+fn run(source: &str) -> Result<(), SomoniError> {
+    let tokens = Lexer::new(source).tokenize()?;
+    let stmts = Parser::new(tokens).parse_program()?;
+    TypeChecker::new().check(&stmts)?;
+    Interpreter::new().run(&stmts)
 }

@@ -1,4 +1,5 @@
 use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::error::SomoniError;
 use crate::scope::Scopes;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -27,12 +28,12 @@ impl Interpreter {
         }
     }
 
-    pub fn run(&mut self, stmts: &[Stmt]) -> Result<(), String> {
+    pub fn run(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         self.exec_all(stmts)?;
         Ok(())
     }
 
-    fn exec_all(&mut self, stmts: &[Stmt]) -> Result<ControlFlow, String> {
+    fn exec_all(&mut self, stmts: &[Stmt]) -> Result<ControlFlow, SomoniError> {
         for stmt in stmts {
             let flow = self.exec(stmt)?;
             if flow != ControlFlow::Normal {
@@ -42,7 +43,7 @@ impl Interpreter {
         Ok(ControlFlow::Normal)
     }
 
-    fn exec(&mut self, stmt: &Stmt) -> Result<ControlFlow, String> {
+    fn exec(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
         match stmt {
             Stmt::VarDecl { name, value, .. } => {
                 let v = self.eval(value)?;
@@ -68,7 +69,7 @@ impl Interpreter {
                         *slot = v;
                         Ok(ControlFlow::Normal)
                     }
-                    None => Err(format!("Unknown variable '{}'", name)),
+                    None => Err(SomoniError::runtime(format!("Unknown variable '{}'", name))),
                 }
             }
             Stmt::Block(stmts) => {
@@ -118,7 +119,7 @@ impl Interpreter {
         condition: &Expr,
         step: &Stmt,
         body: &Stmt,
-    ) -> Result<ControlFlow, String> {
+    ) -> Result<ControlFlow, SomoniError> {
         self.exec(init)?;
         self.run_loop(condition, body, Some(step))
     }
@@ -130,7 +131,7 @@ impl Interpreter {
         condition: &Expr,
         body: &Stmt,
         step: Option<&Stmt>,
-    ) -> Result<ControlFlow, String> {
+    ) -> Result<ControlFlow, SomoniError> {
         while self.eval_condition(condition)? {
             match self.exec(body)? {
                 ControlFlow::Break => break,
@@ -144,14 +145,14 @@ impl Interpreter {
     }
 
     // the type checker made sure it is a bool
-    fn eval_condition(&self, condition: &Expr) -> Result<bool, String> {
+    fn eval_condition(&self, condition: &Expr) -> Result<bool, SomoniError> {
         match self.eval(condition)? {
             Value::Bool(b) => Ok(b),
-            _ => Err("Condition is not a bool".to_string()),
+            _ => Err(SomoniError::runtime("Condition is not a bool")),
         }
     }
 
-    fn eval(&self, expr: &Expr) -> Result<Value, String> {
+    fn eval(&self, expr: &Expr) -> Result<Value, SomoniError> {
         match expr {
             Expr::Int(n) => Ok(Value::Int(*n)),
             Expr::Float(f) => Ok(Value::Float(*f)),
@@ -159,16 +160,16 @@ impl Interpreter {
             Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Ident(name) => match self.scopes.lookup(name) {
                 Some(value) => Ok(value.clone()),
-                None => Err(format!("Unknown variable '{}'", name)),
+                None => Err(SomoniError::runtime(format!("Unknown variable '{}'", name))),
             },
             Expr::Unary { op, operand } => match (op, self.eval(operand)?) {
                 (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
                 (UnaryOp::Neg, Value::Int(n)) => n
                     .checked_neg()
                     .map(Value::Int)
-                    .ok_or("Integer overflow".to_string()),
+                    .ok_or(SomoniError::runtime("Integer overflow")),
                 (UnaryOp::Neg, Value::Float(f)) => Ok(Value::Float(-f)),
-                _ => Err("Operator not supported for this type".to_string()),
+                _ => Err(SomoniError::runtime("Operator not supported for this type")),
             },
             Expr::Binary { left, op, right } => {
                 let l = self.eval(left)?;
@@ -189,51 +190,53 @@ impl Interpreter {
                         BinaryOp::Add => a
                             .checked_add(b)
                             .map(Value::Int)
-                            .ok_or("Integer overflow".to_string()),
+                            .ok_or(SomoniError::runtime("Integer overflow")),
                         BinaryOp::Sub => a
                             .checked_sub(b)
                             .map(Value::Int)
-                            .ok_or("Integer overflow".to_string()),
+                            .ok_or(SomoniError::runtime("Integer overflow")),
                         BinaryOp::Mul => a
                             .checked_mul(b)
                             .map(Value::Int)
-                            .ok_or("Integer overflow".to_string()),
+                            .ok_or(SomoniError::runtime("Integer overflow")),
                         BinaryOp::Div => {
                             if b == 0 {
-                                Err("Division by zero".to_string())
+                                Err(SomoniError::runtime("Division by zero"))
                             } else {
                                 a.checked_div(b)
                                     .map(Value::Int)
-                                    .ok_or("Integer overflow".to_string())
+                                    .ok_or(SomoniError::runtime("Integer overflow"))
                             }
                         }
                         BinaryOp::Mod => {
                             if b == 0 {
-                                Err("Division by zero".to_string())
+                                Err(SomoniError::runtime("Division by zero"))
                             } else {
                                 a.checked_rem(b)
                                     .map(Value::Int)
-                                    .ok_or("Integer overflow".to_string())
+                                    .ok_or(SomoniError::runtime("Integer overflow"))
                             }
                         }
-                        _ => Err("Operator not supported for integers".to_string()),
+                        _ => Err(SomoniError::runtime("Operator not supported for integers")),
                     },
                     (Value::Str(a), Value::Str(b)) => match op {
                         BinaryOp::Add => Ok(Value::Str(a + &b)),
-                        _ => Err("Operator not supported for strings".to_string()),
+                        _ => Err(SomoniError::runtime("Operator not supported for strings")),
                     },
                     (Value::Float(a), Value::Float(b)) => match op {
                         BinaryOp::Add => Ok(Value::Float(a + b)),
                         BinaryOp::Sub => Ok(Value::Float(a - b)),
                         BinaryOp::Mul => Ok(Value::Float(a * b)),
                         BinaryOp::Div => Ok(Value::Float(a / b)),
-                        _ => Err("Operator not supported for floats".to_string()),
+                        _ => Err(SomoniError::runtime("Operator not supported for floats")),
                     },
                     (Value::Bool(_), Value::Bool(b)) => match op {
                         BinaryOp::And | BinaryOp::Or => Ok(Value::Bool(b)),
-                        _ => Err("Operator not supported for bool".to_string()),
+                        _ => Err(SomoniError::runtime("Operator not supported for bool")),
                     },
-                    _ => Err("Operator not supported for these types".to_string()),
+                    _ => Err(SomoniError::runtime(
+                        "Operator not supported for these types",
+                    )),
                 }
             }
         }
