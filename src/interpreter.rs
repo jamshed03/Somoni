@@ -93,19 +93,54 @@ impl Interpreter {
             }
             Stmt::While {
                 condition, body, ..
+            } => self.run_loop(condition, body, None),
+            Stmt::For {
+                init,
+                condition,
+                step,
+                body,
+                ..
             } => {
-                // the condition is evaluated again before every round
-                while self.eval_condition(condition)? {
-                    match self.exec(body)? {
-                        ControlFlow::Break => break,
-                        ControlFlow::Continue | ControlFlow::Normal => {}
-                    }
-                }
-                Ok(ControlFlow::Normal)
+                // the counter lives in its own scope around the whole loop, gone afterwards
+                self.scopes.push();
+                let result = self.run_for(init, condition, step, body);
+                self.scopes.pop();
+                result
             }
             Stmt::Break { .. } => Ok(ControlFlow::Break),
             Stmt::Continue { .. } => Ok(ControlFlow::Continue),
         }
+    }
+
+    fn run_for(
+        &mut self,
+        init: &Stmt,
+        condition: &Expr,
+        step: &Stmt,
+        body: &Stmt,
+    ) -> Result<ControlFlow, String> {
+        self.exec(init)?;
+        self.run_loop(condition, body, Some(step))
+    }
+
+    // Shared by while and for. The condition is evaluated again before every round.
+    // `step` (only for `for`) runs after every round, also after `continue`.
+    fn run_loop(
+        &mut self,
+        condition: &Expr,
+        body: &Stmt,
+        step: Option<&Stmt>,
+    ) -> Result<ControlFlow, String> {
+        while self.eval_condition(condition)? {
+            match self.exec(body)? {
+                ControlFlow::Break => break,
+                ControlFlow::Continue | ControlFlow::Normal => {}
+            }
+            if let Some(step) = step {
+                self.exec(step)?;
+            }
+        }
+        Ok(ControlFlow::Normal)
     }
 
     // the type checker made sure it is a bool

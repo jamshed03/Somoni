@@ -71,6 +71,14 @@ pub enum Stmt {
         body: Box<Stmt>,
         line: usize,
     },
+    // for (init; condition; step) body – init is a VarDecl, step an Assign, body a Block
+    For {
+        init: Box<Stmt>,
+        condition: Expr,
+        step: Box<Stmt>,
+        body: Box<Stmt>,
+        line: usize,
+    },
     Break {
         line: usize,
     },

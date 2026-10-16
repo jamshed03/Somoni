@@ -73,6 +73,7 @@ impl Parser {
             Token::LBrace => self.parse_block(line),
             Token::If => self.parse_if(line),
             Token::While => self.parse_while(line),
+            Token::For => self.parse_for(line),
             Token::Break => {
                 self.advance(); // 'break'
                 self.expect(Token::Semicolon, "';' after 'break'")?;
@@ -167,11 +168,65 @@ impl Parser {
         })
     }
 
+    // for (var i: int = 0; i < 10; i = i + 1) { ... }
+    fn parse_for(&mut self, line: usize) -> Result<Stmt, String> {
+        self.advance(); // 'for'
+        self.expect(Token::LParen, "'(' after 'for'")?;
+
+        // start: always a new var, parse_var_decl also reads the ';'
+        let init = match self.peek() {
+            Token::Var => self.parse_var_decl(true, self.current_line())?,
+            Token::Const => {
+                return Err(format!(
+                    "Line {}: for loop start must be 'var', not 'const'",
+                    self.current_line()
+                ));
+            }
+            _ => {
+                return Err(format!(
+                    "Line {}: expected 'var' after 'for ('",
+                    self.line_after_last_token()
+                ));
+            }
+        };
+
+        let condition = self.parse_expr()?;
+        self.expect(Token::Semicolon, "';' after for condition")?;
+
+        // step: an assignment without ';'
+        let step = match self.peek().clone() {
+            Token::Ident(name) => self.parse_assignment(name, self.current_line())?,
+            _ => {
+                return Err(format!(
+                    "Line {}: expected assignment as for step",
+                    self.current_line()
+                ));
+            }
+        };
+        self.expect(Token::RParen, "')' after for step")?;
+
+        let body = self.expect_block("after for header")?;
+        Ok(Stmt::For {
+            init: Box::new(init),
+            condition,
+            step: Box::new(step),
+            body: Box::new(body),
+            line,
+        })
+    }
+
+    // x = value;
     fn parse_assign(&mut self, name: String, line: usize) -> Result<Stmt, String> {
+        let assign = self.parse_assignment(name, line)?;
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(assign)
+    }
+
+    // x = value (without ';', also used as the step of a for loop)
+    fn parse_assignment(&mut self, name: String, line: usize) -> Result<Stmt, String> {
         self.advance(); // name
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
-        self.expect(Token::Semicolon, "';'")?;
         Ok(Stmt::Assign { name, value, line })
     }
 

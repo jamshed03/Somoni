@@ -112,9 +112,36 @@ impl TypeChecker {
                 // checked once, even if it runs many times (or never)
                 self.check_loop_body(body)
             }
+            Stmt::For {
+                init,
+                condition,
+                step,
+                body,
+                line,
+            } => {
+                // the counter lives in its own scope around the whole loop, gone afterwards
+                self.scopes.push();
+                let result = self.check_for(init, condition, step, body, *line);
+                self.scopes.pop();
+                result
+            }
             Stmt::Break { line } => self.check_inside_loop("break", *line),
             Stmt::Continue { line } => self.check_inside_loop("continue", *line),
         }
+    }
+
+    fn check_for(
+        &mut self,
+        init: &Stmt,
+        condition: &Expr,
+        step: &Stmt,
+        body: &Stmt,
+        line: usize,
+    ) -> Result<(), String> {
+        self.check_stmt(init)?;
+        self.check_condition(condition, line)?;
+        self.check_stmt(step)?;
+        self.check_loop_body(body)
     }
 
     fn check_loop_body(&mut self, body: &Stmt) -> Result<(), String> {
