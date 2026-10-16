@@ -266,7 +266,13 @@ impl Interpreter {
                         BinaryOp::Add => Ok(Value::Float(a + b)),
                         BinaryOp::Sub => Ok(Value::Float(a - b)),
                         BinaryOp::Mul => Ok(Value::Float(a * b)),
-                        BinaryOp::Div => Ok(Value::Float(a / b)),
+                        BinaryOp::Div => {
+                            if b == 0.0 {
+                                Err(ErrorCode::DivisionByZero.into())
+                            } else {
+                                Ok(Value::Float(a / b))
+                            }
+                        }
                         _ => Err(SomoniError::internal("operator not supported for floats")),
                     },
                     (Value::Bool(_), Value::Bool(b)) => match op {
