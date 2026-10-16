@@ -1,5 +1,13 @@
+use crate::span::Span;
+
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub struct Expr {
+    pub kind: ExprKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExprKind {
     Int(i64),
     Float(f64),
     Str(String),
@@ -7,6 +15,7 @@ pub enum Expr {
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
+        op_span: Span,
         right: Box<Expr>,
     },
     Unary {
@@ -39,23 +48,28 @@ pub enum UnaryOp {
     Neg,
 }
 
+// `span` of a statement: from its first token to its ';' (for if, while, for, break,
+// continue only the keyword). Names and types have their own span for precise errors.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     VarDecl {
         name: String,
+        name_span: Span,
         type_name: String,
+        type_span: Span,
         value: Expr,
         mutable: bool,
-        line: usize,
+        span: Span,
     },
     Print {
         value: Expr,
-        line: usize,
+        span: Span,
     },
     Assign {
         name: String,
+        name_span: Span,
         value: Expr,
-        line: usize,
+        span: Span,
     },
     Block(Vec<Stmt>),
     // then_branch is always a Block; else_branch is a Block or another If (for `else if`)
@@ -63,13 +77,13 @@ pub enum Stmt {
         condition: Expr,
         then_branch: Box<Stmt>,
         else_branch: Option<Box<Stmt>>,
-        line: usize,
+        span: Span,
     },
     // body is always a Block, so every round starts with a fresh scope
     While {
         condition: Expr,
         body: Box<Stmt>,
-        line: usize,
+        span: Span,
     },
     // for (init; condition; step) body – init is a VarDecl, step an Assign, body a Block
     For {
@@ -77,27 +91,27 @@ pub enum Stmt {
         condition: Expr,
         step: Box<Stmt>,
         body: Box<Stmt>,
-        line: usize,
+        span: Span,
     },
     Break {
-        line: usize,
+        span: Span,
     },
     Continue {
-        line: usize,
+        span: Span,
     },
 }
 
 impl Stmt {
-    pub fn line(&self) -> Option<usize> {
+    pub fn span(&self) -> Option<Span> {
         match self {
-            Stmt::VarDecl { line, .. }
-            | Stmt::Print { line, .. }
-            | Stmt::Assign { line, .. }
-            | Stmt::If { line, .. }
-            | Stmt::While { line, .. }
-            | Stmt::For { line, .. }
-            | Stmt::Break { line }
-            | Stmt::Continue { line } => Some(*line),
+            Stmt::VarDecl { span, .. }
+            | Stmt::Print { span, .. }
+            | Stmt::Assign { span, .. }
+            | Stmt::If { span, .. }
+            | Stmt::While { span, .. }
+            | Stmt::For { span, .. }
+            | Stmt::Break { span }
+            | Stmt::Continue { span } => Some(*span),
             Stmt::Block(_) => None,
         }
     }

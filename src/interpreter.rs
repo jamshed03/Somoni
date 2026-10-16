@@ -1,4 +1,4 @@
-use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
 
@@ -45,7 +45,7 @@ impl Interpreter {
 
     fn exec(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
         self.exec_stmt(stmt)
-            .map_err(|error| error.with_line_if_missing(stmt.line()))
+            .map_err(|error| error.with_span_if_missing(stmt.span()))
     }
 
     fn exec_stmt(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
@@ -159,20 +159,26 @@ impl Interpreter {
         }
     }
 
+    // a runtime error without a place gets the place of this expression; the innermost wins
     fn eval(&self, expr: &Expr) -> Result<Value, SomoniError> {
-        match expr {
-            Expr::Int(n) => Ok(Value::Int(*n)),
-            Expr::Float(f) => Ok(Value::Float(*f)),
-            Expr::Str(s) => Ok(Value::Str(s.clone())),
-            Expr::Bool(b) => Ok(Value::Bool(*b)),
-            Expr::Ident(name) => match self.scopes.lookup(name) {
+        self.eval_kind(&expr.kind)
+            .map_err(|error| error.with_span_if_missing(Some(expr.span)))
+    }
+
+    fn eval_kind(&self, kind: &ExprKind) -> Result<Value, SomoniError> {
+        match kind {
+            ExprKind::Int(n) => Ok(Value::Int(*n)),
+            ExprKind::Float(f) => Ok(Value::Float(*f)),
+            ExprKind::Str(s) => Ok(Value::Str(s.clone())),
+            ExprKind::Bool(b) => Ok(Value::Bool(*b)),
+            ExprKind::Ident(name) => match self.scopes.lookup(name) {
                 Some(value) => Ok(value.clone()),
                 None => Err(SomoniError::internal(format!(
                     "unknown variable '{}'",
                     name
                 ))),
             },
-            Expr::Unary { op, operand } => match (op, self.eval(operand)?) {
+            ExprKind::Unary { op, operand } => match (op, self.eval(operand)?) {
                 (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
                 (UnaryOp::Neg, Value::Int(n)) => n
                     .checked_neg()
@@ -183,7 +189,9 @@ impl Interpreter {
                     "operator not supported for this type",
                 )),
             },
-            Expr::Binary { left, op, right } => {
+            ExprKind::Binary {
+                left, op, right, ..
+            } => {
                 let l = self.eval(left)?;
 
                 match (op, &l) {

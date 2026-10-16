@@ -1,5 +1,6 @@
-use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
+use crate::span::Span;
 use crate::token::{SpannedToken, Token};
 
 pub struct Parser {
@@ -16,20 +17,21 @@ impl Parser {
         &self.tokens[self.pos].token
     }
 
-    fn current_line(&self) -> usize {
-        self.tokens[self.pos].span.line
+    fn current_span(&self) -> Span {
+        self.tokens[self.pos].span
     }
 
-    // end_line: a string token can span several lines
-    fn line_after_last_token(&self) -> usize {
-        let index = self.pos.saturating_sub(1);
-        self.tokens[index].span.end_line
+    fn last_span(&self) -> Span {
+        self.tokens[self.pos.saturating_sub(1)].span
     }
 
-    // "expected X": X is missing after the last token, so the error points to that line
+    fn since(&self, start: Span) -> Span {
+        start.to(self.last_span())
+    }
+
     fn expected(&self, what: impl Into<String>) -> SomoniError {
         SomoniError::at(
-            self.line_after_last_token(),
+            self.last_span().after(),
             ErrorCode::Expected { what: what.into() },
         )
     }
@@ -57,51 +59,53 @@ impl Parser {
         }
     }
 
-    fn expect_ident(&mut self, what: &str) -> Result<String, SomoniError> {
+    fn expect_ident(&mut self, what: &str) -> Result<(String, Span), SomoniError> {
+        let span = self.current_span();
         match self.peek().clone() {
             Token::Ident(name) => {
                 self.advance();
-                Ok(name)
+                Ok((name, span))
             }
             _ => Err(self.expected(what)),
         }
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt, SomoniError> {
-        let line = self.current_line();
+        let start = self.current_span();
         match self.peek().clone() {
-            Token::Var => self.parse_var_decl(true, line),
-            Token::Const => self.parse_var_decl(false, line),
-            Token::LBrace => self.parse_block(line),
-            Token::If => self.parse_if(line),
-            Token::While => self.parse_while(line),
-            Token::For => self.parse_for(line),
+            Token::Var => self.parse_var_decl(true, start),
+            Token::Const => self.parse_var_decl(false, start),
+            Token::LBrace => self.parse_block(start),
+            Token::If => self.parse_if(start),
+            Token::While => self.parse_while(start),
+            Token::For => self.parse_for(start),
             Token::Break => {
                 self.advance(); // 'break'
                 self.expect(Token::Semicolon, "';' after 'break'")?;
-                Ok(Stmt::Break { line })
+                Ok(Stmt::Break { span: start })
             }
             Token::Continue => {
                 self.advance(); // 'continue'
                 self.expect(Token::Semicolon, "';' after 'continue'")?;
-                Ok(Stmt::Continue { line })
+                Ok(Stmt::Continue { span: start })
             }
-            Token::Ident(name) if name == "print" => self.parse_print(line),
-            Token::Ident(name) => self.parse_assign(name, line),
+            Token::Ident(name) if name == "print" => self.parse_print(start),
+            Token::Ident(name) => self.parse_assign(name, start),
             other => Err(SomoniError::at(
-                line,
+                start,
                 ErrorCode::UnexpectedToken { found: other },
             )),
         }
     }
 
     // { stmt* } – no ';' after the closing brace
-    fn parse_block(&mut self, open_line: usize) -> Result<Stmt, SomoniError> {
+    // `open` is the '{', an unclosed block points there
+    fn parse_block(&mut self, open: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // '{'
         let mut stmts = Vec::new();
         while *self.peek() != Token::RBrace {
             if *self.peek() == Token::Eof {
-                return Err(SomoniError::at(open_line, ErrorCode::BlockNotClosed));
+                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
             }
             stmts.push(self.parse_stmt()?);
         }
@@ -114,12 +118,12 @@ impl Parser {
         if *self.peek() != Token::LBrace {
             return Err(self.expected(format!("'{{' {}", what)));
         }
-        let open_line = self.current_line();
-        self.parse_block(open_line)
+        let open = self.current_span();
+        self.parse_block(open)
     }
 
     // if (cond) { ... } [else if (cond) { ... }]* [else { ... }]
-    fn parse_if(&mut self, line: usize) -> Result<Stmt, SomoniError> {
+    fn parse_if(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // 'if'
         self.expect(Token::LParen, "'(' after 'if'")?;
         let condition = self.parse_expr()?;
@@ -128,11 +132,11 @@ impl Parser {
 
         let else_branch = if *self.peek() == Token::Else {
             self.advance(); // 'else'
-            let else_line = self.current_line();
+            let next = self.current_span();
             match self.peek() {
                 // `else if` is an else whose only content is another if
-                Token::If => Some(Box::new(self.parse_if(else_line)?)),
-                Token::LBrace => Some(Box::new(self.parse_block(else_line)?)),
+                Token::If => Some(Box::new(self.parse_if(next)?)),
+                Token::LBrace => Some(Box::new(self.parse_block(next)?)),
                 _ => {
                     return Err(self.expected("'{' or 'if' after 'else'"));
                 }
@@ -145,12 +149,12 @@ impl Parser {
             condition,
             then_branch: Box::new(then_branch),
             else_branch,
-            line,
+            span: start,
         })
     }
 
     // while (cond) { ... }
-    fn parse_while(&mut self, line: usize) -> Result<Stmt, SomoniError> {
+    fn parse_while(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // 'while'
         self.expect(Token::LParen, "'(' after 'while'")?;
         let condition = self.parse_expr()?;
@@ -159,21 +163,21 @@ impl Parser {
         Ok(Stmt::While {
             condition,
             body: Box::new(body),
-            line,
+            span: start,
         })
     }
 
     // for (var i: int = 0; i < 10; i = i + 1) { ... }
-    fn parse_for(&mut self, line: usize) -> Result<Stmt, SomoniError> {
+    fn parse_for(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // 'for'
         self.expect(Token::LParen, "'(' after 'for'")?;
 
         // start: always a new var, parse_var_decl also reads the ';'
         let init = match self.peek() {
-            Token::Var => self.parse_var_decl(true, self.current_line())?,
+            Token::Var => self.parse_var_decl(true, self.current_span())?,
             Token::Const => {
                 return Err(SomoniError::at(
-                    self.current_line(),
+                    self.current_span(),
                     ErrorCode::ForStartConst,
                 ));
             }
@@ -187,10 +191,10 @@ impl Parser {
 
         // step: an assignment without ';'
         let step = match self.peek().clone() {
-            Token::Ident(name) => self.parse_assignment(name, self.current_line())?,
+            Token::Ident(name) => self.parse_assignment(name, self.current_span())?,
             _ => {
                 return Err(SomoniError::at(
-                    self.current_line(),
+                    self.current_span(),
                     ErrorCode::Expected {
                         what: "assignment as for step".to_string(),
                     },
@@ -205,49 +209,59 @@ impl Parser {
             condition,
             step: Box::new(step),
             body: Box::new(body),
-            line,
+            span: start,
         })
     }
 
     // x = value;
-    fn parse_assign(&mut self, name: String, line: usize) -> Result<Stmt, SomoniError> {
-        let assign = self.parse_assignment(name, line)?;
+    fn parse_assign(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
+        let assign = self.parse_assignment(name, start)?;
         self.expect(Token::Semicolon, "';'")?;
         Ok(assign)
     }
 
     // x = value (without ';', also used as the step of a for loop)
-    fn parse_assignment(&mut self, name: String, line: usize) -> Result<Stmt, SomoniError> {
+    // `start` is the name
+    fn parse_assignment(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // name
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
-        Ok(Stmt::Assign { name, value, line })
-    }
-
-    fn parse_var_decl(&mut self, mutable: bool, line: usize) -> Result<Stmt, SomoniError> {
-        self.advance(); // var or const
-        let name = self.expect_ident("variable name")?;
-        self.expect(Token::Colon, "':'")?;
-        let type_name = self.expect_ident("type name")?;
-        self.expect(Token::Equal, "'='")?;
-        let value = self.parse_expr()?;
-        self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::VarDecl {
+        Ok(Stmt::Assign {
             name,
-            type_name,
+            name_span: start,
             value,
-            mutable,
-            line,
+            span: self.since(start),
         })
     }
 
-    fn parse_print(&mut self, line: usize) -> Result<Stmt, SomoniError> {
+    fn parse_var_decl(&mut self, mutable: bool, start: Span) -> Result<Stmt, SomoniError> {
+        self.advance(); // var or const
+        let (name, name_span) = self.expect_ident("variable name")?;
+        self.expect(Token::Colon, "':'")?;
+        let (type_name, type_span) = self.expect_ident("type name")?;
+        self.expect(Token::Equal, "'='")?;
+        let value = self.parse_expr()?;
+        let span = self.since(start);
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(Stmt::VarDecl {
+            name,
+            name_span,
+            type_name,
+            type_span,
+            value,
+            mutable,
+            span,
+        })
+    }
+
+    fn parse_print(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // print
         self.expect(Token::LParen, "'('")?;
         let value = self.parse_expr()?;
         self.expect(Token::RParen, "')'")?;
+        let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::Print { value, line })
+        Ok(Stmt::Print { value, span })
     }
 
     fn parse_binary(
@@ -258,12 +272,18 @@ impl Parser {
         let mut left = next(self)?;
 
         while let Some((_, op)) = ops.iter().find(|(token, _)| token == self.peek()) {
+            let op_span = self.current_span();
             self.advance();
             let right = next(self)?;
-            left = Expr::Binary {
-                left: Box::new(left),
-                op: op.clone(),
-                right: Box::new(right),
+            let span = left.span.to(right.span);
+            left = Expr {
+                kind: ExprKind::Binary {
+                    left: Box::new(left),
+                    op: op.clone(),
+                    op_span,
+                    right: Box::new(right),
+                },
+                span,
             };
         }
 
@@ -324,54 +344,48 @@ impl Parser {
             Token::Minus => UnaryOp::Neg,
             _ => return self.parse_primary(),
         };
+        let start = self.current_span();
         self.advance();
         let operand = self.parse_unary()?;
-        Ok(Expr::Unary {
-            op,
-            operand: Box::new(operand),
+        let span = start.to(operand.span);
+        Ok(Expr {
+            kind: ExprKind::Unary {
+                op,
+                operand: Box::new(operand),
+            },
+            span,
         })
     }
 
     fn parse_primary(&mut self) -> Result<Expr, SomoniError> {
-        let line = self.current_line();
-        match self.peek().clone() {
-            Token::Int(n) => {
-                self.advance();
-                Ok(Expr::Int(n))
-            }
-            Token::Float(f) => {
-                self.advance();
-                Ok(Expr::Float(f))
-            }
-            Token::Str(s) => {
-                self.advance();
-                Ok(Expr::Str(s))
-            }
-            Token::True => {
-                self.advance();
-                Ok(Expr::Bool(true))
-            }
-            Token::False => {
-                self.advance();
-                Ok(Expr::Bool(false))
-            }
-            Token::Ident(name) => {
-                self.advance();
-                Ok(Expr::Ident(name))
-            }
+        let span = self.current_span();
+        let kind = match self.peek().clone() {
+            Token::Int(n) => ExprKind::Int(n),
+            Token::Float(f) => ExprKind::Float(f),
+            Token::Str(s) => ExprKind::Str(s),
+            Token::True => ExprKind::Bool(true),
+            Token::False => ExprKind::Bool(false),
+            Token::Ident(name) => ExprKind::Ident(name),
             Token::LParen => {
                 self.advance();
-                let expr = self.parse_expr()?;
+                let inner = self.parse_expr()?;
                 if *self.peek() != Token::RParen {
                     return Err(self.expected("')'"));
                 }
                 self.advance();
-                Ok(expr)
+                return Ok(Expr {
+                    kind: inner.kind,
+                    span: span.to(self.last_span()),
+                });
             }
-            other => Err(SomoniError::at(
-                line,
-                ErrorCode::UnexpectedToken { found: other },
-            )),
-        }
+            other => {
+                return Err(SomoniError::at(
+                    span,
+                    ErrorCode::UnexpectedToken { found: other },
+                ));
+            }
+        };
+        self.advance();
+        Ok(Expr { kind, span })
     }
 }

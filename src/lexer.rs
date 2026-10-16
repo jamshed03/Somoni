@@ -54,7 +54,7 @@ impl Lexer {
     }
 
     fn read_number(&mut self) -> Result<Token, SomoniError> {
-        let line = self.line;
+        let (line, col) = (self.line, self.col());
         let mut text = String::new();
         while let Some(c) = self.peek() {
             if c.is_ascii_digit() {
@@ -79,15 +79,17 @@ impl Lexer {
                     break;
                 }
             }
+            let span = self.span_from(line, col);
             return text
                 .parse::<f64>()
                 .map(Token::Float)
-                .map_err(|_| SomoniError::at(line, ErrorCode::InvalidFloat { text }));
+                .map_err(|_| SomoniError::at(span, ErrorCode::InvalidFloat { text }));
         }
 
+        let span = self.span_from(line, col);
         text.parse::<i64>()
             .map(Token::Int)
-            .map_err(|_| SomoniError::at(line, ErrorCode::IntegerTooLarge { text }))
+            .map_err(|_| SomoniError::at(span, ErrorCode::IntegerTooLarge { text }))
     }
 
     fn read_word(&mut self) -> Token {
@@ -116,7 +118,8 @@ impl Lexer {
     }
 
     fn read_string(&mut self) -> Result<Token, SomoniError> {
-        let start_line = self.line;
+        // an open string points to its opening quote
+        let start = Span::in_line(self.line, self.col(), 1);
         self.advance(); // opening "
         let mut text = String::new();
         while let Some(c) = self.peek() {
@@ -131,7 +134,7 @@ impl Lexer {
                 self.advance();
             }
         }
-        Err(SomoniError::at(start_line, ErrorCode::UnterminatedString))
+        Err(SomoniError::at(start, ErrorCode::UnterminatedString))
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
@@ -161,16 +164,13 @@ impl Lexer {
 
             // block comment: /* ... */ over several lines, not nested
             if c == '/' && self.peek_next() == Some('*') {
-                let start_line = self.line;
+                let start = Span::in_line(self.line, self.col(), 2); // the '/*'
                 self.advance(); // '/'
                 self.advance(); // '*'
                 loop {
                     match self.peek() {
                         None => {
-                            return Err(SomoniError::at(
-                                start_line,
-                                ErrorCode::UnterminatedComment,
-                            ));
+                            return Err(SomoniError::at(start, ErrorCode::UnterminatedComment));
                         }
                         Some('*') if self.peek_next() == Some('/') => {
                             self.advance(); // '*'
@@ -238,7 +238,7 @@ impl Lexer {
                 '|' if self.peek_next() == Some('|') => (Token::OrOr, 2),
                 _ => {
                     return Err(SomoniError::at(
-                        line,
+                        Span::in_line(line, col, 1),
                         ErrorCode::UnexpectedCharacter { found: c },
                     ));
                 }

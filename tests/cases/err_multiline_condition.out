@@ -1,0 +1,1 @@
+Type error [T010]: Line 2: condition must be bool, got int

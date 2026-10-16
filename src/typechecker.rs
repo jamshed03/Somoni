@@ -1,6 +1,7 @@
-use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
+use crate::span::Span;
 use crate::types::Type;
 
 struct VarInfo {
@@ -32,23 +33,25 @@ impl TypeChecker {
         match stmt {
             Stmt::VarDecl {
                 name,
+                name_span,
                 type_name,
+                type_span,
                 value,
                 mutable,
-                line,
+                ..
             } => {
                 let declared = Type::from_name(type_name).ok_or_else(|| {
                     SomoniError::at(
-                        *line,
+                        *type_span,
                         ErrorCode::UnknownType {
                             name: type_name.clone(),
                         },
                     )
                 })?;
-                let actual = self.check_expr(value, *line)?;
+                let actual = self.check_expr(value)?;
                 if declared != actual {
                     return Err(SomoniError::at(
-                        *line,
+                        value.span,
                         ErrorCode::CannotAssign {
                             found: actual,
                             expected: declared,
@@ -61,31 +64,39 @@ impl TypeChecker {
                 };
                 if !self.scopes.declare(name, info) {
                     return Err(SomoniError::at(
-                        *line,
+                        *name_span,
                         ErrorCode::AlreadyDeclared { name: name.clone() },
                     ));
                 }
                 Ok(())
             }
-            Stmt::Print { value, line } => {
-                self.check_expr(value, *line)?;
+            Stmt::Print { value, .. } => {
+                self.check_expr(value)?;
                 Ok(())
             }
-            Stmt::Assign { name, value, line } => {
+            Stmt::Assign {
+                name,
+                name_span,
+                value,
+                ..
+            } => {
                 let info = self.scopes.lookup(name).ok_or_else(|| {
-                    SomoniError::at(*line, ErrorCode::UnknownVariable { name: name.clone() })
+                    SomoniError::at(
+                        *name_span,
+                        ErrorCode::UnknownVariable { name: name.clone() },
+                    )
                 })?;
                 if !info.mutable {
                     return Err(SomoniError::at(
-                        *line,
+                        *name_span,
                         ErrorCode::AssignToConst { name: name.clone() },
                     ));
                 }
                 let expected = info.ty;
-                let actual = self.check_expr(value, *line)?;
+                let actual = self.check_expr(value)?;
                 if expected != actual {
                     return Err(SomoniError::at(
-                        *line,
+                        value.span,
                         ErrorCode::CannotAssign {
                             found: actual,
                             expected,
@@ -104,9 +115,9 @@ impl TypeChecker {
                 condition,
                 then_branch,
                 else_branch,
-                line,
+                ..
             } => {
-                self.check_condition(condition, *line)?;
+                self.check_condition(condition)?;
                 // both branches are checked, even the one that will not run
                 self.check_stmt(then_branch)?;
                 if let Some(else_branch) = else_branch {
@@ -115,11 +126,9 @@ impl TypeChecker {
                 Ok(())
             }
             Stmt::While {
-                condition,
-                body,
-                line,
+                condition, body, ..
             } => {
-                self.check_condition(condition, *line)?;
+                self.check_condition(condition)?;
                 // checked once, even if it runs many times (or never)
                 self.check_loop_body(body)
             }
@@ -128,16 +137,16 @@ impl TypeChecker {
                 condition,
                 step,
                 body,
-                line,
+                ..
             } => {
                 // the counter lives in its own scope around the whole loop, gone afterwards
                 self.scopes.push();
-                let result = self.check_for(init, condition, step, body, *line);
+                let result = self.check_for(init, condition, step, body);
                 self.scopes.pop();
                 result
             }
-            Stmt::Break { line } => self.check_inside_loop("break", *line),
-            Stmt::Continue { line } => self.check_inside_loop("continue", *line),
+            Stmt::Break { span } => self.check_inside_loop("break", *span),
+            Stmt::Continue { span } => self.check_inside_loop("continue", *span),
         }
     }
 
@@ -147,10 +156,9 @@ impl TypeChecker {
         condition: &Expr,
         step: &Stmt,
         body: &Stmt,
-        line: usize,
     ) -> Result<(), SomoniError> {
         self.check_stmt(init)?;
-        self.check_condition(condition, line)?;
+        self.check_condition(condition)?;
         self.check_stmt(step)?;
         self.check_loop_body(body)
     }
@@ -162,40 +170,47 @@ impl TypeChecker {
         result
     }
 
-    fn check_inside_loop(&self, keyword: &'static str, line: usize) -> Result<(), SomoniError> {
+    fn check_inside_loop(&self, keyword: &'static str, span: Span) -> Result<(), SomoniError> {
         if self.loop_depth == 0 {
-            return Err(SomoniError::at(line, ErrorCode::OutsideLoop { keyword }));
+            return Err(SomoniError::at(span, ErrorCode::OutsideLoop { keyword }));
         }
         Ok(())
     }
 
     // conditions of if and while must be bool, `if (1)` is an error
-    fn check_condition(&self, condition: &Expr, line: usize) -> Result<(), SomoniError> {
-        let ty = self.check_expr(condition, line)?;
+    fn check_condition(&self, condition: &Expr) -> Result<(), SomoniError> {
+        let ty = self.check_expr(condition)?;
         if ty != Type::Bool {
             return Err(SomoniError::at(
-                line,
+                condition.span,
                 ErrorCode::ConditionNotBool { found: ty },
             ));
         }
         Ok(())
     }
 
-    fn check_expr(&self, expr: &Expr, line: usize) -> Result<Type, SomoniError> {
-        match expr {
-            Expr::Int(_) => Ok(Type::Int),
-            Expr::Float(_) => Ok(Type::Float),
-            Expr::Bool(_) => Ok(Type::Bool),
-            Expr::Str(_) => Ok(Type::Str),
-            Expr::Ident(name) => self.scopes.lookup(name).map(|info| info.ty).ok_or_else(|| {
-                SomoniError::at(line, ErrorCode::UnknownVariable { name: name.clone() })
-            }),
-            Expr::Binary { left, op, right } => {
-                let l = self.check_expr(left, line)?;
-                let r = self.check_expr(right, line)?;
+    fn check_expr(&self, expr: &Expr) -> Result<Type, SomoniError> {
+        match &expr.kind {
+            ExprKind::Int(_) => Ok(Type::Int),
+            ExprKind::Float(_) => Ok(Type::Float),
+            ExprKind::Bool(_) => Ok(Type::Bool),
+            ExprKind::Str(_) => Ok(Type::Str),
+            ExprKind::Ident(name) => {
+                self.scopes.lookup(name).map(|info| info.ty).ok_or_else(|| {
+                    SomoniError::at(expr.span, ErrorCode::UnknownVariable { name: name.clone() })
+                })
+            }
+            ExprKind::Binary {
+                left,
+                op,
+                op_span,
+                right,
+            } => {
+                let l = self.check_expr(left)?;
+                let r = self.check_expr(right)?;
                 if l != r {
                     return Err(SomoniError::at(
-                        line,
+                        *op_span,
                         ErrorCode::OperandTypesDiffer { left: l, right: r },
                     ));
                 }
@@ -213,21 +228,22 @@ impl TypeChecker {
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
                     (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
                     _ => Err(SomoniError::at(
-                        line,
+                        *op_span,
                         ErrorCode::OperatorNotAllowed { found: l },
                     )),
                 }
             }
-            Expr::Unary { op, operand } => {
-                let t = self.check_expr(operand, line)?;
+            ExprKind::Unary { op, operand } => {
+                let t = self.check_expr(operand)?;
                 match (op, t) {
                     (UnaryOp::Not, Type::Bool) => Ok(Type::Bool),
-                    (UnaryOp::Not, _) => {
-                        Err(SomoniError::at(line, ErrorCode::NotNeedsBool { found: t }))
-                    }
+                    (UnaryOp::Not, _) => Err(SomoniError::at(
+                        expr.span,
+                        ErrorCode::NotNeedsBool { found: t },
+                    )),
                     (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
                     (UnaryOp::Neg, _) => Err(SomoniError::at(
-                        line,
+                        expr.span,
                         ErrorCode::NegNeedsNumber { found: t },
                     )),
                 }

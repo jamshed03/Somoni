@@ -1,5 +1,6 @@
 use std::fmt;
 
+use crate::span::Span;
 use crate::token::Token;
 use crate::types::Type;
 
@@ -160,19 +161,17 @@ impl ErrorCode {
     }
 }
 
-// An error from the catalog plus the line where it happened.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SomoniError {
     pub code: ErrorCode,
-    // None: not known yet (runtime errors get it from the statement around them)
-    pub line: Option<usize>,
+    pub span: Option<Span>,
 }
 
 impl SomoniError {
-    pub fn at(line: usize, code: ErrorCode) -> SomoniError {
+    pub fn at(span: Span, code: ErrorCode) -> SomoniError {
         SomoniError {
             code,
-            line: Some(line),
+            span: Some(span),
         }
     }
 
@@ -184,18 +183,18 @@ impl SomoniError {
         .into()
     }
 
-    pub fn with_line_if_missing(mut self, line: Option<usize>) -> SomoniError {
-        if self.line.is_none() {
-            self.line = line;
+    pub fn with_span_if_missing(mut self, span: Option<Span>) -> SomoniError {
+        if self.span.is_none() {
+            self.span = span;
         }
         self
     }
 }
 
-// ErrorCode -> SomoniError without a line, used for runtime errors
+// ErrorCode -> SomoniError without a place, used for runtime errors
 impl From<ErrorCode> for SomoniError {
     fn from(code: ErrorCode) -> SomoniError {
-        SomoniError { code, line: None }
+        SomoniError { code, span: None }
     }
 }
 
@@ -210,8 +209,8 @@ impl fmt::Display for SomoniError {
         };
         let code = self.code.code();
         let message = self.code.message();
-        match self.line {
-            Some(line) => write!(f, "{} [{}]: Line {}: {}", kind, code, line, message),
+        match self.span {
+            Some(span) => write!(f, "{} [{}]: Line {}: {}", kind, code, span.line, message),
             None => write!(f, "{} [{}]: {}", kind, code, message),
         }
     }

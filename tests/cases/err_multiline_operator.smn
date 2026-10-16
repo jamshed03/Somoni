@@ -1,0 +1,4 @@
+// the error points to the operator that fails: the second +
+var x: int = 1 +
+    2 +
+    true;
