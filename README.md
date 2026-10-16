@@ -28,6 +28,14 @@ Programs that should fail start with `err_` and must exit with code 1, all other
 -   New features need new tests (one that works, one `err_` case per new error).
 -   If a change modifies an output on purpose, update the affected `.out` files and check them by hand.
 
+## Benchmarks
+
+    bench/run.sh
+
+Runs the programs in `bench/` in Somoni, PHP, Node.js and Python and compares them with
+[hyperfine](https://github.com/sharkdp/hyperfine). Somoni is a tree-walking interpreter without
+optimizations yet, so it is the slowest of the four for now.
+
 ## How it works
 
 Pipeline: source text, lexer (tokens), parser (AST), type checker, interpreter.

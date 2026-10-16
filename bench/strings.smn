@@ -1,0 +1,6 @@
+// builds a string of 100000 characters: measures memory handling
+var s: string = "";
+for (var i: int = 0; i < 100000; i = i + 1) {
+    s = s + "x";
+}
+print(len(s));

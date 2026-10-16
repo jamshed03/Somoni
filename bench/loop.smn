@@ -1,0 +1,8 @@
+// a loop with 10 million rounds: measures variables and arithmetic
+var sum: int = 0;
+var i: int = 0;
+while (i < 10000000) {
+    sum = sum + i;
+    i = i + 1;
+}
+print(sum);

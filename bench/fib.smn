@@ -1,0 +1,8 @@
+// recursive Fibonacci: measures function calls (about 1.6 million)
+fn fib(n: int): int {
+    if (n < 2) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+print(fib(30));
