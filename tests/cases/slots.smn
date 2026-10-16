@@ -1,0 +1,40 @@
+// variables get numbered places (slots); a block's slots are reused after the block
+var a: int = 1;
+{
+    var b: int = 2;
+    print(a + b);
+}
+var c: int = 3;           // gets the place b had
+print(a + c);
+{
+    var a: int = 10;      // shadows a: its own place, the outer a stays 1
+    print(a);
+}
+print(a);
+
+// a loop body declares variables in every round
+for (var i: int = 0; i < 3; i = i + 1) {
+    var square: int = i * i;
+    var text: string = string(square);
+    print(text);
+}
+
+// a variable after a block that never ran
+if (false) {
+    var never: int = 99;
+}
+var after: int = 5;
+print(after);
+
+// a function has its own numbering, starting with its parameters
+fn f(x: int): int {
+    var y: int = x + 1;
+    {
+        var z: int = y * 2;
+        y = z;
+    }
+    var w: int = y + 1;
+    return w;
+}
+print(f(1));
+print(a + c);

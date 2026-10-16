@@ -33,11 +33,4 @@ impl<T> Scopes<T> {
     pub fn lookup(&self, name: &str) -> Option<&T> {
         self.stack.iter().rev().find_map(|scope| scope.get(name))
     }
-
-    pub fn lookup_mut(&mut self, name: &str) -> Option<&mut T> {
-        self.stack
-            .iter_mut()
-            .rev()
-            .find_map(|scope| scope.get_mut(name))
-    }
 }

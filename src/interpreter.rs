@@ -4,7 +4,6 @@ use std::fmt;
 use crate::ast::{BinaryOp, Expr, ExprKind, Function, Stmt, UnaryOp};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
-use crate::scope::Scopes;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -40,7 +39,9 @@ enum ControlFlow {
 const MAX_CALL_DEPTH: usize = 10_000;
 
 pub struct Interpreter<'a> {
-    scopes: Scopes<Value>,
+    // the values of the current function (or the top level), one per slot;
+    // the type checker gave every variable its slot, so no lookup by name is needed
+    frame: Vec<Value>,
     functions: HashMap<&'a str, &'a Function>,
     call_depth: usize,
 }
@@ -48,7 +49,7 @@ pub struct Interpreter<'a> {
 impl<'a> Interpreter<'a> {
     pub fn new() -> Interpreter<'a> {
         Interpreter {
-            scopes: Scopes::new(),
+            frame: Vec::new(),
             functions: HashMap::new(),
             call_depth: 0,
         }
@@ -75,14 +76,12 @@ impl<'a> Interpreter<'a> {
             }
             .into());
         }
-        let caller_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
-        for (param, value) in function.params.iter().zip(args) {
-            self.scopes.declare(&param.name, value);
-        }
+        // the arguments are the new frame: parameter i has slot i
+        let caller_frame = std::mem::replace(&mut self.frame, args);
         self.call_depth += 1;
         let result = self.exec_all(&function.body);
         self.call_depth -= 1;
-        self.scopes = caller_scopes;
+        self.frame = caller_frame;
         match result? {
             ControlFlow::Return(value) => Ok(value),
             ControlFlow::Normal => Ok(Value::Void),
@@ -109,30 +108,17 @@ impl<'a> Interpreter<'a> {
 
     fn exec_stmt(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
         match stmt {
-            Stmt::VarDecl { name, value, .. } => {
+            Stmt::VarDecl { value, slot, .. } | Stmt::Assign { value, slot, .. } => {
                 let v = self.eval(value)?;
-                self.scopes.declare(name, v);
+                self.set(*slot, v)?;
                 Ok(ControlFlow::Normal)
             }
             Stmt::Expr { expr, .. } => {
                 self.eval(expr)?;
                 Ok(ControlFlow::Normal)
             }
-            Stmt::Assign { name, value, .. } => {
-                let v = self.eval(value)?;
-                // changes the variable in the block where it was declared
-                match self.scopes.lookup_mut(name) {
-                    Some(slot) => {
-                        *slot = v;
-                        Ok(ControlFlow::Normal)
-                    }
-                    None => Err(SomoniError::internal(format!(
-                        "unknown variable '{}'",
-                        name
-                    ))),
-                }
-            }
-            Stmt::Block(stmts) => self.in_scope(|this| this.exec_all(stmts)),
+            // scopes are already resolved into slots, a block needs nothing at runtime
+            Stmt::Block(stmts) => self.exec_all(stmts),
             Stmt::If {
                 condition,
                 then_branch,
@@ -158,7 +144,7 @@ impl<'a> Interpreter<'a> {
                 ..
             } => {
                 // the counter lives in its own scope around the whole loop, gone afterwards
-                self.in_scope(|this| this.run_for(init, condition, step, body))
+                self.run_for(init, condition, step, body)
             }
             Stmt::FnDecl(_) => Ok(ControlFlow::Normal),
             Stmt::Return { value, .. } => {
@@ -173,12 +159,23 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    // runs `run` inside a new block scope; the scope is removed again, also after an error
-    fn in_scope<T>(&mut self, run: impl FnOnce(&mut Self) -> T) -> T {
-        self.scopes.push();
-        let result = run(self);
-        self.scopes.pop();
-        result
+    // the value of a variable; the type checker filled in every slot
+    fn get(&self, slot: Option<usize>) -> Result<Value, SomoniError> {
+        slot.and_then(|slot| self.frame.get(slot))
+            .cloned()
+            .ok_or_else(|| SomoniError::internal("variable without a value"))
+    }
+
+    // the frame grows when a variable gets a slot that is not there yet
+    fn set(&mut self, slot: Option<usize>, value: Value) -> Result<(), SomoniError> {
+        let Some(slot) = slot else {
+            return Err(SomoniError::internal("variable without a slot"));
+        };
+        if slot >= self.frame.len() {
+            self.frame.resize(slot + 1, Value::Void);
+        }
+        self.frame[slot] = value;
+        Ok(())
     }
 
     fn run_for(
@@ -229,13 +226,7 @@ impl<'a> Interpreter<'a> {
             ExprKind::Float(f) => Ok(Value::Float(*f)),
             ExprKind::Str(s) => Ok(Value::Str(s.clone())),
             ExprKind::Bool(b) => Ok(Value::Bool(*b)),
-            ExprKind::Ident(name) => match self.scopes.lookup(name) {
-                Some(value) => Ok(value.clone()),
-                None => Err(SomoniError::internal(format!(
-                    "unknown variable '{}'",
-                    name
-                ))),
-            },
+            ExprKind::Ident { slot, .. } => self.get(*slot),
             ExprKind::Call { name, args, .. } => self.eval_call(name, args),
             ExprKind::Unary { op, operand } => {
                 let value = self.eval(operand)?;

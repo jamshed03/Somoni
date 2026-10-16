@@ -10,6 +10,7 @@ use crate::types::Type;
 struct VarInfo {
     ty: Type,
     mutable: bool,
+    slot: usize,
 }
 
 struct Signature {
@@ -23,6 +24,8 @@ pub struct TypeChecker {
     functions: HashMap<String, Signature>,
     // the return type of the function being checked, None at the top level
     current_return: Option<Type>,
+    // the next free place in the current frame (top level or function)
+    next_slot: usize,
 }
 
 impl TypeChecker {
@@ -32,15 +35,17 @@ impl TypeChecker {
             loop_depth: 0,
             functions: HashMap::new(),
             current_return: None,
+            next_slot: 0,
         }
     }
 
-    pub fn check(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+    // Checks the program and writes the slot of every variable into the tree.
+    pub fn check(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
         self.declare_functions(stmts)?;
         self.check_stmts(stmts)
     }
 
-    fn check_stmts(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+    fn check_stmts(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
         for stmt in stmts {
             self.check_stmt(stmt)?;
         }
@@ -82,16 +87,19 @@ impl TypeChecker {
         Ok(())
     }
 
-    fn check_function(&mut self, function: &Function) -> Result<(), SomoniError> {
+    fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
         let signature = &self.functions[&function.name];
         let param_types = signature.params.clone();
         let return_type = signature.return_type;
 
+        // a function has its own frame: its slots start at 0, with the parameters
         let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
         let outer_return = self.current_return.replace(return_type);
+        let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);
         let result = self.check_function_body(function, &param_types);
         self.scopes = outer_scopes;
         self.current_return = outer_return;
+        self.next_slot = outer_next_slot;
         result?;
 
         if return_type != Type::Void && !always_returns(&function.body) {
@@ -108,21 +116,17 @@ impl TypeChecker {
 
     fn check_function_body(
         &mut self,
-        function: &Function,
+        function: &mut Function,
         param_types: &[Type],
     ) -> Result<(), SomoniError> {
+        // parameters are const; they get the slots 0, 1, 2, ... in their order
         for (param, ty) in function.params.iter().zip(param_types) {
-            // parameters are const
-            let info = VarInfo {
-                ty: *ty,
-                mutable: false,
-            };
-            self.declare(&param.name, param.name_span, info)?;
+            self.declare(&param.name, param.name_span, *ty, false)?;
         }
-        self.check_stmts(&function.body)
+        self.check_stmts(&mut function.body)
     }
 
-    fn check_stmt(&mut self, stmt: &Stmt) -> Result<(), SomoniError> {
+    fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl {
                 name,
@@ -131,25 +135,24 @@ impl TypeChecker {
                 type_span,
                 value,
                 mutable,
+                slot,
                 ..
             } => {
                 let declared = type_from_name(type_name, *type_span)?;
                 self.check_assignable(value, declared)?;
-                self.declare(
-                    name,
-                    *name_span,
-                    VarInfo {
-                        ty: declared,
-                        mutable: *mutable,
-                    },
-                )
+                *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
+                Ok(())
             }
             Stmt::Assign {
                 name,
                 name_span,
                 value,
+                slot,
                 ..
-            } => self.check_assign(name, *name_span, value),
+            } => {
+                *slot = Some(self.check_assign(name, *name_span, value)?);
+                Ok(())
+            }
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
                 Ok(())
@@ -184,22 +187,33 @@ impl TypeChecker {
                 ..
             } => self.in_scope(|this| this.check_for(init, condition, step, body)),
             Stmt::FnDecl(function) => self.check_function(function),
-            Stmt::Return { value, span } => self.check_return(value.as_ref(), *span),
+            Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
         }
     }
 
     // runs `check` inside a new block scope; the scope is removed again, also after an error
+    // After the block its slots are free again for the variables that follow.
     fn in_scope<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> T {
         self.scopes.push();
+        let first_slot = self.next_slot;
         let result = check(self);
+        self.next_slot = first_slot;
         self.scopes.pop();
         result
     }
 
-    // a name may exist only once per block
-    fn declare(&mut self, name: &str, name_span: Span, info: VarInfo) -> Result<(), SomoniError> {
+    // a name may exist only once per block; returns the slot of the new variable
+    fn declare(
+        &mut self,
+        name: &str,
+        name_span: Span,
+        ty: Type,
+        mutable: bool,
+    ) -> Result<usize, SomoniError> {
+        let slot = self.next_slot;
+        let info = VarInfo { ty, mutable, slot };
         if !self.scopes.declare(name, info) {
             return Err(SomoniError::at(
                 name_span,
@@ -208,10 +222,11 @@ impl TypeChecker {
                 },
             ));
         }
-        Ok(())
+        self.next_slot += 1;
+        Ok(slot)
     }
 
-    fn check_assignable(&self, value: &Expr, expected: Type) -> Result<(), SomoniError> {
+    fn check_assignable(&self, value: &mut Expr, expected: Type) -> Result<(), SomoniError> {
         let found = self.check_expr(value)?;
         if found != expected {
             return Err(SomoniError::at(
@@ -222,7 +237,13 @@ impl TypeChecker {
         Ok(())
     }
 
-    fn check_assign(&self, name: &str, name_span: Span, value: &Expr) -> Result<(), SomoniError> {
+    // returns the slot of the variable
+    fn check_assign(
+        &self,
+        name: &str,
+        name_span: Span,
+        value: &mut Expr,
+    ) -> Result<usize, SomoniError> {
         let info = self.scopes.lookup(name).ok_or_else(|| {
             SomoniError::at(
                 name_span,
@@ -239,10 +260,11 @@ impl TypeChecker {
                 },
             ));
         }
-        self.check_assignable(value, info.ty)
+        self.check_assignable(value, info.ty)?;
+        Ok(info.slot)
     }
 
-    fn check_return(&self, value: Option<&Expr>, span: Span) -> Result<(), SomoniError> {
+    fn check_return(&self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
         let Some(expected) = self.current_return else {
             return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
         };
@@ -262,10 +284,10 @@ impl TypeChecker {
 
     fn check_for(
         &mut self,
-        init: &Stmt,
-        condition: &Expr,
-        step: &Stmt,
-        body: &Stmt,
+        init: &mut Stmt,
+        condition: &mut Expr,
+        step: &mut Stmt,
+        body: &mut Stmt,
     ) -> Result<(), SomoniError> {
         self.check_stmt(init)?;
         self.check_condition(condition)?;
@@ -273,7 +295,7 @@ impl TypeChecker {
         self.check_loop_body(body)
     }
 
-    fn check_loop_body(&mut self, body: &Stmt) -> Result<(), SomoniError> {
+    fn check_loop_body(&mut self, body: &mut Stmt) -> Result<(), SomoniError> {
         self.loop_depth += 1;
         let result = self.check_stmt(body);
         self.loop_depth -= 1;
@@ -288,7 +310,7 @@ impl TypeChecker {
     }
 
     // conditions of if and while must be bool, `if (1)` is an error
-    fn check_condition(&self, condition: &Expr) -> Result<(), SomoniError> {
+    fn check_condition(&self, condition: &mut Expr) -> Result<(), SomoniError> {
         let ty = self.check_expr(condition)?;
         if ty != Type::Bool {
             return Err(SomoniError::at(
@@ -299,16 +321,18 @@ impl TypeChecker {
         Ok(())
     }
 
-    fn check_expr(&self, expr: &Expr) -> Result<Type, SomoniError> {
-        match &expr.kind {
+    fn check_expr(&self, expr: &mut Expr) -> Result<Type, SomoniError> {
+        match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
             ExprKind::Float(_) => Ok(Type::Float),
             ExprKind::Bool(_) => Ok(Type::Bool),
             ExprKind::Str(_) => Ok(Type::Str),
-            ExprKind::Ident(name) => {
-                self.scopes.lookup(name).map(|info| info.ty).ok_or_else(|| {
+            ExprKind::Ident { name, slot } => {
+                let info = self.scopes.lookup(name).ok_or_else(|| {
                     SomoniError::at(expr.span, ErrorCode::UnknownVariable { name: name.clone() })
-                })
+                })?;
+                *slot = Some(info.slot);
+                Ok(info.ty)
             }
             ExprKind::Binary {
                 left,
@@ -354,7 +378,7 @@ impl TypeChecker {
             } => {
                 if let Some(builtin) = Builtin::from_name(name) {
                     check_arg_count(name, builtin.arity(), args, expr.span)?;
-                    let arg = &args[0];
+                    let arg = &mut args[0];
                     let arg_type = self.check_expr(arg)?;
                     return builtin
                         .result_type(arg_type)
@@ -367,7 +391,7 @@ impl TypeChecker {
                     ));
                 };
                 check_arg_count(name, signature.params.len(), args, expr.span)?;
-                for (arg, param_type) in args.iter().zip(&signature.params) {
+                for (arg, param_type) in args.iter_mut().zip(&signature.params) {
                     let arg_type = self.check_expr(arg)?;
                     if arg_type != *param_type {
                         return Err(wrong_arg_type(name, arg_type, arg.span));

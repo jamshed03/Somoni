@@ -319,6 +319,7 @@ impl Parser {
             name,
             name_span: start,
             value,
+            slot: None,
             span: self.since(start),
         })
     }
@@ -339,6 +340,7 @@ impl Parser {
             type_span,
             value,
             mutable,
+            slot: None,
             span,
         })
     }
@@ -461,7 +463,7 @@ impl Parser {
             Token::Ident(name) if *self.peek_next() == Token::LParen => {
                 return self.parse_call(name, span);
             }
-            Token::Ident(name) => ExprKind::Ident(name),
+            Token::Ident(name) => ExprKind::Ident { name, slot: None },
             Token::LParen => {
                 self.advance();
                 let inner = self.parse_expr()?;

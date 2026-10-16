@@ -59,7 +59,7 @@ fn main() {
 
 fn run(source: &str) -> Result<(), SomoniError> {
     let tokens = Lexer::new(source).tokenize()?;
-    let stmts = Parser::new(tokens).parse_program()?;
-    TypeChecker::new().check(&stmts)?;
+    let mut stmts = Parser::new(tokens).parse_program()?;
+    TypeChecker::new().check(&mut stmts)?;
     Interpreter::new().run(&stmts)
 }

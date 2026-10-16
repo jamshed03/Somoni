@@ -11,7 +11,11 @@ pub enum ExprKind {
     Int(i64),
     Float(f64),
     Str(String),
-    Ident(String),
+    // slot: the variable's place in the frame, filled in by the type checker
+    Ident {
+        name: String,
+        slot: Option<usize>,
+    },
     Binary {
         left: Box<Expr>,
         op: BinaryOp,
@@ -64,6 +68,7 @@ pub enum Stmt {
         type_span: Span,
         value: Expr,
         mutable: bool,
+        slot: Option<usize>,
         span: Span,
     },
     Expr {
@@ -74,6 +79,7 @@ pub enum Stmt {
         name: String,
         name_span: Span,
         value: Expr,
+        slot: Option<usize>,
         span: Span,
     },
     Block(Vec<Stmt>),
