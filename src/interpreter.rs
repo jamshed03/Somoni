@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
+use crate::scope::Scopes;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -11,36 +10,14 @@ pub enum Value {
 }
 
 pub struct Interpreter {
-    // one map per open block; the first entry is the top level, the last one the innermost block
-    scopes: Vec<HashMap<String, Value>>,
+    scopes: Scopes<Value>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter {
-            scopes: vec![HashMap::new()],
+            scopes: Scopes::new(),
         }
-    }
-
-    fn declare(&mut self, name: &str, value: Value) {
-        let scope = self.scopes.last_mut().expect("scope stack is never empty");
-        scope.insert(name.to_string(), value);
-    }
-
-    // innermost block first
-    fn lookup(&self, name: &str) -> Option<&Value> {
-        self.scopes.iter().rev().find_map(|scope| scope.get(name))
-    }
-
-    // changes the variable in the block where it was declared
-    fn assign(&mut self, name: &str, value: Value) -> Result<(), String> {
-        for scope in self.scopes.iter_mut().rev() {
-            if let Some(slot) = scope.get_mut(name) {
-                *slot = value;
-                return Ok(());
-            }
-        }
-        Err(format!("Unknown variable '{}'", name))
     }
 
     pub fn run(&mut self, stmts: &[Stmt]) -> Result<(), String> {
@@ -54,7 +31,8 @@ impl Interpreter {
         match stmt {
             Stmt::VarDecl { name, value, .. } => {
                 let v = self.eval(value)?;
-                self.declare(name, v);
+                // duplicates were already rejected by the type checker
+                self.scopes.declare(name, v);
                 Ok(())
             }
             Stmt::Print { value, .. } => {
@@ -69,10 +47,17 @@ impl Interpreter {
             }
             Stmt::Assign { name, value, .. } => {
                 let v = self.eval(value)?;
-                self.assign(name, v)
+                // changes the variable in the block where it was declared
+                match self.scopes.lookup_mut(name) {
+                    Some(slot) => {
+                        *slot = v;
+                        Ok(())
+                    }
+                    None => Err(format!("Unknown variable '{}'", name)),
+                }
             }
             Stmt::Block(stmts) => {
-                self.scopes.push(HashMap::new());
+                self.scopes.push();
                 let result = self.run(stmts);
                 self.scopes.pop();
                 result
@@ -86,7 +71,7 @@ impl Interpreter {
             Expr::Float(f) => Ok(Value::Float(*f)),
             Expr::Str(s) => Ok(Value::Str(s.clone())),
             Expr::Bool(b) => Ok(Value::Bool(*b)),
-            Expr::Ident(name) => match self.lookup(name) {
+            Expr::Ident(name) => match self.scopes.lookup(name) {
                 Some(value) => Ok(value.clone()),
                 None => Err(format!("Unknown variable '{}'", name)),
             },

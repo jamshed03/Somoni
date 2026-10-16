@@ -144,7 +144,6 @@ impl Parser {
         Ok(left)
     }
 
-
     pub fn parse_expr(&mut self) -> Result<Expr, String> {
         self.parse_binary(Self::parse_and, &[(Token::OrOr, BinaryOp::Or)])
     }
