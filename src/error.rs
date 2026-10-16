@@ -103,6 +103,22 @@ pub enum ErrorCode {
         name: String,
         expected: Type,
     },
+    ListElementType {
+        expected: Type,
+        found: Type,
+    },
+    IndexNotInt {
+        found: Type,
+    },
+    NotIndexable {
+        found: Type,
+    },
+    TypeArguments {
+        name: String,
+        expected: usize,
+        found: usize,
+    },
+    EmptyListType,
 
     // runtime
     Internal {
@@ -116,6 +132,10 @@ pub enum ErrorCode {
     },
     RecursionTooDeep {
         limit: usize,
+    },
+    IndexOutOfRange {
+        index: i64,
+        length: usize,
     },
 }
 
@@ -153,6 +173,11 @@ impl ErrorCode {
             ErrorCode::ReturnOutsideFunction => "T017",
             ErrorCode::ReturnType { .. } => "T018",
             ErrorCode::MissingReturn { .. } => "T019",
+            ErrorCode::ListElementType { .. } => "T020",
+            ErrorCode::IndexNotInt { .. } => "T021",
+            ErrorCode::NotIndexable { .. } => "T022",
+            ErrorCode::TypeArguments { .. } => "T023",
+            ErrorCode::EmptyListType => "T024",
 
             // should never happen: the type checker rejects such programs (a bug in Somoni)
             ErrorCode::Internal { .. } => "R000",
@@ -160,6 +185,7 @@ impl ErrorCode {
             ErrorCode::IntegerOverflow => "R002",
             ErrorCode::InvalidConversion { .. } => "R003",
             ErrorCode::RecursionTooDeep { .. } => "R004",
+            ErrorCode::IndexOutOfRange { .. } => "R005",
         }
     }
 
@@ -195,13 +221,19 @@ impl ErrorCode {
             | ErrorCode::BuiltinRedeclared { .. }
             | ErrorCode::ReturnOutsideFunction
             | ErrorCode::ReturnType { .. }
-            | ErrorCode::MissingReturn { .. } => ErrorKind::Type,
+            | ErrorCode::MissingReturn { .. }
+            | ErrorCode::ListElementType { .. }
+            | ErrorCode::IndexNotInt { .. }
+            | ErrorCode::NotIndexable { .. }
+            | ErrorCode::TypeArguments { .. }
+            | ErrorCode::EmptyListType => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
             | ErrorCode::IntegerOverflow
             | ErrorCode::InvalidConversion { .. }
-            | ErrorCode::RecursionTooDeep { .. } => ErrorKind::Runtime,
+            | ErrorCode::RecursionTooDeep { .. }
+            | ErrorCode::IndexOutOfRange { .. } => ErrorKind::Runtime,
         }
     }
 
@@ -225,28 +257,24 @@ impl ErrorCode {
             ErrorCode::UnknownType { name } => format!("unknown type '{}'", name),
             ErrorCode::UnknownVariable { name } => format!("unknown variable '{}'", name),
             ErrorCode::CannotAssign { found, expected } => {
-                format!("cannot assign {} to {}", found.name(), expected.name())
+                format!("cannot assign {} to {}", found, expected)
             }
             ErrorCode::AlreadyDeclared { name } => {
                 format!("'{}' is already declared in this block", name)
             }
             ErrorCode::AssignToConst { name } => format!("cannot assign to const '{}'", name),
             ErrorCode::OperandTypesDiffer { left, right } => {
-                format!(
-                    "cannot use operator on {} and {}",
-                    left.name(),
-                    right.name()
-                )
+                format!("cannot use operator on {} and {}", left, right)
             }
             ErrorCode::OperatorNotAllowed { found } => {
-                format!("operator not allowed for {}", found.name())
+                format!("operator not allowed for {}", found)
             }
-            ErrorCode::NotNeedsBool { found } => format!("'!' needs bool, got {}", found.name()),
+            ErrorCode::NotNeedsBool { found } => format!("'!' needs bool, got {}", found),
             ErrorCode::NegNeedsNumber { found } => {
-                format!("'-' needs int or float, got {}", found.name())
+                format!("'-' needs int or float, got {}", found)
             }
             ErrorCode::ConditionNotBool { found } => {
-                format!("condition must be bool, got {}", found.name())
+                format!("condition must be bool, got {}", found)
             }
             ErrorCode::OutsideLoop { keyword } => format!("'{}' outside of a loop", keyword),
             ErrorCode::UnknownFunction { name } => format!("unknown function '{}'", name),
@@ -263,33 +291,55 @@ impl ErrorCode {
                 format!("'{}' expects {} {}, got {}", name, expected, word, found)
             }
             ErrorCode::WrongArgType { name, found } => {
-                format!("cannot use {} as argument of '{}'", found.name(), name)
+                format!("cannot use {} as argument of '{}'", found, name)
             }
             ErrorCode::DuplicateFunction { name } => {
                 format!("function '{}' is already declared", name)
             }
             ErrorCode::BuiltinRedeclared { name } => format!("'{}' is a built-in function", name),
             ErrorCode::ReturnOutsideFunction => "'return' outside of a function".to_string(),
-            ErrorCode::ReturnType { found, expected } => format!(
-                "function must return {}, got {}",
-                expected.name(),
-                found.name()
-            ),
+            ErrorCode::ReturnType { found, expected } => {
+                format!("function must return {}, got {}", expected, found)
+            }
             ErrorCode::MissingReturn { name, expected } => format!(
                 "function '{}' does not return {} on every path",
-                name,
-                expected.name()
+                name, expected
             ),
+            ErrorCode::ListElementType { expected, found } => {
+                format!("list elements must all be {}, got {}", expected, found)
+            }
+            ErrorCode::IndexNotInt { found } => format!("list index must be int, got {}", found),
+            ErrorCode::NotIndexable { found } => format!("cannot use [] on {}", found),
+            ErrorCode::TypeArguments {
+                name,
+                expected,
+                found,
+            } => {
+                let word = if *expected == 1 {
+                    "argument"
+                } else {
+                    "arguments"
+                };
+                format!(
+                    "'{}' expects {} type {}, got {}",
+                    name, expected, word, found
+                )
+            }
+            ErrorCode::EmptyListType => "the type of this empty list is unknown here".to_string(),
 
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),
             ErrorCode::IntegerOverflow => "integer overflow".to_string(),
             ErrorCode::InvalidConversion { text, target } => {
-                format!("cannot convert '{}' to {}", text, target.name())
+                format!("cannot convert '{}' to {}", text, target)
             }
             ErrorCode::RecursionTooDeep { limit } => {
                 format!("recursion too deep (more than {} nested calls)", limit)
             }
+            ErrorCode::IndexOutOfRange { index, length } => format!(
+                "index {} is out of range (list has {} elements)",
+                index, length
+            ),
         }
     }
 }

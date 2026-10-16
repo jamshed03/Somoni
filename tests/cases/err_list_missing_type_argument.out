@@ -1,0 +1,3 @@
+Type error [T023]: Line 1: 'list' expects 1 type argument, got 0
+  1 | var l: list = [1];
+    |        ^^^^

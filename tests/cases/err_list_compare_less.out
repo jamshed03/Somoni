@@ -1,0 +1,3 @@
+Type error [T007]: Line 1: operator not allowed for list<int>
+  1 | print([1] < [2]);
+    |           ^

@@ -1,0 +1,3 @@
+Type error [T020]: Line 1: list elements must all be int, got string
+  1 | var l: list<int> = [1, "a"];
+    |                        ^^^

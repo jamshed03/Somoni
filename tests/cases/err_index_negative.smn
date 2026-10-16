@@ -1,0 +1,2 @@
+var l: list<int> = [1, 2];
+print(l[0 - 1]);

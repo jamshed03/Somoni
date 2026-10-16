@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, UnaryOp};
+use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, TypeName, UnaryOp};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
@@ -70,10 +70,9 @@ impl TypeChecker {
             }
             let mut params = Vec::new();
             for param in &function.params {
-                params.push(type_from_name(&param.type_name, param.type_span)?);
+                params.push(resolve_type(&param.type_name, false)?);
             }
-            let return_type = Type::from_return_name(&function.return_type)
-                .ok_or_else(|| unknown_type(&function.return_type, function.return_type_span))?;
+            let return_type = resolve_type(&function.return_type, true)?;
             self.functions.insert(
                 name.clone(),
                 Signature {
@@ -89,11 +88,11 @@ impl TypeChecker {
     fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
         let signature = &self.functions[&function.name];
         let param_types = signature.params.clone();
-        let return_type = signature.return_type;
+        let return_type = signature.return_type.clone();
 
         // a function has its own frame: its slots start at 0, with the parameters
         let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
-        let outer_return = self.current_return.replace(return_type);
+        let outer_return = self.current_return.replace(return_type.clone());
         let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);
         let result = self.check_function_body(function, &param_types);
         self.scopes = outer_scopes;
@@ -103,7 +102,7 @@ impl TypeChecker {
 
         if return_type != Type::Void && !always_returns(&function.body) {
             return Err(SomoniError::at(
-                function.return_type_span,
+                function.return_type.span,
                 ErrorCode::MissingReturn {
                     name: function.name.clone(),
                     expected: return_type,
@@ -120,7 +119,7 @@ impl TypeChecker {
     ) -> Result<(), SomoniError> {
         // parameters are const; they get the slots 0, 1, 2, ... in their order
         for (param, ty) in function.params.iter().zip(param_types) {
-            self.declare(&param.name, param.name_span, *ty, false)?;
+            self.declare(&param.name, param.name_span, ty.clone(), false)?;
         }
         self.check_stmts(&mut function.body)
     }
@@ -131,14 +130,13 @@ impl TypeChecker {
                 name,
                 name_span,
                 type_name,
-                type_span,
                 value,
                 mutable,
                 slot,
                 ..
             } => {
-                let declared = type_from_name(type_name, *type_span)?;
-                self.check_assignable(value, declared)?;
+                let declared = resolve_type(type_name, false)?;
+                self.check_assignable(value, &declared)?;
                 *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
                 Ok(())
             }
@@ -225,12 +223,15 @@ impl TypeChecker {
         Ok(slot)
     }
 
-    fn check_assignable(&self, value: &mut Expr, expected: Type) -> Result<(), SomoniError> {
-        let found = self.check_expr(value)?;
-        if found != expected {
+    fn check_assignable(&self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
+        let found = self.check_expr_expecting(value, expected)?;
+        if found != *expected {
             return Err(SomoniError::at(
                 value.span,
-                ErrorCode::CannotAssign { found, expected },
+                ErrorCode::CannotAssign {
+                    found,
+                    expected: expected.clone(),
+                },
             ));
         }
         Ok(())
@@ -259,23 +260,26 @@ impl TypeChecker {
                 },
             ));
         }
-        self.check_assignable(value, info.ty)?;
+        self.check_assignable(value, &info.ty)?;
         Ok(info.slot)
     }
 
     fn check_return(&self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
-        let Some(expected) = self.current_return else {
+        let Some(expected) = &self.current_return else {
             return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
         };
         // `return;` gives nothing, that is void
         let (found, place) = match value {
-            Some(value) => (self.check_expr(value)?, value.span),
+            Some(value) => (self.check_expr_expecting(value, expected)?, value.span),
             None => (Type::Void, span),
         };
-        if found != expected {
+        if found != *expected {
             return Err(SomoniError::at(
                 place,
-                ErrorCode::ReturnType { found, expected },
+                ErrorCode::ReturnType {
+                    found,
+                    expected: expected.clone(),
+                },
             ));
         }
         Ok(())
@@ -320,6 +324,48 @@ impl TypeChecker {
         Ok(())
     }
 
+    // Like check_expr, but knows which type the place wants (variable, parameter, return).
+    // A list literal takes its element type from there, so `var l: list<int> = [];` works.
+    fn check_expr_expecting(&self, expr: &mut Expr, expected: &Type) -> Result<Type, SomoniError> {
+        if let (ExprKind::List(elements), Type::List(element_type)) = (&mut expr.kind, expected) {
+            return self.check_list(elements, expr.span, Some(element_type));
+        }
+        self.check_expr(expr)
+    }
+
+    // All elements must have the type of the first one. An empty list needs `hint`:
+    // the element type the place wants; without it its type is unknown.
+    fn check_list(
+        &self,
+        elements: &mut [Expr],
+        span: Span,
+        hint: Option<&Type>,
+    ) -> Result<Type, SomoniError> {
+        let Some((first, rest)) = elements.split_first_mut() else {
+            return match hint {
+                Some(element_type) => Ok(Type::List(Box::new(element_type.clone()))),
+                None => Err(SomoniError::at(span, ErrorCode::EmptyListType)),
+            };
+        };
+        let element_type = match hint {
+            Some(hint) => self.check_expr_expecting(first, hint)?,
+            None => self.check_expr(first)?,
+        };
+        for element in rest {
+            let found = self.check_expr_expecting(element, &element_type)?;
+            if found != element_type {
+                return Err(SomoniError::at(
+                    element.span,
+                    ErrorCode::ListElementType {
+                        expected: element_type,
+                        found,
+                    },
+                ));
+            }
+        }
+        Ok(Type::List(Box::new(element_type)))
+    }
+
     fn check_expr(&self, expr: &mut Expr) -> Result<Type, SomoniError> {
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
@@ -331,7 +377,7 @@ impl TypeChecker {
                     SomoniError::at(expr.span, ErrorCode::UnknownVariable { name: name.clone() })
                 })?;
                 *slot = Some(info.slot);
-                Ok(info.ty)
+                Ok(info.ty.clone())
             }
             ExprKind::Binary {
                 left,
@@ -347,10 +393,10 @@ impl TypeChecker {
                         ErrorCode::OperandTypesDiffer { left: l, right: r },
                     ));
                 }
-                match (l, op) {
+                match (&l, op) {
                     (Type::Void, _) => Err(SomoniError::at(
                         *op_span,
-                        ErrorCode::OperatorNotAllowed { found: l },
+                        ErrorCode::OperatorNotAllowed { found: l.clone() },
                     )),
                     (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
                     (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
@@ -361,14 +407,32 @@ impl TypeChecker {
                     (
                         Type::Int | Type::Float,
                         BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
-                    ) => Ok(l),
+                    ) => Ok(l.clone()),
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
                     (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
                     _ => Err(SomoniError::at(
                         *op_span,
-                        ErrorCode::OperatorNotAllowed { found: l },
+                        ErrorCode::OperatorNotAllowed { found: l.clone() },
                     )),
                 }
+            }
+            ExprKind::List(elements) => self.check_list(elements, expr.span, None),
+            ExprKind::Index { target, index } => {
+                let target_type = self.check_expr(target)?;
+                let Type::List(element_type) = target_type else {
+                    return Err(SomoniError::at(
+                        target.span,
+                        ErrorCode::NotIndexable { found: target_type },
+                    ));
+                };
+                let index_type = self.check_expr(index)?;
+                if index_type != Type::Int {
+                    return Err(SomoniError::at(
+                        index.span,
+                        ErrorCode::IndexNotInt { found: index_type },
+                    ));
+                }
+                Ok(*element_type)
             }
             ExprKind::Call {
                 name,
@@ -382,7 +446,7 @@ impl TypeChecker {
                     let arg = &mut args[0];
                     let arg_type = self.check_expr(arg)?;
                     return builtin
-                        .result_type(arg_type)
+                        .result_type(&arg_type)
                         .ok_or_else(|| wrong_arg_type(name, arg_type, arg.span));
                 }
                 let Some(signature) = self.functions.get(name) else {
@@ -394,25 +458,25 @@ impl TypeChecker {
                 *target = Some(CallTarget::Function(signature.index));
                 check_arg_count(name, signature.params.len(), args, expr.span)?;
                 for (arg, param_type) in args.iter_mut().zip(&signature.params) {
-                    let arg_type = self.check_expr(arg)?;
+                    let arg_type = self.check_expr_expecting(arg, param_type)?;
                     if arg_type != *param_type {
                         return Err(wrong_arg_type(name, arg_type, arg.span));
                     }
                 }
-                Ok(signature.return_type)
+                Ok(signature.return_type.clone())
             }
             ExprKind::Unary { op, operand } => {
                 let t = self.check_expr(operand)?;
-                match (op, t) {
+                match (op, &t) {
                     (UnaryOp::Not, Type::Bool) => Ok(Type::Bool),
                     (UnaryOp::Not, _) => Err(SomoniError::at(
                         expr.span,
-                        ErrorCode::NotNeedsBool { found: t },
+                        ErrorCode::NotNeedsBool { found: t.clone() },
                     )),
-                    (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
+                    (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t.clone()),
                     (UnaryOp::Neg, _) => Err(SomoniError::at(
                         expr.span,
-                        ErrorCode::NegNeedsNumber { found: t },
+                        ErrorCode::NegNeedsNumber { found: t.clone() },
                     )),
                 }
             }
@@ -420,17 +484,39 @@ impl TypeChecker {
     }
 }
 
-fn type_from_name(name: &str, span: Span) -> Result<Type, SomoniError> {
-    Type::from_name(name).ok_or_else(|| unknown_type(name, span))
-}
-
-fn unknown_type(name: &str, span: Span) -> SomoniError {
-    SomoniError::at(
-        span,
-        ErrorCode::UnknownType {
-            name: name.to_string(),
-        },
-    )
+// A type as written (e.g. `list<int>`) to a Type. `void` only where allowed (return types).
+fn resolve_type(written: &TypeName, allow_void: bool) -> Result<Type, SomoniError> {
+    let simple = if allow_void {
+        Type::from_return_name(&written.name)
+    } else {
+        Type::from_name(&written.name)
+    };
+    let expected_args = match (written.name.as_str(), &simple) {
+        ("list", _) => 1,
+        (_, Some(_)) => 0,
+        (name, None) => {
+            return Err(SomoniError::at(
+                written.span,
+                ErrorCode::UnknownType {
+                    name: name.to_string(),
+                },
+            ));
+        }
+    };
+    if written.args.len() != expected_args {
+        return Err(SomoniError::at(
+            written.span,
+            ErrorCode::TypeArguments {
+                name: written.name.clone(),
+                expected: expected_args,
+                found: written.args.len(),
+            },
+        ));
+    }
+    match simple {
+        Some(ty) => Ok(ty),
+        None => Ok(Type::List(Box::new(resolve_type(&written.args[0], false)?))),
+    }
 }
 
 fn check_arg_count(

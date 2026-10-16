@@ -1,0 +1,44 @@
+var zahlen: list<int> = [1, 2, 3];
+print(zahlen);
+print(zahlen[0]);               // the first place has index 0
+print(zahlen[2] * 10);
+print(len(zahlen));
+
+var namen: list<string> = ["Ali", "Sara"];
+print(namen);                   // strings in a list are shown with quotes
+for (var i: int = 0; i < len(namen); i = i + 1) {
+    print(namen[i]);
+}
+
+var matrix: list<list<int>> = [[1, 2], [3, 4]];
+print(matrix);
+print(matrix[1][0]);
+
+print(zahlen == [1, 2, 3]);
+print(zahlen != [1, 2]);
+print([1.5, 2.0]);
+
+fn first(l: list<int>): int {
+    return l[0];
+}
+print(first([7, 8]));
+
+fn flags(): list<bool> {
+    return [true, false];
+}
+print(flags());
+
+// an empty list where its type is known
+var leer: list<string> = [];
+print(leer);
+print(len(leer));
+fn count(l: list<int>): int {
+    return len(l);
+}
+print(count([]));
+fn nothing(): list<int> {
+    return [];
+}
+print(len(nothing()));
+var grid: list<list<int>> = [[], [5]];
+print(grid);

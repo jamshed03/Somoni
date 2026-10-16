@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Function, Param, Stmt, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Function, Param, Stmt, TypeName, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::text::Text;
@@ -133,16 +133,15 @@ impl Parser {
         self.advance(); // 'fn'
         let (name, name_span) = self.expect_ident("function name")?;
         self.expect(Token::LParen, "'(' after function name")?;
-        let params = self.parse_comma_list(Self::parse_param)?;
+        let params = self.parse_comma_list(Token::RParen, "')'", Self::parse_param)?;
         self.expect(Token::Colon, "':' and a return type after ')'")?;
-        let (return_type, return_type_span) = self.expect_ident("return type")?;
+        let return_type = self.parse_type("return type")?;
         let body = self.expect_block_stmts("after function header")?;
         Ok(Stmt::FnDecl(Function {
             name,
             name_span,
             params,
             return_type,
-            return_type_span,
             body,
         }))
     }
@@ -151,12 +150,11 @@ impl Parser {
     fn parse_param(&mut self) -> Result<Param, SomoniError> {
         let (name, name_span) = self.expect_ident("parameter name")?;
         self.expect(Token::Colon, "':' after parameter name")?;
-        let (type_name, type_span) = self.expect_ident("parameter type")?;
+        let type_name = self.parse_type("parameter type")?;
         Ok(Param {
             name,
             name_span,
             type_name,
-            type_span,
         })
     }
 
@@ -164,10 +162,12 @@ impl Parser {
     // `()` gives an empty list; a ',' before ')' is an error.
     fn parse_comma_list<T>(
         &mut self,
+        close: Token,
+        close_text: &str,
         mut parse_item: impl FnMut(&mut Self) -> Result<T, SomoniError>,
     ) -> Result<Vec<T>, SomoniError> {
         let mut items = Vec::new();
-        if *self.peek() == Token::RParen {
+        if *self.peek() == close {
             self.advance();
             return Ok(items);
         }
@@ -178,7 +178,7 @@ impl Parser {
             }
             self.advance(); // ','
         }
-        self.expect(Token::RParen, "')'")?;
+        self.expect(close, close_text)?;
         Ok(items)
     }
 
@@ -331,7 +331,7 @@ impl Parser {
         self.advance(); // var or const
         let (name, name_span) = self.expect_ident("variable name")?;
         self.expect(Token::Colon, "':'")?;
-        let (type_name, type_span) = self.expect_ident("type name")?;
+        let type_name = self.parse_type("type name")?;
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
         let span = self.since(start);
@@ -340,7 +340,6 @@ impl Parser {
             name,
             name_span,
             type_name,
-            type_span,
             value,
             mutable,
             slot: None,
@@ -351,7 +350,7 @@ impl Parser {
     fn parse_call(&mut self, name: String, name_span: Span) -> Result<Expr, SomoniError> {
         self.advance(); // name
         self.advance(); // '('
-        let args = self.parse_comma_list(Self::parse_expr)?;
+        let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
         Ok(Expr {
             kind: ExprKind::Call {
                 name,
@@ -441,7 +440,7 @@ impl Parser {
         let op = match self.peek() {
             Token::Bang => UnaryOp::Not,
             Token::Minus => UnaryOp::Neg,
-            _ => return self.parse_primary(),
+            _ => return self.parse_postfix(),
         };
         let start = self.current_span();
         self.advance();
@@ -453,6 +452,41 @@ impl Parser {
                 operand: Box::new(operand),
             },
             span,
+        })
+    }
+
+    // a primary expression followed by any number of [index]
+    fn parse_postfix(&mut self) -> Result<Expr, SomoniError> {
+        let mut expr = self.parse_primary()?;
+        while *self.peek() == Token::LBracket {
+            self.advance(); // '['
+            let index = self.parse_expr()?;
+            self.expect(Token::RBracket, "']'")?;
+            let span = expr.span.to(self.last_span());
+            expr = Expr {
+                kind: ExprKind::Index {
+                    target: Box::new(expr),
+                    index: Box::new(index),
+                },
+                span,
+            };
+        }
+        Ok(expr)
+    }
+
+    // int, string, list<int>, list<list<string>>, ...
+    fn parse_type(&mut self, what: &str) -> Result<TypeName, SomoniError> {
+        let (name, start) = self.expect_ident(what)?;
+        let mut args = Vec::new();
+        if *self.peek() == Token::Less {
+            self.advance(); // '<'
+            args.push(self.parse_type("type")?);
+            self.expect(Token::Greater, "'>'")?;
+        }
+        Ok(TypeName {
+            name,
+            args,
+            span: self.since(start),
         })
     }
 
@@ -468,6 +502,14 @@ impl Parser {
                 return self.parse_call(name, span);
             }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
+            Token::LBracket => {
+                self.advance(); // '['
+                let elements = self.parse_comma_list(Token::RBracket, "']'", Self::parse_expr)?;
+                return Ok(Expr {
+                    kind: ExprKind::List(elements),
+                    span: span.to(self.last_span()),
+                });
+            }
             Token::LParen => {
                 self.advance();
                 let inner = self.parse_expr()?;

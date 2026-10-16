@@ -43,14 +43,14 @@ impl Builtin {
 
     // type checker: the result type for this argument type, None if the argument is not allowed.
     // Converting to the same type (int(5)) is not allowed, it is never needed.
-    pub fn result_type(self, arg: Type) -> Option<Type> {
+    pub fn result_type(self, arg: &Type) -> Option<Type> {
         match (self, arg) {
             (Builtin::Print, Type::Void) => None,
             (Builtin::Print, _) => Some(Type::Void),
             (Builtin::Int, Type::Float | Type::Str) => Some(Type::Int),
             (Builtin::Float, Type::Int | Type::Str) => Some(Type::Float),
             (Builtin::Str, Type::Int | Type::Float | Type::Bool) => Some(Type::Str),
-            (Builtin::Len, Type::Str) => Some(Type::Int),
+            (Builtin::Len, Type::Str | Type::List(_)) => Some(Type::Int),
             _ => None,
         }
     }
@@ -76,6 +76,7 @@ impl Builtin {
             (Builtin::Str, arg) => Ok(Value::Str(Rc::new(Text::new(arg.to_string())))),
             // the count is stored in the text, no counting here
             (Builtin::Len, Value::Str(s)) => Ok(Value::Int(s.char_count() as i64)),
+            (Builtin::Len, Value::List(items)) => Ok(Value::Int(items.len() as i64)),
             (builtin, arg) => Err(SomoniError::internal(format!(
                 "'{}' cannot take {}",
                 builtin.name(),

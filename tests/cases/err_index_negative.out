@@ -1,0 +1,3 @@
+Runtime error [R005]: Line 2: index -1 is out of range (list has 2 elements)
+  2 | print(l[0 - 1]);
+    |       ^^^^^^^^

@@ -1,0 +1,3 @@
+Type error [T001]: Line 1: unknown type 'foo'
+  1 | var l: list<foo> = [1];
+    |             ^^^

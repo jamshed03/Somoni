@@ -1,0 +1,3 @@
+Type error [T023]: Line 1: 'int' expects 0 type arguments, got 1
+  1 | var n: int<string> = 1;
+    |        ^^^^^^^^^^^

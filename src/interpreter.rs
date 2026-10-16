@@ -13,6 +13,8 @@ pub enum Value {
     // Rc: reading or passing a string only counts one more user instead of copying
     // the text. Text (not str) so a string with only one user can still grow.
     Str(Rc<Text>),
+    // Rc like Str: a copy of a list shares the elements until one of them is changed
+    List(Rc<Vec<Value>>),
     Void,
 }
 
@@ -23,6 +25,20 @@ impl fmt::Display for Value {
             Value::Float(x) => write!(f, "{}", x),
             Value::Bool(b) => write!(f, "{}", b),
             Value::Str(s) => write!(f, "{}", s),
+            Value::List(items) => {
+                write!(f, "[")?;
+                for (i, item) in items.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    // strings in a list get quotes: ["1"] and [1] must look different
+                    match item {
+                        Value::Str(s) => write!(f, "\"{}\"", s)?,
+                        other => write!(f, "{}", other)?,
+                    }
+                }
+                write!(f, "]")
+            }
             Value::Void => write!(f, "void"),
         }
     }
@@ -261,6 +277,21 @@ impl<'a> Interpreter<'a> {
             ExprKind::Bool(b) => Ok(Value::Bool(*b)),
             ExprKind::Ident { slot, .. } => self.get(*slot),
             ExprKind::Call { target, args, .. } => self.eval_call(*target, args),
+            ExprKind::List(elements) => {
+                let mut items = Vec::with_capacity(elements.len());
+                for element in elements {
+                    items.push(self.eval(element)?);
+                }
+                Ok(Value::List(Rc::new(items)))
+            }
+            ExprKind::Index { target, index } => {
+                let list = self.eval(target)?;
+                let index = self.eval(index)?;
+                let (Value::List(items), Value::Int(i)) = (list, index) else {
+                    return Err(SomoniError::internal("index on a non-list"));
+                };
+                element_at(&items, i).cloned()
+            }
             ExprKind::Unary { op, operand } => {
                 let value = self.eval(operand)?;
                 unary(*op, value)
@@ -415,4 +446,18 @@ fn appended_text(slot: usize, value: &Expr) -> Option<&Expr> {
         return None;
     };
     (left_slot == slot).then_some(right)
+}
+
+// the element at `index`, or R005 if the index is outside the list (also negative)
+fn element_at(items: &[Value], index: i64) -> Result<&Value, SomoniError> {
+    usize::try_from(index)
+        .ok()
+        .and_then(|i| items.get(i))
+        .ok_or_else(|| {
+            ErrorCode::IndexOutOfRange {
+                index,
+                length: items.len(),
+            }
+            .into()
+        })
 }

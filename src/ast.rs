@@ -32,6 +32,13 @@ pub enum ExprKind {
         operand: Box<Expr>,
     },
     Bool(bool),
+    // [a, b, c]
+    List(Vec<Expr>),
+    // target[index]
+    Index {
+        target: Box<Expr>,
+        index: Box<Expr>,
+    },
     Call {
         name: String,
         name_span: Span,
@@ -78,8 +85,7 @@ pub enum Stmt {
     VarDecl {
         name: String,
         name_span: Span,
-        type_name: String,
-        type_span: Span,
+        type_name: TypeName,
         value: Expr,
         mutable: bool,
         slot: Option<usize>,
@@ -136,8 +142,7 @@ pub struct Function {
     pub name: String,
     pub name_span: Span,
     pub params: Vec<Param>,
-    pub return_type: String,
-    pub return_type_span: Span,
+    pub return_type: TypeName,
     pub body: Vec<Stmt>,
 }
 
@@ -145,8 +150,15 @@ pub struct Function {
 pub struct Param {
     pub name: String,
     pub name_span: Span,
-    pub type_name: String,
-    pub type_span: Span,
+    pub type_name: TypeName,
+}
+
+// a type as written in the source, e.g. `list<int>`: name, type arguments and place
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeName {
+    pub name: String,
+    pub args: Vec<TypeName>,
+    pub span: Span,
 }
 
 impl Stmt {

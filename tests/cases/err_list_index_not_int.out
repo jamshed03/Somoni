@@ -1,0 +1,3 @@
+Type error [T021]: Line 2: list index must be int, got string
+  2 | print(l["0"]);
+    |         ^^^
