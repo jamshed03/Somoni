@@ -1,7 +1,7 @@
 // Runs every tests/cases/*.smn
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[test]
@@ -17,44 +17,11 @@ fn smn_programs_match_expected_output() {
     assert!(!programs.is_empty(), "no .smn files in tests/cases");
 
     let mut failures = Vec::new();
-
     for program in &programs {
-        let name = program.file_name().unwrap().to_string_lossy().to_string();
-
-        let expected = match fs::read_to_string(program.with_extension("out")) {
-            Ok(text) => text,
-            Err(_) => {
-                failures.push(format!("{}: missing .out file", name));
-                continue;
-            }
-        };
-
-        // CARGO_BIN_EXE_somoni = path to the compiled binary (set by cargo for tests)
-        let output = Command::new(env!("CARGO_BIN_EXE_somoni"))
-            .arg(program)
-            .output()
-            .expect("cannot start somoni");
-        let actual = format!(
-            "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-
-        if actual != expected {
-            failures.push(format!(
-                "{}\n--- expected ---\n{}--- actual ---\n{}",
-                name, expected, actual
-            ));
-        }
-
-        let expected_code = if name.starts_with("err_") { 1 } else { 0 };
-        if output.status.code() != Some(expected_code) {
-            failures.push(format!(
-                "{}: exit code {:?}, expected {}",
-                name,
-                output.status.code(),
-                expected_code
-            ));
+        let problems = check_program(program);
+        if !problems.is_empty() {
+            let name = program.file_name().unwrap().to_string_lossy();
+            failures.push(format!("{}\n{}", name, problems.join("\n")));
         }
     }
 
@@ -63,6 +30,43 @@ fn smn_programs_match_expected_output() {
         "{} of {} programs failed:\n\n{}",
         failures.len(),
         programs.len(),
-        failures.join("\n")
+        failures.join("\n\n")
     );
+}
+
+fn check_program(program: &Path) -> Vec<String> {
+    let Ok(expected) = fs::read_to_string(program.with_extension("out")) else {
+        return vec!["missing .out file".to_string()];
+    };
+
+    // CARGO_BIN_EXE_somoni = path to the compiled binary (set by cargo for tests)
+    let output = Command::new(env!("CARGO_BIN_EXE_somoni"))
+        .arg(program)
+        .output()
+        .expect("cannot start somoni");
+    let actual = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let mut problems = Vec::new();
+    if actual != expected {
+        problems.push(format!(
+            "--- expected ---\n{}--- actual ---\n{}",
+            expected, actual
+        ));
+    }
+
+    // err_* programs must stop with exit code 1, all others must end with 0
+    let name = program.file_name().unwrap().to_string_lossy();
+    let expected_code = if name.starts_with("err_") { 1 } else { 0 };
+    if output.status.code() != Some(expected_code) {
+        problems.push(format!(
+            "exit code {:?}, expected {}",
+            output.status.code(),
+            expected_code
+        ));
+    }
+    problems
 }

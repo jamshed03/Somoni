@@ -138,6 +138,35 @@ impl Lexer {
         Err(SomoniError::at(start, ErrorCode::UnterminatedString))
     }
 
+    // `// ...` up to the end of the line; the '\n' itself is left for the line counter
+    fn skip_line_comment(&mut self) {
+        while let Some(c) = self.peek() {
+            if c == '\n' {
+                break;
+            }
+            self.advance();
+        }
+    }
+
+    // `/* ... */` over several lines, not nested
+    fn skip_block_comment(&mut self) -> Result<(), SomoniError> {
+        let start = Span::in_line(self.line, self.col(), 2); // the '/*'
+        self.advance(); // '/'
+        self.advance(); // '*'
+        loop {
+            match self.peek() {
+                None => return Err(SomoniError::at(start, ErrorCode::UnterminatedComment)),
+                Some('*') if self.peek_next() == Some('/') => {
+                    self.advance(); // '*'
+                    self.advance(); // '/'
+                    return Ok(());
+                }
+                Some('\n') => self.newline(),
+                Some(_) => self.advance(),
+            }
+        }
+    }
+
     pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
         let mut tokens = Vec::new();
 
@@ -152,36 +181,13 @@ impl Lexer {
                 continue;
             }
 
-            // comment: skip to the end of the line (the '\n' itself is left for the line counter)
             if c == '/' && self.peek_next() == Some('/') {
-                while let Some(c) = self.peek() {
-                    if c == '\n' {
-                        break;
-                    }
-                    self.advance();
-                }
+                self.skip_line_comment();
                 continue;
             }
 
-            // block comment: /* ... */ over several lines, not nested
             if c == '/' && self.peek_next() == Some('*') {
-                let start = Span::in_line(self.line, self.col(), 2); // the '/*'
-                self.advance(); // '/'
-                self.advance(); // '*'
-                loop {
-                    match self.peek() {
-                        None => {
-                            return Err(SomoniError::at(start, ErrorCode::UnterminatedComment));
-                        }
-                        Some('*') if self.peek_next() == Some('/') => {
-                            self.advance(); // '*'
-                            self.advance(); // '/'
-                            break;
-                        }
-                        Some('\n') => self.newline(),
-                        Some(_) => self.advance(),
-                    }
-                }
+                self.skip_block_comment()?;
                 continue;
             }
 

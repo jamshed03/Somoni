@@ -130,28 +130,7 @@ impl Parser {
         self.advance(); // 'fn'
         let (name, name_span) = self.expect_ident("function name")?;
         self.expect(Token::LParen, "'(' after function name")?;
-        let mut params = Vec::new();
-        if *self.peek() == Token::RParen {
-            self.advance();
-        } else {
-            loop {
-                let (name, name_span) = self.expect_ident("parameter name")?;
-                self.expect(Token::Colon, "':' after parameter name")?;
-                let (type_name, type_span) = self.expect_ident("parameter type")?;
-                params.push(Param {
-                    name,
-                    name_span,
-                    type_name,
-                    type_span,
-                });
-                if *self.peek() == Token::Comma {
-                    self.advance();
-                    continue;
-                }
-                self.expect(Token::RParen, "')'")?;
-                break;
-            }
-        }
+        let params = self.parse_comma_list(Self::parse_param)?;
         self.expect(Token::Colon, "':' and a return type after ')'")?;
         let (return_type, return_type_span) = self.expect_ident("return type")?;
         let body = self.expect_block_stmts("after function header")?;
@@ -163,6 +142,41 @@ impl Parser {
             return_type_span,
             body,
         }))
+    }
+
+    // a: int
+    fn parse_param(&mut self) -> Result<Param, SomoniError> {
+        let (name, name_span) = self.expect_ident("parameter name")?;
+        self.expect(Token::Colon, "':' after parameter name")?;
+        let (type_name, type_span) = self.expect_ident("parameter type")?;
+        Ok(Param {
+            name,
+            name_span,
+            type_name,
+            type_span,
+        })
+    }
+
+    // Items separated by ',' up to ')', e.g. arguments or parameters. The '(' is already read.
+    // `()` gives an empty list; a ',' before ')' is an error.
+    fn parse_comma_list<T>(
+        &mut self,
+        mut parse_item: impl FnMut(&mut Self) -> Result<T, SomoniError>,
+    ) -> Result<Vec<T>, SomoniError> {
+        let mut items = Vec::new();
+        if *self.peek() == Token::RParen {
+            self.advance();
+            return Ok(items);
+        }
+        loop {
+            items.push(parse_item(self)?);
+            if *self.peek() != Token::Comma {
+                break;
+            }
+            self.advance(); // ','
+        }
+        self.expect(Token::RParen, "')'")?;
+        Ok(items)
     }
 
     // { stmt* } – no ';' after the closing brace
@@ -332,20 +346,7 @@ impl Parser {
     fn parse_call(&mut self, name: String, name_span: Span) -> Result<Expr, SomoniError> {
         self.advance(); // name
         self.advance(); // '('
-        let mut args = Vec::new();
-        if *self.peek() == Token::RParen {
-            self.advance();
-        } else {
-            loop {
-                args.push(self.parse_expr()?);
-                if *self.peek() == Token::Comma {
-                    self.advance();
-                    continue;
-                }
-                self.expect(Token::RParen, "')'")?;
-                break;
-            }
-        }
+        let args = self.parse_comma_list(Self::parse_expr)?;
         Ok(Expr {
             kind: ExprKind::Call {
                 name,
