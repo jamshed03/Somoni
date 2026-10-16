@@ -42,7 +42,7 @@ Version 0.1.0, in progress:
 -   Integer overflow and division by zero are runtime errors
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
--   `while` loops
+-   `while` loops with `break` and `continue`
 -   Comments `//` and `/* */`
 
-Next: `for`, `break`, `continue`, functions.
+Next: `for` loops, functions.

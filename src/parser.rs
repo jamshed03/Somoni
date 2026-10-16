@@ -73,6 +73,16 @@ impl Parser {
             Token::LBrace => self.parse_block(line),
             Token::If => self.parse_if(line),
             Token::While => self.parse_while(line),
+            Token::Break => {
+                self.advance(); // 'break'
+                self.expect(Token::Semicolon, "';' after 'break'")?;
+                Ok(Stmt::Break { line })
+            }
+            Token::Continue => {
+                self.advance(); // 'continue'
+                self.expect(Token::Semicolon, "';' after 'continue'")?;
+                Ok(Stmt::Continue { line })
+            }
             Token::Ident(name) if name == "print" => self.parse_print(line),
             Token::Ident(name) => self.parse_assign(name, line),
             other => Err(format!("Line {}: unexpected token {:?}", line, other)),

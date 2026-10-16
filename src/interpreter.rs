@@ -9,6 +9,13 @@ pub enum Value {
     Str(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ControlFlow {
+    Normal,
+    Break,
+    Continue,
+}
+
 pub struct Interpreter {
     scopes: Scopes<Value>,
 }
@@ -21,19 +28,27 @@ impl Interpreter {
     }
 
     pub fn run(&mut self, stmts: &[Stmt]) -> Result<(), String> {
-        for stmt in stmts {
-            self.exec(stmt)?;
-        }
+        self.exec_all(stmts)?;
         Ok(())
     }
 
-    fn exec(&mut self, stmt: &Stmt) -> Result<(), String> {
+    fn exec_all(&mut self, stmts: &[Stmt]) -> Result<ControlFlow, String> {
+        for stmt in stmts {
+            let flow = self.exec(stmt)?;
+            if flow != ControlFlow::Normal {
+                return Ok(flow);
+            }
+        }
+        Ok(ControlFlow::Normal)
+    }
+
+    fn exec(&mut self, stmt: &Stmt) -> Result<ControlFlow, String> {
         match stmt {
             Stmt::VarDecl { name, value, .. } => {
                 let v = self.eval(value)?;
                 // duplicates were already rejected by the type checker
                 self.scopes.declare(name, v);
-                Ok(())
+                Ok(ControlFlow::Normal)
             }
             Stmt::Print { value, .. } => {
                 let v = self.eval(value)?;
@@ -43,7 +58,7 @@ impl Interpreter {
                     Value::Str(s) => println!("{}", s),
                     Value::Bool(b) => println!("{}", b),
                 }
-                Ok(())
+                Ok(ControlFlow::Normal)
             }
             Stmt::Assign { name, value, .. } => {
                 let v = self.eval(value)?;
@@ -51,14 +66,14 @@ impl Interpreter {
                 match self.scopes.lookup_mut(name) {
                     Some(slot) => {
                         *slot = v;
-                        Ok(())
+                        Ok(ControlFlow::Normal)
                     }
                     None => Err(format!("Unknown variable '{}'", name)),
                 }
             }
             Stmt::Block(stmts) => {
                 self.scopes.push();
-                let result = self.run(stmts);
+                let result = self.exec_all(stmts);
                 self.scopes.pop();
                 result
             }
@@ -73,7 +88,7 @@ impl Interpreter {
                 } else if let Some(else_branch) = else_branch {
                     self.exec(else_branch)
                 } else {
-                    Ok(())
+                    Ok(ControlFlow::Normal)
                 }
             }
             Stmt::While {
@@ -81,10 +96,15 @@ impl Interpreter {
             } => {
                 // the condition is evaluated again before every round
                 while self.eval_condition(condition)? {
-                    self.exec(body)?;
+                    match self.exec(body)? {
+                        ControlFlow::Break => break,
+                        ControlFlow::Continue | ControlFlow::Normal => {}
+                    }
                 }
-                Ok(())
+                Ok(ControlFlow::Normal)
             }
+            Stmt::Break { .. } => Ok(ControlFlow::Break),
+            Stmt::Continue { .. } => Ok(ControlFlow::Continue),
         }
     }
 

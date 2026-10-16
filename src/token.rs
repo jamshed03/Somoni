@@ -8,6 +8,8 @@ pub enum Token {
     If,
     Else,
     While,
+    Break,
+    Continue,
 
     // Namen und Werte
     Ident(String),

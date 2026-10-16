@@ -71,4 +71,10 @@ pub enum Stmt {
         body: Box<Stmt>,
         line: usize,
     },
+    Break {
+        line: usize,
+    },
+    Continue {
+        line: usize,
+    },
 }

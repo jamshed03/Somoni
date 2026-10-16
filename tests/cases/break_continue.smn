@@ -1,0 +1,53 @@
+// break ends the loop
+var i: int = 0;
+while (true) {
+    if (i == 3) {
+        break;
+    }
+    print(i);
+    i = i + 1;
+}
+print("after");
+
+// continue skips the rest of this round
+var j: int = 0;
+while (j < 5) {
+    j = j + 1;
+    if (j % 2 == 0) {
+        continue;
+    }
+    print(j);
+}
+
+// break ends only the innermost loop
+var a: int = 1;
+while (a <= 2) {
+    var b: int = 1;
+    while (true) {
+        if (b == 3) {
+            break;
+        }
+        print(a * 10 + b);
+        b = b + 1;
+    }
+    a = a + 1;
+}
+
+// break from deep inside nested blocks
+var n: int = 0;
+while (true) {
+    {
+        if (n == 2) {
+            break;
+        }
+    }
+    n = n + 1;
+}
+print(n);
+
+// code after break in the same block does not run
+while (true) {
+    break;
+    print("never");
+}
+print("done");

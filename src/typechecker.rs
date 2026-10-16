@@ -9,12 +9,14 @@ struct VarInfo {
 
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
+    loop_depth: usize,
 }
 
 impl TypeChecker {
     pub fn new() -> TypeChecker {
         TypeChecker {
             scopes: Scopes::new(),
+            loop_depth: 0,
         }
     }
 
@@ -108,9 +110,25 @@ impl TypeChecker {
             } => {
                 self.check_condition(condition, *line)?;
                 // checked once, even if it runs many times (or never)
-                self.check_stmt(body)
+                self.check_loop_body(body)
             }
+            Stmt::Break { line } => self.check_inside_loop("break", *line),
+            Stmt::Continue { line } => self.check_inside_loop("continue", *line),
         }
+    }
+
+    fn check_loop_body(&mut self, body: &Stmt) -> Result<(), String> {
+        self.loop_depth += 1;
+        let result = self.check_stmt(body);
+        self.loop_depth -= 1;
+        result
+    }
+
+    fn check_inside_loop(&self, keyword: &str, line: usize) -> Result<(), String> {
+        if self.loop_depth == 0 {
+            return Err(format!("Line {}: '{}' outside of a loop", line, keyword));
+        }
+        Ok(())
     }
 
     // conditions of if and while must be bool, `if (1)` is an error
