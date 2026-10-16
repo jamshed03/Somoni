@@ -67,6 +67,7 @@ impl Parser {
             Token::Var => self.parse_var_decl(true, line),
             Token::Const => self.parse_var_decl(false, line),
             Token::LBrace => self.parse_block(line),
+            Token::If => self.parse_if(line),
             Token::Ident(name) if name == "print" => self.parse_print(line),
             Token::Ident(name) => self.parse_assign(name, line),
             other => Err(format!("Line {}: unexpected token {:?}", line, other)),
@@ -88,6 +89,53 @@ impl Parser {
         }
         self.advance(); // '}'
         Ok(Stmt::Block(stmts))
+    }
+
+    // a block where the language requires one, e.g. after `if (...)`
+    fn expect_block(&mut self, what: &str) -> Result<Stmt, String> {
+        if *self.peek() != Token::LBrace {
+            return Err(format!(
+                "Line {}: expected '{{' {}",
+                self.line_after_last_token(),
+                what
+            ));
+        }
+        let open_line = self.tokens[self.pos].line;
+        self.parse_block(open_line)
+    }
+
+    // if (cond) { ... } [else if (cond) { ... }]* [else { ... }]
+    fn parse_if(&mut self, line: usize) -> Result<Stmt, String> {
+        self.advance(); // 'if'
+        self.expect(Token::LParen, "'(' after 'if'")?;
+        let condition = self.parse_expr()?;
+        self.expect(Token::RParen, "')' after if condition")?;
+        let then_branch = self.expect_block("after if condition")?;
+
+        let else_branch = if *self.peek() == Token::Else {
+            self.advance(); // 'else'
+            let else_line = self.tokens[self.pos].line;
+            match self.peek() {
+                // `else if` is an else whose only content is another if
+                Token::If => Some(Box::new(self.parse_if(else_line)?)),
+                Token::LBrace => Some(Box::new(self.parse_block(else_line)?)),
+                _ => {
+                    return Err(format!(
+                        "Line {}: expected '{{' or 'if' after 'else'",
+                        self.line_after_last_token()
+                    ));
+                }
+            }
+        } else {
+            None
+        };
+
+        Ok(Stmt::If {
+            condition,
+            then_branch: Box::new(then_branch),
+            else_branch,
+            line,
+        })
     }
 
     fn parse_assign(&mut self, name: String, line: usize) -> Result<Stmt, String> {

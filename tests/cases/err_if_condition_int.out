@@ -1,0 +1,1 @@
+Type error: Line 1: condition must be bool, got int

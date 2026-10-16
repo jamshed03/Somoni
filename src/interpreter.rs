@@ -62,6 +62,19 @@ impl Interpreter {
                 self.scopes.pop();
                 result
             }
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+                ..
+            } => match self.eval(condition)? {
+                Value::Bool(true) => self.exec(then_branch),
+                Value::Bool(false) => match else_branch {
+                    Some(else_branch) => self.exec(else_branch),
+                    None => Ok(()),
+                },
+                _ => Err("Condition is not a bool".to_string()),
+            },
         }
     }
 

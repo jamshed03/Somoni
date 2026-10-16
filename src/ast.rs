@@ -58,4 +58,11 @@ pub enum Stmt {
         line: usize,
     },
     Block(Vec<Stmt>),
+    // then_branch is always a Block; else_branch is a Block or another If (for `else if`)
+    If {
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
+        line: usize,
+    },
 }

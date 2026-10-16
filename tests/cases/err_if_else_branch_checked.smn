@@ -1,0 +1,6 @@
+// the else branch never runs, but it is still type checked
+if (true) {
+    print(1);
+} else {
+    print(1 + "a");
+}

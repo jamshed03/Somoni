@@ -87,6 +87,27 @@ impl TypeChecker {
                 self.scopes.pop();
                 result
             }
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+                line,
+            } => {
+                let ty = self.check_expr(condition, *line)?;
+                if ty != Type::Bool {
+                    return Err(format!(
+                        "Line {}: condition must be bool, got {}",
+                        line,
+                        ty.name()
+                    ));
+                }
+                // both branches are checked, even the one that will not run
+                self.check_stmt(then_branch)?;
+                if let Some(else_branch) = else_branch {
+                    self.check_stmt(else_branch)?;
+                }
+                Ok(())
+            }
         }
     }
 

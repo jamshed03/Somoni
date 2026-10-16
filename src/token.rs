@@ -5,6 +5,8 @@ pub enum Token {
     Const,
     True,
     False,
+    If,
+    Else,
 
     // Namen und Werte
     Ident(String),

@@ -1,0 +1,9 @@
+var x: int = 1;
+if (true) {
+    var x: string = "inner"; // shadows the outer x only in this branch
+    print(x);
+} else {
+    var y: int = 2;
+    print(y);
+}
+print(x);

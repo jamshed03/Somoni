@@ -1,0 +1,54 @@
+var x: int = 7;
+
+if (x > 5) {
+    print("big");
+}
+if (x > 10) {
+    print("never");
+}
+
+if (x > 10) {
+    print("very big");
+} else {
+    print("not very big");
+}
+
+if (x > 10) {
+    print("a");
+} else if (x > 5) {
+    print("b");
+} else if (x > 0) {
+    print("c");
+} else {
+    print("d");
+}
+
+// only the first matching branch runs
+if (x > 0) {
+    print("first");
+} else if (x > 5) {
+    print("second");
+}
+
+// nested
+if (x > 0) {
+    if (x % 2 == 1) {
+        print("odd");
+    } else {
+        print("even");
+    }
+}
+
+// a branch can change an outer variable
+if (true) {
+    x = x + 1;
+}
+print(x);
+
+// no else: nothing runs
+if (false) {
+    print("never");
+} else if (false) {
+    print("never");
+}
+print("done");

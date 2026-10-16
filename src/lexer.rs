@@ -79,6 +79,8 @@ impl Lexer {
             "const" => Token::Const,
             "true" => Token::True,
             "false" => Token::False,
+            "if" => Token::If,
+            "else" => Token::Else,
             _ => Token::Ident(text),
         }
     }
