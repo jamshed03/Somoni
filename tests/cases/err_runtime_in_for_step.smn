@@ -1,0 +1,4 @@
+// the step i = i + 1 overflows after two rounds; the error points to the for line
+for (var i: int = 9223372036854775806; i > 0; i = i + 1) {
+    print(i);
+}

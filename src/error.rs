@@ -35,6 +35,13 @@ impl SomoniError {
         SomoniError::new(ErrorKind::Runtime, None, message)
     }
 
+    pub fn with_line_if_missing(mut self, line: Option<usize>) -> SomoniError {
+        if self.line.is_none() {
+            self.line = line;
+        }
+        self
+    }
+
     fn new(kind: ErrorKind, line: Option<usize>, message: impl Into<String>) -> SomoniError {
         SomoniError {
             kind,

@@ -86,3 +86,19 @@ pub enum Stmt {
         line: usize,
     },
 }
+
+impl Stmt {
+    pub fn line(&self) -> Option<usize> {
+        match self {
+            Stmt::VarDecl { line, .. }
+            | Stmt::Print { line, .. }
+            | Stmt::Assign { line, .. }
+            | Stmt::If { line, .. }
+            | Stmt::While { line, .. }
+            | Stmt::For { line, .. }
+            | Stmt::Break { line }
+            | Stmt::Continue { line } => Some(*line),
+            Stmt::Block(_) => None,
+        }
+    }
+}

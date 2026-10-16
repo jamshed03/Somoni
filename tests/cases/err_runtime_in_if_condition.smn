@@ -1,0 +1,4 @@
+var zero: int = 0;
+if (10 / zero > 1) {
+    print("never");
+}

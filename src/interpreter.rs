@@ -44,10 +44,14 @@ impl Interpreter {
     }
 
     fn exec(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
+        self.exec_stmt(stmt)
+            .map_err(|error| error.with_line_if_missing(stmt.line()))
+    }
+
+    fn exec_stmt(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
         match stmt {
             Stmt::VarDecl { name, value, .. } => {
                 let v = self.eval(value)?;
-                // duplicates were already rejected by the type checker
                 self.scopes.declare(name, v);
                 Ok(ControlFlow::Normal)
             }
