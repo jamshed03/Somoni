@@ -1,0 +1,19 @@
+// every comparison operator for every type that allows it, also at the border (equal values)
+print(2 < 3);        // true
+print(3 < 3);        // false
+print(3 <= 3);       // true
+print(3 > 3);        // false
+print(3 >= 3);       // true
+print(4 > 3);        // true
+print(-1 < 0);       // true
+print(1.5 < 2.5);    // true
+print(2.5 < 2.5);    // false
+print(2.5 <= 2.5);   // true
+print(2.5 > 1.5);    // true
+print(1.5 >= 2.5);   // false
+print(0.5 == 0.5);   // true
+print(0.5 != 0.5);   // false
+print("a" == "b");   // false
+print("a" != "b");   // true
+print(true != false); // true
+print(false == false); // true

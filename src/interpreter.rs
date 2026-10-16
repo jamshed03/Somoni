@@ -94,6 +94,10 @@ impl Interpreter {
                 }
 
                 let r = self.eval(right)?;
+                if let Some(result) = compare(op, &l, &r) {
+                    return Ok(Value::Bool(result));
+                }
+
                 match (l, r) {
                     (Value::Int(a), Value::Int(b)) => match op {
                         BinaryOp::Add => a
@@ -126,18 +130,10 @@ impl Interpreter {
                                     .ok_or("Integer overflow".to_string())
                             }
                         }
-                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
-                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
-                        BinaryOp::Less => Ok(Value::Bool(a < b)),
-                        BinaryOp::Greater => Ok(Value::Bool(a > b)),
-                        BinaryOp::LessEq => Ok(Value::Bool(a <= b)),
-                        BinaryOp::GreaterEq => Ok(Value::Bool(a >= b)),
                         _ => Err("Operator not supported for integers".to_string()),
                     },
                     (Value::Str(a), Value::Str(b)) => match op {
                         BinaryOp::Add => Ok(Value::Str(a + &b)),
-                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
-                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
                         _ => Err("Operator not supported for strings".to_string()),
                     },
                     (Value::Float(a), Value::Float(b)) => match op {
@@ -145,23 +141,35 @@ impl Interpreter {
                         BinaryOp::Sub => Ok(Value::Float(a - b)),
                         BinaryOp::Mul => Ok(Value::Float(a * b)),
                         BinaryOp::Div => Ok(Value::Float(a / b)),
-                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
-                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
-                        BinaryOp::Less => Ok(Value::Bool(a < b)),
-                        BinaryOp::Greater => Ok(Value::Bool(a > b)),
-                        BinaryOp::LessEq => Ok(Value::Bool(a <= b)),
-                        BinaryOp::GreaterEq => Ok(Value::Bool(a >= b)),
                         _ => Err("Operator not supported for floats".to_string()),
                     },
-                    (Value::Bool(a), Value::Bool(b)) => match op {
+                    (Value::Bool(_), Value::Bool(b)) => match op {
                         BinaryOp::And | BinaryOp::Or => Ok(Value::Bool(b)),
-                        BinaryOp::Eq => Ok(Value::Bool(a == b)),
-                        BinaryOp::NotEq => Ok(Value::Bool(a != b)),
                         _ => Err("Operator not supported for bool".to_string()),
                     },
                     _ => Err("Operator not supported for these types".to_string()),
                 }
             }
         }
+    }
+}
+
+fn compare(op: &BinaryOp, l: &Value, r: &Value) -> Option<bool> {
+    match (op, l, r) {
+        (BinaryOp::Eq, _, _) => Some(l == r),
+        (BinaryOp::NotEq, _, _) => Some(l != r),
+        (_, Value::Int(a), Value::Int(b)) => order(op, a, b),
+        (_, Value::Float(a), Value::Float(b)) => order(op, a, b),
+        _ => None,
+    }
+}
+
+fn order<T: PartialOrd>(op: &BinaryOp, a: T, b: T) -> Option<bool> {
+    match op {
+        BinaryOp::Less => Some(a < b),
+        BinaryOp::Greater => Some(a > b),
+        BinaryOp::LessEq => Some(a <= b),
+        BinaryOp::GreaterEq => Some(a >= b),
+        _ => None,
     }
 }
