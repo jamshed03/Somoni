@@ -7,7 +7,7 @@ set -e
 cd "$(dirname "$0")/.."
 cargo build --release --quiet
 
-for name in ${*:-fib loop strings}; do
+for name in ${*:-fib loop strings reads}; do
     hyperfine --warmup 1 --runs 5 -N \
         -n somoni "./target/release/somoni bench/$name.smn" \
         -n php "php bench/$name.php" \

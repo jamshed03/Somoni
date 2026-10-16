@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 use crate::ast::{BinaryOp, Expr, ExprKind, Function, Stmt, UnaryOp};
 use crate::builtins::Builtin;
@@ -10,7 +11,9 @@ pub enum Value {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Str(String),
+    // Rc: reading or passing a string only counts one more user instead of copying
+    // the text. Rc<String> (not Rc<str>) so a string with only one user can still grow.
+    Str(Rc<String>),
     Void,
 }
 
@@ -172,7 +175,8 @@ impl<'a> Interpreter<'a> {
                 return Err(SomoniError::internal("string + non-string"));
             };
             if let Some(Value::Str(target)) = self.frame.get_mut(slot) {
-                target.push_str(&text);
+                // copy-on-write: grows in place if only this variable uses the text
+                Rc::make_mut(target).push_str(&text);
                 return Ok(());
             }
         }
@@ -245,7 +249,7 @@ impl<'a> Interpreter<'a> {
         match kind {
             ExprKind::Int(n) => Ok(Value::Int(*n)),
             ExprKind::Float(f) => Ok(Value::Float(*f)),
-            ExprKind::Str(s) => Ok(Value::Str(s.clone())),
+            ExprKind::Str(s) => Ok(Value::Str(Rc::clone(s))),
             ExprKind::Bool(b) => Ok(Value::Bool(*b)),
             ExprKind::Ident { slot, .. } => self.get(*slot),
             ExprKind::Call { name, args, .. } => self.eval_call(name, args),
@@ -301,7 +305,12 @@ impl<'a> Interpreter<'a> {
         match (l, r) {
             (Value::Int(a), Value::Int(b)) => int_arithmetic(op, a, b),
             (Value::Float(a), Value::Float(b)) => float_arithmetic(op, a, b),
-            (Value::Str(a), Value::Str(b)) if op == BinaryOp::Add => Ok(Value::Str(a + &b)),
+            (Value::Str(a), Value::Str(b)) if op == BinaryOp::Add => {
+                // takes over a's text if nothing else uses it, otherwise copies it once
+                let mut joined = Rc::unwrap_or_clone(a);
+                joined.push_str(&b);
+                Ok(Value::Str(Rc::new(joined)))
+            }
             (Value::Bool(_), Value::Bool(b)) if matches!(op, BinaryOp::And | BinaryOp::Or) => {
                 Ok(Value::Bool(b))
             }

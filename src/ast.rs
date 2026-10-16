@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::span::Span;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -10,7 +12,8 @@ pub struct Expr {
 pub enum ExprKind {
     Int(i64),
     Float(f64),
-    Str(String),
+    // Rc: the interpreter shares the literal's text instead of copying it on every evaluation
+    Str(Rc<String>),
     // slot: the variable's place in the frame, filled in by the type checker
     Ident {
         name: String,

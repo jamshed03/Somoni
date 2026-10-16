@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::ast::{BinaryOp, Expr, ExprKind, Function, Param, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -457,7 +459,7 @@ impl Parser {
         let kind = match self.peek().clone() {
             Token::Int(n) => ExprKind::Int(n),
             Token::Float(f) => ExprKind::Float(f),
-            Token::Str(s) => ExprKind::Str(s),
+            Token::Str(s) => ExprKind::Str(Rc::new(s)),
             Token::True => ExprKind::Bool(true),
             Token::False => ExprKind::Bool(false),
             Token::Ident(name) if *self.peek_next() == Token::LParen => {

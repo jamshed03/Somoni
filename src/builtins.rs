@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::error::{ErrorCode, SomoniError};
 use crate::interpreter::Value;
 use crate::types::Type;
@@ -63,13 +65,13 @@ impl Builtin {
             (Builtin::Int, Value::Str(s)) => s
                 .parse::<i64>()
                 .map(Value::Int)
-                .map_err(|_| cannot_convert(s, Type::Int)),
+                .map_err(|_| cannot_convert(&s, Type::Int)),
             (Builtin::Float, Value::Int(n)) => Ok(Value::Float(n as f64)),
             (Builtin::Float, Value::Str(s)) => match s.parse::<f64>() {
                 Ok(f) if f.is_finite() => Ok(Value::Float(f)),
-                _ => Err(cannot_convert(s, Type::Float)),
+                _ => Err(cannot_convert(&s, Type::Float)),
             },
-            (Builtin::Str, arg) => Ok(Value::Str(arg.to_string())),
+            (Builtin::Str, arg) => Ok(Value::Str(Rc::new(arg.to_string()))),
             (Builtin::Len, Value::Str(s)) => Ok(Value::Int(s.chars().count() as i64)),
             (builtin, arg) => Err(SomoniError::internal(format!(
                 "'{}' cannot take {}",
@@ -90,6 +92,10 @@ fn float_to_int(f: f64) -> Result<Value, SomoniError> {
     Ok(Value::Int(f.trunc() as i64))
 }
 
-fn cannot_convert(text: String, target: Type) -> SomoniError {
-    ErrorCode::InvalidConversion { text, target }.into()
+fn cannot_convert(text: &str, target: Type) -> SomoniError {
+    ErrorCode::InvalidConversion {
+        text: text.to_string(),
+        target,
+    }
+    .into()
 }
