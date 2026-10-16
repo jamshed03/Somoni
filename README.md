@@ -41,7 +41,7 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 
 ## Status
 
-Version 0.1.0, in progress:
+Version 0.2.0, the core of the language:
 
 -   Types `int`, `float`, `bool`, `string`; `var` and `const`; assignment; `print`
 -   Operators `+ - * / %`, `== != < > <= >=`, `&& || !` (short-circuit), unary `-`
