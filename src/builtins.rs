@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::interpreter::Value;
+use crate::text::Text;
 use crate::types::Type;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -63,16 +64,18 @@ impl Builtin {
             }
             (Builtin::Int, Value::Float(f)) => float_to_int(f),
             (Builtin::Int, Value::Str(s)) => s
+                .as_str()
                 .parse::<i64>()
                 .map(Value::Int)
-                .map_err(|_| cannot_convert(&s, Type::Int)),
+                .map_err(|_| cannot_convert(s.as_str(), Type::Int)),
             (Builtin::Float, Value::Int(n)) => Ok(Value::Float(n as f64)),
-            (Builtin::Float, Value::Str(s)) => match s.parse::<f64>() {
+            (Builtin::Float, Value::Str(s)) => match s.as_str().parse::<f64>() {
                 Ok(f) if f.is_finite() => Ok(Value::Float(f)),
-                _ => Err(cannot_convert(&s, Type::Float)),
+                _ => Err(cannot_convert(s.as_str(), Type::Float)),
             },
-            (Builtin::Str, arg) => Ok(Value::Str(Rc::new(arg.to_string()))),
-            (Builtin::Len, Value::Str(s)) => Ok(Value::Int(s.chars().count() as i64)),
+            (Builtin::Str, arg) => Ok(Value::Str(Rc::new(Text::new(arg.to_string())))),
+            // the count is stored in the text, no counting here
+            (Builtin::Len, Value::Str(s)) => Ok(Value::Int(s.char_count() as i64)),
             (builtin, arg) => Err(SomoniError::internal(format!(
                 "'{}' cannot take {}",
                 builtin.name(),

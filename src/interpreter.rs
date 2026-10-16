@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
+use crate::text::Text;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -10,8 +11,8 @@ pub enum Value {
     Float(f64),
     Bool(bool),
     // Rc: reading or passing a string only counts one more user instead of copying
-    // the text. Rc<String> (not Rc<str>) so a string with only one user can still grow.
-    Str(Rc<String>),
+    // the text. Text (not str) so a string with only one user can still grow.
+    Str(Rc<Text>),
     Void,
 }
 
@@ -182,7 +183,7 @@ impl<'a> Interpreter<'a> {
             };
             if let Some(Value::Str(target)) = self.stack.get_mut(self.base + slot) {
                 // copy-on-write: grows in place if only this variable uses the text
-                Rc::make_mut(target).push_str(&text);
+                Rc::make_mut(target).push(&text);
                 return Ok(());
             }
         }
@@ -318,7 +319,7 @@ impl<'a> Interpreter<'a> {
             (Value::Str(a), Value::Str(b)) if op == BinaryOp::Add => {
                 // takes over a's text if nothing else uses it, otherwise copies it once
                 let mut joined = Rc::unwrap_or_clone(a);
-                joined.push_str(&b);
+                joined.push(&b);
                 Ok(Value::Str(Rc::new(joined)))
             }
             (Value::Bool(_), Value::Bool(b)) if matches!(op, BinaryOp::And | BinaryOp::Or) => {

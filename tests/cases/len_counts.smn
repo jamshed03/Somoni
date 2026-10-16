@@ -1,0 +1,16 @@
+// len must be right after every way a string can be made (umlauts are 2 bytes, 1 character)
+var s: string = "ä";
+s = s + "ö";                    // append
+print(len(s));
+var t: string = s + "üx";       // concatenate
+print(len(t));
+print(len(string(12.5)));       // conversion
+var copy: string = t;
+t = t + "ß";                    // append to a shared text
+print(len(copy));
+print(len(t));
+print(len(""));
+fn twice(x: string): string {
+    return x + x;
+}
+print(len(twice("äb")));        // through a function
