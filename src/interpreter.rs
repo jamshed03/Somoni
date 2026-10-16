@@ -1,9 +1,7 @@
-use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Function, Stmt, UnaryOp};
-use crate::builtins::Builtin;
+use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,50 +39,58 @@ enum ControlFlow {
 // more nested calls are an error (R004) instead of a crash; Python allows 1000, JavaScript ~10000
 const MAX_CALL_DEPTH: usize = 10_000;
 
+// All frames lie one after another on one stack (like a real VM). The current frame
+// starts at `base`; slot i of a variable is stack[base + i]. A call needs no own memory.
 pub struct Interpreter<'a> {
-    // the values of the current function (or the top level), one per slot;
-    // the type checker gave every variable its slot, so no lookup by name is needed
-    frame: Vec<Value>,
-    functions: HashMap<&'a str, &'a Function>,
+    stack: Vec<Value>,
+    base: usize,
+    // indexed like ast::functions, the type checker wrote the index into every call
+    functions: Vec<&'a Function>,
     call_depth: usize,
 }
 
 impl<'a> Interpreter<'a> {
     pub fn new() -> Interpreter<'a> {
         Interpreter {
-            frame: Vec::new(),
-            functions: HashMap::new(),
+            stack: Vec::new(),
+            base: 0,
+            functions: Vec::new(),
             call_depth: 0,
         }
     }
 
     pub fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), SomoniError> {
-        for stmt in stmts {
-            if let Stmt::FnDecl(function) = stmt {
-                self.functions.insert(&function.name, function);
-            }
-        }
+        self.functions = ast::functions(stmts).collect();
         self.exec_all(stmts)?;
         Ok(())
     }
 
-    fn call_function(
-        &mut self,
-        function: &Function,
-        args: Vec<Value>,
-    ) -> Result<Value, SomoniError> {
+    fn call_function(&mut self, function: &Function, args: &[Expr]) -> Result<Value, SomoniError> {
         if self.call_depth >= MAX_CALL_DEPTH {
             return Err(ErrorCode::RecursionTooDeep {
                 limit: MAX_CALL_DEPTH,
             }
             .into());
         }
-        // the arguments are the new frame: parameter i has slot i
-        let caller_frame = std::mem::replace(&mut self.frame, args);
+        // The arguments go on top of the stack and become slots 0, 1, ... of the new frame.
+        // They are evaluated first, while the caller's frame is still the current one.
+        let new_base = self.stack.len();
+        for arg in args {
+            match self.eval(arg) {
+                Ok(value) => self.stack.push(value),
+                Err(error) => {
+                    self.stack.truncate(new_base);
+                    return Err(error);
+                }
+            }
+        }
+        let caller_base = std::mem::replace(&mut self.base, new_base);
         self.call_depth += 1;
         let result = self.exec_all(&function.body);
         self.call_depth -= 1;
-        self.frame = caller_frame;
+        self.base = caller_base;
+        // the frame of the called function is gone
+        self.stack.truncate(new_base);
         match result? {
             ControlFlow::Return(value) => Ok(value),
             ControlFlow::Normal => Ok(Value::Void),
@@ -169,12 +175,12 @@ impl<'a> Interpreter<'a> {
     fn assign(&mut self, slot: Option<usize>, value: &Expr) -> Result<(), SomoniError> {
         if let Some(slot) = slot
             && let Some(text) = appended_text(slot, value)
-            && let Some(Value::Str(_)) = self.frame.get(slot)
+            && let Some(Value::Str(_)) = self.stack.get(self.base + slot)
         {
             let Value::Str(text) = self.eval(text)? else {
                 return Err(SomoniError::internal("string + non-string"));
             };
-            if let Some(Value::Str(target)) = self.frame.get_mut(slot) {
+            if let Some(Value::Str(target)) = self.stack.get_mut(self.base + slot) {
                 // copy-on-write: grows in place if only this variable uses the text
                 Rc::make_mut(target).push_str(&text);
                 return Ok(());
@@ -186,7 +192,7 @@ impl<'a> Interpreter<'a> {
 
     // the value of a variable; the type checker filled in every slot
     fn get(&self, slot: Option<usize>) -> Result<Value, SomoniError> {
-        slot.and_then(|slot| self.frame.get(slot))
+        slot.and_then(|slot| self.stack.get(self.base + slot))
             .cloned()
             .ok_or_else(|| SomoniError::internal("variable without a value"))
     }
@@ -196,10 +202,11 @@ impl<'a> Interpreter<'a> {
         let Some(slot) = slot else {
             return Err(SomoniError::internal("variable without a slot"));
         };
-        if slot >= self.frame.len() {
-            self.frame.resize(slot + 1, Value::Void);
+        let index = self.base + slot;
+        if index >= self.stack.len() {
+            self.stack.resize(index + 1, Value::Void);
         }
-        self.frame[slot] = value;
+        self.stack[index] = value;
         Ok(())
     }
 
@@ -252,7 +259,7 @@ impl<'a> Interpreter<'a> {
             ExprKind::Str(s) => Ok(Value::Str(Rc::clone(s))),
             ExprKind::Bool(b) => Ok(Value::Bool(*b)),
             ExprKind::Ident { slot, .. } => self.get(*slot),
-            ExprKind::Call { name, args, .. } => self.eval_call(name, args),
+            ExprKind::Call { target, args, .. } => self.eval_call(*target, args),
             ExprKind::Unary { op, operand } => {
                 let value = self.eval(operand)?;
                 unary(*op, value)
@@ -263,24 +270,27 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn eval_call(&mut self, name: &str, args: &[Expr]) -> Result<Value, SomoniError> {
-        let mut values = Vec::new();
-        for arg in args {
-            values.push(self.eval(arg)?);
+    fn eval_call(
+        &mut self,
+        target: Option<CallTarget>,
+        args: &[Expr],
+    ) -> Result<Value, SomoniError> {
+        match target {
+            Some(CallTarget::Builtin(builtin)) => {
+                let [arg] = args else {
+                    return Err(SomoniError::internal("a built-in takes one argument"));
+                };
+                let value = self.eval(arg)?;
+                builtin.call(value)
+            }
+            Some(CallTarget::Function(index)) => {
+                let Some(&function) = self.functions.get(index) else {
+                    return Err(SomoniError::internal("unknown function index"));
+                };
+                self.call_function(function, args)
+            }
+            None => Err(SomoniError::internal("call without target")),
         }
-        if let Some(builtin) = Builtin::from_name(name) {
-            let Some(value) = values.pop() else {
-                return Err(SomoniError::internal("call without argument"));
-            };
-            return builtin.call(value);
-        }
-        let Some(&function) = self.functions.get(name) else {
-            return Err(SomoniError::internal(format!(
-                "unknown function '{}'",
-                name
-            )));
-        };
-        self.call_function(function, values)
     }
 
     fn eval_binary(

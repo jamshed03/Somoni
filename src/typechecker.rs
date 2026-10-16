@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Function, Stmt, UnaryOp};
+use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, UnaryOp};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
@@ -14,6 +14,7 @@ struct VarInfo {
 }
 
 struct Signature {
+    index: usize,
     params: Vec<Type>,
     return_type: Type,
 }
@@ -53,10 +54,7 @@ impl TypeChecker {
     }
 
     fn declare_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
-        for stmt in stmts {
-            let Stmt::FnDecl(function) = stmt else {
-                continue;
-            };
+        for (index, function) in ast::functions(stmts).enumerate() {
             let name = &function.name;
             if Builtin::from_name(name).is_some() {
                 return Err(SomoniError::at(
@@ -79,6 +77,7 @@ impl TypeChecker {
             self.functions.insert(
                 name.clone(),
                 Signature {
+                    index,
                     params,
                     return_type,
                 },
@@ -375,8 +374,10 @@ impl TypeChecker {
                 name,
                 name_span,
                 args,
+                target,
             } => {
                 if let Some(builtin) = Builtin::from_name(name) {
+                    *target = Some(CallTarget::Builtin(builtin));
                     check_arg_count(name, builtin.arity(), args, expr.span)?;
                     let arg = &mut args[0];
                     let arg_type = self.check_expr(arg)?;
@@ -390,6 +391,7 @@ impl TypeChecker {
                         ErrorCode::UnknownFunction { name: name.clone() },
                     ));
                 };
+                *target = Some(CallTarget::Function(signature.index));
                 check_arg_count(name, signature.params.len(), args, expr.span)?;
                 for (arg, param_type) in args.iter_mut().zip(&signature.params) {
                     let arg_type = self.check_expr(arg)?;

@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use crate::builtins::Builtin;
 use crate::span::Span;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,7 +35,16 @@ pub enum ExprKind {
         name: String,
         name_span: Span,
         args: Vec<Expr>,
+        // what is called, filled in by the type checker
+        target: Option<CallTarget>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CallTarget {
+    Builtin(Builtin),
+    // the index of the function in `functions(stmts)`
+    Function(usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -154,4 +164,13 @@ impl Stmt {
             Stmt::Block(_) => None,
         }
     }
+}
+
+// All functions of the program, in the order that gives them their index.
+// The type checker and the interpreter both use this, so their numbering is the same.
+pub fn functions(stmts: &[Stmt]) -> impl Iterator<Item = &Function> {
+    stmts.iter().filter_map(|stmt| match stmt {
+        Stmt::FnDecl(function) => Some(function),
+        _ => None,
+    })
 }

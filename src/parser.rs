@@ -356,6 +356,7 @@ impl Parser {
                 name,
                 name_span,
                 args,
+                target: None,
             },
             span: self.since(name_span),
         })

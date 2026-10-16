@@ -1,0 +1,24 @@
+// calls inside the arguments of other calls; the caller's variables must stay right
+fn add(a: int, b: int): int {
+    return a + b;
+}
+fn twice(x: int): int {
+    var r: int = add(x, x);
+    return r;
+}
+print(add(add(1, 2), add(3, add(4, 5))));
+print(twice(add(1, twice(2))));
+
+var a: int = 100;
+var b: int = add(a, 1) + a;         // a call between the caller's variables
+print(b);
+
+fn sum_down(n: int, total: int): int {
+    if (n == 0) {
+        return total;
+    }
+    var next: int = total + n;
+    return sum_down(n - 1, next);
+}
+print(sum_down(100, 0));
+print(a + b);                       // still right after many calls
