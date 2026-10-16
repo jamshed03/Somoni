@@ -112,18 +112,12 @@ impl TypeChecker {
         param_types: &[Type],
     ) -> Result<(), SomoniError> {
         for (param, ty) in function.params.iter().zip(param_types) {
+            // parameters are const
             let info = VarInfo {
                 ty: *ty,
                 mutable: false,
             };
-            if !self.scopes.declare(&param.name, info) {
-                return Err(SomoniError::at(
-                    param.name_span,
-                    ErrorCode::AlreadyDeclared {
-                        name: param.name.clone(),
-                    },
-                ));
-            }
+            self.declare(&param.name, param.name_span, info)?;
         }
         self.check_stmts(&function.body)
     }
@@ -140,69 +134,27 @@ impl TypeChecker {
                 ..
             } => {
                 let declared = type_from_name(type_name, *type_span)?;
-                let actual = self.check_expr(value)?;
-                if declared != actual {
-                    return Err(SomoniError::at(
-                        value.span,
-                        ErrorCode::CannotAssign {
-                            found: actual,
-                            expected: declared,
-                        },
-                    ));
-                }
-                let info = VarInfo {
-                    ty: declared,
-                    mutable: *mutable,
-                };
-                if !self.scopes.declare(name, info) {
-                    return Err(SomoniError::at(
-                        *name_span,
-                        ErrorCode::AlreadyDeclared { name: name.clone() },
-                    ));
-                }
-                Ok(())
-            }
-            Stmt::Expr { expr, .. } => {
-                self.check_expr(expr)?;
-                Ok(())
+                self.check_assignable(value, declared)?;
+                self.declare(
+                    name,
+                    *name_span,
+                    VarInfo {
+                        ty: declared,
+                        mutable: *mutable,
+                    },
+                )
             }
             Stmt::Assign {
                 name,
                 name_span,
                 value,
                 ..
-            } => {
-                let info = self.scopes.lookup(name).ok_or_else(|| {
-                    SomoniError::at(
-                        *name_span,
-                        ErrorCode::UnknownVariable { name: name.clone() },
-                    )
-                })?;
-                if !info.mutable {
-                    return Err(SomoniError::at(
-                        *name_span,
-                        ErrorCode::AssignToConst { name: name.clone() },
-                    ));
-                }
-                let expected = info.ty;
-                let actual = self.check_expr(value)?;
-                if expected != actual {
-                    return Err(SomoniError::at(
-                        value.span,
-                        ErrorCode::CannotAssign {
-                            found: actual,
-                            expected,
-                        },
-                    ));
-                }
+            } => self.check_assign(name, *name_span, value),
+            Stmt::Expr { expr, .. } => {
+                self.check_expr(expr)?;
                 Ok(())
             }
-            Stmt::Block(stmts) => {
-                self.scopes.push();
-                let result = self.check_stmts(stmts);
-                self.scopes.pop();
-                result
-            }
+            Stmt::Block(stmts) => self.in_scope(|this| this.check_stmts(stmts)),
             Stmt::If {
                 condition,
                 then_branch,
@@ -230,33 +182,82 @@ impl TypeChecker {
                 step,
                 body,
                 ..
-            } => {
-                // the counter lives in its own scope around the whole loop, gone afterwards
-                self.scopes.push();
-                let result = self.check_for(init, condition, step, body);
-                self.scopes.pop();
-                result
-            }
+            } => self.in_scope(|this| this.check_for(init, condition, step, body)),
             Stmt::FnDecl(function) => self.check_function(function),
-            Stmt::Return { value, span } => {
-                let Some(expected) = self.current_return else {
-                    return Err(SomoniError::at(*span, ErrorCode::ReturnOutsideFunction));
-                };
-                let (found, place) = match value {
-                    Some(value) => (self.check_expr(value)?, value.span),
-                    None => (Type::Void, *span),
-                };
-                if found != expected {
-                    return Err(SomoniError::at(
-                        place,
-                        ErrorCode::ReturnType { found, expected },
-                    ));
-                }
-                Ok(())
-            }
+            Stmt::Return { value, span } => self.check_return(value.as_ref(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
         }
+    }
+
+    // runs `check` inside a new block scope; the scope is removed again, also after an error
+    fn in_scope<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> T {
+        self.scopes.push();
+        let result = check(self);
+        self.scopes.pop();
+        result
+    }
+
+    // a name may exist only once per block
+    fn declare(&mut self, name: &str, name_span: Span, info: VarInfo) -> Result<(), SomoniError> {
+        if !self.scopes.declare(name, info) {
+            return Err(SomoniError::at(
+                name_span,
+                ErrorCode::AlreadyDeclared {
+                    name: name.to_string(),
+                },
+            ));
+        }
+        Ok(())
+    }
+
+    fn check_assignable(&self, value: &Expr, expected: Type) -> Result<(), SomoniError> {
+        let found = self.check_expr(value)?;
+        if found != expected {
+            return Err(SomoniError::at(
+                value.span,
+                ErrorCode::CannotAssign { found, expected },
+            ));
+        }
+        Ok(())
+    }
+
+    fn check_assign(&self, name: &str, name_span: Span, value: &Expr) -> Result<(), SomoniError> {
+        let info = self.scopes.lookup(name).ok_or_else(|| {
+            SomoniError::at(
+                name_span,
+                ErrorCode::UnknownVariable {
+                    name: name.to_string(),
+                },
+            )
+        })?;
+        if !info.mutable {
+            return Err(SomoniError::at(
+                name_span,
+                ErrorCode::AssignToConst {
+                    name: name.to_string(),
+                },
+            ));
+        }
+        self.check_assignable(value, info.ty)
+    }
+
+    fn check_return(&self, value: Option<&Expr>, span: Span) -> Result<(), SomoniError> {
+        let Some(expected) = self.current_return else {
+            return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
+        };
+        // `return;` gives nothing, that is void
+        let (found, place) = match value {
+            Some(value) => (self.check_expr(value)?, value.span),
+            None => (Type::Void, span),
+        };
+        if found != expected {
+            return Err(SomoniError::at(
+                place,
+                ErrorCode::ReturnType { found, expected },
+            ));
+        }
+        Ok(())
     }
 
     fn check_for(

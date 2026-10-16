@@ -132,12 +132,7 @@ impl<'a> Interpreter<'a> {
                     ))),
                 }
             }
-            Stmt::Block(stmts) => {
-                self.scopes.push();
-                let result = self.exec_all(stmts);
-                self.scopes.pop();
-                result
-            }
+            Stmt::Block(stmts) => self.in_scope(|this| this.exec_all(stmts)),
             Stmt::If {
                 condition,
                 then_branch,
@@ -163,10 +158,7 @@ impl<'a> Interpreter<'a> {
                 ..
             } => {
                 // the counter lives in its own scope around the whole loop, gone afterwards
-                self.scopes.push();
-                let result = self.run_for(init, condition, step, body);
-                self.scopes.pop();
-                result
+                self.in_scope(|this| this.run_for(init, condition, step, body))
             }
             Stmt::FnDecl(_) => Ok(ControlFlow::Normal),
             Stmt::Return { value, .. } => {
@@ -179,6 +171,14 @@ impl<'a> Interpreter<'a> {
             Stmt::Break { .. } => Ok(ControlFlow::Break),
             Stmt::Continue { .. } => Ok(ControlFlow::Continue),
         }
+    }
+
+    // runs `run` inside a new block scope; the scope is removed again, also after an error
+    fn in_scope<T>(&mut self, run: impl FnOnce(&mut Self) -> T) -> T {
+        self.scopes.push();
+        let result = run(self);
+        self.scopes.pop();
+        result
     }
 
     fn run_for(
