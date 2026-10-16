@@ -92,7 +92,18 @@ impl TypeChecker {
         let result = self.check_function_body(function, &param_types);
         self.scopes = outer_scopes;
         self.current_return = outer_return;
-        result
+        result?;
+
+        if return_type != Type::Void && !always_returns(&function.body) {
+            return Err(SomoniError::at(
+                function.return_type_span,
+                ErrorCode::MissingReturn {
+                    name: function.name.clone(),
+                    expected: return_type,
+                },
+            ));
+        }
+        Ok(())
     }
 
     fn check_function_body(
@@ -422,4 +433,34 @@ fn wrong_arg_type(name: &str, found: Type, span: Span) -> SomoniError {
             found,
         },
     )
+}
+
+// Does every path through these statements end with `return`?
+// One statement that always returns is enough (the rest after it never runs).
+fn always_returns(stmts: &[Stmt]) -> bool {
+    stmts.iter().any(stmt_always_returns)
+}
+
+fn stmt_always_returns(stmt: &Stmt) -> bool {
+    match stmt {
+        Stmt::Return { .. } => true,
+        Stmt::Block(stmts) => always_returns(stmts),
+        Stmt::If {
+            then_branch,
+            else_branch,
+            ..
+        } => match else_branch {
+            Some(else_branch) => {
+                stmt_always_returns(then_branch) && stmt_always_returns(else_branch)
+            }
+            None => false,
+        },
+        Stmt::While { .. } | Stmt::For { .. } => false,
+        Stmt::VarDecl { .. }
+        | Stmt::Assign { .. }
+        | Stmt::Expr { .. }
+        | Stmt::Break { .. }
+        | Stmt::Continue { .. }
+        | Stmt::FnDecl(_) => false,
+    }
 }

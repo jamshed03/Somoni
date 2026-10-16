@@ -36,9 +36,13 @@ enum ControlFlow {
     Return(Value),
 }
 
+// more nested calls are an error (R004) instead of a crash; Python allows 1000, JavaScript ~10000
+const MAX_CALL_DEPTH: usize = 10_000;
+
 pub struct Interpreter<'a> {
     scopes: Scopes<Value>,
     functions: HashMap<&'a str, &'a Function>,
+    call_depth: usize,
 }
 
 impl<'a> Interpreter<'a> {
@@ -46,6 +50,7 @@ impl<'a> Interpreter<'a> {
         Interpreter {
             scopes: Scopes::new(),
             functions: HashMap::new(),
+            call_depth: 0,
         }
     }
 
@@ -64,11 +69,19 @@ impl<'a> Interpreter<'a> {
         function: &Function,
         args: Vec<Value>,
     ) -> Result<Value, SomoniError> {
+        if self.call_depth >= MAX_CALL_DEPTH {
+            return Err(ErrorCode::RecursionTooDeep {
+                limit: MAX_CALL_DEPTH,
+            }
+            .into());
+        }
         let caller_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
         for (param, value) in function.params.iter().zip(args) {
             self.scopes.declare(&param.name, value);
         }
+        self.call_depth += 1;
         let result = self.exec_all(&function.body);
+        self.call_depth -= 1;
         self.scopes = caller_scopes;
         match result? {
             ControlFlow::Return(value) => Ok(value),

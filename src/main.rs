@@ -13,12 +13,18 @@ mod types;
 use std::env;
 use std::fs;
 use std::process;
+use std::thread;
 
 use error::SomoniError;
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
 use typechecker::TypeChecker;
+
+// Every Somoni call uses several Rust calls, and the main thread has only a few MB
+// of stack (a debug build crashes after about 700 Somoni calls). So the pipeline
+// runs in its own thread with a big stack; memory is only used when needed.
+const STACK_SIZE: usize = 256 * 1024 * 1024;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -35,9 +41,19 @@ fn main() {
         }
     };
 
-    if let Err(error) = run(&source) {
-        eprintln!("{}", error.render(&source));
-        process::exit(1);
+    let pipeline = thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .spawn(move || run(&source).map_err(|error| error.render(&source)))
+        .expect("cannot start the interpreter thread");
+
+    match pipeline.join() {
+        Ok(Ok(())) => {}
+        Ok(Err(message)) => {
+            eprintln!("{}", message);
+            process::exit(1);
+        }
+        // a panic (a bug in Somoni): Rust already printed the message
+        Err(_) => process::exit(101),
     }
 }
 

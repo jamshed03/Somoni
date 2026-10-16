@@ -1,0 +1,5 @@
+fn sign(n: int): string {
+    if (n < 0) {
+        return "negative";
+    }
+}

@@ -1,0 +1,3 @@
+Type error [T019]: Line 2: function 'f' does not return int on every path
+  2 | fn f(): int {
+    |         ^^^

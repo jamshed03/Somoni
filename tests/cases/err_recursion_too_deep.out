@@ -1,0 +1,3 @@
+Runtime error [R004]: Line 2: recursion too deep (more than 10000 nested calls)
+  2 |     return forever(n + 1);
+    |            ^^^^^^^^^^^^^^

@@ -1,0 +1,6 @@
+// loops never count, even while (true): a return must follow the loop
+fn f(): int {
+    while (true) {
+        return 1;
+    }
+}

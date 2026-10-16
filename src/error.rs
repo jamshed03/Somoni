@@ -99,6 +99,10 @@ pub enum ErrorCode {
         found: Type,
         expected: Type,
     },
+    MissingReturn {
+        name: String,
+        expected: Type,
+    },
 
     // runtime
     Internal {
@@ -109,6 +113,9 @@ pub enum ErrorCode {
     InvalidConversion {
         text: String,
         target: Type,
+    },
+    RecursionTooDeep {
+        limit: usize,
     },
 }
 
@@ -145,12 +152,14 @@ impl ErrorCode {
             ErrorCode::BuiltinRedeclared { .. } => "T016",
             ErrorCode::ReturnOutsideFunction => "T017",
             ErrorCode::ReturnType { .. } => "T018",
+            ErrorCode::MissingReturn { .. } => "T019",
 
             // should never happen: the type checker rejects such programs (a bug in Somoni)
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
             ErrorCode::IntegerOverflow => "R002",
             ErrorCode::InvalidConversion { .. } => "R003",
+            ErrorCode::RecursionTooDeep { .. } => "R004",
         }
     }
 
@@ -185,12 +194,14 @@ impl ErrorCode {
             | ErrorCode::DuplicateFunction { .. }
             | ErrorCode::BuiltinRedeclared { .. }
             | ErrorCode::ReturnOutsideFunction
-            | ErrorCode::ReturnType { .. } => ErrorKind::Type,
+            | ErrorCode::ReturnType { .. }
+            | ErrorCode::MissingReturn { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
             | ErrorCode::IntegerOverflow
-            | ErrorCode::InvalidConversion { .. } => ErrorKind::Runtime,
+            | ErrorCode::InvalidConversion { .. }
+            | ErrorCode::RecursionTooDeep { .. } => ErrorKind::Runtime,
         }
     }
 
@@ -264,12 +275,20 @@ impl ErrorCode {
                 expected.name(),
                 found.name()
             ),
+            ErrorCode::MissingReturn { name, expected } => format!(
+                "function '{}' does not return {} on every path",
+                name,
+                expected.name()
+            ),
 
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),
             ErrorCode::IntegerOverflow => "integer overflow".to_string(),
             ErrorCode::InvalidConversion { text, target } => {
                 format!("cannot convert '{}' to {}", text, target.name())
+            }
+            ErrorCode::RecursionTooDeep { limit } => {
+                format!("recursion too deep (more than {} nested calls)", limit)
             }
         }
     }

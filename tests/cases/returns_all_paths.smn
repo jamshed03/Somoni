@@ -1,0 +1,35 @@
+fn abs(n: int): int {
+    if (n < 0) {
+        return -n;
+    } else {
+        return n;
+    }
+}
+
+fn grade(points: int): string {
+    if (points >= 90) {
+        return "sehr gut";
+    } else if (points >= 50) {
+        return "bestanden";
+    } else {
+        return "nicht bestanden";
+    }
+}
+
+fn in_block(): int {
+    {
+        return 7;
+    }
+}
+
+fn void_without_return(): void {
+    print("void needs no return");
+}
+
+print(abs(-4));
+print(abs(4));
+print(grade(95));
+print(grade(60));
+print(grade(10));
+print(in_block());
+void_without_return();

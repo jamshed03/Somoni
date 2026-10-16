@@ -1,0 +1,3 @@
+Type error [T019]: Line 1: function 'sign' does not return string on every path
+  1 | fn sign(n: int): string {
+    |                  ^^^^^^
