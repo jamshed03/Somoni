@@ -1,1 +1,1 @@
-Parse error: Line 1: for loop start must be 'var', not 'const'
+Parse error [P004]: Line 1: for loop start must be 'var', not 'const'

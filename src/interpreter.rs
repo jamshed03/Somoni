@@ -1,5 +1,5 @@
 use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
-use crate::error::SomoniError;
+use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,7 +73,10 @@ impl Interpreter {
                         *slot = v;
                         Ok(ControlFlow::Normal)
                     }
-                    None => Err(SomoniError::runtime(format!("Unknown variable '{}'", name))),
+                    None => Err(SomoniError::internal(format!(
+                        "unknown variable '{}'",
+                        name
+                    ))),
                 }
             }
             Stmt::Block(stmts) => {
@@ -152,7 +155,7 @@ impl Interpreter {
     fn eval_condition(&self, condition: &Expr) -> Result<bool, SomoniError> {
         match self.eval(condition)? {
             Value::Bool(b) => Ok(b),
-            _ => Err(SomoniError::runtime("Condition is not a bool")),
+            _ => Err(SomoniError::internal("condition is not a bool")),
         }
     }
 
@@ -164,16 +167,21 @@ impl Interpreter {
             Expr::Bool(b) => Ok(Value::Bool(*b)),
             Expr::Ident(name) => match self.scopes.lookup(name) {
                 Some(value) => Ok(value.clone()),
-                None => Err(SomoniError::runtime(format!("Unknown variable '{}'", name))),
+                None => Err(SomoniError::internal(format!(
+                    "unknown variable '{}'",
+                    name
+                ))),
             },
             Expr::Unary { op, operand } => match (op, self.eval(operand)?) {
                 (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
                 (UnaryOp::Neg, Value::Int(n)) => n
                     .checked_neg()
                     .map(Value::Int)
-                    .ok_or(SomoniError::runtime("Integer overflow")),
+                    .ok_or(ErrorCode::IntegerOverflow.into()),
                 (UnaryOp::Neg, Value::Float(f)) => Ok(Value::Float(-f)),
-                _ => Err(SomoniError::runtime("Operator not supported for this type")),
+                _ => Err(SomoniError::internal(
+                    "operator not supported for this type",
+                )),
             },
             Expr::Binary { left, op, right } => {
                 let l = self.eval(left)?;
@@ -194,52 +202,52 @@ impl Interpreter {
                         BinaryOp::Add => a
                             .checked_add(b)
                             .map(Value::Int)
-                            .ok_or(SomoniError::runtime("Integer overflow")),
+                            .ok_or(ErrorCode::IntegerOverflow.into()),
                         BinaryOp::Sub => a
                             .checked_sub(b)
                             .map(Value::Int)
-                            .ok_or(SomoniError::runtime("Integer overflow")),
+                            .ok_or(ErrorCode::IntegerOverflow.into()),
                         BinaryOp::Mul => a
                             .checked_mul(b)
                             .map(Value::Int)
-                            .ok_or(SomoniError::runtime("Integer overflow")),
+                            .ok_or(ErrorCode::IntegerOverflow.into()),
                         BinaryOp::Div => {
                             if b == 0 {
-                                Err(SomoniError::runtime("Division by zero"))
+                                Err(ErrorCode::DivisionByZero.into())
                             } else {
                                 a.checked_div(b)
                                     .map(Value::Int)
-                                    .ok_or(SomoniError::runtime("Integer overflow"))
+                                    .ok_or(ErrorCode::IntegerOverflow.into())
                             }
                         }
                         BinaryOp::Mod => {
                             if b == 0 {
-                                Err(SomoniError::runtime("Division by zero"))
+                                Err(ErrorCode::DivisionByZero.into())
                             } else {
                                 a.checked_rem(b)
                                     .map(Value::Int)
-                                    .ok_or(SomoniError::runtime("Integer overflow"))
+                                    .ok_or(ErrorCode::IntegerOverflow.into())
                             }
                         }
-                        _ => Err(SomoniError::runtime("Operator not supported for integers")),
+                        _ => Err(SomoniError::internal("operator not supported for integers")),
                     },
                     (Value::Str(a), Value::Str(b)) => match op {
                         BinaryOp::Add => Ok(Value::Str(a + &b)),
-                        _ => Err(SomoniError::runtime("Operator not supported for strings")),
+                        _ => Err(SomoniError::internal("operator not supported for strings")),
                     },
                     (Value::Float(a), Value::Float(b)) => match op {
                         BinaryOp::Add => Ok(Value::Float(a + b)),
                         BinaryOp::Sub => Ok(Value::Float(a - b)),
                         BinaryOp::Mul => Ok(Value::Float(a * b)),
                         BinaryOp::Div => Ok(Value::Float(a / b)),
-                        _ => Err(SomoniError::runtime("Operator not supported for floats")),
+                        _ => Err(SomoniError::internal("operator not supported for floats")),
                     },
                     (Value::Bool(_), Value::Bool(b)) => match op {
                         BinaryOp::And | BinaryOp::Or => Ok(Value::Bool(b)),
-                        _ => Err(SomoniError::runtime("Operator not supported for bool")),
+                        _ => Err(SomoniError::internal("operator not supported for bool")),
                     },
-                    _ => Err(SomoniError::runtime(
-                        "Operator not supported for these types",
+                    _ => Err(SomoniError::internal(
+                        "operator not supported for these types",
                     )),
                 }
             }

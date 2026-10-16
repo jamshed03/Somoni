@@ -1,1 +1,1 @@
-Type error: Line 2: 'break' outside of a loop
+Type error [T011]: Line 2: 'break' outside of a loop

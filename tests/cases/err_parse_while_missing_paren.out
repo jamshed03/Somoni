@@ -1,1 +1,1 @@
-Parse error: Line 1: expected '(' after 'while'
+Parse error [P001]: Line 1: expected '(' after 'while'

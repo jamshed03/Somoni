@@ -1,1 +1,1 @@
-Parse error: Line 1: expected '{' after for header
+Parse error [P001]: Line 1: expected '{' after for header

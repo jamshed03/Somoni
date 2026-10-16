@@ -1,1 +1,1 @@
-Type error: Line 4: unknown variable 'y'
+Type error [T002]: Line 4: unknown variable 'y'

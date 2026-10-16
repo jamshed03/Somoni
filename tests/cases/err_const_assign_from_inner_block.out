@@ -1,1 +1,1 @@
-Type error: Line 3: cannot assign to const 'c'
+Type error [T005]: Line 3: cannot assign to const 'c'

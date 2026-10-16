@@ -1,1 +1,1 @@
-Parse error: Line 2: expected 'var' after 'for ('
+Parse error [P001]: Line 2: expected 'var' after 'for ('

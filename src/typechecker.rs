@@ -1,5 +1,5 @@
 use crate::ast::{BinaryOp, Expr, Stmt, UnaryOp};
-use crate::error::SomoniError;
+use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
 use crate::types::Type;
 
@@ -37,15 +37,22 @@ impl TypeChecker {
                 mutable,
                 line,
             } => {
-                let declared = Type::from_name(type_name).ok_or(SomoniError::type_error(
-                    *line,
-                    format!("unknown type '{}'", type_name),
-                ))?;
+                let declared = Type::from_name(type_name).ok_or_else(|| {
+                    SomoniError::at(
+                        *line,
+                        ErrorCode::UnknownType {
+                            name: type_name.clone(),
+                        },
+                    )
+                })?;
                 let actual = self.check_expr(value, *line)?;
                 if declared != actual {
-                    return Err(SomoniError::type_error(
+                    return Err(SomoniError::at(
                         *line,
-                        format!("cannot assign {} to {}", actual.name(), declared.name()),
+                        ErrorCode::CannotAssign {
+                            found: actual,
+                            expected: declared,
+                        },
                     ));
                 }
                 let info = VarInfo {
@@ -53,9 +60,9 @@ impl TypeChecker {
                     mutable: *mutable,
                 };
                 if !self.scopes.declare(name, info) {
-                    return Err(SomoniError::type_error(
+                    return Err(SomoniError::at(
                         *line,
-                        format!("'{}' is already declared in this block", name),
+                        ErrorCode::AlreadyDeclared { name: name.clone() },
                     ));
                 }
                 Ok(())
@@ -65,22 +72,24 @@ impl TypeChecker {
                 Ok(())
             }
             Stmt::Assign { name, value, line } => {
-                let info = self.scopes.lookup(name).ok_or(SomoniError::type_error(
-                    *line,
-                    format!("unknown variable '{}'", name),
-                ))?;
+                let info = self.scopes.lookup(name).ok_or_else(|| {
+                    SomoniError::at(*line, ErrorCode::UnknownVariable { name: name.clone() })
+                })?;
                 if !info.mutable {
-                    return Err(SomoniError::type_error(
+                    return Err(SomoniError::at(
                         *line,
-                        format!("cannot assign to const '{}'", name),
+                        ErrorCode::AssignToConst { name: name.clone() },
                     ));
                 }
                 let expected = info.ty;
                 let actual = self.check_expr(value, *line)?;
                 if expected != actual {
-                    return Err(SomoniError::type_error(
+                    return Err(SomoniError::at(
                         *line,
-                        format!("cannot assign {} to {}", actual.name(), expected.name()),
+                        ErrorCode::CannotAssign {
+                            found: actual,
+                            expected,
+                        },
                     ));
                 }
                 Ok(())
@@ -153,12 +162,9 @@ impl TypeChecker {
         result
     }
 
-    fn check_inside_loop(&self, keyword: &str, line: usize) -> Result<(), SomoniError> {
+    fn check_inside_loop(&self, keyword: &'static str, line: usize) -> Result<(), SomoniError> {
         if self.loop_depth == 0 {
-            return Err(SomoniError::type_error(
-                line,
-                format!("'{}' outside of a loop", keyword),
-            ));
+            return Err(SomoniError::at(line, ErrorCode::OutsideLoop { keyword }));
         }
         Ok(())
     }
@@ -167,9 +173,9 @@ impl TypeChecker {
     fn check_condition(&self, condition: &Expr, line: usize) -> Result<(), SomoniError> {
         let ty = self.check_expr(condition, line)?;
         if ty != Type::Bool {
-            return Err(SomoniError::type_error(
+            return Err(SomoniError::at(
                 line,
-                format!("condition must be bool, got {}", ty.name()),
+                ErrorCode::ConditionNotBool { found: ty },
             ));
         }
         Ok(())
@@ -181,22 +187,16 @@ impl TypeChecker {
             Expr::Float(_) => Ok(Type::Float),
             Expr::Bool(_) => Ok(Type::Bool),
             Expr::Str(_) => Ok(Type::Str),
-            Expr::Ident(name) => {
-                self.scopes
-                    .lookup(name)
-                    .map(|info| info.ty)
-                    .ok_or(SomoniError::type_error(
-                        line,
-                        format!("unknown variable '{}'", name),
-                    ))
-            }
+            Expr::Ident(name) => self.scopes.lookup(name).map(|info| info.ty).ok_or_else(|| {
+                SomoniError::at(line, ErrorCode::UnknownVariable { name: name.clone() })
+            }),
             Expr::Binary { left, op, right } => {
                 let l = self.check_expr(left, line)?;
                 let r = self.check_expr(right, line)?;
                 if l != r {
-                    return Err(SomoniError::type_error(
+                    return Err(SomoniError::at(
                         line,
-                        format!("cannot use operator on {} and {}", l.name(), r.name()),
+                        ErrorCode::OperandTypesDiffer { left: l, right: r },
                     ));
                 }
                 match (l, op) {
@@ -212,9 +212,9 @@ impl TypeChecker {
                     ) => Ok(l),
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
                     (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
-                    _ => Err(SomoniError::type_error(
+                    _ => Err(SomoniError::at(
                         line,
-                        format!("operator not allowed for {}", l.name()),
+                        ErrorCode::OperatorNotAllowed { found: l },
                     )),
                 }
             }
@@ -222,14 +222,13 @@ impl TypeChecker {
                 let t = self.check_expr(operand, line)?;
                 match (op, t) {
                     (UnaryOp::Not, Type::Bool) => Ok(Type::Bool),
-                    (UnaryOp::Not, _) => Err(SomoniError::type_error(
-                        line,
-                        format!("'!' needs bool, got {}", t.name()),
-                    )),
+                    (UnaryOp::Not, _) => {
+                        Err(SomoniError::at(line, ErrorCode::NotNeedsBool { found: t }))
+                    }
                     (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
-                    (UnaryOp::Neg, _) => Err(SomoniError::type_error(
+                    (UnaryOp::Neg, _) => Err(SomoniError::at(
                         line,
-                        format!("'-' needs int or float, got {}", t.name()),
+                        ErrorCode::NegNeedsNumber { found: t },
                     )),
                 }
             }

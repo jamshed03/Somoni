@@ -1,1 +1,1 @@
-Type error: Line 1: '-' needs int or float, got bool
+Type error [T009]: Line 1: '-' needs int or float, got bool

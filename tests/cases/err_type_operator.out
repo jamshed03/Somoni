@@ -1,1 +1,1 @@
-Type error: Line 1: cannot use operator on int and bool
+Type error [T006]: Line 1: cannot use operator on int and bool

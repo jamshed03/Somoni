@@ -1,1 +1,1 @@
-Lex error: Line 1: unexpected character '@'
+Lex error [L001]: Line 1: unexpected character '@'

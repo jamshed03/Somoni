@@ -1,1 +1,1 @@
-Parse error: Line 1: expected '{' after if condition
+Parse error [P001]: Line 1: expected '{' after if condition

@@ -1,3 +1,3 @@
 false
 true
-Runtime error: Line 4: Division by zero
+Runtime error [R001]: Line 4: division by zero

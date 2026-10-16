@@ -1,4 +1,4 @@
-use crate::error::SomoniError;
+use crate::error::{ErrorCode, SomoniError};
 use crate::token::{SpannedToken, Token};
 
 pub struct Lexer {
@@ -57,12 +57,12 @@ impl Lexer {
             return text
                 .parse::<f64>()
                 .map(Token::Float)
-                .map_err(|_| SomoniError::lex(line, format!("invalid float '{}'", text)));
+                .map_err(|_| SomoniError::at(line, ErrorCode::InvalidFloat { text }));
         }
 
         text.parse::<i64>()
             .map(Token::Int)
-            .map_err(|_| SomoniError::lex(line, format!("integer too large '{}'", text)))
+            .map_err(|_| SomoniError::at(line, ErrorCode::IntegerTooLarge { text }))
     }
 
     fn read_word(&mut self) -> Token {
@@ -105,7 +105,7 @@ impl Lexer {
             text.push(c);
             self.advance();
         }
-        Err(SomoniError::lex(start_line, "unterminated string"))
+        Err(SomoniError::at(start_line, ErrorCode::UnterminatedString))
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
@@ -142,7 +142,10 @@ impl Lexer {
                 loop {
                     match self.peek() {
                         None => {
-                            return Err(SomoniError::lex(start_line, "unterminated comment"));
+                            return Err(SomoniError::at(
+                                start_line,
+                                ErrorCode::UnterminatedComment,
+                            ));
                         }
                         Some('*') if self.peek_next() == Some('/') => {
                             self.advance(); // '*'
@@ -202,9 +205,9 @@ impl Lexer {
                 '&' if self.peek_next() == Some('&') => (Token::AndAnd, 2),
                 '|' if self.peek_next() == Some('|') => (Token::OrOr, 2),
                 _ => {
-                    return Err(SomoniError::lex(
+                    return Err(SomoniError::at(
                         line,
-                        format!("unexpected character '{}'", c),
+                        ErrorCode::UnexpectedCharacter { found: c },
                     ));
                 }
             };
