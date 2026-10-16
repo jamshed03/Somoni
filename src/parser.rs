@@ -39,7 +39,11 @@ impl Parser {
             self.advance();
             Ok(())
         } else {
-            Err(format!("Line {}: expected {}", self.line_after_last_token(), what))
+            Err(format!(
+                "Line {}: expected {}",
+                self.line_after_last_token(),
+                what
+            ))
         }
     }
 
@@ -49,7 +53,11 @@ impl Parser {
                 self.advance();
                 Ok(name)
             }
-            _ => Err(format!("Line {}: expected {}", self.line_after_last_token(), what)),
+            _ => Err(format!(
+                "Line {}: expected {}",
+                self.line_after_last_token(),
+                what
+            )),
         }
     }
 
@@ -71,7 +79,10 @@ impl Parser {
         let mut stmts = Vec::new();
         while *self.peek() != Token::RBrace {
             if *self.peek() == Token::Eof {
-                return Err(format!("Line {}: block is not closed, expected '}}'", open_line));
+                return Err(format!(
+                    "Line {}: block is not closed, expected '}}'",
+                    open_line
+                ));
             }
             stmts.push(self.parse_stmt()?);
         }
@@ -95,7 +106,13 @@ impl Parser {
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
         self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::VarDecl { name, type_name, value, mutable, line })
+        Ok(Stmt::VarDecl {
+            name,
+            type_name,
+            value,
+            mutable,
+            line,
+        })
     }
 
     fn parse_print(&mut self, line: usize) -> Result<Stmt, String> {

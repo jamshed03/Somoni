@@ -3,8 +3,8 @@ mod interpreter;
 mod lexer;
 mod parser;
 mod token;
-mod types;
 mod typechecker;
+mod types;
 
 use std::env;
 use std::fs;

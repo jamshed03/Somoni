@@ -17,7 +17,9 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Interpreter {
-        Interpreter { scopes: vec![HashMap::new()] }
+        Interpreter {
+            scopes: vec![HashMap::new()],
+        }
     }
 
     fn declare(&mut self, name: &str, value: Value) {
@@ -109,17 +111,24 @@ impl Interpreter {
                 let r = self.eval(right)?;
                 match (l, r) {
                     (Value::Int(a), Value::Int(b)) => match op {
-                        BinaryOp::Add => a.checked_add(b).map(Value::Int)
+                        BinaryOp::Add => a
+                            .checked_add(b)
+                            .map(Value::Int)
                             .ok_or("Integer overflow".to_string()),
-                        BinaryOp::Sub => a.checked_sub(b).map(Value::Int)
+                        BinaryOp::Sub => a
+                            .checked_sub(b)
+                            .map(Value::Int)
                             .ok_or("Integer overflow".to_string()),
-                        BinaryOp::Mul => a.checked_mul(b).map(Value::Int)
+                        BinaryOp::Mul => a
+                            .checked_mul(b)
+                            .map(Value::Int)
                             .ok_or("Integer overflow".to_string()),
                         BinaryOp::Div => {
                             if b == 0 {
                                 Err("Division by zero".to_string())
                             } else {
-                                a.checked_div(b).map(Value::Int)
+                                a.checked_div(b)
+                                    .map(Value::Int)
                                     .ok_or("Integer overflow".to_string())
                             }
                         }
@@ -127,7 +136,8 @@ impl Interpreter {
                             if b == 0 {
                                 Err("Division by zero".to_string())
                             } else {
-                                a.checked_rem(b).map(Value::Int)
+                                a.checked_rem(b)
+                                    .map(Value::Int)
                                     .ok_or("Integer overflow".to_string())
                             }
                         }

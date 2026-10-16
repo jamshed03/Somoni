@@ -205,7 +205,10 @@ impl Lexer {
             }
         }
 
-        tokens.push(SpannedToken { token: Token::Eof, line: self.line });
+        tokens.push(SpannedToken {
+            token: Token::Eof,
+            line: self.line,
+        });
         Ok(tokens)
     }
 }

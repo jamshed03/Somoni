@@ -15,14 +15,19 @@ pub struct TypeChecker {
 
 impl TypeChecker {
     pub fn new() -> TypeChecker {
-        TypeChecker { scopes: vec![HashMap::new()] }
+        TypeChecker {
+            scopes: vec![HashMap::new()],
+        }
     }
 
     // a name may exist only once per block (it may hide a name of an outer block)
     fn declare(&mut self, name: &str, info: VarInfo, line: usize) -> Result<(), String> {
         let scope = self.scopes.last_mut().expect("scope stack is never empty");
         if scope.contains_key(name) {
-            return Err(format!("Line {}: '{}' is already declared in this block", line, name));
+            return Err(format!(
+                "Line {}: '{}' is already declared in this block",
+                line, name
+            ));
         }
         scope.insert(name.to_string(), info);
         Ok(())
@@ -42,7 +47,13 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt) -> Result<(), String> {
         match stmt {
-            Stmt::VarDecl { name, type_name, value, mutable, line } => {
+            Stmt::VarDecl {
+                name,
+                type_name,
+                value,
+                mutable,
+                line,
+            } => {
                 let declared = Type::from_name(type_name)
                     .ok_or(format!("Line {}: unknown type '{}'", line, type_name))?;
                 let actual = self.check_expr(value, *line)?;
@@ -54,12 +65,19 @@ impl TypeChecker {
                         declared.name()
                     ));
                 }
-                self.declare(name, VarInfo { ty: declared, mutable: *mutable }, *line)
+                self.declare(
+                    name,
+                    VarInfo {
+                        ty: declared,
+                        mutable: *mutable,
+                    },
+                    *line,
+                )
             }
             Stmt::Print { value, line } => {
                 self.check_expr(value, *line)?;
                 Ok(())
-            },
+            }
             Stmt::Assign { name, value, line } => {
                 let info = self
                     .lookup(name)
@@ -122,7 +140,11 @@ impl TypeChecker {
                     ) => Ok(l),
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
                     (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
-                    _ => Err(format!("Line {}: operator not allowed for {}", line, l.name())),
+                    _ => Err(format!(
+                        "Line {}: operator not allowed for {}",
+                        line,
+                        l.name()
+                    )),
                 }
             }
             Expr::Unary { op, operand } => {
@@ -133,9 +155,11 @@ impl TypeChecker {
                         Err(format!("Line {}: '!' needs bool, got {}", line, t.name()))
                     }
                     (UnaryOp::Neg, Type::Int | Type::Float) => Ok(t),
-                    (UnaryOp::Neg, _) => {
-                        Err(format!("Line {}: '-' needs int or float, got {}", line, t.name()))
-                    }
+                    (UnaryOp::Neg, _) => Err(format!(
+                        "Line {}: '-' needs int or float, got {}",
+                        line,
+                        t.name()
+                    )),
                 }
             }
         }
