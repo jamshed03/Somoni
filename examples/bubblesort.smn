@@ -1,0 +1,27 @@
+// Bubble sort: swaps neighbours until the list is sorted.
+
+// Returns a sorted copy of the list, because parameters are const.
+fn bubble_sort(input: list<int>): list<int> {
+    var items: list<int> = input;
+    var n: int = len(items);
+    var swapped: bool = true;
+    while (swapped) {
+        swapped = false;
+        for (var i: int = 1; i < n; i += 1) {
+            if (items[i - 1] > items[i]) {
+                var tmp: int = items[i - 1];
+                items[i - 1] = items[i];
+                items[i] = tmp;
+                swapped = true;
+            }
+        }
+        n -= 1;
+    }
+    return items;
+}
+
+const numbers: list<int> = [5, 3, 8, 1, 9, 2, 7];
+print(numbers);
+print(bubble_sort(numbers));
+print(bubble_sort([]));
+print(bubble_sort([42]));
