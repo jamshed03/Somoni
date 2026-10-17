@@ -17,6 +17,7 @@ struct VarInfo {
 }
 
 /// The number, parameter types and return type of a function.
+#[derive(Clone)]
 struct Signature {
     index: usize,
     params: Vec<Type>,
@@ -24,6 +25,7 @@ struct Signature {
 }
 
 /// The number of a struct and the name and type of each field, in declaration order.
+#[derive(Clone)]
 struct StructInfo {
     index: usize,
     fields: Vec<(String, Type)>,
@@ -303,7 +305,7 @@ impl TypeChecker {
     }
 
     /// Checks that `value` has the type `expected`.
-    fn check_assignable(&self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
+    fn check_assignable(&mut self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
         let found = self.check_expr_expecting(value, expected)?;
         if found != *expected {
             return Err(SomoniError::at(
@@ -318,7 +320,7 @@ impl TypeChecker {
     }
 
     /// Checks `target = value;`: the target must exist, must not be const, and the types must match.
-    fn check_assign(&self, target: &mut Expr, value: &mut Expr) -> Result<(), SomoniError> {
+    fn check_assign(&mut self, target: &mut Expr, value: &mut Expr) -> Result<(), SomoniError> {
         let target_type = self.check_expr(target)?;
         let Some((name, name_span)) = target.root_variable() else {
             return Err(SomoniError::internal("assignment to a non-variable"));
@@ -335,8 +337,8 @@ impl TypeChecker {
     }
 
     /// Checks that `return` is inside a function and returns the right type.
-    fn check_return(&self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
-        let Some(expected) = &self.current_return else {
+    fn check_return(&mut self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
+        let Some(expected) = &self.current_return.clone() else {
             return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
         };
         let (found, place) = match value {
@@ -385,7 +387,7 @@ impl TypeChecker {
     }
 
     /// Checks that a condition of `if`, `while` or `for` is a bool.
-    fn check_condition(&self, condition: &mut Expr) -> Result<(), SomoniError> {
+    fn check_condition(&mut self, condition: &mut Expr) -> Result<(), SomoniError> {
         let ty = self.check_expr(condition)?;
         if ty != Type::Bool {
             return Err(SomoniError::at(
@@ -398,7 +400,7 @@ impl TypeChecker {
 
     /// Like `check_expr`, but knows which type is expected.
     /// This lets an empty list get its type: `var l: list<int> = [];`.
-    fn check_expr_expecting(&self, expr: &mut Expr, expected: &Type) -> Result<Type, SomoniError> {
+    fn check_expr_expecting(&mut self, expr: &mut Expr, expected: &Type) -> Result<Type, SomoniError> {
         if let (ExprKind::List(elements), Type::List(element_type)) = (&mut expr.kind, expected) {
             return self.check_list(elements, expr.span, Some(element_type));
         }
@@ -407,7 +409,7 @@ impl TypeChecker {
 
     /// Checks both sides of an operator. An empty list gets the type of the other side: `l + []`.
     fn check_operands(
-        &self,
+        &mut self,
         left: &mut Expr,
         right: &mut Expr,
     ) -> Result<(Type, Type), SomoniError> {
@@ -425,7 +427,7 @@ impl TypeChecker {
     /// Checks a list literal: all elements must have the same type.
     /// An empty list needs `hint`, the expected element type.
     fn check_list(
-        &self,
+        &mut self,
         elements: &mut [Expr],
         span: Span,
         hint: Option<&Type>,
@@ -457,13 +459,13 @@ impl TypeChecker {
 
     /// Checks a struct literal: every field must be given exactly once, in any order.
     fn check_struct_literal(
-        &self,
+        &mut self,
         name: &str,
         name_span: Span,
         fields: &mut [FieldInit],
         index: &mut Option<usize>,
     ) -> Result<Type, SomoniError> {
-        let info = self.struct_info(name, name_span)?;
+        let info = &self.struct_info(name, name_span)?.clone();
         *index = Some(info.index);
         let mut given = vec![false; info.fields.len()];
         for init in fields {
@@ -548,7 +550,7 @@ impl TypeChecker {
     }
 
     /// Returns the type of an expression, or a type error.
-    fn check_expr(&self, expr: &mut Expr) -> Result<Type, SomoniError> {
+    fn check_expr(&mut self, expr: &mut Expr) -> Result<Type, SomoniError> {
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
             ExprKind::Float(_) => Ok(Type::Float),
@@ -655,7 +657,7 @@ impl TypeChecker {
                         .result_type(&arg_type)
                         .ok_or_else(|| wrong_arg_type(name, arg_type, arg.span));
                 }
-                let Some(signature) = self.functions.get(name) else {
+                let Some(signature) = &self.functions.get(name).cloned() else {
                     return Err(SomoniError::at(
                         *name_span,
                         ErrorCode::UnknownFunction { name: name.clone() },
