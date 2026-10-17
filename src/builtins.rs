@@ -86,8 +86,10 @@ impl Builtin {
         match (self, args) {
             (Builtin::Print, [Type::Void]) => Err(0),
             (Builtin::Print, [_]) => Ok(Type::Void),
-            (Builtin::Int, [Type::Float | Type::Str]) => Ok(Type::Int),
-            (Builtin::Float, [Type::Int | Type::Str]) => Ok(Type::Float),
+            (Builtin::Int, [Type::Float]) => Ok(Type::Int),
+            (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
+            (Builtin::Float, [Type::Int]) => Ok(Type::Float),
+            (Builtin::Float, [Type::Str]) => Ok(conversion_result(Type::Float)),
             (Builtin::Str, [Type::Int | Type::Float | Type::Bool]) => Ok(Type::Str),
             (Builtin::Len, [Type::Str | Type::List(_) | Type::Map(_, _)]) => Ok(Type::Int),
             (Builtin::Has, [Type::Map(key, _), found]) if **key == *found => Ok(Type::Bool),
@@ -105,16 +107,15 @@ impl Builtin {
                 Ok(Value::Void)
             }
             (Builtin::Int, [Value::Float(f)]) => float_to_int(*f),
-            (Builtin::Int, [Value::Str(s)]) => s
-                .as_str()
-                .parse::<i64>()
-                .map(Value::Int)
-                .map_err(|_| cannot_convert(s.as_str(), Type::Int)),
+            (Builtin::Int, [Value::Str(s)]) => Ok(match s.as_str().parse::<i64>() {
+                Ok(n) => Value::Ok(Rc::new(Value::Int(n))),
+                Err(_) => cannot_convert(s.as_str(), Type::Int),
+            }),
             (Builtin::Float, [Value::Int(n)]) => Ok(Value::Float(*n as f64)),
-            (Builtin::Float, [Value::Str(s)]) => match s.as_str().parse::<f64>() {
-                Ok(f) if f.is_finite() => Ok(Value::Float(f)),
-                _ => Err(cannot_convert(s.as_str(), Type::Float)),
-            },
+            (Builtin::Float, [Value::Str(s)]) => Ok(match s.as_str().parse::<f64>() {
+                Ok(f) if f.is_finite() => Value::Ok(Rc::new(Value::Float(f))),
+                _ => cannot_convert(s.as_str(), Type::Float),
+            }),
             (Builtin::Str, [arg]) => Ok(Value::Str(Rc::new(Text::new(arg.to_string())))),
             (Builtin::Len, [Value::Str(s)]) => Ok(Value::Int(s.char_count() as i64)),
             (Builtin::Len, [Value::List(items)]) => Ok(Value::Int(items.len() as i64)),
@@ -148,11 +149,13 @@ fn float_to_int(f: f64) -> Result<Value, SomoniError> {
     Ok(Value::Int(f.trunc() as i64))
 }
 
-/// The error R003 for a conversion that is not possible, e.g. `int("abc")`.
-fn cannot_convert(text: &str, target: Type) -> SomoniError {
-    ErrorCode::InvalidConversion {
-        text: text.to_string(),
-        target,
-    }
-    .into()
+/// The type of `int(string)` or `float(string)`: the number, or the reason why there is none.
+fn conversion_result(target: Type) -> Type {
+    Type::Result(Box::new(target), Box::new(Type::Str))
+}
+
+/// The `err` of a conversion that is not possible, e.g. `int("abc")`.
+fn cannot_convert(text: &str, target: Type) -> Value {
+    let message = format!("cannot convert '{}' to {}", text, target);
+    Value::Err(Rc::new(Value::Str(Rc::new(Text::new(message)))))
 }

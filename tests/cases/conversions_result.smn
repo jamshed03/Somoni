@@ -1,0 +1,34 @@
+// a string may not be a number, so int and float give a result
+print(int("42"));
+print(int("-5"));
+print(int("12a"));
+print(int("99999999999999999999"));
+print(float("1.5"));
+print(float("abc"));
+print(float("inf"));
+print(int("5") == ok(5));
+
+// typical use: a number or a default
+fn zahl_oder(text: string, standard: int): int {
+    match (int(text)) {
+        ok(n: int) => {
+            return n;
+        }
+        err(e: string) => {
+            return standard;
+        }
+    }
+}
+const s: string = "7";
+print(zahl_oder(s, 0) * 2);
+print(zahl_oder("sieben", 0));
+
+var r: result<float, string> = float("2.5");
+match (r) {
+    ok(x: float) => {
+        print(x + 1.0);
+    }
+    err(e: string) => {
+        print(e);
+    }
+}

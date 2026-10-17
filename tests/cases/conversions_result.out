@@ -1,0 +1,11 @@
+ok(42)
+ok(-5)
+err("cannot convert '12a' to int")
+err("cannot convert '99999999999999999999' to int")
+ok(1.5)
+err("cannot convert 'abc' to float")
+err("cannot convert 'inf' to float")
+true
+14
+0
+3.5

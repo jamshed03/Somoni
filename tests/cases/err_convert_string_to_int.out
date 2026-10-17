@@ -1,3 +1,0 @@
-Runtime error [R003]: Line 1: cannot convert '12a' to int
-  1 | print(int("12a"));
-    |       ^^^^^^^^^^

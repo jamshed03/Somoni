@@ -1,9 +1,6 @@
-print(int("42") + 1);
-print(int("-5"));
 print(int(3.9));          // cut off, not rounded
 print(int(-3.9));
 print(float(2) / 4.0);
-print(float("1.5") + 1.0);
 print(string(42) + "!");
 print(string(true));
 print(string(2.5));
@@ -12,7 +9,4 @@ print(len("Somoni"));
 print(len("ä"));          // characters, not bytes
 print(len(""));
 print(len(string(12345)));
-const s: string = "7";
-var n: int = int(s) * 2;
-print(n);
 len("unused");            // a call as a statement, the result is dropped

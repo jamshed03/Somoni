@@ -201,10 +201,6 @@ pub enum ErrorCode {
     },
     DivisionByZero,
     IntegerOverflow,
-    InvalidConversion {
-        text: String,
-        target: Type,
-    },
     RecursionTooDeep {
         limit: usize,
     },
@@ -292,7 +288,6 @@ impl ErrorCode {
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
             ErrorCode::IntegerOverflow => "R002",
-            ErrorCode::InvalidConversion { .. } => "R003",
             ErrorCode::RecursionTooDeep { .. } => "R004",
             ErrorCode::IndexOutOfRange { .. } => "R005",
             ErrorCode::KeyNotFound { .. } => "R006",
@@ -371,7 +366,6 @@ impl ErrorCode {
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
             | ErrorCode::IntegerOverflow
-            | ErrorCode::InvalidConversion { .. }
             | ErrorCode::RecursionTooDeep { .. }
             | ErrorCode::IndexOutOfRange { .. }
             | ErrorCode::KeyNotFound { .. }
@@ -549,9 +543,6 @@ impl ErrorCode {
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),
             ErrorCode::IntegerOverflow => "integer overflow".to_string(),
-            ErrorCode::InvalidConversion { text, target } => {
-                format!("cannot convert '{}' to {}", text, target)
-            }
             ErrorCode::RecursionTooDeep { limit } => {
                 format!("recursion too deep (more than {} nested calls)", limit)
             }
