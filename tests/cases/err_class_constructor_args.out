@@ -1,0 +1,3 @@
+Type error [T013]: Line 8: 'A' expects 1 argument, got 0
+  8 | var a: A = new A();
+    |            ^^^^^^^

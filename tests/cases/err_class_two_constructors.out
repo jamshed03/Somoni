@@ -1,0 +1,3 @@
+Parse error [P012]: Line 4: a class can only have one constructor
+  4 |     constructor() {
+    |     ^^^^^^^^^^^

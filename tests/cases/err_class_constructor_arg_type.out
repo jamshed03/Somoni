@@ -1,0 +1,3 @@
+Type error [T014]: Line 8: cannot use string as argument of 'A'
+  8 | var a: A = new A("1");
+    |                  ^^^

@@ -1,0 +1,3 @@
+Type error [T054]: Line 7: 'this' is used before every field has a value (still missing: 'b')
+  7 |         print(this.a);
+    |               ^^^^

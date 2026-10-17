@@ -1,0 +1,9 @@
+class A {
+    a: int;
+
+    constructor(c: bool) {
+        if (c) {
+            this.a = 1;
+        }
+    }
+}

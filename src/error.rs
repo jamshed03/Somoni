@@ -46,6 +46,7 @@ pub enum ErrorCode {
     ImportNotFirst,
     ExportNotTopLevel,
     ClassNotTopLevel,
+    DuplicateConstructor,
 
     // loader and imports
     CannotReadFile {
@@ -226,6 +227,10 @@ pub enum ErrorCode {
     NotAClass {
         name: String,
     },
+    ThisOutsideClass,
+    ThisBeforeFieldsSet {
+        missing: String,
+    },
     BoundVarType {
         name: String,
         expected: Type,
@@ -274,6 +279,7 @@ impl ErrorCode {
             ErrorCode::ImportNotFirst => "P009",
             ErrorCode::ExportNotTopLevel => "P010",
             ErrorCode::ClassNotTopLevel => "P011",
+            ErrorCode::DuplicateConstructor => "P012",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -335,6 +341,8 @@ impl ErrorCode {
             ErrorCode::FieldNotSet { .. } => "T050",
             ErrorCode::ClassLiteral { .. } => "T051",
             ErrorCode::NotAClass { .. } => "T052",
+            ErrorCode::ThisOutsideClass => "T053",
+            ErrorCode::ThisBeforeFieldsSet { .. } => "T054",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -365,7 +373,8 @@ impl ErrorCode {
             | ErrorCode::InvalidAssignTarget
             | ErrorCode::ImportNotFirst
             | ErrorCode::ExportNotTopLevel
-            | ErrorCode::ClassNotTopLevel => ErrorKind::Parse,
+            | ErrorCode::ClassNotTopLevel
+            | ErrorCode::DuplicateConstructor => ErrorKind::Parse,
 
             ErrorCode::CannotReadFile { .. }
             | ErrorCode::ImportCycle { .. }
@@ -426,7 +435,9 @@ impl ErrorCode {
             | ErrorCode::ResultTypeUnknown { .. }
             | ErrorCode::FieldNotSet { .. }
             | ErrorCode::ClassLiteral { .. }
-            | ErrorCode::NotAClass { .. } => ErrorKind::Type,
+            | ErrorCode::NotAClass { .. }
+            | ErrorCode::ThisOutsideClass
+            | ErrorCode::ThisBeforeFieldsSet { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -466,6 +477,7 @@ impl ErrorCode {
             ErrorCode::ClassNotTopLevel => {
                 "classes can only be declared at the top level".to_string()
             }
+            ErrorCode::DuplicateConstructor => "a class can only have one constructor".to_string(),
             ErrorCode::InvalidAssignTarget => {
                 "can only assign to a variable, a list element or a field".to_string()
             }
@@ -632,6 +644,13 @@ impl ErrorCode {
             ErrorCode::NotAClass { name } => format!(
                 "'{}' is a struct, not a class: create it with '{} {{ ... }}'",
                 name, name
+            ),
+            ErrorCode::ThisOutsideClass => {
+                "'this' only exists in the constructor and the methods of a class".to_string()
+            }
+            ErrorCode::ThisBeforeFieldsSet { missing } => format!(
+                "'this' is used before every field has a value (still missing: {})",
+                missing
             ),
             ErrorCode::BoundVarType {
                 name,

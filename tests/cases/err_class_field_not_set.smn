@@ -1,0 +1,8 @@
+class A {
+    a: int;
+    b: int;
+
+    constructor() {
+        this.a = 1;
+    }
+}

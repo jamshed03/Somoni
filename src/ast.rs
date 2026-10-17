@@ -81,6 +81,32 @@ pub enum ExprKind {
 }
 
 impl Expr {
+    /// Returns the place of the first `this` in the expression, if there is one.
+    pub fn find_this(&self) -> Option<Span> {
+        match &self.kind {
+            ExprKind::Ident { name, .. } => (name == THIS).then_some(self.span),
+            ExprKind::Int(_)
+            | ExprKind::Float(_)
+            | ExprKind::Str(_)
+            | ExprKind::Bool(_)
+            | ExprKind::Null
+            | ExprKind::EnumValue { .. } => None,
+            ExprKind::Binary { left, right, .. } => left.find_this().or_else(|| right.find_this()),
+            ExprKind::Unary { operand, .. } => operand.find_this(),
+            ExprKind::List(items)
+            | ExprKind::Call { args: items, .. }
+            | ExprKind::New { args: items, .. } => items.iter().find_map(Expr::find_this),
+            ExprKind::Map(entries) => entries
+                .iter()
+                .find_map(|(key, value)| key.find_this().or_else(|| value.find_this())),
+            ExprKind::Index { target, index } => target.find_this().or_else(|| index.find_this()),
+            ExprKind::StructLiteral { fields, .. } => {
+                fields.iter().find_map(|init| init.value.find_this())
+            }
+            ExprKind::Field { target, .. } => target.find_this(),
+        }
+    }
+
     /// Returns `rest` if this expression is `x + rest` and `x` is the variable in `slot`.
     pub fn appended_to(&self, slot: usize) -> Option<&Expr> {
         let ExprKind::Binary {
@@ -249,6 +275,56 @@ pub enum Stmt {
     },
 }
 
+impl Stmt {
+    /// Returns the place of the first `this` in the statement, if there is one.
+    /// Declarations inside it (`fn`, `struct`, ...) do not count.
+    pub fn find_this(&self) -> Option<Span> {
+        match self {
+            Stmt::VarDecl { value, .. } => value.find_this(),
+            Stmt::Expr { expr, .. } => expr.find_this(),
+            Stmt::Assign { target, value, .. } => target.find_this().or_else(|| value.find_this()),
+            Stmt::Block(stmts) => stmts.iter().find_map(Stmt::find_this),
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+                ..
+            } => condition
+                .find_this()
+                .or_else(|| then_branch.find_this())
+                .or_else(|| else_branch.as_ref().and_then(|branch| branch.find_this())),
+            Stmt::While {
+                condition, body, ..
+            } => condition.find_this().or_else(|| body.find_this()),
+            Stmt::For {
+                init,
+                condition,
+                step,
+                body,
+                ..
+            } => init
+                .find_this()
+                .or_else(|| condition.find_this())
+                .or_else(|| step.find_this())
+                .or_else(|| body.find_this()),
+            Stmt::ForEach { iterable, body, .. } => {
+                iterable.find_this().or_else(|| body.find_this())
+            }
+            Stmt::Match { subject, arms, .. } => subject
+                .find_this()
+                .or_else(|| arms.iter().find_map(|arm| arm.body.find_this())),
+            Stmt::Return { value, .. } => value.as_ref().and_then(Expr::find_this),
+            Stmt::Break { .. }
+            | Stmt::Continue { .. }
+            | Stmt::FnDecl(_)
+            | Stmt::Import(_)
+            | Stmt::StructDecl(_)
+            | Stmt::ClassDecl(_)
+            | Stmt::EnumDecl(_) => None,
+        }
+    }
+}
+
 /// `fn name(param: type, ...): return_type { body }`, `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
@@ -295,14 +371,30 @@ pub struct StructDecl {
     pub fields: Vec<Field>,
 }
 
-/// `class Name { field: type = start; ... }`, `exported` with `export` in front.
+/// `class Name { field: type = start; ... constructor(...) { ... } }`,
+/// `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDecl {
     pub exported: bool,
     pub layout: Rc<ClassLayout>,
     pub name_span: Span,
     pub fields: Vec<ClassField>,
+    pub constructor: Option<Constructor>,
 }
+
+/// `constructor(name: string) { ... }` of a class. The type checker fills in `this_slot`:
+/// the slot of the hidden variable `this`, after the parameters.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Constructor {
+    pub params: Vec<Param>,
+    pub body: Vec<Stmt>,
+    pub this_slot: Option<usize>,
+    pub span: Span,
+}
+
+/// The name of the variable that holds the object in a constructor or method.
+/// `this` is a keyword, so no other variable can have this name.
+pub const THIS: &str = "this";
 
 /// The name of a class and of its fields, in declaration order. Types and objects point to it,
 /// so it is the identity of the class (see `types::Decl`).

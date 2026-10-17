@@ -1,0 +1,59 @@
+class User {
+    name: string;
+    alter: int;
+    besuche: int = 0;
+
+    constructor(name: string, alter: int) {
+        // local work first, this only to set fields until all have a value
+        var sauber: int = alter;
+        if (sauber < 0) {
+            sauber = 0;
+        }
+        this.name = name;
+        this.alter = sauber;
+        // now this may be used freely
+        this.besuche += 1;
+        if (this.alter > 60) {
+            return;
+        }
+        this.besuche += 10;
+    }
+}
+
+var u: User = new User("Ali", 30);
+print(u);
+print(new User("Opa", 70));
+print(new User("Neg", -5).alter);
+print(new User("A", 1) == new User("A", 1));
+
+// objects as arguments are references
+class Team {
+    chef: User;
+    mitglieder: list<User> = [];
+
+    constructor(chef: User) {
+        this.chef = chef;
+        this.mitglieder = [chef];
+    }
+}
+var t: Team = new Team(u);
+u.besuche = 99;
+print(t.chef.besuche);
+print(t.mitglieder[0] == u);
+
+// new inside a constructor
+class Paar {
+    links: User;
+    rechts: User;
+
+    constructor(name: string) {
+        this.links = new User(name, 1);
+        this.rechts = new User(name, 2);
+    }
+}
+print(new Paar("x").rechts.alter);
+
+// a class without fields and without constructor
+class Leer {
+}
+print(new Leer());

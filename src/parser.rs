@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr, ExprKind, Field, FieldInit,
-    Function, Import, ImportName, MatchArm, Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
+    BinaryOp, ClassDecl, ClassField, ClassLayout, Constructor, EnumDecl, Expr, ExprKind, Field,
+    FieldInit, Function, Import, ImportName, MatchArm, Param, Pattern, Stmt, StructDecl, THIS,
+    TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -214,7 +215,7 @@ impl Parser {
                 self.expect(Token::Semicolon, "';'")?;
                 Ok(Stmt::Expr { expr, span })
             }
-            Token::Ident(_) => self.parse_assign(start),
+            Token::Ident(_) | Token::This => self.parse_assign(start),
             other => Err(SomoniError::at(
                 start,
                 ErrorCode::UnexpectedToken { found: other },
@@ -276,9 +277,18 @@ impl Parser {
         let open = self.current_span();
         self.expect(Token::LBrace, "'{' after class name")?;
         let mut fields = Vec::new();
+        let mut constructor = None;
         while *self.peek() != Token::RBrace {
             if *self.peek() == Token::Eof {
                 return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
+            }
+            if matches!(self.peek(), Token::Ident(name) if name == "constructor") {
+                let span = self.current_span();
+                if constructor.is_some() {
+                    return Err(SomoniError::at(span, ErrorCode::DuplicateConstructor));
+                }
+                constructor = Some(self.parse_constructor(span)?);
+                continue;
             }
             let field = self.parse_field()?;
             let start = if *self.peek() == Token::Equal {
@@ -300,7 +310,23 @@ impl Parser {
             layout: Rc::new(layout),
             name_span,
             fields,
+            constructor,
         }))
+    }
+
+    /// Reads `constructor(a: int) { ... }`. The current token is `constructor`.
+    fn parse_constructor(&mut self, span: Span) -> Result<Constructor, SomoniError> {
+        self.advance();
+        self.expect(Token::LParen, "'(' after 'constructor'")?;
+        let params =
+            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
+        let body = self.expect_block_stmts("after the constructor parameters")?;
+        Ok(Constructor {
+            params,
+            body,
+            this_slot: None,
+            span,
+        })
     }
 
     /// Reads `enum Farbe { Rot, Gruen, Blau }`.
@@ -860,6 +886,10 @@ impl Parser {
                 return self.parse_struct_literal(name, span);
             }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
+            Token::This => ExprKind::Ident {
+                name: THIS.to_string(),
+                slot: None,
+            },
             Token::LBracket => {
                 self.advance();
                 let elements = self.parse_comma_list(Token::RBracket, "']'", Self::parse_expr)?;

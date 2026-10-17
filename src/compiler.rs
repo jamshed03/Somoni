@@ -43,17 +43,28 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     })
 }
 
-/// Writes the function behind `new Name()`: it creates an object of class number `index`,
-/// sets the start values and returns the object.
+/// Writes the function behind `new Name(...)`: it creates an object of class number `index`,
+/// sets the start values, runs the constructor with the object in `this` and returns the object.
+/// The arguments are its first variables, like in any function.
 fn compile_constructor(class: &ClassDecl, index: usize) -> Result<Chunk, SomoniError> {
     let mut compiler = Compiler::default();
     compiler.chunk.name = format!("new {}", class.layout.name);
+    compiler.chunk.locals = class.constructor.as_ref().map_or(0, |c| c.params.len());
     compiler.chunk.push(Op::NewObject(index), class.name_span);
     for (position, field) in class.fields.iter().enumerate() {
         if let Some(start) = &field.start {
             compiler.compile_expr(start)?;
             compiler.chunk.push(Op::InitField(position), start.span);
         }
+    }
+    if let Some(constructor) = &class.constructor {
+        let this = compiler.slot(constructor.this_slot)?;
+        compiler.this_slot = Some(this);
+        compiler.chunk.push(Op::SetLocal(this), constructor.span);
+        for stmt in &constructor.body {
+            compiler.compile_stmt(stmt)?;
+        }
+        compiler.chunk.push(Op::GetLocal(this), constructor.span);
     }
     compiler.chunk.push(Op::Return, class.name_span);
     Ok(compiler.chunk)
@@ -78,6 +89,8 @@ fn compile_function(function: &Function) -> Result<Chunk, SomoniError> {
 struct Compiler {
     chunk: Chunk,
     loops: Vec<LoopJumps>,
+    /// In a constructor: the slot of `this`, which a `return;` gives back.
+    this_slot: Option<usize>,
 }
 
 /// The jumps of `break` and `continue` in one loop. Their targets are filled in
@@ -279,9 +292,12 @@ impl Compiler {
                 self.current_loop()?.continues.push(jump);
             }
             Stmt::Return { value, span } => {
-                match value {
-                    Some(value) => self.compile_expr(value)?,
-                    None => self.push_constant(Value::Void, *span),
+                match (value, self.this_slot) {
+                    (Some(value), _) => self.compile_expr(value)?,
+                    (None, Some(this)) => {
+                        self.chunk.push(Op::GetLocal(this), *span);
+                    }
+                    (None, None) => self.push_constant(Value::Void, *span),
                 }
                 self.chunk.push(Op::Return, *span);
             }

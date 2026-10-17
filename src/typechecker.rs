@@ -2,8 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, ClassDecl, ClassLayout, EnumDecl, Expr, ExprKind, Field, FieldInit,
-    Function, Import, IterKind, MatchArm, Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
+    self, BinaryOp, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr, ExprKind,
+    Field, FieldInit, Function, Import, IterKind, MatchArm, Param, Pattern, Stmt, StructDecl, THIS,
+    TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -126,7 +127,7 @@ impl TypeChecker {
             self.declare_enums(stmts)?;
             self.declare_structs(stmts)?;
             self.declare_functions(stmts)?;
-            self.declare_constructors(stmts);
+            self.declare_constructors(stmts)?;
             self.check_stmts(stmts)?;
             let exports = self.exports_of(stmts);
             self.exports.insert(number, exports);
@@ -415,13 +416,20 @@ impl TypeChecker {
 
     /// Gives the constructor of each class its function number, after the functions of the file
     /// (the compiler writes them in the same order).
-    fn declare_constructors(&mut self, stmts: &[Stmt]) {
+    /// Also collects the parameter types of each constructor.
+    fn declare_constructors(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for class in ast::classes(stmts) {
+            let mut params = Vec::new();
+            for param in class.constructor.iter().flat_map(|c| &c.params) {
+                params.push(self.resolve_type(&param.type_name, false)?);
+            }
             if let Some(info) = self.classes.get_mut(&Decl(Rc::clone(&class.layout))) {
                 info.constructor.index = self.function_count;
+                info.constructor.params = params;
                 self.function_count += 1;
             }
         }
+        Ok(())
     }
 
     /// Checks a function body with its own variables, and that it returns on every path.
@@ -463,28 +471,34 @@ impl TypeChecker {
         result
     }
 
-    /// Checks the start values of a class. Without a constructor every field needs one (T050).
+    /// Checks the start values and the constructor of a class, and that every field gets a value.
     /// Start values see no variables, like the body of a function without parameters.
     fn check_class(&mut self, class: &mut ClassDecl) -> Result<(), SomoniError> {
-        let fields = self
-            .class_info(&Decl(Rc::clone(&class.layout)))?
-            .fields
-            .clone();
+        let layout = Decl(Rc::clone(&class.layout));
+        let info = self.class_info(&layout)?.clone();
         self.in_function(None, |this| {
-            for (field, (_, ty)) in class.fields.iter_mut().zip(&fields) {
-                let Some(start) = &mut field.start else {
-                    return Err(SomoniError::at(
-                        field.field.name_span,
-                        ErrorCode::FieldNotSet {
-                            class: class.layout.name.clone(),
-                            field: field.field.name.clone(),
-                        },
-                    ));
-                };
-                this.check_assignable(start, ty)?;
+            for (field, (_, ty)) in class.fields.iter_mut().zip(&info.fields) {
+                if let Some(start) = &mut field.start {
+                    this.check_assignable(start, ty)?;
+                }
             }
-            Ok(())
-        })
+            Ok::<(), SomoniError>(())
+        })?;
+        if let Some(constructor) = &mut class.constructor {
+            let params = &info.constructor.params;
+            self.in_function(Some(Type::Void), |this| {
+                this.declare_params(&constructor.params, params)?;
+                let this_type = Type::Class(layout.clone());
+                let slot = this.declare(THIS, constructor.span, this_type, false)?;
+                constructor.this_slot = Some(slot);
+                this.check_stmts(&mut constructor.body)
+            })?;
+        }
+        let body = class
+            .constructor
+            .as_ref()
+            .map_or(&[][..], |constructor| &constructor.body);
+        check_fields_set(class, body)
     }
 
     /// Returns the field types and the constructor of a class.
@@ -517,10 +531,16 @@ impl TypeChecker {
         function: &mut Function,
         param_types: &[Type],
     ) -> Result<(), SomoniError> {
-        for (param, ty) in function.params.iter().zip(param_types) {
+        self.declare_params(&function.params, param_types)?;
+        self.check_stmts(&mut function.body)
+    }
+
+    /// Declares the parameters of a function or constructor as const variables.
+    fn declare_params(&mut self, params: &[Param], types: &[Type]) -> Result<(), SomoniError> {
+        for (param, ty) in params.iter().zip(types) {
             self.declare(&param.name, param.name_span, ty.clone(), false)?;
         }
-        self.check_stmts(&mut function.body)
+        Ok(())
     }
 
     fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
@@ -1318,7 +1338,12 @@ impl TypeChecker {
             ExprKind::Null => Err(SomoniError::at(expr.span, ErrorCode::NullTypeUnknown)),
             ExprKind::Ident { name, slot } => {
                 let info = self.scopes.lookup(name).ok_or_else(|| {
-                    SomoniError::at(expr.span, ErrorCode::UnknownVariable { name: name.clone() })
+                    let code = if name == THIS {
+                        ErrorCode::ThisOutsideClass
+                    } else {
+                        ErrorCode::UnknownVariable { name: name.clone() }
+                    };
+                    SomoniError::at(expr.span, code)
                 })?;
                 *slot = Some(info.slot);
                 Ok(info.ty.clone())
@@ -1519,6 +1544,67 @@ fn needs_type_hint(expr: &Expr) -> bool {
         ExprKind::Call { name, .. } => Builtin::result_builder(name).is_some(),
         _ => false,
     }
+}
+
+/// Checks rule 5 of `Klassen.md`: every field without a start value is set in `body`, the
+/// constructor, directly with `this.field = value;`. Until all are set, `this` may not be used
+/// in any other way (T054). A field that is never set is T050.
+fn check_fields_set(class: &ClassDecl, body: &[Stmt]) -> Result<(), SomoniError> {
+    let mut missing: Vec<&ClassField> = class.fields.iter().filter(|f| f.start.is_none()).collect();
+    for stmt in body {
+        if missing.is_empty() {
+            return Ok(());
+        }
+        if let Some(name) = sets_field(stmt) {
+            missing.retain(|field| field.field.name != name);
+        } else if let Some(span) = stmt.find_this() {
+            let names: Vec<String> = missing
+                .iter()
+                .map(|field| format!("'{}'", field.field.name))
+                .collect();
+            return Err(SomoniError::at(
+                span,
+                ErrorCode::ThisBeforeFieldsSet {
+                    missing: names.join(", "),
+                },
+            ));
+        }
+    }
+    match missing.first() {
+        Some(field) => Err(SomoniError::at(
+            field.field.name_span,
+            ErrorCode::FieldNotSet {
+                class: class.layout.name.clone(),
+                field: field.field.name.clone(),
+            },
+        )),
+        None => Ok(()),
+    }
+}
+
+/// For `this.name = value;` where `value` does not use `this`, returns `name`.
+fn sets_field(stmt: &Stmt) -> Option<&str> {
+    let Stmt::Assign {
+        target,
+        op: None,
+        value,
+        ..
+    } = stmt
+    else {
+        return None;
+    };
+    let ExprKind::Field {
+        target: object,
+        name,
+        ..
+    } = &target.kind
+    else {
+        return None;
+    };
+    let ExprKind::Ident { name: variable, .. } = &object.kind else {
+        return None;
+    };
+    (variable == THIS && value.find_this().is_none()).then_some(name.as_str())
 }
 
 /// Returns the variants a `match` over `ty` must cover, as written in a branch:

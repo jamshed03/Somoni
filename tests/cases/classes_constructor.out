@@ -1,0 +1,8 @@
+User { name: "Ali", alter: 30, besuche: 11 }
+User { name: "Opa", alter: 70, besuche: 1 }
+0
+false
+99
+true
+2
+Leer {}

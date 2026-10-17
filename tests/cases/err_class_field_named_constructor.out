@@ -1,0 +1,3 @@
+Parse error [P001]: Line 2: expected '(' after 'constructor'
+  2 |     constructor: int = 1;
+    |                ^

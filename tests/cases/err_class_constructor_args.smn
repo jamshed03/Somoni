@@ -1,0 +1,8 @@
+class A {
+    x: int;
+
+    constructor(x: int) {
+        this.x = x;
+    }
+}
+var a: A = new A();

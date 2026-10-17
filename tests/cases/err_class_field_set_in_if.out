@@ -1,0 +1,3 @@
+Type error [T054]: Line 6: 'this' is used before every field has a value (still missing: 'a')
+  6 |             this.a = 1;
+    |             ^^^^

@@ -131,6 +131,7 @@ impl Lexer {
             "export" => Token::Export,
             "class" => Token::Class,
             "new" => Token::New,
+            "this" => Token::This,
             _ => Token::Ident(text),
         }
     }

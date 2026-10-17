@@ -25,6 +25,7 @@ pub enum Token {
     Export,
     Class,
     New,
+    This,
 
     // names and values
     Ident(String),

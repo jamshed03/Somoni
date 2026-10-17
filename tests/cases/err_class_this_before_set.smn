@@ -1,0 +1,10 @@
+class A {
+    a: int;
+    b: int;
+
+    constructor() {
+        this.a = 1;
+        print(this.a);
+        this.b = 2;
+    }
+}
