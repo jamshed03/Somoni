@@ -581,42 +581,37 @@ pub struct TypeName {
     pub span: Span,
 }
 
-/// Returns all structs of the program. Their order gives each struct its number.
-pub fn structs(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<StructDecl>> {
-    stmts.iter().filter_map(|stmt| match stmt {
-        Stmt::StructDecl(decl) => Some(decl),
-        _ => None,
-    })
+/// Writes a function that returns all declarations of one kind in a file, in order:
+/// `declarations!(name, Variant, Type)` for `Stmt::Variant(Type)`.
+macro_rules! declarations {
+    ($(#[$doc:meta])* $name:ident, $variant:ident, $item:ty) => {
+        $(#[$doc])*
+        pub fn $name(stmts: &[Stmt]) -> impl Iterator<Item = &$item> {
+            stmts.iter().filter_map(|stmt| match stmt {
+                Stmt::$variant(decl) => Some(decl),
+                _ => None,
+            })
+        }
+    };
 }
 
-/// Returns all classes of a file. Their order gives each class its number.
-pub fn classes(stmts: &[Stmt]) -> impl Iterator<Item = &ClassDecl> {
-    stmts.iter().filter_map(|stmt| match stmt {
-        Stmt::ClassDecl(decl) => Some(decl),
-        _ => None,
-    })
-}
-
-/// Returns all interfaces of a file. Their order gives each interface its number.
-pub fn interfaces(stmts: &[Stmt]) -> impl Iterator<Item = &InterfaceDecl> {
-    stmts.iter().filter_map(|stmt| match stmt {
-        Stmt::InterfaceDecl(decl) => Some(decl),
-        _ => None,
-    })
-}
-
-/// Returns all enums of the program.
-pub fn enums(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<EnumDecl>> {
-    stmts.iter().filter_map(|stmt| match stmt {
-        Stmt::EnumDecl(decl) => Some(decl),
-        _ => None,
-    })
-}
-
-/// Returns all functions of the program. Their order gives each function its number.
-pub fn functions(stmts: &[Stmt]) -> impl Iterator<Item = &Function> {
-    stmts.iter().filter_map(|stmt| match stmt {
-        Stmt::FnDecl(function) => Some(function),
-        _ => None,
-    })
-}
+declarations!(
+    /// Returns all functions of a file. Their order gives each function its number.
+    functions, FnDecl, Function
+);
+declarations!(
+    /// Returns all structs of a file. Their order gives each struct its number.
+    structs, StructDecl, Rc<StructDecl>
+);
+declarations!(
+    /// Returns all enums of a file.
+    enums, EnumDecl, Rc<EnumDecl>
+);
+declarations!(
+    /// Returns all classes of a file. Their order gives each class its number.
+    classes, ClassDecl, ClassDecl
+);
+declarations!(
+    /// Returns all interfaces of a file. Their order gives each interface its number.
+    interfaces, InterfaceDecl, InterfaceDecl
+);

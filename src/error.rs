@@ -438,118 +438,15 @@ impl ErrorCode {
         }
     }
 
-    /// Returns the part of the pipeline the error belongs to.
+    /// Returns the part of the pipeline the error belongs to. The first letter of the code says
+    /// it: `L` lexer, `P` parser, `M` loader and imports, `T` type checker, `R` runtime.
     pub fn kind(&self) -> ErrorKind {
-        match self {
-            ErrorCode::UnexpectedCharacter { .. }
-            | ErrorCode::UnterminatedString
-            | ErrorCode::UnterminatedComment
-            | ErrorCode::IntegerTooLarge { .. }
-            | ErrorCode::InvalidFloat { .. } => ErrorKind::Lex,
-
-            ErrorCode::Expected { .. }
-            | ErrorCode::UnexpectedToken { .. }
-            | ErrorCode::BlockNotClosed
-            | ErrorCode::ForStartConst
-            | ErrorCode::FnNotTopLevel
-            | ErrorCode::StructNotTopLevel
-            | ErrorCode::EnumNotTopLevel
-            | ErrorCode::InvalidAssignTarget
-            | ErrorCode::ImportNotFirst
-            | ErrorCode::ExportNotTopLevel
-            | ErrorCode::ClassNotTopLevel
-            | ErrorCode::DuplicateConstructor
-            | ErrorCode::InterfaceNotTopLevel
-            | ErrorCode::NotYetSupported { .. } => ErrorKind::Parse,
-
-            ErrorCode::CannotReadFile { .. }
-            | ErrorCode::ImportCycle { .. }
-            | ErrorCode::OnlyDeclarations
-            | ErrorCode::ReservedPath { .. }
-            | ErrorCode::NotExported { .. }
-            | ErrorCode::NotInFile { .. }
-            | ErrorCode::ImportConflict { .. } => ErrorKind::Import,
-
-            ErrorCode::UnknownType { .. }
-            | ErrorCode::UnknownVariable { .. }
-            | ErrorCode::CannotAssign { .. }
-            | ErrorCode::AlreadyDeclared { .. }
-            | ErrorCode::AssignToConst { .. }
-            | ErrorCode::OperandTypesDiffer { .. }
-            | ErrorCode::OperatorNotAllowed { .. }
-            | ErrorCode::NotNeedsBool { .. }
-            | ErrorCode::NegNeedsNumber { .. }
-            | ErrorCode::ConditionNotBool { .. }
-            | ErrorCode::OutsideLoop { .. }
-            | ErrorCode::UnknownFunction { .. }
-            | ErrorCode::WrongArgCount { .. }
-            | ErrorCode::WrongArgType { .. }
-            | ErrorCode::DuplicateFunction { .. }
-            | ErrorCode::BuiltinRedeclared { .. }
-            | ErrorCode::ReturnOutsideFunction
-            | ErrorCode::ReturnType { .. }
-            | ErrorCode::MissingReturn { .. }
-            | ErrorCode::ListElementType { .. }
-            | ErrorCode::IndexNotInt { .. }
-            | ErrorCode::NotIndexable { .. }
-            | ErrorCode::TypeArguments { .. }
-            | ErrorCode::EmptyListType
-            | ErrorCode::DuplicateType { .. }
-            | ErrorCode::DuplicateField { .. }
-            | ErrorCode::UnknownField { .. }
-            | ErrorCode::MissingField { .. }
-            | ErrorCode::NoFields { .. }
-            | ErrorCode::StructContainsItself { .. }
-            | ErrorCode::NullNotAllowed { .. }
-            | ErrorCode::NullTypeUnknown
-            | ErrorCode::OptionalVoid
-            | ErrorCode::MapKeyType { .. }
-            | ErrorCode::EmptyMapType
-            | ErrorCode::MapEntryType { .. }
-            | ErrorCode::MapIndexType { .. }
-            | ErrorCode::NotIterable { .. }
-            | ErrorCode::BoundVarType { .. }
-            | ErrorCode::UnknownVariant { .. }
-            | ErrorCode::MatchNotEnum { .. }
-            | ErrorCode::PatternWrongEnum { .. }
-            | ErrorCode::DuplicateBranch { .. }
-            | ErrorCode::RestNotLast
-            | ErrorCode::RestUnreachable
-            | ErrorCode::MissingBranch { .. }
-            | ErrorCode::DuplicateVariant { .. }
-            | ErrorCode::EmptyEnum
-            | ErrorCode::ResultTypeUnknown { .. }
-            | ErrorCode::FieldNotSet { .. }
-            | ErrorCode::ClassLiteral { .. }
-            | ErrorCode::NotAClass { .. }
-            | ErrorCode::ThisOutsideClass
-            | ErrorCode::ThisBeforeFieldsSet { .. }
-            | ErrorCode::DuplicateMember { .. }
-            | ErrorCode::UnknownMethod { .. }
-            | ErrorCode::NoMethods { .. }
-            | ErrorCode::PrivateMember { .. }
-            | ErrorCode::MissingInterfaceMethod { .. }
-            | ErrorCode::InterfaceMethodType { .. }
-            | ErrorCode::PrivateInterfaceMethod { .. }
-            | ErrorCode::NotAnInterface { .. }
-            | ErrorCode::InterfaceNew { .. }
-            | ErrorCode::ExtendsNotClass { .. }
-            | ErrorCode::InheritanceCycle { .. }
-            | ErrorCode::MissingOverride { .. }
-            | ErrorCode::NothingToOverride { .. }
-            | ErrorCode::OverrideMismatch { .. }
-            | ErrorCode::MissingSuper { .. }
-            | ErrorCode::SuperInitMisplaced
-            | ErrorCode::SuperOutsideSubclass
-            | ErrorCode::ProtectedMember { .. } => ErrorKind::Type,
-
-            ErrorCode::Internal { .. }
-            | ErrorCode::DivisionByZero
-            | ErrorCode::IntegerOverflow
-            | ErrorCode::RecursionTooDeep { .. }
-            | ErrorCode::IndexOutOfRange { .. }
-            | ErrorCode::KeyNotFound { .. }
-            | ErrorCode::DuplicateKey { .. } => ErrorKind::Runtime,
+        match self.code().chars().next() {
+            Some('L') => ErrorKind::Lex,
+            Some('P') => ErrorKind::Parse,
+            Some('M') => ErrorKind::Import,
+            Some('T') => ErrorKind::Type,
+            _ => ErrorKind::Runtime,
         }
     }
 
