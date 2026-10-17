@@ -5,7 +5,7 @@ use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::text::Text;
-use crate::value::{self, Step, StructValue, Value, map_key, show_key};
+use crate::value::{self, Object, Step, StructValue, Value, map_key, show_key};
 
 /// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
@@ -124,12 +124,17 @@ impl<'p> Vm<'p> {
                 self.stack
                     .push(Value::Struct(Rc::new(StructValue { decl, fields })));
             }
+            Op::NewObject(i) => {
+                let layout = Rc::clone(&program.classes[*i]);
+                self.stack.push(Value::Object(Object::new(layout)));
+            }
             Op::InitField(position) => {
                 let value = self.pop()?;
-                let Some(Value::Struct(target)) = self.stack.last_mut() else {
-                    return Err(SomoniError::internal("field without a struct"));
-                };
-                Rc::make_mut(target).fields[*position] = value;
+                match self.stack.last_mut() {
+                    Some(Value::Struct(target)) => Rc::make_mut(target).fields[*position] = value,
+                    Some(Value::Object(object)) => object.0.borrow_mut().fields[*position] = value,
+                    _ => return Err(SomoniError::internal("field without a struct")),
+                }
             }
             Op::Index => {
                 let index = self.pop()?;
@@ -137,10 +142,8 @@ impl<'p> Vm<'p> {
                 self.stack.push(value::index(&container, &index)?);
             }
             Op::Field(position) => {
-                let Value::Struct(target) = self.pop()? else {
-                    return Err(SomoniError::internal("field of a non-struct"));
-                };
-                self.stack.push(target.fields[*position].clone());
+                let target = self.pop()?;
+                self.stack.push(value::field(&target, *position)?);
             }
             Op::AppendLocal(slot) => {
                 let rest = self.pop()?;
@@ -157,7 +160,7 @@ impl<'p> Vm<'p> {
                 let value = self.pop()?;
                 let steps = self.take_path_steps(path);
                 let target = &mut self.stack[frame.base + path.slot];
-                value::change_part(target, steps, false, |place| {
+                value::change_part(target, steps, false, path.in_object, |place| {
                     let old = std::mem::replace(place, Value::Void);
                     *place = value::binary(*op, old, value)?;
                     Ok(())
@@ -223,7 +226,7 @@ impl<'p> Vm<'p> {
                 let value = self.pop()?;
                 let steps = self.take_path_steps(path);
                 let target = &mut self.stack[frame.base + path.slot];
-                value::change_part(target, steps, true, |place| {
+                value::change_part(target, steps, true, path.in_object, |place| {
                     *place = value;
                     Ok(())
                 })?;

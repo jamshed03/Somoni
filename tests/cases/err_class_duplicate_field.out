@@ -1,0 +1,3 @@
+Type error [T026]: Line 3: field 'x' appears more than once
+  3 |     x: int = 2;
+    |     ^

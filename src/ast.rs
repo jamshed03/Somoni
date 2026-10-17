@@ -50,6 +50,14 @@ pub enum ExprKind {
         args: Vec<Expr>,
         target: Option<CallTarget>,
     },
+    /// `new Name(args)`: creates an object of a class. The type checker fills in `target`:
+    /// the number of the function that builds it (its constructor).
+    New {
+        name: String,
+        name_span: Span,
+        args: Vec<Expr>,
+        target: Option<usize>,
+    },
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
         name: String,
@@ -174,10 +182,12 @@ pub enum Stmt {
     },
     /// `target = value;` where the target is a variable, a list element or a field.
     /// With `op`, it is `target += value;` (or `-=`, ...) with the place of the operator.
+    /// The type checker fills in `in_object`: true if the target lies inside an object (`u.age`).
     Assign {
         target: Expr,
         op: Option<(BinaryOp, Span)>,
         value: Expr,
+        in_object: bool,
         span: Span,
     },
     Block(Vec<Stmt>),
@@ -221,6 +231,7 @@ pub enum Stmt {
     FnDecl(Function),
     Import(Import),
     StructDecl(Rc<StructDecl>),
+    ClassDecl(ClassDecl),
     EnumDecl(Rc<EnumDecl>),
     /// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
     /// The type checker fills in `arm_of_variant`: for each variant, the number of its branch,
@@ -284,6 +295,30 @@ pub struct StructDecl {
     pub fields: Vec<Field>,
 }
 
+/// `class Name { field: type = start; ... }`, `exported` with `export` in front.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassDecl {
+    pub exported: bool,
+    pub layout: Rc<ClassLayout>,
+    pub name_span: Span,
+    pub fields: Vec<ClassField>,
+}
+
+/// The name of a class and of its fields, in declaration order. Types and objects point to it,
+/// so it is the identity of the class (see `types::Decl`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassLayout {
+    pub name: String,
+    pub fields: Vec<String>,
+}
+
+/// One field of a class: `name: type;` or with a start value `name: type = start;`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClassField {
+    pub field: Field,
+    pub start: Option<Expr>,
+}
+
 /// `enum Name { Variant, ... }`, `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumDecl {
@@ -344,6 +379,14 @@ pub struct TypeName {
 pub fn structs(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<StructDecl>> {
     stmts.iter().filter_map(|stmt| match stmt {
         Stmt::StructDecl(decl) => Some(decl),
+        _ => None,
+    })
+}
+
+/// Returns all classes of a file. Their order gives each class its number.
+pub fn classes(stmts: &[Stmt]) -> impl Iterator<Item = &ClassDecl> {
+    stmts.iter().filter_map(|stmt| match stmt {
+        Stmt::ClassDecl(decl) => Some(decl),
         _ => None,
     })
 }

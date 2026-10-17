@@ -1,6 +1,8 @@
 use std::rc::Rc;
 
-use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, IterKind, Pattern, Stmt};
+use crate::ast::{
+    self, BinaryOp, CallTarget, ClassDecl, Expr, ExprKind, Function, IterKind, Pattern, Stmt,
+};
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
 use crate::loader::SourceFile;
@@ -21,10 +23,15 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     }
     let mut functions = Vec::new();
     let mut structs = Vec::new();
+    let mut classes = Vec::new();
     for &number in order {
         let stmts = &files[number].stmts;
         for function in ast::functions(stmts) {
             functions.push(compile_function(function)?);
+        }
+        for class in ast::classes(stmts) {
+            functions.push(compile_constructor(class, classes.len())?);
+            classes.push(Rc::clone(&class.layout));
         }
         structs.extend(ast::structs(stmts).cloned());
     }
@@ -32,7 +39,24 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
         main: compiler.chunk,
         functions,
         structs,
+        classes,
     })
+}
+
+/// Writes the function behind `new Name()`: it creates an object of class number `index`,
+/// sets the start values and returns the object.
+fn compile_constructor(class: &ClassDecl, index: usize) -> Result<Chunk, SomoniError> {
+    let mut compiler = Compiler::default();
+    compiler.chunk.name = format!("new {}", class.layout.name);
+    compiler.chunk.push(Op::NewObject(index), class.name_span);
+    for (position, field) in class.fields.iter().enumerate() {
+        if let Some(start) = &field.start {
+            compiler.compile_expr(start)?;
+            compiler.chunk.push(Op::InitField(position), start.span);
+        }
+    }
+    compiler.chunk.push(Op::Return, class.name_span);
+    Ok(compiler.chunk)
 }
 
 /// Turns one function into its own chunk. The parameters are its first variables.
@@ -79,6 +103,7 @@ impl Compiler {
                 target,
                 op,
                 value,
+                in_object,
                 span,
             } => {
                 let op = op.map(|(op, _)| op);
@@ -86,7 +111,11 @@ impl Compiler {
                     let mut steps = Vec::new();
                     let slot = self.compile_path(target, &mut steps)?;
                     self.compile_expr(value)?;
-                    self.chunk.paths.push(Path { slot, steps });
+                    self.chunk.paths.push(Path {
+                        slot,
+                        steps,
+                        in_object: *in_object,
+                    });
                     let i = self.chunk.paths.len() - 1;
                     let change = match op {
                         None => Op::SetPart(i),
@@ -126,7 +155,11 @@ impl Compiler {
                     self.compile_stmt(stmt)?;
                 }
             }
-            Stmt::FnDecl(_) | Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::Import(_) => {}
+            Stmt::FnDecl(_)
+            | Stmt::StructDecl(_)
+            | Stmt::EnumDecl(_)
+            | Stmt::ClassDecl(_)
+            | Stmt::Import(_) => {}
             Stmt::Match {
                 subject,
                 arms,
@@ -408,6 +441,13 @@ impl Compiler {
                     None => return Err(SomoniError::internal("call without target")),
                 };
                 self.chunk.push(op, span);
+            }
+            ExprKind::New { args, target, .. } => {
+                for arg in args {
+                    self.compile_expr(arg)?;
+                }
+                let target = target.ok_or_else(|| SomoniError::internal("new without target"))?;
+                self.chunk.push(Op::Call(target, args.len()), span);
             }
             ExprKind::List(elements) => {
                 for element in elements {

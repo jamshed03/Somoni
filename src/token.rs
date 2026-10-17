@@ -23,6 +23,8 @@ pub enum Token {
     Match,
     Import,
     Export,
+    Class,
+    New,
 
     // names and values
     Ident(String),

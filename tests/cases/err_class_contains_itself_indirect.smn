@@ -1,0 +1,6 @@
+class A {
+    b: B = new B();
+}
+class B {
+    a: A = new A();
+}

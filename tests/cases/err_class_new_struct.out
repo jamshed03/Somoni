@@ -1,0 +1,3 @@
+Type error [T052]: Line 4: 'P' is a struct, not a class: create it with 'P { ... }'
+  4 | var p: P = new P();
+    |                ^

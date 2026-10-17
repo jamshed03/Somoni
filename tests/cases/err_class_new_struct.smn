@@ -1,0 +1,4 @@
+struct P {
+    x: int
+}
+var p: P = new P();

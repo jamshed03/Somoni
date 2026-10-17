@@ -1,0 +1,4 @@
+var y: int = 1;
+class A {
+    x: int = y;
+}

@@ -1,0 +1,19 @@
+Zaehler { stand: 0, name: "zähler", schritte: [] }
+1
+10
+true
+false
+true
+[]
+15
+3
+99
+99
+1
+Knoten { wert: 1, next: Knoten { wert: 1, next: null, ort: Punkt { x: 7 } }, ort: Punkt { x: 7 } }
+8
+Punkt { x: 9 }
+Knoten { wert: 1, next: Knoten { ... }, ort: Punkt { x: 7 } }
+70
+6
+Selbst { x: 6, alle: [Selbst { ... }] }

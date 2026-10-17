@@ -1,0 +1,3 @@
+Type error [T001]: Line 1: unknown type 'Gibts'
+  1 | var a: int = new Gibts();
+    |                  ^^^^^

@@ -1,0 +1,3 @@
+Type error [T003]: Line 2: cannot assign string to int
+  2 |     x: int = "a";
+    |              ^^^

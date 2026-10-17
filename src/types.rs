@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::ast::{EnumDecl, StructDecl};
+use crate::ast::{ClassLayout, EnumDecl, StructDecl};
 
 /// A struct or enum declaration, compared by identity: two declarations with the same name
 /// (e.g. in two files) are different types.
@@ -59,6 +59,8 @@ pub enum Type {
     Map(Box<Type>, Box<Type>),
     /// An enum of the program, by its declaration.
     Enum(Decl<EnumDecl>),
+    /// An object of a class of the program, by the layout of its class.
+    Class(Decl<ClassLayout>),
     /// `result<T, E>` with the type of `ok` and the type of `err`.
     Result(Box<Type>, Box<Type>),
 }
@@ -123,6 +125,7 @@ impl fmt::Display for Type {
             Type::Optional(inner) => write!(f, "{}?", inner),
             Type::Map(key, value) => write!(f, "map<{}, {}>", key, value),
             Type::Enum(decl) => write!(f, "{}", decl.name),
+            Type::Class(layout) => write!(f, "{}", layout.name),
             Type::Result(value, error) => write!(f, "result<{}, {}>", value, error),
         }
     }

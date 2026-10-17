@@ -1,0 +1,88 @@
+import { Konto } from "modules/konto.smn";
+
+class Zaehler {
+    stand: int = 0;
+    name: string = "zähler";
+    schritte: list<int> = [];
+}
+
+var a: Zaehler = new Zaehler();
+print(a);
+a.stand += 1;
+print(a.stand);
+
+// b is the same object, not a copy
+var b: Zaehler = a;
+b.stand = 10;
+print(a.stand);
+print(a == b);
+print(a == new Zaehler());
+print(a != new Zaehler());
+
+// every new computes the start values again
+var c: Zaehler = new Zaehler();
+c.schritte = c.schritte + [1];
+print(new Zaehler().schritte);
+
+// a function can change the object of the caller
+fn erhoehen(z: Zaehler): void {
+    z.stand += 5;
+}
+erhoehen(a);
+print(a.stand);
+
+// const keeps the variable, not the fields
+const k: Zaehler = new Zaehler();
+k.stand = 3;
+print(k.stand);
+
+// objects in lists are references too
+var liste: list<Zaehler> = [a, a];
+liste[0].stand = 99;
+print(a.stand);
+print(liste[1].stand);
+
+// a struct stays a copy, also inside an object
+struct Punkt {
+    x: int
+}
+var p: Punkt = Punkt { x: 1 };
+var q: Punkt = p;
+q.x = 2;
+print(p.x);
+
+class Knoten {
+    wert: int = 1;
+    next: Knoten? = null;
+    ort: Punkt = Punkt { x: 7 };
+}
+var n: Knoten = new Knoten();
+n.next = new Knoten();
+print(n);
+n.ort.x = 8;
+print(n.ort.x);
+const m: Knoten = n;
+m.ort.x = 9;
+print(n.ort);
+
+// objects that know each other in a circle
+var eins: Knoten = new Knoten();
+eins.next = eins;
+print(eins);
+
+// a class from another file
+var konto: Konto = new Konto();
+konto.stand -= 30;
+print(konto.stand);
+
+// the same object twice on one path
+class Selbst {
+    x: int = 0;
+    alle: list<Selbst> = [];
+}
+var s: Selbst = new Selbst();
+s.alle = [s];
+s.alle[0].x = 5;
+s.alle[0].x += 1;
+print(s.x);
+print(s);

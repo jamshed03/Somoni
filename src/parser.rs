@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, EnumDecl, Expr, ExprKind, Field, FieldInit, Function, Import, ImportName, MatchArm,
-    Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
+    BinaryOp, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr, ExprKind, Field, FieldInit,
+    Function, Import, ImportName, MatchArm, Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -71,7 +71,12 @@ impl Parser {
         while *self.peek() != Token::Eof {
             let is_declaration = matches!(
                 self.peek(),
-                Token::Import | Token::Export | Token::Fn | Token::Struct | Token::Enum
+                Token::Import
+                    | Token::Export
+                    | Token::Fn
+                    | Token::Struct
+                    | Token::Enum
+                    | Token::Class
             );
             if imported && !is_declaration {
                 return Err(SomoniError::at(
@@ -85,6 +90,7 @@ impl Parser {
                 Token::Fn => self.parse_fn(false)?,
                 Token::Struct => self.parse_struct(false)?,
                 Token::Enum => self.parse_enum(false)?,
+                Token::Class => self.parse_class(false)?,
                 _ => self.parse_stmt()?,
             };
             only_imports &= matches!(stmt, Stmt::Import(_));
@@ -126,7 +132,8 @@ impl Parser {
             Token::Fn => self.parse_fn(true),
             Token::Struct => self.parse_struct(true),
             Token::Enum => self.parse_enum(true),
-            _ => Err(self.expected("'fn', 'struct' or 'enum' after 'export'")),
+            Token::Class => self.parse_class(true),
+            _ => Err(self.expected("'fn', 'struct', 'enum' or 'class' after 'export'")),
         }
     }
 
@@ -186,6 +193,7 @@ impl Parser {
             Token::Fn => Err(SomoniError::at(start, ErrorCode::FnNotTopLevel)),
             Token::Struct => Err(SomoniError::at(start, ErrorCode::StructNotTopLevel)),
             Token::Enum => Err(SomoniError::at(start, ErrorCode::EnumNotTopLevel)),
+            Token::Class => Err(SomoniError::at(start, ErrorCode::ClassNotTopLevel)),
             Token::Import => Err(SomoniError::at(start, ErrorCode::ImportNotFirst)),
             Token::Export => Err(SomoniError::at(start, ErrorCode::ExportNotTopLevel)),
             Token::Match => self.parse_match(start),
@@ -259,6 +267,40 @@ impl Parser {
             name_span,
             fields,
         })))
+    }
+
+    /// Reads `class Name { field: type; field: type = start; }`.
+    fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
+        self.advance();
+        let (name, name_span) = self.expect_ident("class name")?;
+        let open = self.current_span();
+        self.expect(Token::LBrace, "'{' after class name")?;
+        let mut fields = Vec::new();
+        while *self.peek() != Token::RBrace {
+            if *self.peek() == Token::Eof {
+                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
+            }
+            let field = self.parse_field()?;
+            let start = if *self.peek() == Token::Equal {
+                self.advance();
+                Some(self.parse_expr()?)
+            } else {
+                None
+            };
+            self.expect(Token::Semicolon, "';' after the field")?;
+            fields.push(ClassField { field, start });
+        }
+        self.advance();
+        let layout = ClassLayout {
+            name,
+            fields: fields.iter().map(|f| f.field.name.clone()).collect(),
+        };
+        Ok(Stmt::ClassDecl(ClassDecl {
+            exported,
+            layout: Rc::new(layout),
+            name_span,
+            fields,
+        }))
     }
 
     /// Reads `enum Farbe { Rot, Gruen, Blau }`.
@@ -556,6 +598,7 @@ impl Parser {
             target,
             op,
             value,
+            in_object: false,
             span: self.since(start),
         })
     }
@@ -795,6 +838,21 @@ impl Parser {
             Token::True => ExprKind::Bool(true),
             Token::False => ExprKind::Bool(false),
             Token::Null => ExprKind::Null,
+            Token::New => {
+                self.advance();
+                let (name, name_span) = self.expect_ident("class name after 'new'")?;
+                self.expect(Token::LParen, "'(' after the class name")?;
+                let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
+                return Ok(Expr {
+                    kind: ExprKind::New {
+                        name,
+                        name_span,
+                        args,
+                        target: None,
+                    },
+                    span: span.to(self.last_span()),
+                });
+            }
             Token::Ident(name) if *self.peek_next() == Token::LParen => {
                 return self.parse_call(name, span);
             }

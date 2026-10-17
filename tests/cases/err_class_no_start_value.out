@@ -1,0 +1,3 @@
+Type error [T050]: Line 2: field 'x' of 'A' gets no value (give it a start value or set it in the constructor)
+  2 |     x: int;
+    |     ^

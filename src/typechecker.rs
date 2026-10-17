@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, EnumDecl, Expr, ExprKind, FieldInit, Function, Import, IterKind,
-    MatchArm, Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
+    self, BinaryOp, CallTarget, ClassDecl, ClassLayout, EnumDecl, Expr, ExprKind, Field, FieldInit,
+    Function, Import, IterKind, MatchArm, Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -34,23 +34,32 @@ struct StructInfo {
     fields: Vec<(String, Type)>,
 }
 
-/// The functions, structs and enums declared at the top level of a file, by name.
+/// The type of each field of a class, and the function that builds its objects (`new`).
+#[derive(Clone)]
+struct ClassInfo {
+    fields: Vec<(String, Type)>,
+    constructor: Signature,
+}
+
+/// The functions, structs, enums and classes declared at the top level of a file, by name.
 #[derive(Default)]
 struct Names {
     functions: HashMap<String, Signature>,
     structs: HashMap<String, Decl<StructDecl>>,
     enums: HashMap<String, Decl<EnumDecl>>,
+    classes: HashMap<String, Decl<ClassLayout>>,
 }
 
 impl Names {
-    /// Returns true if a function, struct or enum has this name.
+    /// Returns true if a function, struct, enum or class has this name.
     fn contains(&self, name: &str) -> bool {
         self.functions.contains_key(name)
             || self.structs.contains_key(name)
             || self.enums.contains_key(name)
+            || self.classes.contains_key(name)
     }
 
-    /// Copies the function, struct and enum called `name` from `from`, if there are any.
+    /// Copies the function, struct, enum and class called `name` from `from`, if there are any.
     fn add_from(&mut self, from: &Names, name: &str) {
         if let Some(signature) = from.functions.get(name) {
             self.functions.insert(name.to_string(), signature.clone());
@@ -60,6 +69,9 @@ impl Names {
         }
         if let Some(decl) = from.enums.get(name) {
             self.enums.insert(name.to_string(), decl.clone());
+        }
+        if let Some(layout) = from.classes.get(name) {
+            self.classes.insert(name.to_string(), layout.clone());
         }
     }
 }
@@ -82,6 +94,7 @@ pub struct TypeChecker {
     /// What each checked file exports, by file number.
     exports: HashMap<usize, Exports>,
     structs: HashMap<Decl<StructDecl>, StructInfo>,
+    classes: HashMap<Decl<ClassLayout>, ClassInfo>,
     /// How many functions the files checked so far have; gives each function its number.
     function_count: usize,
     current_return: Option<Type>,
@@ -96,6 +109,7 @@ impl TypeChecker {
             names: Names::default(),
             exports: HashMap::new(),
             structs: HashMap::new(),
+            classes: HashMap::new(),
             function_count: 0,
             current_return: None,
             next_slot: 0,
@@ -112,6 +126,7 @@ impl TypeChecker {
             self.declare_enums(stmts)?;
             self.declare_structs(stmts)?;
             self.declare_functions(stmts)?;
+            self.declare_constructors(stmts);
             self.check_stmts(stmts)?;
             let exports = self.exports_of(stmts);
             self.exports.insert(number, exports);
@@ -173,6 +188,7 @@ impl TypeChecker {
                 Stmt::FnDecl(function) => (&function.name, function.exported),
                 Stmt::StructDecl(decl) => (&decl.name, decl.exported),
                 Stmt::EnumDecl(decl) => (&decl.name, decl.exported),
+                Stmt::ClassDecl(class) => (&class.layout.name, class.exported),
                 _ => continue,
             };
             if !exported {
@@ -220,25 +236,32 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns true if `name` is already a type: built in, a struct or an enum.
+    /// Returns true if `name` is already a type: built in, a struct, an enum or a class.
     fn is_type_name(&self, name: &str) -> bool {
         Type::is_builtin_name(name)
             || self.names.structs.contains_key(name)
             || self.names.enums.contains_key(name)
+            || self.names.classes.contains_key(name)
     }
 
-    /// Collects all structs: first their names, then their field types,
-    /// then checks that no struct contains itself.
+    /// Returns T025 if `name` is already a type.
+    fn check_new_type_name(&self, name: &str, span: Span) -> Result<(), SomoniError> {
+        if self.is_type_name(name) {
+            return Err(SomoniError::at(
+                span,
+                ErrorCode::DuplicateType {
+                    name: name.to_string(),
+                },
+            ));
+        }
+        Ok(())
+    }
+
+    /// Collects all structs and classes: first their names, then their field types,
+    /// then checks that none contains itself.
     fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::structs(stmts) {
-            if self.is_type_name(&decl.name) {
-                return Err(SomoniError::at(
-                    decl.name_span,
-                    ErrorCode::DuplicateType {
-                        name: decl.name.clone(),
-                    },
-                ));
-            }
+            self.check_new_type_name(&decl.name, decl.name_span)?;
             let info = StructInfo {
                 index: self.structs.len(),
                 fields: Vec::new(),
@@ -247,69 +270,113 @@ impl TypeChecker {
             self.names.structs.insert(decl.name.clone(), decl.clone());
             self.structs.insert(decl, info);
         }
+        for class in ast::classes(stmts) {
+            self.check_new_type_name(&class.layout.name, class.name_span)?;
+            let layout = Decl(Rc::clone(&class.layout));
+            let info = ClassInfo {
+                fields: Vec::new(),
+                constructor: Signature {
+                    index: 0,
+                    params: Vec::new(),
+                    return_type: Type::Class(layout.clone()),
+                },
+            };
+            self.names
+                .classes
+                .insert(layout.name.clone(), layout.clone());
+            self.classes.insert(layout, info);
+        }
 
         for decl in ast::structs(stmts) {
-            let decl = Decl(Rc::clone(decl));
-            let mut fields: Vec<(String, Type)> = Vec::new();
-            for field in &decl.fields {
-                if fields.iter().any(|(name, _)| *name == field.name) {
-                    return Err(SomoniError::at(
-                        field.name_span,
-                        ErrorCode::DuplicateField {
-                            name: field.name.clone(),
-                        },
-                    ));
-                }
-                fields.push((
-                    field.name.clone(),
-                    self.resolve_type(&field.type_name, false)?,
-                ));
+            let fields = self.resolve_fields(&decl.fields)?;
+            if let Some(info) = self.structs.get_mut(&Decl(Rc::clone(decl))) {
+                info.fields = fields;
             }
-            if let Some(info) = self.structs.get_mut(&decl) {
+        }
+        for class in ast::classes(stmts) {
+            let fields = self.resolve_fields(class.fields.iter().map(|f| &f.field))?;
+            if let Some(info) = self.classes.get_mut(&Decl(Rc::clone(&class.layout))) {
                 info.fields = fields;
             }
         }
 
         for decl in ast::structs(stmts) {
-            let decl = Decl(Rc::clone(decl));
-            let info = &self.structs[&decl];
-            for (field, (_, ty)) in decl.fields.iter().zip(&info.fields) {
-                if let Type::Struct(inner) = ty
-                    && self.struct_contains(inner, &decl, &mut HashSet::new())
-                {
-                    return Err(SomoniError::at(
-                        field.type_name.span,
-                        ErrorCode::StructContainsItself {
-                            name: decl.name.clone(),
-                        },
-                    ));
-                }
+            let ty = Type::Struct(Decl(Rc::clone(decl)));
+            self.check_not_contains_itself(&ty, &decl.fields)?;
+        }
+        for class in ast::classes(stmts) {
+            let ty = Type::Class(Decl(Rc::clone(&class.layout)));
+            self.check_not_contains_itself(&ty, class.fields.iter().map(|f| &f.field))?;
+        }
+        Ok(())
+    }
+
+    /// Returns the name and type of each field. A name may appear only once (T026).
+    fn resolve_fields<'a>(
+        &self,
+        fields: impl IntoIterator<Item = &'a Field>,
+    ) -> Result<Vec<(String, Type)>, SomoniError> {
+        let mut resolved: Vec<(String, Type)> = Vec::new();
+        for field in fields {
+            if resolved.iter().any(|(name, _)| *name == field.name) {
+                return Err(SomoniError::at(
+                    field.name_span,
+                    ErrorCode::DuplicateField {
+                        name: field.name.clone(),
+                    },
+                ));
+            }
+            let ty = self.resolve_type(&field.type_name, false)?;
+            resolved.push((field.name.clone(), ty));
+        }
+        Ok(resolved)
+    }
+
+    /// Returns T030 if a field of the struct or class `ty` contains `ty` itself.
+    fn check_not_contains_itself<'a>(
+        &self,
+        ty: &Type,
+        fields: impl IntoIterator<Item = &'a Field>,
+    ) -> Result<(), SomoniError> {
+        let Some(types) = self.fields_of(ty) else {
+            return Ok(());
+        };
+        for (field, (_, field_type)) in fields.into_iter().zip(types) {
+            if self.contains(field_type, ty, &mut Vec::new()) {
+                return Err(SomoniError::at(
+                    field.type_name.span,
+                    ErrorCode::StructContainsItself {
+                        name: ty.to_string(),
+                    },
+                ));
             }
         }
         Ok(())
     }
 
-    /// Returns true if struct `from` contains struct `target` in a field, also through other structs.
-    /// Fields of type `list<...>` do not count.
-    fn struct_contains(
-        &self,
-        from: &Decl<StructDecl>,
-        target: &Decl<StructDecl>,
-        seen: &mut HashSet<Decl<StructDecl>>,
-    ) -> bool {
+    /// Returns true if a value of type `from` contains a `target` in a field, also through other
+    /// structs and classes. Fields of type `list<...>` or `T?` do not count.
+    fn contains(&self, from: &Type, target: &Type, seen: &mut Vec<Type>) -> bool {
         if from == target {
             return true;
         }
-        if !seen.insert(from.clone()) {
+        if seen.contains(from) {
             return false;
         }
-        let Some(info) = self.structs.get(from) else {
+        seen.push(from.clone());
+        let Some(fields) = self.fields_of(from) else {
             return false;
         };
-        info.fields.iter().any(|(_, ty)| match ty {
-            Type::Struct(inner) => self.struct_contains(inner, target, seen),
-            _ => false,
-        })
+        fields.iter().any(|(_, ty)| self.contains(ty, target, seen))
+    }
+
+    /// Returns the name and type of each field of a struct or class type, None for other types.
+    fn fields_of(&self, ty: &Type) -> Option<&[(String, Type)]> {
+        match ty {
+            Type::Struct(decl) => self.structs.get(decl).map(|info| info.fields.as_slice()),
+            Type::Class(layout) => self.classes.get(layout).map(|info| info.fields.as_slice()),
+            _ => None,
+        }
     }
 
     /// Collects the signatures of all functions, so they can be called before they are declared.
@@ -346,20 +413,26 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Gives the constructor of each class its function number, after the functions of the file
+    /// (the compiler writes them in the same order).
+    fn declare_constructors(&mut self, stmts: &[Stmt]) {
+        for class in ast::classes(stmts) {
+            if let Some(info) = self.classes.get_mut(&Decl(Rc::clone(&class.layout))) {
+                info.constructor.index = self.function_count;
+                self.function_count += 1;
+            }
+        }
+    }
+
     /// Checks a function body with its own variables, and that it returns on every path.
     fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
         let signature = &self.names.functions[&function.name];
         let param_types = signature.params.clone();
         let return_type = signature.return_type.clone();
 
-        let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
-        let outer_return = self.current_return.replace(return_type.clone());
-        let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);
-        let result = self.check_function_body(function, &param_types);
-        self.scopes = outer_scopes;
-        self.current_return = outer_return;
-        self.next_slot = outer_next_slot;
-        result?;
+        self.in_function(Some(return_type.clone()), |this| {
+            this.check_function_body(function, &param_types)
+        })?;
 
         if return_type != Type::Void && !always_returns(&function.body) {
             return Err(SomoniError::at(
@@ -371,6 +444,71 @@ impl TypeChecker {
             ));
         }
         Ok(())
+    }
+
+    /// Runs `check` like inside a new function: no variables from outside, slots from 0,
+    /// and `return` must give `return_type` (None: `return` is not allowed).
+    fn in_function<T>(
+        &mut self,
+        return_type: Option<Type>,
+        check: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
+        let outer_return = std::mem::replace(&mut self.current_return, return_type);
+        let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);
+        let result = check(self);
+        self.scopes = outer_scopes;
+        self.current_return = outer_return;
+        self.next_slot = outer_next_slot;
+        result
+    }
+
+    /// Checks the start values of a class. Without a constructor every field needs one (T050).
+    /// Start values see no variables, like the body of a function without parameters.
+    fn check_class(&mut self, class: &mut ClassDecl) -> Result<(), SomoniError> {
+        let fields = self
+            .class_info(&Decl(Rc::clone(&class.layout)))?
+            .fields
+            .clone();
+        self.in_function(None, |this| {
+            for (field, (_, ty)) in class.fields.iter_mut().zip(&fields) {
+                let Some(start) = &mut field.start else {
+                    return Err(SomoniError::at(
+                        field.field.name_span,
+                        ErrorCode::FieldNotSet {
+                            class: class.layout.name.clone(),
+                            field: field.field.name.clone(),
+                        },
+                    ));
+                };
+                this.check_assignable(start, ty)?;
+            }
+            Ok(())
+        })
+    }
+
+    /// Returns the field types and the constructor of a class.
+    fn class_info(&self, layout: &Decl<ClassLayout>) -> Result<&ClassInfo, SomoniError> {
+        self.classes
+            .get(layout)
+            .ok_or_else(|| SomoniError::internal("class without fields"))
+    }
+
+    /// Returns the class with this name: T052 if it is a struct, T001 if there is none.
+    fn class_named(&self, name: &str, span: Span) -> Result<Decl<ClassLayout>, SomoniError> {
+        if let Some(layout) = self.names.classes.get(name) {
+            return Ok(layout.clone());
+        }
+        let code = if self.names.structs.contains_key(name) {
+            ErrorCode::NotAClass {
+                name: name.to_string(),
+            }
+        } else {
+            ErrorCode::UnknownType {
+                name: name.to_string(),
+            }
+        };
+        Err(SomoniError::at(span, code))
     }
 
     /// Declares the parameters as const variables and checks the body.
@@ -402,8 +540,15 @@ impl TypeChecker {
                 Ok(())
             }
             Stmt::Assign {
-                target, op, value, ..
-            } => self.check_assign(target, *op, value),
+                target,
+                op,
+                value,
+                in_object,
+                ..
+            } => {
+                *in_object = self.check_assign(target, *op, value)?;
+                Ok(())
+            }
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
                 Ok(())
@@ -465,6 +610,7 @@ impl TypeChecker {
             }
             Stmt::FnDecl(function) => self.check_function(function),
             Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::Import(_) => Ok(()),
+            Stmt::ClassDecl(class) => self.check_class(class),
             Stmt::Match {
                 subject,
                 arms,
@@ -596,12 +742,13 @@ impl TypeChecker {
 
     /// Checks `target = value;` or `target += value;`: the target must exist and must not be
     /// const. The value must fit the target, or `target op value` must have the target's type.
+    /// Returns true if the target lies inside an object.
     fn check_assign(
         &mut self,
         target: &mut Expr,
         op: Option<(BinaryOp, Span)>,
         value: &mut Expr,
-    ) -> Result<(), SomoniError> {
+    ) -> Result<bool, SomoniError> {
         if let Some((decl, variant)) = self.enum_variant(target)? {
             return Err(SomoniError::at(
                 target.span,
@@ -611,10 +758,11 @@ impl TypeChecker {
             ));
         }
         let target_type = self.check_expr(target)?;
+        let in_object = self.inside_object(target)?;
         let Some((name, name_span)) = target.root_variable() else {
             return Err(SomoniError::internal("assignment to a non-variable"));
         };
-        if !self.scopes.lookup(name).is_some_and(|info| info.mutable) {
+        if !in_object && !self.scopes.lookup(name).is_some_and(|info| info.mutable) {
             return Err(SomoniError::at(
                 name_span,
                 ErrorCode::AssignToConst {
@@ -623,7 +771,8 @@ impl TypeChecker {
             ));
         }
         let Some((op, op_span)) = op else {
-            return self.check_assignable(value, &target_type);
+            self.check_assignable(value, &target_type)?;
+            return Ok(in_object);
         };
         let value_type = self.check_expr_expecting(value, &target_type)?;
         let result = binary_type(op, target_type.clone(), value_type, op_span)?;
@@ -636,7 +785,21 @@ impl TypeChecker {
                 },
             ));
         }
-        Ok(())
+        Ok(in_object)
+    }
+
+    /// Returns true if the target of an assignment lies inside an object (`u.age`, `l[0].age`):
+    /// then it changes the object and not the variable, so `const` does not protect it.
+    fn inside_object(&mut self, target: &mut Expr) -> Result<bool, SomoniError> {
+        let (ExprKind::Field { target: inner, .. } | ExprKind::Index { target: inner, .. }) =
+            &mut target.kind
+        else {
+            return Ok(false);
+        };
+        if let Type::Class(_) = self.check_expr(inner)? {
+            return Ok(true);
+        }
+        self.inside_object(inner)
     }
 
     /// Checks that `return` is inside a function and returns the right type.
@@ -994,12 +1157,20 @@ impl TypeChecker {
         fields: &mut [FieldInit],
         index: &mut Option<usize>,
     ) -> Result<Type, SomoniError> {
+        if self.names.classes.contains_key(name) {
+            return Err(SomoniError::at(
+                name_span,
+                ErrorCode::ClassLiteral {
+                    name: name.to_string(),
+                },
+            ));
+        }
         let decl = self.struct_named(name, name_span)?;
         let info = &self.struct_info(&decl)?.clone();
         *index = Some(info.index);
         let mut given = vec![false; info.fields.len()];
         for init in fields {
-            let (position, ty) = field_of(info, name, &init.name, init.name_span)?;
+            let (position, ty) = field_of(&info.fields, name, &init.name, init.name_span)?;
             if given[position] {
                 return Err(SomoniError::at(
                     init.name_span,
@@ -1070,6 +1241,8 @@ impl TypeChecker {
         let simple = simple.or_else(|| {
             if let Some(decl) = self.names.structs.get(&written.name) {
                 Some(Type::Struct(decl.clone()))
+            } else if let Some(layout) = self.names.classes.get(&written.name) {
+                Some(Type::Class(layout.clone()))
             } else {
                 self.names.enums.get(&written.name).cloned().map(Type::Enum)
             }
@@ -1109,6 +1282,24 @@ impl TypeChecker {
             check_key_type(key, written.args[0].span)?;
         }
         Ok(ty)
+    }
+
+    /// Checks the arguments of a call of `name` against the types of its parameters.
+    fn check_args(
+        &mut self,
+        name: &str,
+        params: &[Type],
+        args: &mut [Expr],
+        call_span: Span,
+    ) -> Result<(), SomoniError> {
+        check_arg_count(name, params.len(), args, call_span)?;
+        for (arg, param_type) in args.iter_mut().zip(params) {
+            let arg_type = self.check_expr_expecting(arg, param_type)?;
+            if !fits(&arg_type, param_type) {
+                return Err(wrong_arg_type(name, arg_type, arg.span));
+            }
+        }
+        Ok(())
     }
 
     /// Returns the type of an expression, or a type error.
@@ -1188,14 +1379,14 @@ impl TypeChecker {
                 index,
             } => {
                 let target_type = self.check_expr(target)?;
-                let Type::Struct(decl) = &target_type else {
+                let Some(fields) = self.fields_of(&target_type) else {
                     return Err(SomoniError::at(
                         target.span,
                         ErrorCode::NoFields { found: target_type },
                     ));
                 };
-                let info = self.struct_info(decl)?;
-                let (position, ty) = field_of(info, &decl.name, name, *name_span)?;
+                let owner = target_type.to_string();
+                let (position, ty) = field_of(fields, &owner, name, *name_span)?;
                 *index = Some(position);
                 Ok(ty.clone())
             }
@@ -1231,14 +1422,20 @@ impl TypeChecker {
                     ));
                 };
                 *target = Some(CallTarget::Function(signature.index));
-                check_arg_count(name, signature.params.len(), args, expr.span)?;
-                for (arg, param_type) in args.iter_mut().zip(&signature.params) {
-                    let arg_type = self.check_expr_expecting(arg, param_type)?;
-                    if !fits(&arg_type, param_type) {
-                        return Err(wrong_arg_type(name, arg_type, arg.span));
-                    }
-                }
+                self.check_args(name, &signature.params, args, expr.span)?;
                 Ok(signature.return_type.clone())
+            }
+            ExprKind::New {
+                name,
+                name_span,
+                args,
+                target,
+            } => {
+                let layout = self.class_named(name, *name_span)?;
+                let constructor = self.class_info(&layout)?.constructor.clone();
+                *target = Some(constructor.index);
+                self.check_args(name, &constructor.params, args, expr.span)?;
+                Ok(constructor.return_type)
             }
             ExprKind::Unary { op, operand } => {
                 let t = self.check_expr(operand)?;
@@ -1414,12 +1611,12 @@ fn fits(found: &Type, expected: &Type) -> bool {
 
 /// Returns the position and type of a field, or T027 if the struct has no such field.
 fn field_of<'a>(
-    info: &'a StructInfo,
+    fields: &'a [(String, Type)],
     struct_name: &str,
     name: &str,
     span: Span,
 ) -> Result<(usize, &'a Type), SomoniError> {
-    info.fields
+    fields
         .iter()
         .enumerate()
         .find(|(_, (field, _))| field == name)
@@ -1495,6 +1692,7 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         | Stmt::FnDecl(_)
         | Stmt::StructDecl(_)
         | Stmt::EnumDecl(_)
+        | Stmt::ClassDecl(_)
         | Stmt::Import(_) => false,
         Stmt::Match { arms, .. } => arms.iter().all(|arm| stmt_always_returns(&arm.body)),
     }

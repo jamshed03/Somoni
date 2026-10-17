@@ -1,0 +1,3 @@
+Type error [T002]: Line 3: unknown variable 'y'
+  3 |     x: int = y;
+    |              ^

@@ -1,0 +1,3 @@
+Parse error [P011]: Line 2: classes can only be declared at the top level
+  2 |     class A {
+    |     ^^^^^

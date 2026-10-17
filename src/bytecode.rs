@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, StructDecl, UnaryOp};
+use crate::ast::{BinaryOp, ClassLayout, StructDecl, UnaryOp};
 use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::value::{Quoted, Value};
@@ -40,11 +40,13 @@ pub enum Op {
     MapInsert,
     /// Pushes a value of struct number `i` whose fields are not set yet.
     NewStruct(usize),
-    /// Pops a value and sets field `p` of the struct below.
+    /// Pushes a new object of class number `i` whose fields are not set yet.
+    NewObject(usize),
+    /// Pops a value and sets field `p` of the struct or object below.
     InitField(usize),
     /// Pops an index (or key) and a list (or map), pushes the element.
     Index,
-    /// Pops a struct, pushes its field `p`.
+    /// Pops a struct or object, pushes its field `p`.
     Field(usize),
     /// Pops a value and appends it to the string or list in this slot (`s = s + x`).
     /// For other values (`i = i + 1`) it adds them.
@@ -69,6 +71,8 @@ pub enum Op {
 pub struct Path {
     pub slot: usize,
     pub steps: Vec<PathStep>,
+    /// True if the way goes through an object (see `value::change_part`).
+    pub in_object: bool,
 }
 
 /// One step of a path. The value of an index is on the stack when the path is used.
@@ -116,8 +120,10 @@ impl Chunk {
 pub struct Program {
     pub main: Chunk,
     pub functions: Vec<Chunk>,
-    /// The structs of the program, numbered like `ast::structs`.
+    /// The structs of the program, numbered like `ast::structs`, file by file.
     pub structs: Vec<Rc<StructDecl>>,
+    /// The classes of the program, numbered like `ast::classes`, file by file.
+    pub classes: Vec<Rc<ClassLayout>>,
 }
 
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
@@ -170,6 +176,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::NewMap => "NewMap".to_string(),
         Op::MapInsert => "MapInsert".to_string(),
         Op::NewStruct(i) => format!("NewStruct {}", program.structs[*i].name),
+        Op::NewObject(i) => format!("NewObject {}", program.classes[*i].name),
         Op::InitField(p) => format!("InitField {}", p),
         Op::Index => "Index".to_string(),
         Op::Field(p) => format!("Field {}", p),

@@ -1,0 +1,3 @@
+Type error [T030]: Line 2: 'A' contains itself, so no value of it can be built
+  2 |     b: B = new B();
+    |        ^

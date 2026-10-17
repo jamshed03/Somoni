@@ -1,0 +1,3 @@
+Type error [T051]: Line 4: 'A' is a class, create it with 'new A(...)'
+  4 | var a: A = A { x: 1 };
+    |            ^

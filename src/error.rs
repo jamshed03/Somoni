@@ -45,6 +45,7 @@ pub enum ErrorCode {
     InvalidAssignTarget,
     ImportNotFirst,
     ExportNotTopLevel,
+    ClassNotTopLevel,
 
     // loader and imports
     CannotReadFile {
@@ -215,6 +216,16 @@ pub enum ErrorCode {
     ResultTypeUnknown {
         name: &'static str,
     },
+    FieldNotSet {
+        class: String,
+        field: String,
+    },
+    ClassLiteral {
+        name: String,
+    },
+    NotAClass {
+        name: String,
+    },
     BoundVarType {
         name: String,
         expected: Type,
@@ -262,6 +273,7 @@ impl ErrorCode {
             ErrorCode::InvalidAssignTarget => "P007",
             ErrorCode::ImportNotFirst => "P009",
             ErrorCode::ExportNotTopLevel => "P010",
+            ErrorCode::ClassNotTopLevel => "P011",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -320,6 +332,9 @@ impl ErrorCode {
             ErrorCode::DuplicateVariant { .. } => "T047",
             ErrorCode::EmptyEnum => "T048",
             ErrorCode::ResultTypeUnknown { .. } => "T049",
+            ErrorCode::FieldNotSet { .. } => "T050",
+            ErrorCode::ClassLiteral { .. } => "T051",
+            ErrorCode::NotAClass { .. } => "T052",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -349,7 +364,8 @@ impl ErrorCode {
             | ErrorCode::EnumNotTopLevel
             | ErrorCode::InvalidAssignTarget
             | ErrorCode::ImportNotFirst
-            | ErrorCode::ExportNotTopLevel => ErrorKind::Parse,
+            | ErrorCode::ExportNotTopLevel
+            | ErrorCode::ClassNotTopLevel => ErrorKind::Parse,
 
             ErrorCode::CannotReadFile { .. }
             | ErrorCode::ImportCycle { .. }
@@ -407,7 +423,10 @@ impl ErrorCode {
             | ErrorCode::MissingBranch { .. }
             | ErrorCode::DuplicateVariant { .. }
             | ErrorCode::EmptyEnum
-            | ErrorCode::ResultTypeUnknown { .. } => ErrorKind::Type,
+            | ErrorCode::ResultTypeUnknown { .. }
+            | ErrorCode::FieldNotSet { .. }
+            | ErrorCode::ClassLiteral { .. }
+            | ErrorCode::NotAClass { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -444,6 +463,9 @@ impl ErrorCode {
                     .to_string()
             }
             ErrorCode::ExportNotTopLevel => "'export' is only allowed at the top level".to_string(),
+            ErrorCode::ClassNotTopLevel => {
+                "classes can only be declared at the top level".to_string()
+            }
             ErrorCode::InvalidAssignTarget => {
                 "can only assign to a variable, a list element or a field".to_string()
             }
@@ -451,7 +473,7 @@ impl ErrorCode {
             ErrorCode::CannotReadFile { name } => format!("cannot read file '{}'", name),
             ErrorCode::ImportCycle { cycle } => format!("files import each other: {}", cycle),
             ErrorCode::OnlyDeclarations => {
-                "an imported file may only contain fn, struct, enum and import".to_string()
+                "an imported file may only contain fn, struct, enum, class and import".to_string()
             }
             ErrorCode::ReservedPath { path } => format!(
                 "'{}': paths starting with '/' or '@' are not supported yet, use a path relative to this file",
@@ -600,6 +622,17 @@ impl ErrorCode {
             ErrorCode::NotIterable { found } => {
                 format!("cannot loop over {} (only list, map or string)", found)
             }
+            ErrorCode::FieldNotSet { class, field } => format!(
+                "field '{}' of '{}' gets no value (give it a start value or set it in the constructor)",
+                field, class
+            ),
+            ErrorCode::ClassLiteral { name } => {
+                format!("'{}' is a class, create it with 'new {}(...)'", name, name)
+            }
+            ErrorCode::NotAClass { name } => format!(
+                "'{}' is a struct, not a class: create it with '{} {{ ... }}'",
+                name, name
+            ),
             ErrorCode::BoundVarType {
                 name,
                 expected,
@@ -608,10 +641,9 @@ impl ErrorCode {
                 "variable '{}' must be {} here, got {}",
                 name, expected, found
             ),
-            ErrorCode::StructContainsItself { name } => format!(
-                "struct '{}' contains itself, so no value of it can be built",
-                name
-            ),
+            ErrorCode::StructContainsItself { name } => {
+                format!("'{}' contains itself, so no value of it can be built", name)
+            }
 
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),
