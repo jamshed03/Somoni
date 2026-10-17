@@ -1,0 +1,38 @@
+import { quadrat, Punkt, verschieben, Richtung, geheim } from "modules/mathe.smn";
+import { klammern } from "modules/text/klammern.smn";
+
+print(quadrat(4));
+var p: Punkt = Punkt { x: 1, y: 2 };
+p = verschieben(p, 3);
+print(p);
+match (Richtung.Rechts) {
+    Richtung.Links => {
+        print("links");
+    }
+    Richtung.Rechts => {
+        print("rechts");
+    }
+}
+
+// zahlen.smn is imported by two files and loaded once
+print(klammern("a"));
+
+// a private struct can be passed on, but not named here
+print(geheim());
+print(geheim() == geheim());
+
+// own names may be the same as private names in mathe.smn
+fn mal(a: int): int {
+    return a + 100;
+}
+print(mal(5));
+struct Geheim {
+    text: string
+}
+print(Geheim { text: "meins" });
+
+// export in the main file is allowed and changes nothing
+export fn hallo(): string {
+    return "hallo";
+}
+print(hallo());

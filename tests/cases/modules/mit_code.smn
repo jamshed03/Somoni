@@ -1,0 +1,4 @@
+export fn eins(): int {
+    return 1;
+}
+print(eins());

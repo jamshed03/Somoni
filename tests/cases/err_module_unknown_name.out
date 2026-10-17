@@ -1,0 +1,3 @@
+Import error [M006]: Line 1: 'modules/mathe.smn' has no function, struct or enum 'wurzel'
+  1 | import { wurzel } from "modules/mathe.smn";
+    |          ^^^^^^

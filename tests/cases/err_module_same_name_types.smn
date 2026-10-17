@@ -1,0 +1,5 @@
+import { geheim } from "modules/mathe.smn";
+struct Geheim {
+    wert: int
+}
+print(geheim() == Geheim { wert: 42 });

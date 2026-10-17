@@ -1,0 +1,5 @@
+import { a } from "kreis_a.smn";
+
+export fn b(): int {
+    return 2;
+}

@@ -1,0 +1,3 @@
+Type error [T012]: Line 2: unknown function 'zahl'
+  2 | print(zahl());
+    |       ^^^^

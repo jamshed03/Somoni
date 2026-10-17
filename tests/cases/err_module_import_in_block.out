@@ -1,0 +1,3 @@
+Parse error [P009]: Line 2: 'import' is only allowed at the start of a file, before all other statements
+  2 |     import { quadrat } from "modules/mathe.smn";
+    |     ^^^^^^

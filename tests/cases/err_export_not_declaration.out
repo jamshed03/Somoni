@@ -1,0 +1,3 @@
+Parse error [P001]: Line 1: expected 'fn', 'struct' or 'enum' after 'export'
+  1 | export var x: int = 1;
+    |       ^

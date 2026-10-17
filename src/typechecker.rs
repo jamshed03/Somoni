@@ -2,11 +2,12 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, EnumDecl, Expr, ExprKind, FieldInit, Function, IterKind, MatchArm,
-    Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
+    self, BinaryOp, CallTarget, EnumDecl, Expr, ExprKind, FieldInit, Function, Import, IterKind,
+    MatchArm, Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
+use crate::loader::SourceFile;
 use crate::scope::Scopes;
 use crate::span::Span;
 use crate::types::{Decl, Type};
@@ -41,13 +42,48 @@ struct Names {
     enums: HashMap<String, Decl<EnumDecl>>,
 }
 
+impl Names {
+    /// Returns true if a function, struct or enum has this name.
+    fn contains(&self, name: &str) -> bool {
+        self.functions.contains_key(name)
+            || self.structs.contains_key(name)
+            || self.enums.contains_key(name)
+    }
+
+    /// Copies the function, struct and enum called `name` from `from`, if there are any.
+    fn add_from(&mut self, from: &Names, name: &str) {
+        if let Some(signature) = from.functions.get(name) {
+            self.functions.insert(name.to_string(), signature.clone());
+        }
+        if let Some(decl) = from.structs.get(name) {
+            self.structs.insert(name.to_string(), decl.clone());
+        }
+        if let Some(decl) = from.enums.get(name) {
+            self.enums.insert(name.to_string(), decl.clone());
+        }
+    }
+}
+
+/// What a checked file offers to the files that import it: its exported names,
+/// and the names of its other declarations (for a clear error if someone imports one).
+#[derive(Default)]
+struct Exports {
+    names: Names,
+    private: HashSet<String>,
+}
+
 /// Checks the types of a program before it runs.
 /// It also writes into the tree what the compiler needs: slots, call targets, field positions.
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
     loop_depth: usize,
+    /// The names of the file being checked: its own and the imported ones.
     names: Names,
+    /// What each checked file exports, by file number.
+    exports: HashMap<usize, Exports>,
     structs: HashMap<Decl<StructDecl>, StructInfo>,
+    /// How many functions the files checked so far have; gives each function its number.
+    function_count: usize,
     current_return: Option<Type>,
     next_slot: usize,
 }
@@ -58,18 +94,94 @@ impl TypeChecker {
             scopes: Scopes::new(),
             loop_depth: 0,
             names: Names::default(),
+            exports: HashMap::new(),
             structs: HashMap::new(),
+            function_count: 0,
             current_return: None,
             next_slot: 0,
         }
     }
 
-    /// Checks the whole program.
-    pub fn check(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
-        self.declare_enums(stmts)?;
-        self.declare_structs(stmts)?;
-        self.declare_functions(stmts)?;
-        self.check_stmts(stmts)
+    /// Checks the whole program, one file after the other in `order`
+    /// (every file after the files it imports).
+    pub fn check(&mut self, files: &mut [SourceFile], order: &[usize]) -> Result<(), SomoniError> {
+        for &number in order {
+            let stmts = &mut files[number].stmts;
+            self.names = Names::default();
+            self.import_names(stmts)?;
+            self.declare_enums(stmts)?;
+            self.declare_structs(stmts)?;
+            self.declare_functions(stmts)?;
+            self.check_stmts(stmts)?;
+            let exports = self.exports_of(stmts);
+            self.exports.insert(number, exports);
+        }
+        Ok(())
+    }
+
+    /// Adds the names of all `import`s of a file to `names`.
+    fn import_names(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        for stmt in stmts {
+            if let Stmt::Import(import) = stmt {
+                self.import(import)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Adds the names of one `import { ... } from "..."`: each must be exported by that file
+    /// and must not be imported twice.
+    fn import(&mut self, import: &Import) -> Result<(), SomoniError> {
+        let exports = import
+            .file
+            .and_then(|file| self.exports.get(&file))
+            .ok_or_else(|| SomoniError::internal("import of a file that is not checked"))?;
+        for item in &import.names {
+            if self.names.contains(&item.name) {
+                return Err(SomoniError::at(
+                    item.span,
+                    ErrorCode::ImportConflict {
+                        name: item.name.clone(),
+                    },
+                ));
+            }
+            let from = &exports.names;
+            if !from.contains(&item.name) {
+                let code = if exports.private.contains(&item.name) {
+                    ErrorCode::NotExported {
+                        name: item.name.clone(),
+                        path: import.path.clone(),
+                    }
+                } else {
+                    ErrorCode::NotInFile {
+                        name: item.name.clone(),
+                        path: import.path.clone(),
+                    }
+                };
+                return Err(SomoniError::at(item.span, code));
+            }
+            self.names.add_from(from, &item.name);
+        }
+        Ok(())
+    }
+
+    /// Collects what a checked file exports: its own declarations with `export`.
+    fn exports_of(&self, stmts: &[Stmt]) -> Exports {
+        let mut exports = Exports::default();
+        for stmt in stmts {
+            let (name, exported) = match stmt {
+                Stmt::FnDecl(function) => (&function.name, function.exported),
+                Stmt::StructDecl(decl) => (&decl.name, decl.exported),
+                Stmt::EnumDecl(decl) => (&decl.name, decl.exported),
+                _ => continue,
+            };
+            if !exported {
+                exports.private.insert(name.clone());
+                continue;
+            }
+            exports.names.add_from(&self.names, name);
+        }
+        exports
     }
 
     fn check_stmts(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
@@ -118,7 +230,7 @@ impl TypeChecker {
     /// Collects all structs: first their names, then their field types,
     /// then checks that no struct contains itself.
     fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
-        for (index, decl) in ast::structs(stmts).enumerate() {
+        for decl in ast::structs(stmts) {
             if self.is_type_name(&decl.name) {
                 return Err(SomoniError::at(
                     decl.name_span,
@@ -128,7 +240,7 @@ impl TypeChecker {
                 ));
             }
             let info = StructInfo {
-                index,
+                index: self.structs.len(),
                 fields: Vec::new(),
             };
             let decl = Decl(Rc::clone(decl));
@@ -202,7 +314,7 @@ impl TypeChecker {
 
     /// Collects the signatures of all functions, so they can be called before they are declared.
     fn declare_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
-        for (index, function) in ast::functions(stmts).enumerate() {
+        for function in ast::functions(stmts) {
             let name = &function.name;
             if Builtin::from_name(name).is_some() {
                 return Err(SomoniError::at(
@@ -224,11 +336,12 @@ impl TypeChecker {
             self.names.functions.insert(
                 name.clone(),
                 Signature {
-                    index,
+                    index: self.function_count,
                     params,
                     return_type,
                 },
             );
+            self.function_count += 1;
         }
         Ok(())
     }
@@ -351,7 +464,7 @@ impl TypeChecker {
                 })
             }
             Stmt::FnDecl(function) => self.check_function(function),
-            Stmt::StructDecl(_) | Stmt::EnumDecl(_) => Ok(()),
+            Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::Import(_) => Ok(()),
             Stmt::Match {
                 subject,
                 arms,
@@ -1381,7 +1494,8 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         | Stmt::Continue { .. }
         | Stmt::FnDecl(_)
         | Stmt::StructDecl(_)
-        | Stmt::EnumDecl(_) => false,
+        | Stmt::EnumDecl(_)
+        | Stmt::Import(_) => false,
         Stmt::Match { arms, .. } => arms.iter().all(|arm| stmt_always_returns(&arm.body)),
     }
 }

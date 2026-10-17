@@ -1,0 +1,3 @@
+Type error [T015]: Line 2: function 'quadrat' is already declared
+  2 | fn quadrat(x: int): int {
+    |    ^^^^^^^

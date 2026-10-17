@@ -127,6 +127,8 @@ impl Lexer {
             "in" => Token::In,
             "enum" => Token::Enum,
             "match" => Token::Match,
+            "import" => Token::Import,
+            "export" => Token::Export,
             _ => Token::Ident(text),
         }
     }

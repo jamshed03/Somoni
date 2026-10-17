@@ -3,24 +3,35 @@ use std::rc::Rc;
 use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, IterKind, Pattern, Stmt};
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
+use crate::loader::SourceFile;
 use crate::span::Span;
 use crate::value::{EnumValue, Value};
 
-/// Turns a checked program into bytecode.
-pub fn compile(stmts: &[Stmt]) -> Result<Program, SomoniError> {
+/// Turns a checked program into bytecode. The code at the top level comes from the main
+/// file (number 0); functions and structs are numbered file by file in `order`,
+/// like the type checker does.
+pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniError> {
     let mut compiler = Compiler::default();
     compiler.chunk.name = "program".to_string();
-    for stmt in stmts {
+    let main = files
+        .first()
+        .ok_or_else(|| SomoniError::internal("no main file"))?;
+    for stmt in &main.stmts {
         compiler.compile_stmt(stmt)?;
     }
     let mut functions = Vec::new();
-    for function in ast::functions(stmts) {
-        functions.push(compile_function(function)?);
+    let mut structs = Vec::new();
+    for &number in order {
+        let stmts = &files[number].stmts;
+        for function in ast::functions(stmts) {
+            functions.push(compile_function(function)?);
+        }
+        structs.extend(ast::structs(stmts).cloned());
     }
     Ok(Program {
         main: compiler.chunk,
         functions,
-        structs: ast::structs(stmts).cloned().collect(),
+        structs,
     })
 }
 
@@ -115,7 +126,7 @@ impl Compiler {
                     self.compile_stmt(stmt)?;
                 }
             }
-            Stmt::FnDecl(_) | Stmt::StructDecl(_) | Stmt::EnumDecl(_) => {}
+            Stmt::FnDecl(_) | Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::Import(_) => {}
             Stmt::Match {
                 subject,
                 arms,

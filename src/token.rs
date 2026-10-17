@@ -21,6 +21,8 @@ pub enum Token {
     In,
     Enum,
     Match,
+    Import,
+    Export,
 
     // names and values
     Ident(String),

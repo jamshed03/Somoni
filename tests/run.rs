@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Runs every program in tests/cases and compares it with its .out file.
+/// Files in subfolders (e.g. tests/cases/modules) are only imported, not run.
 #[test]
 fn smn_programs_match_expected_output() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/cases");
@@ -35,13 +36,18 @@ fn smn_programs_match_expected_output() {
 
 /// Runs one program and returns what is wrong: other output or another exit code.
 /// `err_*` programs must end with exit code 1, all others with 0.
+/// It runs inside tests/cases, so error messages show short paths like `modules/mathe.smn`.
 fn check_program(program: &Path) -> Vec<String> {
     let Ok(expected) = fs::read_to_string(program.with_extension("out")) else {
         return vec!["missing .out file".to_string()];
     };
 
+    let (Some(dir), Some(file)) = (program.parent(), program.file_name()) else {
+        return vec!["program has no directory".to_string()];
+    };
     let output = Command::new(env!("CARGO_BIN_EXE_somoni"))
-        .arg(program)
+        .current_dir(dir)
+        .arg(file)
         .output()
         .expect("cannot start somoni");
     let actual = format!(

@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, EnumDecl, Expr, ExprKind, Field, FieldInit, Function, MatchArm, Param, Pattern, Stmt,
-    StructDecl, TypeName, UnaryOp,
+    BinaryOp, EnumDecl, Expr, ExprKind, Field, FieldInit, Function, Import, ImportName, MatchArm,
+    Param, Pattern, Stmt, StructDecl, TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -62,19 +62,72 @@ impl Parser {
         }
     }
 
-    /// Reads the whole program. `fn` and `struct` are only allowed here, at the top level.
-    pub fn parse_program(&mut self) -> Result<Vec<Stmt>, SomoniError> {
+    /// Reads a whole file. `fn`, `struct`, `enum` and `export` are only allowed here,
+    /// at the top level, and `import` only before all other statements.
+    /// An `imported` file may contain nothing else (M003).
+    pub fn parse_program(&mut self, imported: bool) -> Result<Vec<Stmt>, SomoniError> {
         let mut stmts = Vec::new();
+        let mut only_imports = true;
         while *self.peek() != Token::Eof {
+            let is_declaration = matches!(
+                self.peek(),
+                Token::Import | Token::Export | Token::Fn | Token::Struct | Token::Enum
+            );
+            if imported && !is_declaration {
+                return Err(SomoniError::at(
+                    self.current_span(),
+                    ErrorCode::OnlyDeclarations,
+                ));
+            }
             let stmt = match self.peek() {
-                Token::Fn => self.parse_fn()?,
-                Token::Struct => self.parse_struct()?,
-                Token::Enum => self.parse_enum()?,
+                Token::Import if only_imports => self.parse_import()?,
+                Token::Export => self.parse_export()?,
+                Token::Fn => self.parse_fn(false)?,
+                Token::Struct => self.parse_struct(false)?,
+                Token::Enum => self.parse_enum(false)?,
                 _ => self.parse_stmt()?,
             };
+            only_imports &= matches!(stmt, Stmt::Import(_));
             stmts.push(stmt);
         }
         Ok(stmts)
+    }
+
+    /// Reads `import { quadrat, Punkt } from "mathe.smn";`.
+    fn parse_import(&mut self) -> Result<Stmt, SomoniError> {
+        let start = self.current_span();
+        self.advance();
+        self.expect(Token::LBrace, "'{' after 'import'")?;
+        let names = self.parse_comma_list(Token::RBrace, "'}'", |this| {
+            let (name, span) = this.expect_ident("name to import")?;
+            Ok(ImportName { name, span })
+        })?;
+        self.expect_word("from", "'from' after '}'")?;
+        let path_span = self.current_span();
+        let Token::Str(path) = self.peek().clone() else {
+            return Err(self.expected("a file name like \"mathe.smn\" after 'from'"));
+        };
+        self.advance();
+        let span = self.since(start);
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(Stmt::Import(Import {
+            names,
+            path,
+            path_span,
+            file: None,
+            span,
+        }))
+    }
+
+    /// Reads `export` and the `fn`, `struct` or `enum` after it.
+    fn parse_export(&mut self) -> Result<Stmt, SomoniError> {
+        self.advance();
+        match self.peek() {
+            Token::Fn => self.parse_fn(true),
+            Token::Struct => self.parse_struct(true),
+            Token::Enum => self.parse_enum(true),
+            _ => Err(self.expected("'fn', 'struct' or 'enum' after 'export'")),
+        }
     }
 
     /// Reads the token `expected`, or returns the error "expected `what`".
@@ -84,6 +137,17 @@ impl Parser {
             Ok(())
         } else {
             Err(self.expected(what))
+        }
+    }
+
+    /// Reads a name that is a keyword only at this place, like `from` in an import.
+    fn expect_word(&mut self, word: &str, what: &str) -> Result<(), SomoniError> {
+        match self.peek() {
+            Token::Ident(name) if name == word => {
+                self.advance();
+                Ok(())
+            }
+            _ => Err(self.expected(what)),
         }
     }
 
@@ -122,6 +186,8 @@ impl Parser {
             Token::Fn => Err(SomoniError::at(start, ErrorCode::FnNotTopLevel)),
             Token::Struct => Err(SomoniError::at(start, ErrorCode::StructNotTopLevel)),
             Token::Enum => Err(SomoniError::at(start, ErrorCode::EnumNotTopLevel)),
+            Token::Import => Err(SomoniError::at(start, ErrorCode::ImportNotFirst)),
+            Token::Export => Err(SomoniError::at(start, ErrorCode::ExportNotTopLevel)),
             Token::Match => self.parse_match(start),
             Token::Return => {
                 self.advance();
@@ -149,7 +215,7 @@ impl Parser {
     }
 
     /// Reads `fn name(a: int, b: int): int { ... }`.
-    fn parse_fn(&mut self) -> Result<Stmt, SomoniError> {
+    fn parse_fn(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("function name")?;
         self.expect(Token::LParen, "'(' after function name")?;
@@ -159,6 +225,7 @@ impl Parser {
         let return_type = self.parse_type("return type")?;
         let body = self.expect_block_stmts("after function header")?;
         Ok(Stmt::FnDecl(Function {
+            exported,
             name,
             name_span,
             params,
@@ -181,12 +248,13 @@ impl Parser {
     }
 
     /// Reads `struct Point { x: int, y: int }`.
-    fn parse_struct(&mut self) -> Result<Stmt, SomoniError> {
+    fn parse_struct(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("struct name")?;
         self.expect(Token::LBrace, "'{' after struct name")?;
         let fields = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_field)?;
         Ok(Stmt::StructDecl(Rc::new(StructDecl {
+            exported,
             name,
             name_span,
             fields,
@@ -194,7 +262,7 @@ impl Parser {
     }
 
     /// Reads `enum Farbe { Rot, Gruen, Blau }`.
-    fn parse_enum(&mut self) -> Result<Stmt, SomoniError> {
+    fn parse_enum(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("enum name")?;
         self.expect(Token::LBrace, "'{' after enum name")?;
@@ -202,6 +270,7 @@ impl Parser {
             this.expect_ident("variant name")
         })?;
         Ok(Stmt::EnumDecl(Rc::new(EnumDecl {
+            exported,
             name,
             name_span,
             variants,

@@ -69,6 +69,7 @@ Version 0.5.0: the core of the language plus lists, structs, optional types, map
 -   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
 -   Comments `//` and `/* */`
+-   Modules: `import { quadrat, Punkt } from "mathe.smn";` and `export fn`/`struct`/`enum` (imported files contain only declarations)
 
 -   Null checks: after `if (a != null)` the value of `a` can be used
 

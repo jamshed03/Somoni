@@ -1,0 +1,3 @@
+{
+    import { quadrat } from "modules/mathe.smn";
+}

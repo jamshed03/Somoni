@@ -219,6 +219,7 @@ pub enum Stmt {
         span: Span,
     },
     FnDecl(Function),
+    Import(Import),
     StructDecl(Rc<StructDecl>),
     EnumDecl(Rc<EnumDecl>),
     /// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
@@ -237,14 +238,33 @@ pub enum Stmt {
     },
 }
 
-/// `fn name(param: type, ...): return_type { body }`
+/// `fn name(param: type, ...): return_type { body }`, `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
+    pub exported: bool,
     pub name: String,
     pub name_span: Span,
     pub params: Vec<Param>,
     pub return_type: TypeName,
     pub body: Vec<Stmt>,
+}
+
+/// `import { quadrat, Punkt } from "mathe.smn";`
+/// The loader fills in `file`: the number of the imported file.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Import {
+    pub names: Vec<ImportName>,
+    pub path: String,
+    pub path_span: Span,
+    pub file: Option<usize>,
+    pub span: Span,
+}
+
+/// One name in the `{ ... }` of an import.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportName {
+    pub name: String,
+    pub span: Span,
 }
 
 /// One `name: type` in the parameters of a function.
@@ -255,17 +275,19 @@ pub struct Param {
     pub type_name: TypeName,
 }
 
-/// `struct Name { field: type, ... }`
+/// `struct Name { field: type, ... }`, `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDecl {
+    pub exported: bool,
     pub name: String,
     pub name_span: Span,
     pub fields: Vec<Field>,
 }
 
-/// `enum Name { Variant, ... }`
+/// `enum Name { Variant, ... }`, `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumDecl {
+    pub exported: bool,
     pub name: String,
     pub name_span: Span,
     pub variants: Vec<(String, Span)>,

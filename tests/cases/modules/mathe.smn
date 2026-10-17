@@ -1,0 +1,33 @@
+import { zahl } from "zahlen.smn";
+
+export fn quadrat(x: int): int {
+    return mal(x, x);
+}
+
+// private: only visible in this file
+fn mal(a: int, b: int): int {
+    return a * b;
+}
+
+export struct Punkt {
+    x: int,
+    y: int
+}
+
+export fn verschieben(p: Punkt, dx: int): Punkt {
+    return Punkt { x: p.x + dx, y: p.y };
+}
+
+export enum Richtung {
+    Links,
+    Rechts
+}
+
+// an exported function may return a private struct
+struct Geheim {
+    wert: int
+}
+
+export fn geheim(): Geheim {
+    return Geheim { wert: zahl() * 6 };
+}

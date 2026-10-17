@@ -9,6 +9,7 @@ use crate::types::Type;
 pub enum ErrorKind {
     Lex,
     Parse,
+    Import,
     Type,
     Runtime,
 }
@@ -42,6 +43,31 @@ pub enum ErrorCode {
     StructNotTopLevel,
     EnumNotTopLevel,
     InvalidAssignTarget,
+    ImportNotFirst,
+    ExportNotTopLevel,
+
+    // loader and imports
+    CannotReadFile {
+        name: String,
+    },
+    ImportCycle {
+        cycle: String,
+    },
+    OnlyDeclarations,
+    ReservedPath {
+        path: String,
+    },
+    NotExported {
+        name: String,
+        path: String,
+    },
+    NotInFile {
+        name: String,
+        path: String,
+    },
+    ImportConflict {
+        name: String,
+    },
 
     // type checker
     UnknownType {
@@ -234,6 +260,16 @@ impl ErrorCode {
             ErrorCode::StructNotTopLevel => "P006",
             ErrorCode::EnumNotTopLevel => "P008",
             ErrorCode::InvalidAssignTarget => "P007",
+            ErrorCode::ImportNotFirst => "P009",
+            ErrorCode::ExportNotTopLevel => "P010",
+
+            ErrorCode::CannotReadFile { .. } => "M001",
+            ErrorCode::ImportCycle { .. } => "M002",
+            ErrorCode::OnlyDeclarations => "M003",
+            ErrorCode::ReservedPath { .. } => "M004",
+            ErrorCode::NotExported { .. } => "M005",
+            ErrorCode::NotInFile { .. } => "M006",
+            ErrorCode::ImportConflict { .. } => "M007",
 
             ErrorCode::UnknownType { .. } => "T001",
             ErrorCode::UnknownVariable { .. } => "T002",
@@ -311,7 +347,17 @@ impl ErrorCode {
             | ErrorCode::FnNotTopLevel
             | ErrorCode::StructNotTopLevel
             | ErrorCode::EnumNotTopLevel
-            | ErrorCode::InvalidAssignTarget => ErrorKind::Parse,
+            | ErrorCode::InvalidAssignTarget
+            | ErrorCode::ImportNotFirst
+            | ErrorCode::ExportNotTopLevel => ErrorKind::Parse,
+
+            ErrorCode::CannotReadFile { .. }
+            | ErrorCode::ImportCycle { .. }
+            | ErrorCode::OnlyDeclarations
+            | ErrorCode::ReservedPath { .. }
+            | ErrorCode::NotExported { .. }
+            | ErrorCode::NotInFile { .. }
+            | ErrorCode::ImportConflict { .. } => ErrorKind::Import,
 
             ErrorCode::UnknownType { .. }
             | ErrorCode::UnknownVariable { .. }
@@ -393,8 +439,35 @@ impl ErrorCode {
                 "structs can only be declared at the top level".to_string()
             }
             ErrorCode::EnumNotTopLevel => "enums can only be declared at the top level".to_string(),
+            ErrorCode::ImportNotFirst => {
+                "'import' is only allowed at the start of a file, before all other statements"
+                    .to_string()
+            }
+            ErrorCode::ExportNotTopLevel => "'export' is only allowed at the top level".to_string(),
             ErrorCode::InvalidAssignTarget => {
                 "can only assign to a variable, a list element or a field".to_string()
+            }
+
+            ErrorCode::CannotReadFile { name } => format!("cannot read file '{}'", name),
+            ErrorCode::ImportCycle { cycle } => format!("files import each other: {}", cycle),
+            ErrorCode::OnlyDeclarations => {
+                "an imported file may only contain fn, struct, enum and import".to_string()
+            }
+            ErrorCode::ReservedPath { path } => format!(
+                "'{}': paths starting with '/' or '@' are not supported yet, use a path relative to this file",
+                path
+            ),
+            ErrorCode::NotExported { name, path } => {
+                format!(
+                    "'{}' in '{}' is not exported (add 'export' there)",
+                    name, path
+                )
+            }
+            ErrorCode::NotInFile { name, path } => {
+                format!("'{}' has no function, struct or enum '{}'", path, name)
+            }
+            ErrorCode::ImportConflict { name } => {
+                format!("'{}' is already imported in this file", name)
             }
 
             ErrorCode::UnknownType { name } => format!("unknown type '{}'", name),
@@ -585,8 +658,9 @@ impl SomoniError {
     }
 
     /// Returns the error message with the source line and `^^^` under the place.
-    pub fn render(&self, source: &str) -> String {
-        let header = self.to_string();
+    /// `file_name` is shown for errors outside the main file; `source` is the text of that file.
+    pub fn render(&self, file_name: Option<&str>, source: &str) -> String {
+        let header = self.header(file_name);
         let Some(span) = self.span else {
             return header;
         };
@@ -626,6 +700,30 @@ impl SomoniError {
         }
         self
     }
+
+    /// The first line of the message, e.g. `Type error [T002]: Line 4: unknown variable 'y'`,
+    /// with the file name in front of the line if there is one: `mathe.smn: Line 4: ...`.
+    fn header(&self, file_name: Option<&str>) -> String {
+        let kind = match self.code.kind() {
+            ErrorKind::Lex => "Lex error",
+            ErrorKind::Parse => "Parse error",
+            ErrorKind::Import => "Import error",
+            ErrorKind::Type => "Type error",
+            ErrorKind::Runtime => "Runtime error",
+        };
+        let place = match (file_name, self.span) {
+            (Some(name), Some(span)) => format!("{}: Line {}: ", name, span.line),
+            (None, Some(span)) => format!("Line {}: ", span.line),
+            (_, None) => String::new(),
+        };
+        format!(
+            "{} [{}]: {}{}",
+            kind,
+            self.code.code(),
+            place,
+            self.code.message()
+        )
+    }
 }
 
 /// Turns an error code into an error without a place (used for runtime errors).
@@ -635,20 +733,9 @@ impl From<ErrorCode> for SomoniError {
     }
 }
 
-/// The first line of the message, e.g. `Type error [T002]: Line 4: unknown variable 'y'`.
+/// The first line of the message, without a file name.
 impl fmt::Display for SomoniError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let kind = match self.code.kind() {
-            ErrorKind::Lex => "Lex error",
-            ErrorKind::Parse => "Parse error",
-            ErrorKind::Type => "Type error",
-            ErrorKind::Runtime => "Runtime error",
-        };
-        let code = self.code.code();
-        let message = self.code.message();
-        match self.span {
-            Some(span) => write!(f, "{} [{}]: Line {}: {}", kind, code, span.line, message),
-            None => write!(f, "{} [{}]: {}", kind, code, message),
-        }
+        write!(f, "{}", self.header(None))
     }
 }

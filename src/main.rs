@@ -4,6 +4,7 @@ mod bytecode;
 mod compiler;
 mod error;
 mod lexer;
+mod loader;
 mod map;
 mod parser;
 mod scope;
@@ -20,8 +21,7 @@ use std::fs;
 use std::process;
 
 use error::SomoniError;
-use lexer::Lexer;
-use parser::Parser;
+use loader::{Loader, SourceFile};
 use typechecker::TypeChecker;
 
 /// Reads the file from the command line and runs it. Exit code 1 on an error.
@@ -45,21 +45,36 @@ fn main() {
         }
     };
 
-    if let Err(error) = run(&source, show_bytecode) {
-        eprintln!("{}", error.render(&source));
+    let mut loader = Loader::default();
+    let result = loader
+        .load(path, source)
+        .and_then(|order| run(&mut loader.files, &order, show_bytecode));
+    if let Err(error) = result {
+        eprintln!("{}", render(&error, &loader.files));
         process::exit(1);
     }
 }
 
-/// Runs the whole pipeline: lexer, parser, type checker, compiler, VM.
-fn run(source: &str, show_bytecode: bool) -> Result<(), SomoniError> {
-    let tokens = Lexer::new(source, 0).tokenize()?;
-    let mut stmts = Parser::new(tokens).parse_program()?;
-    TypeChecker::new().check(&mut stmts)?;
-    let program = compiler::compile(&stmts)?;
+/// Runs the rest of the pipeline on the loaded files: type checker, compiler, VM.
+fn run(files: &mut [SourceFile], order: &[usize], show_bytecode: bool) -> Result<(), SomoniError> {
+    TypeChecker::new().check(files, order)?;
+    let program = compiler::compile(files, order)?;
     if show_bytecode {
         print!("{}", bytecode::disassemble(&program));
         return Ok(());
     }
     vm::run(&program)
+}
+
+/// Returns the message of an error with the line of the file it is in.
+/// Only errors outside the main file show the name of their file.
+fn render(error: &SomoniError, files: &[SourceFile]) -> String {
+    let number = error.span.map_or(0, |span| span.file);
+    match files.get(number) {
+        Some(file) => {
+            let name = (number != 0).then_some(file.name.as_str());
+            error.render(name, &file.source)
+        }
+        None => error.to_string(),
+    }
 }
