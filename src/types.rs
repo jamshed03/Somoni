@@ -1,4 +1,7 @@
 use std::fmt;
+use std::rc::Rc;
+
+use crate::ast::EnumDecl;
 
 /// A type in the type checker.
 #[derive(Debug, Clone, PartialEq)]
@@ -16,6 +19,8 @@ pub enum Type {
     Optional(Box<Type>),
     /// `map<K, V>` with the key type and the value type.
     Map(Box<Type>, Box<Type>),
+    /// An enum of the program, by its declaration.
+    Enum(Rc<EnumDecl>),
 }
 
 impl Type {
@@ -76,6 +81,7 @@ impl fmt::Display for Type {
             Type::Struct(name) => write!(f, "{}", name),
             Type::Optional(inner) => write!(f, "{}?", inner),
             Type::Map(key, value) => write!(f, "map<{}, {}>", key, value),
+            Type::Enum(decl) => write!(f, "{}", decl.name),
         }
     }
 }

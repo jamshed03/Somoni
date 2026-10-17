@@ -1,0 +1,5 @@
+enum Farbe {
+    Rot,
+    Blau
+}
+Farbe.Rot = Farbe.Blau;

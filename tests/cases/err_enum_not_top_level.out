@@ -1,0 +1,3 @@
+Parse error [P008]: Line 2: enums can only be declared at the top level
+  2 |     enum Farbe {
+    |     ^^^^

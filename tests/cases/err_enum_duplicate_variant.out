@@ -1,0 +1,3 @@
+Type error [T047]: Line 3: variant 'Rot' appears more than once
+  3 |     Rot
+    |     ^^^

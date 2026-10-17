@@ -57,6 +57,12 @@ pub enum ExprKind {
         fields: Vec<FieldInit>,
         index: Option<usize>,
     },
+    /// A variant like `Farbe.Rot`. The parser reads it as a field; the type checker
+    /// turns it into this when `Farbe` is an enum and not a variable.
+    EnumValue {
+        decl: Rc<EnumDecl>,
+        variant: usize,
+    },
     /// `target.name`; `index` is the position of the field in the struct.
     Field {
         target: Box<Expr>,
@@ -214,6 +220,15 @@ pub enum Stmt {
     },
     FnDecl(Function),
     StructDecl(Rc<StructDecl>),
+    EnumDecl(Rc<EnumDecl>),
+    /// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
+    /// The type checker fills in `arm_of_variant`: for each variant, the number of its branch.
+    Match {
+        subject: Expr,
+        arms: Vec<MatchArm>,
+        arm_of_variant: Vec<usize>,
+        span: Span,
+    },
     Return {
         value: Option<Expr>,
         span: Span,
@@ -246,6 +261,35 @@ pub struct StructDecl {
     pub fields: Vec<Field>,
 }
 
+/// `enum Name { Variant, ... }`
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub variants: Vec<(String, Span)>,
+}
+
+/// One branch of a `match`: `Farbe.Rot => { ... }` or `_ => { ... }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    pub body: Stmt,
+}
+
+/// What a branch of `match` stands for.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern {
+    /// `Farbe.Rot`
+    Variant {
+        enum_name: String,
+        enum_span: Span,
+        name: String,
+        name_span: Span,
+    },
+    /// `_`: all variants that have no branch of their own
+    Rest(Span),
+}
+
 /// One `name: type` in a struct declaration.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Field {
@@ -268,6 +312,14 @@ pub struct TypeName {
 pub fn structs(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<StructDecl>> {
     stmts.iter().filter_map(|stmt| match stmt {
         Stmt::StructDecl(decl) => Some(decl),
+        _ => None,
+    })
+}
+
+/// Returns all enums of the program.
+pub fn enums(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<EnumDecl>> {
+    stmts.iter().filter_map(|stmt| match stmt {
+        Stmt::EnumDecl(decl) => Some(decl),
         _ => None,
     })
 }

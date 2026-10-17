@@ -1,0 +1,13 @@
+Farbe.Gruen
+true
+true
+rot
+grün
+blau
+kalt
+Ampel { farbe: Farbe.Rot, an: true }
+Farbe.Blau
+{"Tag": Farbe.Blau}
+Richtung.Rechts
+<
+>

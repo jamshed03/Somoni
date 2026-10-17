@@ -163,6 +163,12 @@ impl<'p> Vm<'p> {
                     Ok(())
                 })?;
             }
+            Op::Switch(table) => {
+                let Value::Enum(value) = self.pop()? else {
+                    return Err(SomoniError::internal("match on a non-enum"));
+                };
+                frame.ip = frame.chunk.tables[*table][value.variant];
+            }
             Op::Chars => {
                 let Value::Str(text) = self.pop()? else {
                     return Err(SomoniError::internal("characters of a non-string"));

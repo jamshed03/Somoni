@@ -1,0 +1,17 @@
+enum Farbe {
+    Rot,
+    Gruen,
+    Blau
+}
+enum Richtung {
+    Links
+}
+var f: Farbe = Farbe.Rot;
+match (f) {
+    Richtung.Links => {
+        print(1);
+    }
+    _ => {
+        print(2);
+    }
+}

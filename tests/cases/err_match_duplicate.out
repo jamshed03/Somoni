@@ -1,0 +1,3 @@
+Type error [T043]: Line 11: there is already a branch for Farbe.Rot
+  11 |     Farbe.Rot => {
+     |           ^^^

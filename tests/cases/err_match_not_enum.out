@@ -1,0 +1,3 @@
+Type error [T041]: Line 1: match needs an enum, got int
+  1 | match (5) {
+    |        ^

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, StructDecl, UnaryOp};
+use crate::ast::{BinaryOp, EnumDecl, StructDecl, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::{Key, MapValue};
 use crate::span::Span;
@@ -18,6 +18,7 @@ pub enum Value {
     List(Rc<Vec<Value>>),
     Struct(Rc<StructValue>),
     Map(Rc<MapValue>),
+    Enum(Rc<EnumValue>),
     Null,
     Void,
 }
@@ -33,6 +34,20 @@ pub struct StructValue {
 impl PartialEq for StructValue {
     fn eq(&self, other: &StructValue) -> bool {
         Rc::ptr_eq(&self.decl, &other.decl) && self.fields == other.fields
+    }
+}
+
+/// A variant of an enum: its declaration (for the names in `print`) and its number.
+#[derive(Debug, Clone)]
+pub struct EnumValue {
+    pub decl: Rc<EnumDecl>,
+    pub variant: usize,
+}
+
+/// Two variants are equal if they belong to the same enum and are the same variant.
+impl PartialEq for EnumValue {
+    fn eq(&self, other: &EnumValue) -> bool {
+        Rc::ptr_eq(&self.decl, &other.decl) && self.variant == other.variant
     }
 }
 
@@ -79,6 +94,11 @@ impl fmt::Display for Value {
                 }
                 write!(f, "}}")
             }
+            Value::Enum(value) => write!(
+                f,
+                "{}.{}",
+                value.decl.name, value.decl.variants[value.variant].0
+            ),
             Value::Null => write!(f, "null"),
             Value::Void => write!(f, "void"),
         }

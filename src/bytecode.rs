@@ -59,6 +59,8 @@ pub enum Op {
     /// If the index is past the end, goes on at `end`. Otherwise pushes the element (list) or
     /// key (map), with `both` the index and the element or the key and the value, and counts up.
     Next { slot: usize, end: usize, both: bool },
+    /// Pops an enum value and goes on at the instruction for its variant in jump table `i`.
+    Switch(usize),
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -86,6 +88,8 @@ pub struct Chunk {
     pub constants: Vec<Value>,
     /// The paths of `SetPart`.
     pub paths: Vec<Path>,
+    /// The jump tables of `Switch`: for each variant, the instruction of its branch.
+    pub tables: Vec<Vec<usize>>,
     /// How many variable slots the code needs.
     pub locals: usize,
 }
@@ -170,6 +174,13 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::Field(p) => format!("Field {}", p),
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
         Op::Chars => "Chars".to_string(),
+        Op::Switch(i) => {
+            let targets: Vec<String> = chunk.tables[*i]
+                .iter()
+                .map(|target| format!("{:04}", target))
+                .collect();
+            format!("Switch [{}]", targets.join(", "))
+        }
         Op::Next { slot, end, both } => {
             let both = if *both { " both" } else { "" };
             format!("Next {} {:04}{}", slot, end, both)

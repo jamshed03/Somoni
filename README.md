@@ -62,6 +62,7 @@ Version 0.4.0: the core of the language plus lists, structs, optional types and 
 -   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)`, joined with `l + [4]` (values are copied like PHP arrays)
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected
+-   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`)
 -   Maps `map<string, int>` with `{"Ali": 30}`, `m["Ali"]`, `m["Tom"] = 40;`, `len`, `has(m, k)`, `keys(m)` (insertion order)
 -   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
 -   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys` (conversions are always explicit)

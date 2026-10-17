@@ -1,0 +1,3 @@
+Type error [T007]: Line 6: operator not allowed for Farbe
+  6 | print(Farbe.Rot < Farbe.Blau);
+    |                 ^

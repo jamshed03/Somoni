@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, IterKind, Param, Stmt,
-    TypeName, UnaryOp,
+    self, BinaryOp, CallTarget, EnumDecl, Expr, ExprKind, FieldInit, Function, IterKind, MatchArm,
+    Param, Pattern, Stmt, TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -39,6 +40,7 @@ pub struct TypeChecker {
     loop_depth: usize,
     functions: HashMap<String, Signature>,
     structs: HashMap<String, StructInfo>,
+    enums: HashMap<String, Rc<EnumDecl>>,
     current_return: Option<Type>,
     next_slot: usize,
 }
@@ -50,6 +52,7 @@ impl TypeChecker {
             loop_depth: 0,
             functions: HashMap::new(),
             structs: HashMap::new(),
+            enums: HashMap::new(),
             current_return: None,
             next_slot: 0,
         }
@@ -57,6 +60,7 @@ impl TypeChecker {
 
     /// Checks the whole program.
     pub fn check(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
+        self.declare_enums(stmts)?;
         self.declare_structs(stmts)?;
         self.declare_functions(stmts)?;
         self.check_stmts(stmts)
@@ -69,11 +73,45 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Collects all enums. Each needs a free name and different variants.
+    fn declare_enums(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        for decl in ast::enums(stmts) {
+            if self.is_type_name(&decl.name) {
+                return Err(SomoniError::at(
+                    decl.name_span,
+                    ErrorCode::DuplicateType {
+                        name: decl.name.clone(),
+                    },
+                ));
+            }
+            if decl.variants.is_empty() {
+                return Err(SomoniError::at(decl.name_span, ErrorCode::EmptyEnum));
+            }
+            for (i, (name, span)) in decl.variants.iter().enumerate() {
+                if decl.variants[..i].iter().any(|(other, _)| other == name) {
+                    return Err(SomoniError::at(
+                        *span,
+                        ErrorCode::DuplicateVariant { name: name.clone() },
+                    ));
+                }
+            }
+            self.enums.insert(decl.name.clone(), Rc::clone(decl));
+        }
+        Ok(())
+    }
+
+    /// Returns true if `name` is already a type: built in, a struct or an enum.
+    fn is_type_name(&self, name: &str) -> bool {
+        Type::is_builtin_name(name)
+            || self.structs.contains_key(name)
+            || self.enums.contains_key(name)
+    }
+
     /// Collects all structs: first their names, then their field types,
     /// then checks that no struct contains itself.
     fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for (index, decl) in ast::structs(stmts).enumerate() {
-            if Type::is_builtin_name(&decl.name) || self.structs.contains_key(&decl.name) {
+            if self.is_type_name(&decl.name) {
                 return Err(SomoniError::at(
                     decl.name_span,
                     ErrorCode::DuplicateType {
@@ -296,7 +334,19 @@ impl TypeChecker {
                 })
             }
             Stmt::FnDecl(function) => self.check_function(function),
-            Stmt::StructDecl(_) => Ok(()),
+            Stmt::StructDecl(_) | Stmt::EnumDecl(_) => Ok(()),
+            Stmt::Match {
+                subject,
+                arms,
+                arm_of_variant,
+                span,
+            } => {
+                *arm_of_variant = self.check_match(subject, arms, *span)?;
+                for arm in arms {
+                    self.check_stmt(&mut arm.body)?;
+                }
+                Ok(())
+            }
             Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
@@ -419,6 +469,14 @@ impl TypeChecker {
         op: Option<(BinaryOp, Span)>,
         value: &mut Expr,
     ) -> Result<(), SomoniError> {
+        if let Some((decl, variant)) = self.enum_variant(target)? {
+            return Err(SomoniError::at(
+                target.span,
+                ErrorCode::AssignToConst {
+                    name: format!("{}.{}", decl.name, decl.variants[variant].0),
+                },
+            ));
+        }
         let target_type = self.check_expr(target)?;
         let Some((name, name_span)) = target.root_variable() else {
             return Err(SomoniError::internal("assignment to a non-variable"));
@@ -481,6 +539,118 @@ impl TypeChecker {
         self.check_stmt(step)?;
         let known = self.known_not_null(condition, true);
         self.with_not_null(known, |this| this.check_loop_body(body))
+    }
+
+    /// Checks the branches of a `match`: every variant needs one, either its own or `_`.
+    /// Returns, for each variant, the number of its branch.
+    fn check_match(
+        &mut self,
+        subject: &mut Expr,
+        arms: &[MatchArm],
+        span: Span,
+    ) -> Result<Vec<usize>, SomoniError> {
+        let ty = self.check_expr(subject)?;
+        let Some(decl) = self.enum_of(&ty) else {
+            return Err(SomoniError::at(
+                subject.span,
+                ErrorCode::MatchNotEnum { found: ty },
+            ));
+        };
+        let mut branch_of: Vec<Option<usize>> = vec![None; decl.variants.len()];
+        let mut rest: Option<(usize, Span)> = None;
+        for (i, arm) in arms.iter().enumerate() {
+            if let Some((_, rest_span)) = rest {
+                return Err(SomoniError::at(rest_span, ErrorCode::RestNotLast));
+            }
+            match &arm.pattern {
+                Pattern::Variant {
+                    enum_name,
+                    enum_span,
+                    name,
+                    name_span,
+                } => {
+                    if *enum_name != decl.name {
+                        return Err(SomoniError::at(
+                            *enum_span,
+                            ErrorCode::PatternWrongEnum {
+                                expected: ty,
+                                found: enum_name.clone(),
+                            },
+                        ));
+                    }
+                    let variant = variant_of(&decl, name, *name_span)?;
+                    if branch_of[variant].is_some() {
+                        return Err(SomoniError::at(
+                            *name_span,
+                            ErrorCode::DuplicateBranch {
+                                name: format!("{}.{}", decl.name, name),
+                            },
+                        ));
+                    }
+                    branch_of[variant] = Some(i);
+                }
+                Pattern::Rest(rest_span) => rest = Some((i, *rest_span)),
+            }
+        }
+        let missing: Vec<String> = decl
+            .variants
+            .iter()
+            .zip(&branch_of)
+            .filter(|(_, branch)| branch.is_none())
+            .map(|((name, _), _)| format!("{}.{}", decl.name, name))
+            .collect();
+        match rest {
+            Some((_, rest_span)) if missing.is_empty() => {
+                Err(SomoniError::at(rest_span, ErrorCode::RestUnreachable))
+            }
+            Some((rest_branch, _)) => Ok(branch_of
+                .into_iter()
+                .map(|branch| branch.unwrap_or(rest_branch))
+                .collect()),
+            None if !missing.is_empty() => Err(SomoniError::at(
+                span,
+                ErrorCode::MissingBranch {
+                    missing: missing.join(", "),
+                },
+            )),
+            None => Ok(branch_of.into_iter().flatten().collect()),
+        }
+    }
+
+    /// Returns the declaration of an enum type.
+    fn enum_of(&self, ty: &Type) -> Option<Rc<EnumDecl>> {
+        match ty {
+            Type::Enum(decl) => Some(Rc::clone(decl)),
+            _ => None,
+        }
+    }
+
+    /// If `expr` is `Farbe.Rot` and `Farbe` is an enum (and no variable), returns the enum
+    /// and the number of the variant.
+    fn enum_variant(&self, expr: &Expr) -> Result<Option<(Rc<EnumDecl>, usize)>, SomoniError> {
+        let ExprKind::Field {
+            target,
+            name,
+            name_span,
+            ..
+        } = &expr.kind
+        else {
+            return Ok(None);
+        };
+        let ExprKind::Ident {
+            name: enum_name, ..
+        } = &target.kind
+        else {
+            return Ok(None);
+        };
+        if self.scopes.lookup(enum_name).is_some() {
+            return Ok(None);
+        }
+        let Some(decl) = self.enums.get(enum_name) else {
+            return Ok(None);
+        };
+        let variant = variant_of(decl, name, *name_span)?;
+        Ok(Some((Rc::clone(decl), variant)))
     }
 
     /// Declares the variables of a `for`-each loop as const and returns their slots.
@@ -741,9 +911,11 @@ impl TypeChecker {
             Type::from_name(&written.name)
         };
         let simple = simple.or_else(|| {
-            self.structs
-                .contains_key(&written.name)
-                .then(|| Type::Struct(written.name.clone()))
+            if self.structs.contains_key(&written.name) {
+                Some(Type::Struct(written.name.clone()))
+            } else {
+                self.enums.get(&written.name).cloned().map(Type::Enum)
+            }
         });
         let expected_args = match (Type::arg_count(&written.name), &simple) {
             (Some(count), _) => count,
@@ -784,8 +956,14 @@ impl TypeChecker {
 
     /// Returns the type of an expression, or a type error.
     fn check_expr(&mut self, expr: &mut Expr) -> Result<Type, SomoniError> {
+        if let Some((decl, variant)) = self.enum_variant(expr)? {
+            let ty = Type::Enum(Rc::clone(&decl));
+            expr.kind = ExprKind::EnumValue { decl, variant };
+            return Ok(ty);
+        }
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
+            ExprKind::EnumValue { decl, .. } => Ok(Type::Enum(Rc::clone(decl))),
             ExprKind::Float(_) => Ok(Type::Float),
             ExprKind::Bool(_) => Ok(Type::Bool),
             ExprKind::Str(_) => Ok(Type::Str),
@@ -979,6 +1157,22 @@ fn needs_type_hint(expr: &Expr) -> bool {
     }
 }
 
+/// Returns the number of the variant `name` of an enum, or T040 if it has none.
+fn variant_of(decl: &EnumDecl, name: &str, span: Span) -> Result<usize, SomoniError> {
+    decl.variants
+        .iter()
+        .position(|(variant, _)| variant == name)
+        .ok_or_else(|| {
+            SomoniError::at(
+                span,
+                ErrorCode::UnknownVariant {
+                    enum_name: decl.name.clone(),
+                    name: name.to_string(),
+                },
+            )
+        })
+}
+
 /// Checks that a type may be the key of a map: only `string` and `int`.
 fn check_key_type(ty: &Type, span: Span) -> Result<(), SomoniError> {
     match ty {
@@ -1079,6 +1273,8 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         | Stmt::Break { .. }
         | Stmt::Continue { .. }
         | Stmt::FnDecl(_)
-        | Stmt::StructDecl(_) => false,
+        | Stmt::StructDecl(_)
+        | Stmt::EnumDecl(_) => false,
+        Stmt::Match { arms, .. } => arms.iter().all(|arm| stmt_always_returns(&arm.body)),
     }
 }

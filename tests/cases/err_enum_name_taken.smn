@@ -1,0 +1,6 @@
+struct Farbe {
+    x: int
+}
+enum Farbe {
+    Rot
+}

@@ -40,6 +40,7 @@ pub enum ErrorCode {
     ForStartConst,
     FnNotTopLevel,
     StructNotTopLevel,
+    EnumNotTopLevel,
     InvalidAssignTarget,
 
     // type checker
@@ -162,6 +163,29 @@ pub enum ErrorCode {
     NotIterable {
         found: Type,
     },
+    UnknownVariant {
+        enum_name: String,
+        name: String,
+    },
+    MatchNotEnum {
+        found: Type,
+    },
+    PatternWrongEnum {
+        expected: Type,
+        found: String,
+    },
+    DuplicateBranch {
+        name: String,
+    },
+    RestNotLast,
+    RestUnreachable,
+    MissingBranch {
+        missing: String,
+    },
+    DuplicateVariant {
+        name: String,
+    },
+    EmptyEnum,
     LoopVarType {
         name: String,
         expected: Type,
@@ -209,6 +233,7 @@ impl ErrorCode {
             ErrorCode::ForStartConst => "P004",
             ErrorCode::FnNotTopLevel => "P005",
             ErrorCode::StructNotTopLevel => "P006",
+            ErrorCode::EnumNotTopLevel => "P008",
             ErrorCode::InvalidAssignTarget => "P007",
 
             ErrorCode::UnknownType { .. } => "T001",
@@ -250,6 +275,15 @@ impl ErrorCode {
             ErrorCode::MapIndexType { .. } => "T037",
             ErrorCode::NotIterable { .. } => "T038",
             ErrorCode::LoopVarType { .. } => "T039",
+            ErrorCode::UnknownVariant { .. } => "T040",
+            ErrorCode::MatchNotEnum { .. } => "T041",
+            ErrorCode::PatternWrongEnum { .. } => "T042",
+            ErrorCode::DuplicateBranch { .. } => "T043",
+            ErrorCode::RestNotLast => "T044",
+            ErrorCode::RestUnreachable => "T045",
+            ErrorCode::MissingBranch { .. } => "T046",
+            ErrorCode::DuplicateVariant { .. } => "T047",
+            ErrorCode::EmptyEnum => "T048",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -277,6 +311,7 @@ impl ErrorCode {
             | ErrorCode::ForStartConst
             | ErrorCode::FnNotTopLevel
             | ErrorCode::StructNotTopLevel
+            | ErrorCode::EnumNotTopLevel
             | ErrorCode::InvalidAssignTarget => ErrorKind::Parse,
 
             ErrorCode::UnknownType { .. }
@@ -317,7 +352,16 @@ impl ErrorCode {
             | ErrorCode::MapEntryType { .. }
             | ErrorCode::MapIndexType { .. }
             | ErrorCode::NotIterable { .. }
-            | ErrorCode::LoopVarType { .. } => ErrorKind::Type,
+            | ErrorCode::LoopVarType { .. }
+            | ErrorCode::UnknownVariant { .. }
+            | ErrorCode::MatchNotEnum { .. }
+            | ErrorCode::PatternWrongEnum { .. }
+            | ErrorCode::DuplicateBranch { .. }
+            | ErrorCode::RestNotLast
+            | ErrorCode::RestUnreachable
+            | ErrorCode::MissingBranch { .. }
+            | ErrorCode::DuplicateVariant { .. }
+            | ErrorCode::EmptyEnum => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -349,6 +393,7 @@ impl ErrorCode {
             ErrorCode::StructNotTopLevel => {
                 "structs can only be declared at the top level".to_string()
             }
+            ErrorCode::EnumNotTopLevel => "enums can only be declared at the top level".to_string(),
             ErrorCode::InvalidAssignTarget => {
                 "can only assign to a variable, a list element or a field".to_string()
             }
@@ -454,6 +499,27 @@ impl ErrorCode {
             ErrorCode::MapIndexType { expected, found } => {
                 format!("the key of this map must be {}, got {}", expected, found)
             }
+            ErrorCode::UnknownVariant { enum_name, name } => {
+                format!("'{}' has no variant '{}'", enum_name, name)
+            }
+            ErrorCode::MatchNotEnum { found } => format!("match needs an enum, got {}", found),
+            ErrorCode::PatternWrongEnum { expected, found } => {
+                format!("this match is over {}, not {}", expected, found)
+            }
+            ErrorCode::DuplicateBranch { name } => {
+                format!("there is already a branch for {}", name)
+            }
+            ErrorCode::RestNotLast => "'_' must be the last branch".to_string(),
+            ErrorCode::RestUnreachable => {
+                "all variants already have a branch, so '_' would never run".to_string()
+            }
+            ErrorCode::MissingBranch { missing } => {
+                format!("no branch for {} (add it or use '_')", missing)
+            }
+            ErrorCode::DuplicateVariant { name } => {
+                format!("variant '{}' appears more than once", name)
+            }
+            ErrorCode::EmptyEnum => "an enum needs at least one variant".to_string(),
             ErrorCode::NotIterable { found } => {
                 format!("cannot loop over {} (only list, map or string)", found)
             }
@@ -585,3 +651,4 @@ impl fmt::Display for SomoniError {
         }
     }
 }
+

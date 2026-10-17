@@ -19,6 +19,8 @@ pub enum Token {
     Struct,
     Null,
     In,
+    Enum,
+    Match,
 
     // names and values
     Ident(String),
@@ -59,6 +61,7 @@ pub enum Token {
     StarEqual,
     SlashEqual,
     PercentEqual,
+    FatArrow,
 
     /// The end of the input.
     Eof,

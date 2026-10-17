@@ -1,0 +1,77 @@
+enum Farbe {
+    Rot,
+    Gruen,
+    Blau
+}
+var f: Farbe = Farbe.Gruen;
+print(f);
+print(f == Farbe.Gruen);
+print(f != Farbe.Rot);
+
+// every branch returns, so the function returns on every path
+fn name(f: Farbe): string {
+    match (f) {
+        Farbe.Rot => {
+            return "rot";
+        }
+        Farbe.Gruen => {
+            return "grün";
+        }
+        Farbe.Blau => {
+            return "blau";
+        }
+    }
+}
+for (c: Farbe in [Farbe.Rot, Farbe.Gruen, Farbe.Blau]) {
+    print(name(c));
+}
+
+// _ catches the rest
+match (f) {
+    Farbe.Rot => {
+        print("warm");
+    }
+    _ => {
+        print("kalt");
+    }
+}
+
+// in structs and maps
+struct Ampel {
+    farbe: Farbe,
+    an: bool
+}
+var a: Ampel = Ampel { farbe: Farbe.Rot, an: true };
+print(a);
+a.farbe = Farbe.Blau;
+print(a.farbe);
+var himmel: map<string, Farbe> = {"Tag": Farbe.Blau};
+print(himmel);
+
+// an enum used before its declaration; break inside a branch
+fn umkehren(r: Richtung): Richtung {
+    match (r) {
+        Richtung.Links => {
+            return Richtung.Rechts;
+        }
+        Richtung.Rechts => {
+            return Richtung.Links;
+        }
+    }
+}
+enum Richtung {
+    Links,
+    Rechts
+}
+print(umkehren(Richtung.Links));
+for (r: Richtung in [Richtung.Links, Richtung.Rechts, Richtung.Links]) {
+    match (r) {
+        Richtung.Links => {
+            print("<");
+        }
+        Richtung.Rechts => {
+            print(">");
+            break;
+        }
+    }
+}

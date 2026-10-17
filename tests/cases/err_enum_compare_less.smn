@@ -1,0 +1,6 @@
+enum Farbe {
+    Rot,
+    Gruen,
+    Blau
+}
+print(Farbe.Rot < Farbe.Blau);

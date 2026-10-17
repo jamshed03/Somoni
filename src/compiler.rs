@@ -4,7 +4,7 @@ use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, IterKind,
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
 use crate::span::Span;
-use crate::value::Value;
+use crate::value::{EnumValue, Value};
 
 /// Turns a checked program into bytecode.
 pub fn compile(stmts: &[Stmt]) -> Result<Program, SomoniError> {
@@ -115,7 +115,29 @@ impl Compiler {
                     self.compile_stmt(stmt)?;
                 }
             }
-            Stmt::FnDecl(_) | Stmt::StructDecl(_) => {}
+            Stmt::FnDecl(_) | Stmt::StructDecl(_) | Stmt::EnumDecl(_) => {}
+            Stmt::Match {
+                subject,
+                arms,
+                arm_of_variant,
+                span,
+            } => {
+                self.compile_expr(subject)?;
+                let table = self.chunk.tables.len();
+                self.chunk.tables.push(Vec::new());
+                self.chunk.push(Op::Switch(table), *span);
+                let mut starts = Vec::new();
+                let mut to_end = Vec::new();
+                for arm in arms {
+                    starts.push(self.chunk.code.len());
+                    self.compile_stmt(&arm.body)?;
+                    to_end.push(self.chunk.push(Op::Jump(0), *span));
+                }
+                for jump in to_end {
+                    self.patch_jump(jump);
+                }
+                self.chunk.tables[table] = arm_of_variant.iter().map(|&arm| starts[arm]).collect();
+            }
             Stmt::If {
                 condition,
                 then_branch,
@@ -304,6 +326,13 @@ impl Compiler {
             ExprKind::Bool(b) => self.push_constant(Value::Bool(*b), span),
             ExprKind::Str(s) => self.push_constant(Value::Str(Rc::clone(s)), span),
             ExprKind::Null => self.push_constant(Value::Null, span),
+            ExprKind::EnumValue { decl, variant } => {
+                let value = EnumValue {
+                    decl: Rc::clone(decl),
+                    variant: *variant,
+                };
+                self.push_constant(Value::Enum(Rc::new(value)), span);
+            }
             ExprKind::Ident { slot, .. } => {
                 let slot = self.slot(*slot)?;
                 self.chunk.push(Op::GetLocal(slot), span);

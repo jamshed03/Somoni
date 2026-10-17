@@ -1,0 +1,3 @@
+Type error [T045]: Line 17: all variants already have a branch, so '_' would never run
+  17 |     _ => {
+     |     ^

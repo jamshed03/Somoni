@@ -1,0 +1,3 @@
+Type error [T046]: Line 7: no branch for Farbe.Blau (add it or use '_')
+  7 | match (f) {
+    | ^^^^^

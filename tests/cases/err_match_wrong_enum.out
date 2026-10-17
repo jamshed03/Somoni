@@ -1,0 +1,3 @@
+Type error [T042]: Line 11: this match is over Farbe, not Richtung
+  11 |     Richtung.Links => {
+     |     ^^^^^^^^

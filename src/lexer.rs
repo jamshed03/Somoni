@@ -122,6 +122,8 @@ impl Lexer {
             "struct" => Token::Struct,
             "null" => Token::Null,
             "in" => Token::In,
+            "enum" => Token::Enum,
+            "match" => Token::Match,
             _ => Token::Ident(text),
         }
     }
@@ -252,6 +254,7 @@ impl Lexer {
                 '[' => (Token::LBracket, 1),
                 ']' => (Token::RBracket, 1),
                 '=' if self.peek_next() == Some('=') => (Token::EqualEqual, 2),
+                '=' if self.peek_next() == Some('>') => (Token::FatArrow, 2),
                 '=' => (Token::Equal, 1),
                 '!' if self.peek_next() == Some('=') => (Token::BangEqual, 2),
                 '!' => (Token::Bang, 1),

@@ -1,0 +1,3 @@
+Type error [T005]: Line 5: cannot assign to const 'Farbe.Rot'
+  5 | Farbe.Rot = Farbe.Blau;
+    | ^^^^^^^^^

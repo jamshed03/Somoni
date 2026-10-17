@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Expr, ExprKind, Field, FieldInit, Function, Param, Stmt, StructDecl, TypeName,
-    UnaryOp,
+    BinaryOp, EnumDecl, Expr, ExprKind, Field, FieldInit, Function, MatchArm, Param, Pattern, Stmt,
+    StructDecl, TypeName, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -68,6 +68,7 @@ impl Parser {
             let stmt = match self.peek() {
                 Token::Fn => self.parse_fn()?,
                 Token::Struct => self.parse_struct()?,
+                Token::Enum => self.parse_enum()?,
                 _ => self.parse_stmt()?,
             };
             stmts.push(stmt);
@@ -119,6 +120,8 @@ impl Parser {
             }
             Token::Fn => Err(SomoniError::at(start, ErrorCode::FnNotTopLevel)),
             Token::Struct => Err(SomoniError::at(start, ErrorCode::StructNotTopLevel)),
+            Token::Enum => Err(SomoniError::at(start, ErrorCode::EnumNotTopLevel)),
+            Token::Match => self.parse_match(start),
             Token::Return => {
                 self.advance();
                 let value = if *self.peek() == Token::Semicolon {
@@ -187,6 +190,68 @@ impl Parser {
             name_span,
             fields,
         })))
+    }
+
+    /// Reads `enum Farbe { Rot, Gruen, Blau }`.
+    fn parse_enum(&mut self) -> Result<Stmt, SomoniError> {
+        self.advance();
+        let (name, name_span) = self.expect_ident("enum name")?;
+        self.expect(Token::LBrace, "'{' after enum name")?;
+        let variants = self.parse_comma_list(Token::RBrace, "'}'", |this| {
+            this.expect_ident("variant name")
+        })?;
+        Ok(Stmt::EnumDecl(Rc::new(EnumDecl {
+            name,
+            name_span,
+            variants,
+        })))
+    }
+
+    /// Reads `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
+    fn parse_match(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        self.advance();
+        self.expect(Token::LParen, "'(' after 'match'")?;
+        let subject = self.parse_expr()?;
+        self.expect(Token::RParen, "')' after match value")?;
+        let open = self.current_span();
+        self.expect(Token::LBrace, "'{' after match value")?;
+        let mut arms = Vec::new();
+        while *self.peek() != Token::RBrace {
+            if *self.peek() == Token::Eof {
+                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
+            }
+            let pattern = self.parse_pattern()?;
+            self.expect(Token::FatArrow, "'=>'")?;
+            let body = self.expect_block("after '=>'")?;
+            arms.push(MatchArm { pattern, body });
+        }
+        self.advance();
+        Ok(Stmt::Match {
+            subject,
+            arms,
+            arm_of_variant: Vec::new(),
+            span: start,
+        })
+    }
+
+    /// Reads what a branch of `match` stands for: `Farbe.Rot` or `_`.
+    fn parse_pattern(&mut self) -> Result<Pattern, SomoniError> {
+        if let Token::Ident(name) = self.peek()
+            && name == "_"
+        {
+            let span = self.current_span();
+            self.advance();
+            return Ok(Pattern::Rest(span));
+        }
+        let (enum_name, enum_span) = self.expect_ident("enum variant like 'Farbe.Rot' or '_'")?;
+        self.expect(Token::Dot, "'.' after enum name")?;
+        let (name, name_span) = self.expect_ident("variant name")?;
+        Ok(Pattern::Variant {
+            enum_name,
+            enum_span,
+            name,
+            name_span,
+        })
     }
 
     /// Reads one field `x: int` of a struct declaration.

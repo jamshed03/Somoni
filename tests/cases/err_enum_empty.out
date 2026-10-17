@@ -1,0 +1,3 @@
+Type error [T048]: Line 1: an enum needs at least one variant
+  1 | enum Leer {}
+    |      ^^^^
