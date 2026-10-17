@@ -1,0 +1,3 @@
+Type error [T014]: Line 2: cannot use int as argument of 'has'
+  2 | print(has(m, 1));
+    |              ^

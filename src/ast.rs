@@ -36,6 +36,8 @@ pub enum ExprKind {
     Null,
     /// `[a, b, c]`
     List(Vec<Expr>),
+    /// `{key: value, ...}`
+    Map(Vec<(Expr, Expr)>),
     /// `target[index]`
     Index {
         target: Box<Expr>,

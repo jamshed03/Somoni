@@ -1,0 +1,3 @@
+Type error [T023]: Line 1: 'map' expects 2 type arguments, got 1
+  1 | var m: map<string> = {};
+    |        ^^^^^^^^^^^

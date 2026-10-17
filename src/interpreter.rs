@@ -5,6 +5,7 @@ use crate::ast::{
     self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, StructDecl, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
+use crate::map::{Key, MapValue};
 use crate::span::Span;
 use crate::text::Text;
 
@@ -18,6 +19,7 @@ pub enum Value {
     Str(Rc<Text>),
     List(Rc<Vec<Value>>),
     Struct(Rc<StructValue>),
+    Map(Rc<MapValue>),
     Null,
     Void,
 }
@@ -66,6 +68,18 @@ impl fmt::Display for Value {
                 } else {
                     write!(f, " }}")
                 }
+            }
+            Value::Map(map) => {
+                write!(f, "{{")?;
+                for (i, (key, value)) in map.entries().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write_inner(f, &key.to_value())?;
+                    write!(f, ": ")?;
+                    write_inner(f, value)?;
+                }
+                write!(f, "}}")
             }
             Value::Null => write!(f, "null"),
             Value::Void => write!(f, "void"),
@@ -394,12 +408,33 @@ impl<'a> Interpreter<'a> {
                 Ok(Value::List(Rc::new(items)))
             }
             ExprKind::Index { target, index } => {
-                let list = self.eval(target)?;
+                let container = self.eval(target)?;
                 let index = self.eval(index)?;
-                let (Value::List(items), Value::Int(i)) = (list, index) else {
-                    return Err(SomoniError::internal("index on a non-list"));
-                };
-                Ok(items[list_position(i, items.len())?].clone())
+                match (container, index) {
+                    (Value::List(items), Value::Int(i)) => {
+                        Ok(items[list_position(i, items.len())?].clone())
+                    }
+                    (Value::Map(map), key) => {
+                        let key = map_key(&key)?;
+                        map.get(&key).cloned().ok_or_else(|| key_not_found(&key))
+                    }
+                    _ => Err(SomoniError::internal("index on a non-list")),
+                }
+            }
+            ExprKind::Map(entries) => {
+                let mut map = MapValue::default();
+                for (key_expr, value) in entries {
+                    let key = map_key(&self.eval(key_expr)?)?;
+                    let value = self.eval(value)?;
+                    if map.contains(&key) {
+                        let code = ErrorCode::DuplicateKey {
+                            key: show_key(&key),
+                        };
+                        return Err(SomoniError::at(key_expr.span, code));
+                    }
+                    map.insert(key, value);
+                }
+                Ok(Value::Map(Rc::new(map)))
             }
             ExprKind::StructLiteral { fields, index, .. } => {
                 self.eval_struct_literal(*index, fields)
@@ -464,7 +499,9 @@ impl<'a> Interpreter<'a> {
                     let b = self.eval(b)?;
                     builtin.call(&[a, b])
                 }
-                _ => Err(SomoniError::internal("a built-in takes one or two arguments")),
+                _ => Err(SomoniError::internal(
+                    "a built-in takes one or two arguments",
+                )),
             },
             Some(CallTarget::Function(index)) => {
                 let Some(&function) = self.functions.get(index) else {
@@ -613,6 +650,24 @@ fn appended_part(slot: usize, value: &Expr) -> Option<&Expr> {
         return None;
     };
     (left_slot == slot).then_some(right)
+}
+
+/// Turns a value into a map key; the type checker made sure it is an int or a string.
+fn map_key(value: &Value) -> Result<Key, SomoniError> {
+    Key::from_value(value).ok_or_else(|| SomoniError::internal("map key is no int or string"))
+}
+
+/// Shows a key in an error message, strings with quotes: `"Tom"`.
+fn show_key(key: &Key) -> String {
+    match key {
+        Key::Int(n) => n.to_string(),
+        Key::Str(s) => format!("\"{}\"", s),
+    }
+}
+
+/// The error R006 for a key that is not in the map.
+fn key_not_found(key: &Key) -> SomoniError {
+    ErrorCode::KeyNotFound { key: show_key(key) }.into()
 }
 
 /// Returns the position of `index` in a list with `length` elements,

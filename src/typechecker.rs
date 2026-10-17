@@ -478,6 +478,9 @@ impl TypeChecker {
             (ExprKind::List(elements), Type::List(element_type)) => {
                 self.check_list(elements, expr.span, Some(element_type))
             }
+            (ExprKind::Map(entries), Type::Map(key, value)) => {
+                self.check_map(entries, expr.span, Some((key, value)))
+            }
             (ExprKind::Null, _) if matches!(expected, Type::Optional(_)) => Ok(expected.clone()),
             (ExprKind::Null, _) => Err(SomoniError::at(
                 expr.span,
@@ -542,6 +545,53 @@ impl TypeChecker {
             }
         }
         Ok(Type::List(Box::new(element_type)))
+    }
+
+    /// Checks a map literal: all keys must have one type, and all values too.
+    /// `hint` is the expected key and value type; without it, the first entry gives them.
+    fn check_map(
+        &mut self,
+        entries: &mut [(Expr, Expr)],
+        span: Span,
+        hint: Option<(&Type, &Type)>,
+    ) -> Result<Type, SomoniError> {
+        let (key_type, value_type, rest) = match hint {
+            Some((key, value)) => (key.clone(), value.clone(), entries),
+            None => {
+                let Some(((key, value), rest)) = entries.split_first_mut() else {
+                    return Err(SomoniError::at(span, ErrorCode::EmptyMapType));
+                };
+                let key_type = self.check_expr(key)?;
+                check_key_type(&key_type, key.span)?;
+                (key_type, self.check_expr(value)?, rest)
+            }
+        };
+        for (key, value) in rest {
+            self.check_map_part("keys", key, &key_type)?;
+            self.check_map_part("values", value, &value_type)?;
+        }
+        Ok(Type::Map(Box::new(key_type), Box::new(value_type)))
+    }
+
+    /// Checks that a key or a value in a map literal has the type of the others.
+    fn check_map_part(
+        &mut self,
+        part: &'static str,
+        expr: &mut Expr,
+        expected: &Type,
+    ) -> Result<(), SomoniError> {
+        let found = self.check_expr_expecting(expr, expected)?;
+        if !fits(&found, expected) {
+            return Err(SomoniError::at(
+                expr.span,
+                ErrorCode::MapEntryType {
+                    part,
+                    expected: expected.clone(),
+                    found,
+                },
+            ));
+        }
+        Ok(())
     }
 
     /// Checks a struct literal: every field must be given exactly once, in any order.
@@ -624,6 +674,7 @@ impl TypeChecker {
         });
         let expected_args = match (written.name.as_str(), &simple) {
             ("list", _) => 1,
+            ("map", _) => 2,
             (_, Some(_)) => 0,
             (name, None) => {
                 return Err(SomoniError::at(
@@ -644,12 +695,16 @@ impl TypeChecker {
                 },
             ));
         }
-        match simple {
-            Some(ty) => Ok(ty),
-            None => Ok(Type::List(Box::new(
-                self.resolve_type(&written.args[0], false)?,
-            ))),
+        if let Some(ty) = simple {
+            return Ok(ty);
         }
+        let first = self.resolve_type(&written.args[0], false)?;
+        if written.name == "list" {
+            return Ok(Type::List(Box::new(first)));
+        }
+        check_key_type(&first, written.args[0].span)?;
+        let value = self.resolve_type(&written.args[1], false)?;
+        Ok(Type::Map(Box::new(first), Box::new(value)))
     }
 
     /// Returns the type of an expression, or a type error.
@@ -706,22 +761,38 @@ impl TypeChecker {
                 }
             }
             ExprKind::List(elements) => self.check_list(elements, expr.span, None),
+            ExprKind::Map(entries) => self.check_map(entries, expr.span, None),
             ExprKind::Index { target, index } => {
                 let target_type = self.check_expr(target)?;
-                let Type::List(element_type) = target_type else {
-                    return Err(SomoniError::at(
+                match target_type {
+                    Type::List(element_type) => {
+                        let index_type = self.check_expr(index)?;
+                        if index_type != Type::Int {
+                            return Err(SomoniError::at(
+                                index.span,
+                                ErrorCode::IndexNotInt { found: index_type },
+                            ));
+                        }
+                        Ok(*element_type)
+                    }
+                    Type::Map(key_type, value_type) => {
+                        let found = self.check_expr(index)?;
+                        if found != *key_type {
+                            return Err(SomoniError::at(
+                                index.span,
+                                ErrorCode::MapIndexType {
+                                    expected: *key_type,
+                                    found,
+                                },
+                            ));
+                        }
+                        Ok(*value_type)
+                    }
+                    other => Err(SomoniError::at(
                         target.span,
-                        ErrorCode::NotIndexable { found: target_type },
-                    ));
-                };
-                let index_type = self.check_expr(index)?;
-                if index_type != Type::Int {
-                    return Err(SomoniError::at(
-                        index.span,
-                        ErrorCode::IndexNotInt { found: index_type },
-                    ));
+                        ErrorCode::NotIndexable { found: other },
+                    )),
                 }
-                Ok(*element_type)
             }
             ExprKind::StructLiteral {
                 name,
@@ -799,12 +870,26 @@ impl TypeChecker {
     }
 }
 
-/// Returns true for `[]` and `null`: they need the type of the place where they are used.
+/// Returns true for `[]`, `{}` and `null`: they need the type of the place where they are used.
 fn needs_type_hint(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::List(elements) => elements.is_empty(),
+        ExprKind::Map(entries) => entries.is_empty(),
         ExprKind::Null => true,
         _ => false,
+    }
+}
+
+/// Checks that a type may be the key of a map: only `string` and `int`.
+fn check_key_type(ty: &Type, span: Span) -> Result<(), SomoniError> {
+    match ty {
+        Type::Str | Type::Int => Ok(()),
+        other => Err(SomoniError::at(
+            span,
+            ErrorCode::MapKeyType {
+                found: other.clone(),
+            },
+        )),
     }
 }
 

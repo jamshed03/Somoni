@@ -3,6 +3,7 @@ mod builtins;
 mod error;
 mod interpreter;
 mod lexer;
+mod map;
 mod parser;
 mod scope;
 mod span;

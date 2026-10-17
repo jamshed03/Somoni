@@ -1,0 +1,17 @@
+{"Ali": 30, "Sara": 25}
+25
+31
+2
+true
+false
+Ali: 30
+Sara: 25
+{2: [4], 3: [9]}
+9
+{}
+0
+true
+false
+true
+Team { name: "Pamir", goals: {"Ali": 3} }
+7

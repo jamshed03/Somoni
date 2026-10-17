@@ -14,6 +14,8 @@ pub enum Type {
     Struct(String),
     /// `int?`: an int or null.
     Optional(Box<Type>),
+    /// `map<K, V>` with the key type and the value type.
+    Map(Box<Type>, Box<Type>),
 }
 
 impl Type {
@@ -30,7 +32,7 @@ impl Type {
 
     /// Returns true for the names of built-in types; a struct may not use them.
     pub fn is_builtin_name(name: &str) -> bool {
-        name == "list" || Type::from_return_name(name).is_some()
+        name == "list" || name == "map" || Type::from_return_name(name).is_some()
     }
 
     /// Like `from_name`, but also knows `void` (for return types).
@@ -54,6 +56,7 @@ impl fmt::Display for Type {
             Type::List(element) => write!(f, "list<{}>", element),
             Type::Struct(name) => write!(f, "{}", name),
             Type::Optional(inner) => write!(f, "{}?", inner),
+            Type::Map(key, value) => write!(f, "map<{}, {}>", key, value),
         }
     }
 }

@@ -1,0 +1,3 @@
+Type error [T034]: Line 1: map keys must be string or int, got float
+  1 | var m: map<float, int> = {};
+    |            ^^^^^

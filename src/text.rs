@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// A Somoni string: the text and its number of characters, so `len` needs no counting.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Text {
     text: String,
     chars: usize,

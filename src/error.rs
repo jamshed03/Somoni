@@ -146,6 +146,19 @@ pub enum ErrorCode {
     },
     NullTypeUnknown,
     OptionalVoid,
+    MapKeyType {
+        found: Type,
+    },
+    EmptyMapType,
+    MapEntryType {
+        part: &'static str,
+        expected: Type,
+        found: Type,
+    },
+    MapIndexType {
+        expected: Type,
+        found: Type,
+    },
 
     // runtime
     Internal {
@@ -163,6 +176,12 @@ pub enum ErrorCode {
     IndexOutOfRange {
         index: i64,
         length: usize,
+    },
+    KeyNotFound {
+        key: String,
+    },
+    DuplicateKey {
+        key: String,
     },
 }
 
@@ -217,6 +236,10 @@ impl ErrorCode {
             ErrorCode::NullNotAllowed { .. } => "T031",
             ErrorCode::NullTypeUnknown => "T032",
             ErrorCode::OptionalVoid => "T033",
+            ErrorCode::MapKeyType { .. } => "T034",
+            ErrorCode::EmptyMapType => "T035",
+            ErrorCode::MapEntryType { .. } => "T036",
+            ErrorCode::MapIndexType { .. } => "T037",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -224,6 +247,8 @@ impl ErrorCode {
             ErrorCode::InvalidConversion { .. } => "R003",
             ErrorCode::RecursionTooDeep { .. } => "R004",
             ErrorCode::IndexOutOfRange { .. } => "R005",
+            ErrorCode::KeyNotFound { .. } => "R006",
+            ErrorCode::DuplicateKey { .. } => "R007",
         }
     }
 
@@ -276,14 +301,20 @@ impl ErrorCode {
             | ErrorCode::StructContainsItself { .. }
             | ErrorCode::NullNotAllowed { .. }
             | ErrorCode::NullTypeUnknown
-            | ErrorCode::OptionalVoid => ErrorKind::Type,
+            | ErrorCode::OptionalVoid
+            | ErrorCode::MapKeyType { .. }
+            | ErrorCode::EmptyMapType
+            | ErrorCode::MapEntryType { .. }
+            | ErrorCode::MapIndexType { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
             | ErrorCode::IntegerOverflow
             | ErrorCode::InvalidConversion { .. }
             | ErrorCode::RecursionTooDeep { .. }
-            | ErrorCode::IndexOutOfRange { .. } => ErrorKind::Runtime,
+            | ErrorCode::IndexOutOfRange { .. }
+            | ErrorCode::KeyNotFound { .. }
+            | ErrorCode::DuplicateKey { .. } => ErrorKind::Runtime,
         }
     }
 
@@ -399,6 +430,18 @@ impl ErrorCode {
             ),
             ErrorCode::NullTypeUnknown => "the type of this null is unknown here".to_string(),
             ErrorCode::OptionalVoid => "'void' cannot be optional".to_string(),
+            ErrorCode::MapKeyType { found } => {
+                format!("map keys must be string or int, got {}", found)
+            }
+            ErrorCode::EmptyMapType => "the type of this empty map is unknown here".to_string(),
+            ErrorCode::MapEntryType {
+                part,
+                expected,
+                found,
+            } => format!("map {} must all be {}, got {}", part, expected, found),
+            ErrorCode::MapIndexType { expected, found } => {
+                format!("the key of this map must be {}, got {}", expected, found)
+            }
             ErrorCode::StructContainsItself { name } => format!(
                 "struct '{}' contains itself, so no value of it can be built",
                 name
@@ -417,6 +460,12 @@ impl ErrorCode {
                 "index {} is out of range (list has {} elements)",
                 index, length
             ),
+            ErrorCode::KeyNotFound { key } => {
+                format!("key {} is not in the map (check with has first)", key)
+            }
+            ErrorCode::DuplicateKey { key } => {
+                format!("key {} appears twice in the map literal", key)
+            }
         }
     }
 }

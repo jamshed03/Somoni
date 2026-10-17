@@ -550,6 +550,14 @@ impl Parser {
         })
     }
 
+    /// Reads one `key: value` in a map literal.
+    fn parse_map_entry(&mut self) -> Result<(Expr, Expr), SomoniError> {
+        let key = self.parse_expr()?;
+        self.expect(Token::Colon, "':' after map key")?;
+        let value = self.parse_expr()?;
+        Ok((key, value))
+    }
+
     /// Reads one `x: 1` in a struct literal.
     fn parse_field_init(&mut self) -> Result<FieldInit, SomoniError> {
         let (name, name_span) = self.expect_ident("field name")?;
@@ -563,14 +571,13 @@ impl Parser {
         })
     }
 
-    /// Reads a type like `int`, `int?`, `list<int>` or `list<list<string?>>`.
+    /// Reads a type like `int`, `int?`, `list<int>` or `map<string, list<int>>`.
     fn parse_type(&mut self, what: &str) -> Result<TypeName, SomoniError> {
         let (name, start) = self.expect_ident(what)?;
         let mut args = Vec::new();
         if *self.peek() == Token::Less {
             self.advance();
-            args.push(self.parse_type("type")?);
-            self.expect(Token::Greater, "'>'")?;
+            args = self.parse_comma_list(Token::Greater, "'>'", |this| this.parse_type("type"))?;
         }
         let optional = *self.peek() == Token::Question;
         if optional {
@@ -606,6 +613,14 @@ impl Parser {
                 let elements = self.parse_comma_list(Token::RBracket, "']'", Self::parse_expr)?;
                 return Ok(Expr {
                     kind: ExprKind::List(elements),
+                    span: span.to(self.last_span()),
+                });
+            }
+            Token::LBrace => {
+                self.advance();
+                let entries = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_map_entry)?;
+                return Ok(Expr {
+                    kind: ExprKind::Map(entries),
                     span: span.to(self.last_span()),
                 });
             }

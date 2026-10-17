@@ -1,0 +1,3 @@
+Type error [T035]: Line 1: the type of this empty map is unknown here
+  1 | print({});
+    |       ^^

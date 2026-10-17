@@ -1,0 +1,3 @@
+Runtime error [R006]: Line 2: key "Tom" is not in the map (check with has first)
+  2 | print(alter["Tom"]);
+    |       ^^^^^^^^^^^^

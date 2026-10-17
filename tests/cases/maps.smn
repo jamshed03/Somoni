@@ -1,0 +1,48 @@
+var alter: map<string, int> = {"Ali": 30, "Sara": 25};
+print(alter);
+print(alter["Sara"]);
+print(alter["Ali"] + 1);
+print(len(alter));
+
+// has checks for a key before reading it
+print(has(alter, "Ali"));
+print(has(alter, "Tom"));
+if (has(alter, "Tom")) {
+    print(alter["Tom"]);
+}
+
+// keys in the order they were added
+var namen: list<string> = keys(alter);
+for (var i: int = 0; i < len(namen); i = i + 1) {
+    print(namen[i] + ": " + string(alter[namen[i]]));
+}
+
+// int keys, list values, the empty map
+var squares: map<int, list<int>> = {2: [4], 3: [9]};
+print(squares);
+print(squares[3][0]);
+var leer: map<string, bool> = {};
+print(leer);
+print(len(leer));
+
+// == does not care about the order
+print(alter == {"Sara": 25, "Ali": 30});
+print(alter == {"Ali": 30});
+print(leer == {});
+
+// a map in a struct and as a parameter
+struct Team {
+    name: string,
+    goals: map<string, int>
+}
+var team: Team = Team { name: "Pamir", goals: {"Ali": 3} };
+print(team);
+fn total(goals: map<string, int>): int {
+    var sum: int = 0;
+    var players: list<string> = keys(goals);
+    for (var i: int = 0; i < len(players); i = i + 1) {
+        sum = sum + goals[players[i]];
+    }
+    return sum;
+}
+print(total({"Ali": 3, "Sara": 4}));

@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::interpreter::Value;
+use crate::map::Key;
 use crate::text::Text;
 use crate::types::Type;
 
@@ -13,6 +14,8 @@ pub enum Builtin {
     Float,
     Str,
     Len,
+    Has,
+    Keys,
 }
 
 impl Builtin {
@@ -24,6 +27,8 @@ impl Builtin {
             "float" => Some(Builtin::Float),
             "string" => Some(Builtin::Str),
             "len" => Some(Builtin::Len),
+            "has" => Some(Builtin::Has),
+            "keys" => Some(Builtin::Keys),
             _ => None,
         }
     }
@@ -36,13 +41,21 @@ impl Builtin {
             Builtin::Float => "float",
             Builtin::Str => "string",
             Builtin::Len => "len",
+            Builtin::Has => "has",
+            Builtin::Keys => "keys",
         }
     }
 
     /// Returns the number of arguments.
     pub fn arity(self) -> usize {
         match self {
-            Builtin::Print | Builtin::Int | Builtin::Float | Builtin::Str | Builtin::Len => 1,
+            Builtin::Print
+            | Builtin::Int
+            | Builtin::Float
+            | Builtin::Str
+            | Builtin::Len
+            | Builtin::Keys => 1,
+            Builtin::Has => 2,
         }
     }
 
@@ -56,7 +69,10 @@ impl Builtin {
             (Builtin::Int, [Type::Float | Type::Str]) => Ok(Type::Int),
             (Builtin::Float, [Type::Int | Type::Str]) => Ok(Type::Float),
             (Builtin::Str, [Type::Int | Type::Float | Type::Bool]) => Ok(Type::Str),
-            (Builtin::Len, [Type::Str | Type::List(_)]) => Ok(Type::Int),
+            (Builtin::Len, [Type::Str | Type::List(_) | Type::Map(_, _)]) => Ok(Type::Int),
+            (Builtin::Has, [Type::Map(key, _), found]) if **key == *found => Ok(Type::Bool),
+            (Builtin::Has, [Type::Map(_, _), _]) => Err(1),
+            (Builtin::Keys, [Type::Map(key, _)]) => Ok(Type::List(key.clone())),
             _ => Err(0),
         }
     }
@@ -82,6 +98,16 @@ impl Builtin {
             (Builtin::Str, [arg]) => Ok(Value::Str(Rc::new(Text::new(arg.to_string())))),
             (Builtin::Len, [Value::Str(s)]) => Ok(Value::Int(s.char_count() as i64)),
             (Builtin::Len, [Value::List(items)]) => Ok(Value::Int(items.len() as i64)),
+            (Builtin::Len, [Value::Map(map)]) => Ok(Value::Int(map.len() as i64)),
+            (Builtin::Has, [Value::Map(map), key]) => {
+                let key = Key::from_value(key)
+                    .ok_or_else(|| SomoniError::internal("map key is no int or string"))?;
+                Ok(Value::Bool(map.contains(&key)))
+            }
+            (Builtin::Keys, [Value::Map(map)]) => {
+                let keys = map.entries().map(|(key, _)| key.to_value()).collect();
+                Ok(Value::List(Rc::new(keys)))
+            }
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()

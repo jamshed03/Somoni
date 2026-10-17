@@ -1,0 +1,3 @@
+Type error [T036]: Line 1: map values must all be int, got string
+  1 | var m: map<string, int> = {"a": 1, "b": "zwei"};
+    |                                         ^^^^^^

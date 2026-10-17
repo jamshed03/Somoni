@@ -1,0 +1,2 @@
+var alter: map<string, int> = {"Ali": 30};
+print(alter["Tom"]);
