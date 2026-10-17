@@ -6,16 +6,7 @@ use crate::ast::{
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::runner::{MAX_CALL_DEPTH, Runner, Stop};
-use crate::span::Span;
-use crate::value::{
-    self, StructValue, Value, append, key_not_found, list_position, map_key, show_key, unary,
-};
-
-/// One step from a variable to a part of it: a list index or a field.
-enum Step {
-    Index { index: Value, span: Span },
-    Field(usize),
-}
+use crate::value::{self, Step, StructValue, Value, append, map_key, show_key, unary};
 
 /// What happens after a statement: go on, leave a loop, next round, or leave a function.
 #[derive(Debug, Clone, PartialEq)]
@@ -167,7 +158,7 @@ impl<'a> Interpreter<'a> {
             return self.assign_part(target, value);
         };
         if let Some(slot) = slot
-            && let Some(rest) = appended_part(slot, value)
+            && let Some(rest) = value.appended_to(slot)
             && let Some(Value::Str(_) | Value::List(_)) = self.stack.get(self.base + slot)
         {
             let rest = self.eval(rest)?;
@@ -187,44 +178,10 @@ impl<'a> Interpreter<'a> {
         let mut steps = Vec::new();
         let slot = self.place_steps(target, &mut steps)?;
         let value = self.eval(value)?;
-        let Some(mut place) = slot.and_then(|slot| self.stack.get_mut(self.base + slot)) else {
+        let Some(target) = slot.and_then(|slot| self.stack.get_mut(self.base + slot)) else {
             return Err(SomoniError::internal("variable without a value"));
         };
-        let count = steps.len();
-        for (i, step) in steps.into_iter().enumerate() {
-            let is_last = i + 1 == count;
-            place = match (step, place) {
-                (
-                    Step::Index {
-                        index: Value::Int(index),
-                        span,
-                    },
-                    Value::List(items),
-                ) => {
-                    let items = Rc::make_mut(items);
-                    let position = list_position(index, items.len())
-                        .map_err(|error| error.with_span_if_missing(Some(span)))?;
-                    &mut items[position]
-                }
-                (Step::Index { index, span }, Value::Map(map)) => {
-                    let key = map_key(&index)?;
-                    let map = Rc::make_mut(map);
-                    if is_last {
-                        map.entry(key)
-                    } else {
-                        map.get_mut(&key)
-                            .ok_or_else(|| key_not_found(&key).with_span_if_missing(Some(span)))?
-                    }
-                }
-                (Step::Field(position), Value::Struct(fields)) => Rc::make_mut(fields)
-                    .fields
-                    .get_mut(position)
-                    .ok_or_else(|| SomoniError::internal("unknown field"))?,
-                _ => return Err(SomoniError::internal("step does not fit the value")),
-            };
-        }
-        *place = value;
-        Ok(())
+        value::set_part(target, steps, value)
     }
 
     /// Collects the steps from the variable to the part, e.g. `l[0].x` gives index 0, field x.
@@ -454,25 +411,4 @@ impl<'a> Interpreter<'a> {
         let r = self.eval(right)?;
         value::binary(op, l, r)
     }
-}
-
-/// Returns `rest` if `value` is `x + rest` and `x` is the variable in `slot`.
-fn appended_part(slot: usize, value: &Expr) -> Option<&Expr> {
-    let ExprKind::Binary {
-        left,
-        op: BinaryOp::Add,
-        right,
-        ..
-    } = &value.kind
-    else {
-        return None;
-    };
-    let ExprKind::Ident {
-        slot: Some(left_slot),
-        ..
-    } = left.kind
-    else {
-        return None;
-    };
-    (left_slot == slot).then_some(right)
 }

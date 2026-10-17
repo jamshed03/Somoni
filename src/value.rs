@@ -4,6 +4,7 @@ use std::rc::Rc;
 use crate::ast::{BinaryOp, StructDecl, UnaryOp};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::{Key, MapValue};
+use crate::span::Span;
 use crate::text::Text;
 
 /// A value while the program runs.
@@ -127,6 +128,54 @@ pub fn index(container: &Value, index: &Value) -> Result<Value, SomoniError> {
         }
         _ => Err(SomoniError::internal("index on a non-list")),
     }
+}
+
+/// One step from a variable to a part of it: a list index or map key, or a field.
+pub enum Step {
+    Index { index: Value, span: Span },
+    Field(usize),
+}
+
+/// Writes `value` into the part of `target` that `steps` lead to, e.g. `l[0].x`.
+/// A list, map or struct that another variable also uses is copied first.
+/// Only the last step may add a key to a map: `m["new"] = 1`.
+pub fn set_part(target: &mut Value, steps: Vec<Step>, value: Value) -> Result<(), SomoniError> {
+    let mut place = target;
+    let count = steps.len();
+    for (i, step) in steps.into_iter().enumerate() {
+        let is_last = i + 1 == count;
+        place = match (step, place) {
+            (
+                Step::Index {
+                    index: Value::Int(index),
+                    span,
+                },
+                Value::List(items),
+            ) => {
+                let items = Rc::make_mut(items);
+                let position = list_position(index, items.len())
+                    .map_err(|error| error.with_span_if_missing(Some(span)))?;
+                &mut items[position]
+            }
+            (Step::Index { index, span }, Value::Map(map)) => {
+                let key = map_key(&index)?;
+                let map = Rc::make_mut(map);
+                if is_last {
+                    map.entry(key)
+                } else {
+                    map.get_mut(&key)
+                        .ok_or_else(|| key_not_found(&key).with_span_if_missing(Some(span)))?
+                }
+            }
+            (Step::Field(position), Value::Struct(fields)) => Rc::make_mut(fields)
+                .fields
+                .get_mut(position)
+                .ok_or_else(|| SomoniError::internal("unknown field"))?,
+            _ => return Err(SomoniError::internal("step does not fit the value")),
+        };
+    }
+    *place = value;
+    Ok(())
 }
 
 /// Computes `!value` or `-value`.

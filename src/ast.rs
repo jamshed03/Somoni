@@ -67,6 +67,27 @@ pub enum ExprKind {
 }
 
 impl Expr {
+    /// Returns `rest` if this expression is `x + rest` and `x` is the variable in `slot`.
+    pub fn appended_to(&self, slot: usize) -> Option<&Expr> {
+        let ExprKind::Binary {
+            left,
+            op: BinaryOp::Add,
+            right,
+            ..
+        } = &self.kind
+        else {
+            return None;
+        };
+        let ExprKind::Ident {
+            slot: Some(left_slot),
+            ..
+        } = left.kind
+        else {
+            return None;
+        };
+        (left_slot == slot).then_some(right)
+    }
+
     /// Returns the variable at the start of an assignment target, e.g. `l` in `l[0].x`.
     /// Returns None if the target does not start with a variable.
     pub fn root_variable(&self) -> Option<(&str, Span)> {
