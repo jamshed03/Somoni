@@ -1,0 +1,9 @@
+var r: result<int, string> = ok(5);
+match (r) {
+    ok(n: int) => {
+        print(n);
+    }
+    _ => {
+        print(n);
+    }
+}

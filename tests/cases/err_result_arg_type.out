@@ -1,0 +1,3 @@
+Type error [T014]: Line 1: cannot use string as argument of 'ok'
+  1 | var r: result<int, string> = ok("5");
+    |                                 ^^^

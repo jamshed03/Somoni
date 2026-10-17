@@ -1,0 +1,8 @@
+enum Farbe {
+    Rot
+}
+match (Farbe.Rot) {
+    ok(n: int) => {
+        print(n);
+    }
+}

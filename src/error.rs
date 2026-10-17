@@ -186,7 +186,10 @@ pub enum ErrorCode {
         name: String,
     },
     EmptyEnum,
-    LoopVarType {
+    ResultTypeUnknown {
+        name: &'static str,
+    },
+    BoundVarType {
         name: String,
         expected: Type,
         found: Type,
@@ -274,7 +277,7 @@ impl ErrorCode {
             ErrorCode::MapEntryType { .. } => "T036",
             ErrorCode::MapIndexType { .. } => "T037",
             ErrorCode::NotIterable { .. } => "T038",
-            ErrorCode::LoopVarType { .. } => "T039",
+            ErrorCode::BoundVarType { .. } => "T039",
             ErrorCode::UnknownVariant { .. } => "T040",
             ErrorCode::MatchNotEnum { .. } => "T041",
             ErrorCode::PatternWrongEnum { .. } => "T042",
@@ -284,6 +287,7 @@ impl ErrorCode {
             ErrorCode::MissingBranch { .. } => "T046",
             ErrorCode::DuplicateVariant { .. } => "T047",
             ErrorCode::EmptyEnum => "T048",
+            ErrorCode::ResultTypeUnknown { .. } => "T049",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -352,7 +356,7 @@ impl ErrorCode {
             | ErrorCode::MapEntryType { .. }
             | ErrorCode::MapIndexType { .. }
             | ErrorCode::NotIterable { .. }
-            | ErrorCode::LoopVarType { .. }
+            | ErrorCode::BoundVarType { .. }
             | ErrorCode::UnknownVariant { .. }
             | ErrorCode::MatchNotEnum { .. }
             | ErrorCode::PatternWrongEnum { .. }
@@ -361,7 +365,8 @@ impl ErrorCode {
             | ErrorCode::RestUnreachable
             | ErrorCode::MissingBranch { .. }
             | ErrorCode::DuplicateVariant { .. }
-            | ErrorCode::EmptyEnum => ErrorKind::Type,
+            | ErrorCode::EmptyEnum
+            | ErrorCode::ResultTypeUnknown { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -502,7 +507,9 @@ impl ErrorCode {
             ErrorCode::UnknownVariant { enum_name, name } => {
                 format!("'{}' has no variant '{}'", enum_name, name)
             }
-            ErrorCode::MatchNotEnum { found } => format!("match needs an enum, got {}", found),
+            ErrorCode::MatchNotEnum { found } => {
+                format!("match needs an enum or a result, got {}", found)
+            }
             ErrorCode::PatternWrongEnum { expected, found } => {
                 format!("this match is over {}, not {}", expected, found)
             }
@@ -520,15 +527,18 @@ impl ErrorCode {
                 format!("variant '{}' appears more than once", name)
             }
             ErrorCode::EmptyEnum => "an enum needs at least one variant".to_string(),
+            ErrorCode::ResultTypeUnknown { name } => {
+                format!("the type of this {}(...) is unknown here", name)
+            }
             ErrorCode::NotIterable { found } => {
                 format!("cannot loop over {} (only list, map or string)", found)
             }
-            ErrorCode::LoopVarType {
+            ErrorCode::BoundVarType {
                 name,
                 expected,
                 found,
             } => format!(
-                "loop variable '{}' must be {} here, got {}",
+                "variable '{}' must be {} here, got {}",
                 name, expected, found
             ),
             ErrorCode::StructContainsItself { name } => format!(
@@ -651,4 +661,3 @@ impl fmt::Display for SomoniError {
         }
     }
 }
-

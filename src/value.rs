@@ -19,6 +19,10 @@ pub enum Value {
     Struct(Rc<StructValue>),
     Map(Rc<MapValue>),
     Enum(Rc<EnumValue>),
+    /// `ok(x)` of a result, with the value inside.
+    Ok(Rc<Value>),
+    /// `err(x)` of a result, with the error inside.
+    Err(Rc<Value>),
     Null,
     Void,
 }
@@ -99,6 +103,8 @@ impl fmt::Display for Value {
                 "{}.{}",
                 value.decl.name, value.decl.variants[value.variant].0
             ),
+            Value::Ok(inner) => write!(f, "ok({})", Quoted(inner)),
+            Value::Err(inner) => write!(f, "err({})", Quoted(inner)),
             Value::Null => write!(f, "null"),
             Value::Void => write!(f, "void"),
         }

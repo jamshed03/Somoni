@@ -1,0 +1,3 @@
+Type error [T039]: Line 3: variable 'n' must be int here, got string
+  3 |     ok(n: string) => {
+    |           ^^^^^^

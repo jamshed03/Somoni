@@ -1,0 +1,3 @@
+Type error [T046]: Line 2: no branch for err (add it or use '_')
+  2 | match (r) {
+    | ^^^^^

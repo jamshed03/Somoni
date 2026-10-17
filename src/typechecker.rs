@@ -329,7 +329,7 @@ impl TypeChecker {
                 self.in_scope(|this| {
                     *seq_slot = Some(this.declare("#seq", span, ty, false)?);
                     this.declare("#index", span, Type::Int, true)?;
-                    *slots = this.declare_loop_vars(vars, expected)?;
+                    *slots = this.declare_bound_vars(vars, expected)?;
                     this.check_loop_body(body)
                 })
             }
@@ -339,11 +339,14 @@ impl TypeChecker {
                 subject,
                 arms,
                 arm_of_variant,
+                unwraps,
                 span,
             } => {
-                *arm_of_variant = self.check_match(subject, arms, *span)?;
+                let ty = self.check_expr(subject)?;
+                *arm_of_variant = self.check_match(&ty, subject.span, arms, *span)?;
+                *unwraps = matches!(ty, Type::Result(_, _));
                 for arm in arms {
-                    self.check_stmt(&mut arm.body)?;
+                    self.check_arm(arm, &ty)?;
                 }
                 Ok(())
             }
@@ -541,63 +544,49 @@ impl TypeChecker {
         self.with_not_null(known, |this| this.check_loop_body(body))
     }
 
-    /// Checks the branches of a `match`: every variant needs one, either its own or `_`.
-    /// Returns, for each variant, the number of its branch.
+    /// Checks the branches of a `match` over a value of type `ty`: every variant needs one,
+    /// either its own or `_`. Returns, for each variant, the number of its branch.
     fn check_match(
-        &mut self,
-        subject: &mut Expr,
+        &self,
+        ty: &Type,
+        subject_span: Span,
         arms: &[MatchArm],
         span: Span,
     ) -> Result<Vec<usize>, SomoniError> {
-        let ty = self.check_expr(subject)?;
-        let Some(decl) = self.enum_of(&ty) else {
+        let Some(variants) = variant_names(ty) else {
             return Err(SomoniError::at(
-                subject.span,
-                ErrorCode::MatchNotEnum { found: ty },
+                subject_span,
+                ErrorCode::MatchNotEnum { found: ty.clone() },
             ));
         };
-        let mut branch_of: Vec<Option<usize>> = vec![None; decl.variants.len()];
+        let mut branch_of: Vec<Option<usize>> = vec![None; variants.len()];
         let mut rest: Option<(usize, Span)> = None;
         for (i, arm) in arms.iter().enumerate() {
             if let Some((_, rest_span)) = rest {
                 return Err(SomoniError::at(rest_span, ErrorCode::RestNotLast));
             }
-            match &arm.pattern {
-                Pattern::Variant {
-                    enum_name,
-                    enum_span,
-                    name,
-                    name_span,
-                } => {
-                    if *enum_name != decl.name {
-                        return Err(SomoniError::at(
-                            *enum_span,
-                            ErrorCode::PatternWrongEnum {
-                                expected: ty,
-                                found: enum_name.clone(),
-                            },
-                        ));
-                    }
-                    let variant = variant_of(&decl, name, *name_span)?;
-                    if branch_of[variant].is_some() {
-                        return Err(SomoniError::at(
-                            *name_span,
-                            ErrorCode::DuplicateBranch {
-                                name: format!("{}.{}", decl.name, name),
-                            },
-                        ));
-                    }
-                    branch_of[variant] = Some(i);
+            let (variant, pattern_span) = match &arm.pattern {
+                Pattern::Rest(rest_span) => {
+                    rest = Some((i, *rest_span));
+                    continue;
                 }
-                Pattern::Rest(rest_span) => rest = Some((i, *rest_span)),
+                pattern => pattern_variant(ty, pattern)?,
+            };
+            if branch_of[variant].is_some() {
+                return Err(SomoniError::at(
+                    pattern_span,
+                    ErrorCode::DuplicateBranch {
+                        name: variants[variant].clone(),
+                    },
+                ));
             }
+            branch_of[variant] = Some(i);
         }
-        let missing: Vec<String> = decl
-            .variants
-            .iter()
+        let missing: Vec<String> = variants
+            .into_iter()
             .zip(&branch_of)
             .filter(|(_, branch)| branch.is_none())
-            .map(|((name, _), _)| format!("{}.{}", decl.name, name))
+            .map(|(name, _)| name)
             .collect();
         match rest {
             Some((_, rest_span)) if missing.is_empty() => {
@@ -617,12 +606,24 @@ impl TypeChecker {
         }
     }
 
-    /// Returns the declaration of an enum type.
-    fn enum_of(&self, ty: &Type) -> Option<Rc<EnumDecl>> {
-        match ty {
-            Type::Enum(decl) => Some(Rc::clone(decl)),
-            _ => None,
-        }
+    /// Checks the body of one branch of a `match` over `subject`.
+    /// The variable of `ok(n: int)` exists only inside its branch.
+    fn check_arm(&mut self, arm: &mut MatchArm, subject: &Type) -> Result<(), SomoniError> {
+        let Pattern::Result { ok, var, slot, .. } = &mut arm.pattern else {
+            return self.check_stmt(&mut arm.body);
+        };
+        let Type::Result(value, error) = subject else {
+            return Err(SomoniError::internal(
+                "ok or err in a match over a non-result",
+            ));
+        };
+        let given = if *ok { value } else { error };
+        self.in_scope(|this| {
+            let slots =
+                this.declare_bound_vars(std::slice::from_ref(var), vec![(**given).clone()])?;
+            *slot = slots.first().copied();
+            this.check_stmt(&mut arm.body)
+        })
     }
 
     /// If `expr` is `Farbe.Rot` and `Farbe` is an enum (and no variable), returns the enum
@@ -653,9 +654,10 @@ impl TypeChecker {
         Ok(Some((Rc::clone(decl), variant)))
     }
 
-    /// Declares the variables of a `for`-each loop as const and returns their slots.
+    /// Declares variables whose value is given by the language as const and returns their slots:
+    /// the variables of a `for`-each loop or of `ok(n: int)`.
     /// Each must have exactly the type in `expected`.
-    fn declare_loop_vars(
+    fn declare_bound_vars(
         &mut self,
         vars: &[Param],
         expected: Vec<Type>,
@@ -666,7 +668,7 @@ impl TypeChecker {
             if declared != expected {
                 return Err(SomoniError::at(
                     var.type_name.span,
-                    ErrorCode::LoopVarType {
+                    ErrorCode::BoundVarType {
                         name: var.name.clone(),
                         expected,
                         found: declared,
@@ -731,6 +733,23 @@ impl TypeChecker {
                     expected: expected.clone(),
                 },
             )),
+            (
+                ExprKind::Call {
+                    name, args, target, ..
+                },
+                Type::Result(value, error),
+            ) if Builtin::result_builder(name).is_some() => {
+                let builtin = Builtin::result_builder(name)
+                    .ok_or_else(|| SomoniError::internal("ok or err is no built-in"))?;
+                *target = Some(CallTarget::Builtin(builtin));
+                check_arg_count(name, builtin.arity(), args, expr.span)?;
+                let inner = if builtin == Builtin::Ok { value } else { error };
+                let found = self.check_expr_expecting(&mut args[0], inner)?;
+                if !fits(&found, inner) {
+                    return Err(wrong_arg_type(name, found, args[0].span));
+                }
+                Ok(wanted.clone())
+            }
             _ => self.check_expr(expr),
         }
     }
@@ -1049,6 +1068,14 @@ impl TypeChecker {
                 target,
             } => {
                 if let Some(builtin) = Builtin::from_name(name) {
+                    if builtin.builds_result() {
+                        return Err(SomoniError::at(
+                            expr.span,
+                            ErrorCode::ResultTypeUnknown {
+                                name: builtin.name(),
+                            },
+                        ));
+                    }
                     *target = Some(CallTarget::Builtin(builtin));
                     check_arg_count(name, builtin.arity(), args, expr.span)?;
                     let mut arg_types = Vec::new();
@@ -1147,14 +1174,69 @@ fn binary_type(op: BinaryOp, l: Type, r: Type, op_span: Span) -> Result<Type, So
     }
 }
 
-/// Returns true for `[]`, `{}` and `null`: they need the type of the place where they are used.
+/// Returns true for `[]`, `{}`, `null`, `ok(...)` and `err(...)`:
+/// they need the type of the place where they are used.
 fn needs_type_hint(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::List(elements) => elements.is_empty(),
         ExprKind::Map(entries) => entries.is_empty(),
         ExprKind::Null => true,
+        ExprKind::Call { name, .. } => Builtin::result_builder(name).is_some(),
         _ => false,
     }
+}
+
+/// Returns the variants a `match` over `ty` must cover, as written in a branch:
+/// `Farbe.Rot, ...` for an enum, `ok` and `err` for a result. None if `match` cannot take `ty`.
+fn variant_names(ty: &Type) -> Option<Vec<String>> {
+    match ty {
+        Type::Enum(decl) => Some(
+            decl.variants
+                .iter()
+                .map(|(name, _)| format!("{}.{}", decl.name, name))
+                .collect(),
+        ),
+        Type::Result(_, _) => Some(vec!["ok".to_string(), "err".to_string()]),
+        _ => None,
+    }
+}
+
+/// Returns the number of the variant a branch stands for (`ok` is 0, `err` is 1) and the
+/// place of the pattern, or T042 if the pattern does not fit the type of the `match`.
+fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), SomoniError> {
+    let (found, span) = match (ty, pattern) {
+        (
+            Type::Enum(decl),
+            Pattern::Variant {
+                enum_name,
+                name,
+                name_span,
+                ..
+            },
+        ) if *enum_name == decl.name => {
+            return Ok((variant_of(decl, name, *name_span)?, *name_span));
+        }
+        (Type::Result(_, _), Pattern::Result { ok, span, .. }) => {
+            return Ok((if *ok { 0 } else { 1 }, *span));
+        }
+        (
+            _,
+            Pattern::Variant {
+                enum_name,
+                enum_span,
+                ..
+            },
+        ) => (enum_name.clone(), *enum_span),
+        (_, Pattern::Result { span, .. }) => ("result".to_string(), *span),
+        (_, Pattern::Rest(_)) => return Err(SomoniError::internal("'_' has no variant")),
+    };
+    Err(SomoniError::at(
+        span,
+        ErrorCode::PatternWrongEnum {
+            expected: ty.clone(),
+            found,
+        },
+    ))
 }
 
 /// Returns the number of the variant `name` of an enum, or T040 if it has none.

@@ -4,6 +4,7 @@ use crate::ast::{
     BinaryOp, EnumDecl, Expr, ExprKind, Field, FieldInit, Function, MatchArm, Param, Pattern, Stmt,
     StructDecl, TypeName, UnaryOp,
 };
+use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::text::Text;
@@ -230,11 +231,12 @@ impl Parser {
             subject,
             arms,
             arm_of_variant: Vec::new(),
+            unwraps: false,
             span: start,
         })
     }
 
-    /// Reads what a branch of `match` stands for: `Farbe.Rot` or `_`.
+    /// Reads what a branch of `match` stands for: `Farbe.Rot`, `ok(n: int)`, `err(e: string)` or `_`.
     fn parse_pattern(&mut self) -> Result<Pattern, SomoniError> {
         if let Token::Ident(name) = self.peek()
             && name == "_"
@@ -243,7 +245,24 @@ impl Parser {
             self.advance();
             return Ok(Pattern::Rest(span));
         }
-        let (enum_name, enum_span) = self.expect_ident("enum variant like 'Farbe.Rot' or '_'")?;
+        if let Token::Ident(name) = self.peek()
+            && let Some(builtin) = Builtin::result_builder(name)
+            && *self.peek_next() == Token::LParen
+        {
+            let span = self.current_span();
+            self.advance();
+            self.advance();
+            let var = self.parse_param("variable")?;
+            self.expect(Token::RParen, "')' after the variable")?;
+            return Ok(Pattern::Result {
+                ok: builtin == Builtin::Ok,
+                var,
+                slot: None,
+                span,
+            });
+        }
+        let (enum_name, enum_span) =
+            self.expect_ident("a branch like 'Farbe.Rot', 'ok(n: int)' or '_'")?;
         self.expect(Token::Dot, "'.' after enum name")?;
         let (name, name_span) = self.expect_ident("variant name")?;
         Ok(Pattern::Variant {

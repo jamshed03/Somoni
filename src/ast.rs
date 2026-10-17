@@ -222,11 +222,13 @@ pub enum Stmt {
     StructDecl(Rc<StructDecl>),
     EnumDecl(Rc<EnumDecl>),
     /// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
-    /// The type checker fills in `arm_of_variant`: for each variant, the number of its branch.
+    /// The type checker fills in `arm_of_variant`: for each variant, the number of its branch,
+    /// and `unwraps`: true for a result, whose branches get the value inside it.
     Match {
         subject: Expr,
         arms: Vec<MatchArm>,
         arm_of_variant: Vec<usize>,
+        unwraps: bool,
         span: Span,
     },
     Return {
@@ -285,6 +287,14 @@ pub enum Pattern {
         enum_span: Span,
         name: String,
         name_span: Span,
+    },
+    /// `ok(n: int)` or `err(e: string)`: the variable gets the value inside the result.
+    /// The type checker fills in the slot of the variable.
+    Result {
+        ok: bool,
+        var: Param,
+        slot: Option<usize>,
+        span: Span,
     },
     /// `_`: all variants that have no branch of their own
     Rest(Span),

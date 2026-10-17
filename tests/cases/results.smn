@@ -1,0 +1,80 @@
+fn teilen(a: int, b: int): result<int, string> {
+    if (b == 0) {
+        return err("Division durch 0");
+    }
+    return ok(a / b);
+}
+
+// both branches, the variable exists only in its branch
+fn zeigen(r: result<int, string>): void {
+    match (r) {
+        ok(n: int) => {
+            print(n + 1);
+        }
+        err(n: string) => {
+            print("Fehler: " + n);
+        }
+    }
+}
+zeigen(teilen(10, 2));
+zeigen(teilen(1, 0));
+
+// print, == and !=
+var r: result<int, string> = ok(5);
+print(r);
+print(teilen(1, 0));
+print(r == ok(5));
+print(ok(5) == r);
+print(r != err("x"));
+r = err("neu");
+print(r);
+
+// every branch returns
+fn oder_null(r: result<int, string>): int {
+    match (r) {
+        ok(n: int) => {
+            return n;
+        }
+        err(e: string) => {
+            return 0;
+        }
+    }
+}
+print(oder_null(teilen(9, 3)));
+print(oder_null(teilen(9, 0)));
+
+// _ catches the other variant
+match (teilen(4, 0)) {
+    ok(n: int) => {
+        print(n);
+    }
+    _ => {
+        print("kein Ergebnis");
+    }
+}
+
+// other types inside, also in lists, structs and as argument
+var leer: result<list<int>, string> = ok([]);
+print(leer);
+struct Antwort {
+    wert: result<float, bool>
+}
+var a: Antwort = Antwort { wert: err(false) };
+print(a);
+var alle: list<result<int, string>> = [ok(1), err("zwei"), ok(3)];
+var summe: int = 0;
+for (x: result<int, string> in alle) {
+    match (x) {
+        ok(n: int) => {
+            summe += n;
+        }
+        err(e: string) => {
+            print(e);
+            continue;
+        }
+    }
+}
+print(summe);
+zeigen(ok(41));
+var vielleicht: result<int?, string>? = ok(null);
+print(vielleicht);

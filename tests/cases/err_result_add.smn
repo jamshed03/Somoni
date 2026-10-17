@@ -1,0 +1,2 @@
+var r: result<int, string> = ok(5);
+print(r + 1);

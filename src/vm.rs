@@ -164,10 +164,19 @@ impl<'p> Vm<'p> {
                 })?;
             }
             Op::Switch(table) => {
-                let Value::Enum(value) = self.pop()? else {
-                    return Err(SomoniError::internal("match on a non-enum"));
+                let variant = match self.pop()? {
+                    Value::Enum(value) => value.variant,
+                    Value::Ok(inner) => {
+                        self.stack.push(Rc::unwrap_or_clone(inner));
+                        0
+                    }
+                    Value::Err(inner) => {
+                        self.stack.push(Rc::unwrap_or_clone(inner));
+                        1
+                    }
+                    _ => return Err(SomoniError::internal("match on a non-enum")),
                 };
-                frame.ip = frame.chunk.tables[*table][value.variant];
+                frame.ip = frame.chunk.tables[*table][variant];
             }
             Op::Chars => {
                 let Value::Str(text) = self.pop()? else {

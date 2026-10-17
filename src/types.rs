@@ -21,6 +21,8 @@ pub enum Type {
     Map(Box<Type>, Box<Type>),
     /// An enum of the program, by its declaration.
     Enum(Rc<EnumDecl>),
+    /// `result<T, E>` with the type of `ok` and the type of `err`.
+    Result(Box<Type>, Box<Type>),
 }
 
 impl Type {
@@ -40,21 +42,22 @@ impl Type {
         Type::arg_count(name).is_some() || Type::from_return_name(name).is_some()
     }
 
-    /// Returns how many type arguments `list` and `map` take, None for all other names.
+    /// Returns how many type arguments `list`, `map` and `result` take, None for all other names.
     pub fn arg_count(name: &str) -> Option<usize> {
         match name {
             "list" => Some(1),
-            "map" => Some(2),
+            "map" | "result" => Some(2),
             _ => None,
         }
     }
 
-    /// Builds `list<T>` or `map<K, V>` from the name and the type arguments.
+    /// Builds `list<T>`, `map<K, V>` or `result<T, E>` from the name and the type arguments.
     pub fn with_args(name: &str, args: Vec<Type>) -> Option<Type> {
         let mut args = args.into_iter().map(Box::new);
         match (name, args.next(), args.next(), args.next()) {
             ("list", Some(element), None, None) => Some(Type::List(element)),
             ("map", Some(key), Some(value), None) => Some(Type::Map(key, value)),
+            ("result", Some(value), Some(error), None) => Some(Type::Result(value, error)),
             _ => None,
         }
     }
@@ -82,6 +85,7 @@ impl fmt::Display for Type {
             Type::Optional(inner) => write!(f, "{}?", inner),
             Type::Map(key, value) => write!(f, "map<{}, {}>", key, value),
             Type::Enum(decl) => write!(f, "{}", decl.name),
+            Type::Result(value, error) => write!(f, "result<{}, {}>", value, error),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, IterKind, Stmt};
+use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, IterKind, Pattern, Stmt};
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
 use crate::span::Span;
@@ -120,6 +120,7 @@ impl Compiler {
                 subject,
                 arms,
                 arm_of_variant,
+                unwraps,
                 span,
             } => {
                 self.compile_expr(subject)?;
@@ -130,6 +131,16 @@ impl Compiler {
                 let mut to_end = Vec::new();
                 for arm in arms {
                     starts.push(self.chunk.code.len());
+                    match &arm.pattern {
+                        Pattern::Result { slot, .. } => {
+                            let slot = self.slot(*slot)?;
+                            self.chunk.push(Op::SetLocal(slot), *span);
+                        }
+                        Pattern::Rest(_) if *unwraps => {
+                            self.chunk.push(Op::Pop, *span);
+                        }
+                        Pattern::Variant { .. } | Pattern::Rest(_) => {}
+                    }
                     self.compile_stmt(&arm.body)?;
                     to_end.push(self.chunk.push(Op::Jump(0), *span));
                 }

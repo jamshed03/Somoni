@@ -60,6 +60,7 @@ pub enum Op {
     /// key (map), with `both` the index and the element or the key and the value, and counts up.
     Next { slot: usize, end: usize, both: bool },
     /// Pops an enum value and goes on at the instruction for its variant in jump table `i`.
+    /// For a result (`ok` is 0, `err` is 1) it first pushes the value inside.
     Switch(usize),
 }
 

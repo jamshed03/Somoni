@@ -1,0 +1,3 @@
+Type error [T042]: Line 5: this match is over Farbe, not result
+  5 |     ok(n: int) => {
+    |     ^^

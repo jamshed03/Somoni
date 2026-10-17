@@ -63,12 +63,13 @@ Version 0.4.0: the core of the language plus lists, structs, optional types and 
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected
 -   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`)
+-   Errors as values: `result<int, string>` with `ok(x)` and `err(e)`, read with `match` (`ok(n: int) => { ... }`)
 -   Maps `map<string, int>` with `{"Ali": 30}`, `m["Ali"]`, `m["Tom"] = 40;`, `len`, `has(m, k)`, `keys(m)` (insertion order)
 -   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
--   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys` (conversions are always explicit)
+-   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err` (conversions are always explicit)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
 -   Comments `//` and `/* */`
 
 -   Null checks: after `if (a != null)` the value of `a` can be used
 
-Next: bytecode and a virtual machine (step 12).
+Next: `int(string)` and `float(string)` return a `result` (step 16), then modules (step 17).

@@ -1,0 +1,3 @@
+Type error [T016]: Line 1: 'ok' is a built-in function
+  1 | fn ok(x: int): int {
+    |    ^^

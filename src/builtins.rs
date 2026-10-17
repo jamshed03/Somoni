@@ -16,6 +16,8 @@ pub enum Builtin {
     Len,
     Has,
     Keys,
+    Ok,
+    Err,
 }
 
 impl Builtin {
@@ -29,8 +31,21 @@ impl Builtin {
             "len" => Some(Builtin::Len),
             "has" => Some(Builtin::Has),
             "keys" => Some(Builtin::Keys),
+            "ok" => Some(Builtin::Ok),
+            "err" => Some(Builtin::Err),
             _ => None,
         }
+    }
+
+    /// Returns true for `ok` and `err`: they build a result and take its type from the place
+    /// where they are used, like `null`.
+    pub fn builds_result(self) -> bool {
+        matches!(self, Builtin::Ok | Builtin::Err)
+    }
+
+    /// Returns `ok` or `err` if `name` is one of them.
+    pub fn result_builder(name: &str) -> Option<Builtin> {
+        Builtin::from_name(name).filter(|builtin| builtin.builds_result())
     }
 
     /// Returns the name of the function as written in Somoni.
@@ -43,6 +58,8 @@ impl Builtin {
             Builtin::Len => "len",
             Builtin::Has => "has",
             Builtin::Keys => "keys",
+            Builtin::Ok => "ok",
+            Builtin::Err => "err",
         }
     }
 
@@ -54,7 +71,9 @@ impl Builtin {
             | Builtin::Float
             | Builtin::Str
             | Builtin::Len
-            | Builtin::Keys => 1,
+            | Builtin::Keys
+            | Builtin::Ok
+            | Builtin::Err => 1,
             Builtin::Has => 2,
         }
     }
@@ -62,6 +81,7 @@ impl Builtin {
     /// Returns the result type for these argument types,
     /// or `Err(i)` if argument `i` is not allowed (counted from 0).
     /// Converting to the same type (`int(5)`) is not allowed.
+    /// `ok` and `err` are not here: their type comes from the place (see `builds_result`).
     pub fn result_type(self, args: &[Type]) -> Result<Type, usize> {
         match (self, args) {
             (Builtin::Print, [Type::Void]) => Err(0),
@@ -108,6 +128,8 @@ impl Builtin {
                 let keys = map.entries().map(|(key, _)| key.to_value()).collect();
                 Ok(Value::List(Rc::new(keys)))
             }
+            (Builtin::Ok, [arg]) => Ok(Value::Ok(Rc::new(arg.clone()))),
+            (Builtin::Err, [arg]) => Ok(Value::Err(Rc::new(arg.clone()))),
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()

@@ -1,0 +1,17 @@
+6
+Fehler: Division durch 0
+ok(5)
+err("Division durch 0")
+true
+true
+true
+err("neu")
+3
+0
+kein Ergebnis
+ok([])
+Antwort { wert: err(false) }
+zwei
+4
+42
+ok(null)
