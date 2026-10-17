@@ -21,6 +21,7 @@ pub fn compile(stmts: &[Stmt]) -> Result<Program, Stop> {
     Ok(Program {
         main: compiler.chunk,
         functions,
+        structs: ast::structs(stmts).cloned().collect(),
     })
 }
 
@@ -250,11 +251,43 @@ impl Compiler {
                 };
                 self.chunk.push(op, span);
             }
-            ExprKind::List(_) => return Err(not_in_vm("lists")),
-            ExprKind::Map(_) => return Err(not_in_vm("maps")),
-            ExprKind::Index { .. } => return Err(not_in_vm("[index]")),
-            ExprKind::StructLiteral { .. } => return Err(not_in_vm("structs")),
-            ExprKind::Field { .. } => return Err(not_in_vm("fields")),
+            ExprKind::List(elements) => {
+                for element in elements {
+                    self.compile_expr(element)?;
+                }
+                self.chunk.push(Op::MakeList(elements.len()), span);
+            }
+            ExprKind::Map(entries) => {
+                self.chunk.push(Op::NewMap, span);
+                for (key, value) in entries {
+                    self.compile_expr(key)?;
+                    self.compile_expr(value)?;
+                    self.chunk.push(Op::MapInsert, key.span);
+                }
+            }
+            ExprKind::Index { target, index } => {
+                self.compile_expr(target)?;
+                self.compile_expr(index)?;
+                self.chunk.push(Op::Index, span);
+            }
+            ExprKind::StructLiteral { fields, index, .. } => {
+                let index =
+                    index.ok_or_else(|| SomoniError::internal("struct literal without struct"))?;
+                self.chunk.push(Op::NewStruct(index), span);
+                for init in fields {
+                    self.compile_expr(&init.value)?;
+                    let position = init
+                        .index
+                        .ok_or_else(|| SomoniError::internal("field without a place"))?;
+                    self.chunk.push(Op::InitField(position), span);
+                }
+            }
+            ExprKind::Field { target, index, .. } => {
+                self.compile_expr(target)?;
+                let position =
+                    index.ok_or_else(|| SomoniError::internal("field without a place"))?;
+                self.chunk.push(Op::Field(position), span);
+            }
         }
         Ok(())
     }

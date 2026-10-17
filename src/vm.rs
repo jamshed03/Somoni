@@ -1,9 +1,12 @@
+use std::rc::Rc;
+
 use crate::ast::Stmt;
 use crate::bytecode::{Chunk, Op, Program};
 use crate::compiler;
 use crate::error::{ErrorCode, SomoniError};
+use crate::map::MapValue;
 use crate::runner::{MAX_CALL_DEPTH, Runner, Stop};
-use crate::value::{self, Value};
+use crate::value::{self, StructValue, Value, map_key, show_key};
 
 /// Runs a program by compiling it to bytecode first.
 pub struct VmRunner;
@@ -96,6 +99,50 @@ impl<'p> Vm<'p> {
                     .pop()
                     .ok_or_else(|| SomoniError::internal("return outside of a function"))?;
                 self.stack.push(result);
+            }
+            Op::MakeList(count) => {
+                let start = self.stack.len() - count;
+                let items: Vec<Value> = self.stack.drain(start..).collect();
+                self.stack.push(Value::List(Rc::new(items)));
+            }
+            Op::NewMap => self.stack.push(Value::Map(Rc::new(MapValue::default()))),
+            Op::MapInsert => {
+                let value = self.pop()?;
+                let key = map_key(&self.pop()?)?;
+                let Some(Value::Map(map)) = self.stack.last_mut() else {
+                    return Err(SomoniError::internal("map insert without a map"));
+                };
+                if map.contains(&key) {
+                    return Err(ErrorCode::DuplicateKey {
+                        key: show_key(&key),
+                    }
+                    .into());
+                }
+                Rc::make_mut(map).insert(key, value);
+            }
+            Op::NewStruct(i) => {
+                let decl = Rc::clone(&program.structs[*i]);
+                let fields = vec![Value::Void; decl.fields.len()];
+                self.stack
+                    .push(Value::Struct(Rc::new(StructValue { decl, fields })));
+            }
+            Op::InitField(position) => {
+                let value = self.pop()?;
+                let Some(Value::Struct(target)) = self.stack.last_mut() else {
+                    return Err(SomoniError::internal("field without a struct"));
+                };
+                Rc::make_mut(target).fields[*position] = value;
+            }
+            Op::Index => {
+                let index = self.pop()?;
+                let container = self.pop()?;
+                self.stack.push(value::index(&container, &index)?);
+            }
+            Op::Field(position) => {
+                let Value::Struct(target) = self.pop()? else {
+                    return Err(SomoniError::internal("field of a non-struct"));
+                };
+                self.stack.push(target.fields[*position].clone());
             }
         }
         Ok(())

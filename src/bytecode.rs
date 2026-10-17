@@ -1,6 +1,7 @@
 use std::fmt::Write;
+use std::rc::Rc;
 
-use crate::ast::{BinaryOp, UnaryOp};
+use crate::ast::{BinaryOp, StructDecl, UnaryOp};
 use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::value::{Quoted, Value};
@@ -31,6 +32,20 @@ pub enum Op {
     Call(usize, usize),
     /// Pops the result and goes back to the caller.
     Return,
+    /// Pops `n` values and pushes a list of them.
+    MakeList(usize),
+    /// Pushes an empty map.
+    NewMap,
+    /// Pops a value and a key and adds them to the map below; R007 if the key is already there.
+    MapInsert,
+    /// Pushes a value of struct number `i` whose fields are not set yet.
+    NewStruct(usize),
+    /// Pops a value and sets field `p` of the struct below.
+    InitField(usize),
+    /// Pops an index (or key) and a list (or map), pushes the element.
+    Index,
+    /// Pops a struct, pushes its field `p`.
+    Field(usize),
 }
 
 /// A list of instructions with the constants they use.
@@ -67,6 +82,8 @@ impl Chunk {
 pub struct Program {
     pub main: Chunk,
     pub functions: Vec<Chunk>,
+    /// The structs of the program, numbered like `ast::structs`.
+    pub structs: Vec<Rc<StructDecl>>,
 }
 
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
@@ -102,5 +119,12 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::JumpIfFalse(target) => format!("JumpIfFalse {:04}", target),
         Op::Call(i, args) => format!("Call {} {}", program.functions[*i].name, args),
         Op::Return => "Return".to_string(),
+        Op::MakeList(count) => format!("MakeList {}", count),
+        Op::NewMap => "NewMap".to_string(),
+        Op::MapInsert => "MapInsert".to_string(),
+        Op::NewStruct(i) => format!("NewStruct {}", program.structs[*i].name),
+        Op::InitField(p) => format!("InitField {}", p),
+        Op::Index => "Index".to_string(),
+        Op::Field(p) => format!("Field {}", p),
     }
 }
