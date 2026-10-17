@@ -1,0 +1,75 @@
+var namen: list<string> = ["Ali", "Sara", "Tom"];
+for (name: string in namen) {
+    print(name);
+}
+for (i: int, name: string in namen) {
+    print(string(i) + ": " + name);
+}
+
+// maps: in the order the keys were added
+var alter: map<string, int> = {"Ali": 30, "Sara": 25};
+for (name: string in alter) {
+    print(name);
+}
+for (name: string, jahre: int in alter) {
+    print(name + " ist " + string(jahre));
+}
+
+// strings: characters, not bytes
+for (c: string in "häl") {
+    print(c);
+}
+for (i: int, c: string in "ab") {
+    print(string(i) + c);
+}
+
+for (x: int in [1, 2, 3, 4, 5]) {
+    if (x == 2) {
+        continue;
+    }
+    if (x == 4) {
+        break;
+    }
+    print(x);
+}
+
+// the loop runs over the list as it was at the start
+var l: list<int> = [1, 2];
+for (x: int in l) {
+    l = l + [x * 10];
+}
+print(l);
+
+var leer: list<int> = [];
+for (x: int in leer) {
+    print("never");
+}
+
+// nested loops, return from inside a loop
+for (row: list<int> in [[1, 2], [3]]) {
+    for (x: int in row) {
+        print(x);
+    }
+}
+fn first_big(numbers: list<int>): int {
+    for (x: int in numbers) {
+        if (x > 10) {
+            return x;
+        }
+    }
+    return -1;
+}
+print(first_big([3, 12, 40]));
+print(first_big([]));
+
+// the loop variable is gone after the loop
+var x: int = 100;
+print(x);
+
+// a list<int>? after the null check
+var maybe: list<int>? = [5];
+if (maybe != null) {
+    for (x: int in maybe) {
+        print(x);
+    }
+}

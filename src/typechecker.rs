@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, TypeName, UnaryOp,
+    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, IterKind, Param, Stmt,
+    TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -267,6 +268,31 @@ impl TypeChecker {
                 body,
                 ..
             } => self.in_scope(|this| this.check_for(init, condition, step, body)),
+            Stmt::ForEach {
+                vars,
+                iterable,
+                body,
+                slots,
+                seq_slot,
+                over,
+                ..
+            } => {
+                let ty = self.check_expr(iterable)?;
+                let Some((kind, expected)) = loop_var_types(&ty, vars.len()) else {
+                    return Err(SomoniError::at(
+                        iterable.span,
+                        ErrorCode::NotIterable { found: ty },
+                    ));
+                };
+                *over = Some(kind);
+                let span = iterable.span;
+                self.in_scope(|this| {
+                    *seq_slot = Some(this.declare("#seq", span, ty, false)?);
+                    this.declare("#index", span, Type::Int, true)?;
+                    *slots = this.declare_loop_vars(vars, expected)?;
+                    this.check_loop_body(body)
+                })
+            }
             Stmt::FnDecl(function) => self.check_function(function),
             Stmt::StructDecl(_) => Ok(()),
             Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
@@ -433,6 +459,31 @@ impl TypeChecker {
         self.check_stmt(step)?;
         let known = self.known_not_null(condition, true);
         self.with_not_null(known, |this| this.check_loop_body(body))
+    }
+
+    /// Declares the variables of a `for`-each loop as const and returns their slots.
+    /// Each must have exactly the type in `expected`.
+    fn declare_loop_vars(
+        &mut self,
+        vars: &[Param],
+        expected: Vec<Type>,
+    ) -> Result<Vec<usize>, SomoniError> {
+        let mut slots = Vec::new();
+        for (var, expected) in vars.iter().zip(expected) {
+            let declared = self.resolve_type(&var.type_name, false)?;
+            if declared != expected {
+                return Err(SomoniError::at(
+                    var.type_name.span,
+                    ErrorCode::LoopVarType {
+                        name: var.name.clone(),
+                        expected,
+                        found: declared,
+                    },
+                ));
+            }
+            slots.push(self.declare(&var.name, var.name_span, declared, false)?);
+        }
+        Ok(slots)
     }
 
     /// Checks a loop body; inside it, `break` and `continue` are allowed.
@@ -872,6 +923,24 @@ impl TypeChecker {
     }
 }
 
+/// Returns what a `for`-each loop over `ty` runs over and the types of its `count` variables:
+/// a list gives the element (or index and element), a map the key (or key and value),
+/// a string a character (or index and character). None if `ty` cannot be looped over.
+fn loop_var_types(ty: &Type, count: usize) -> Option<(IterKind, Vec<Type>)> {
+    let (kind, first, second) = match ty {
+        Type::List(element) => (IterKind::List, Type::Int, (**element).clone()),
+        Type::Map(key, value) => (IterKind::Map, (**key).clone(), (**value).clone()),
+        Type::Str => (IterKind::Str, Type::Int, Type::Str),
+        _ => return None,
+    };
+    let types = match (kind, count) {
+        (_, 2) => vec![first, second],
+        (IterKind::Map, _) => vec![first],
+        (IterKind::List | IterKind::Str, _) => vec![second],
+    };
+    Some((kind, types))
+}
+
 /// Returns true for `[]`, `{}` and `null`: they need the type of the place where they are used.
 fn needs_type_hint(expr: &Expr) -> bool {
     match &expr.kind {
@@ -975,7 +1044,7 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
             }
             None => false,
         },
-        Stmt::While { .. } | Stmt::For { .. } => false,
+        Stmt::While { .. } | Stmt::For { .. } | Stmt::ForEach { .. } => false,
         Stmt::VarDecl { .. }
         | Stmt::Assign { .. }
         | Stmt::Expr { .. }

@@ -1,0 +1,4 @@
+// the loop variable is const
+for (x: int in [1, 2]) {
+    x = x + 1;
+}

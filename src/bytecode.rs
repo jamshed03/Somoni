@@ -51,6 +51,12 @@ pub enum Op {
     AppendLocal(usize),
     /// Pops a value and the indices of path number `i`, writes the value into that part.
     SetPart(usize),
+    /// Pops a string, pushes the list of its characters (for `for`-each over a string).
+    Chars,
+    /// One round of a `for`-each loop over the list or map in `slot`; the index is in `slot + 1`.
+    /// If the index is past the end, goes on at `end`. Otherwise pushes the element (list) or
+    /// key (map), with `both` the index and the element or the key and the value, and counts up.
+    Next { slot: usize, end: usize, both: bool },
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -148,6 +154,11 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::Index => "Index".to_string(),
         Op::Field(p) => format!("Field {}", p),
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
+        Op::Chars => "Chars".to_string(),
+        Op::Next { slot, end, both } => {
+            let both = if *both { " both" } else { "" };
+            format!("Next {} {:04}{}", slot, end, both)
+        }
         Op::SetPart(i) => {
             let path = &chunk.paths[*i];
             let steps: String = path

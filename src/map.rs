@@ -79,6 +79,11 @@ impl MapValue {
         *self.entry(key) = value;
     }
 
+    /// Returns entry number `i`, counted in the order the entries were added.
+    pub fn nth(&self, i: usize) -> Option<&(Key, Value)> {
+        self.entries.get(i)
+    }
+
     /// Returns all entries in the order they were added.
     pub fn entries(&self) -> impl Iterator<Item = &(Key, Value)> {
         self.entries.iter()

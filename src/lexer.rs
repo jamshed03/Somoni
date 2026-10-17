@@ -121,6 +121,7 @@ impl Lexer {
             "return" => Token::Return,
             "struct" => Token::Struct,
             "null" => Token::Null,
+            "in" => Token::In,
             _ => Token::Ident(text),
         }
     }

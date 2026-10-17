@@ -1,0 +1,4 @@
+var l: list<int>? = [1];
+for (x: int in l) {
+    print(x);
+}

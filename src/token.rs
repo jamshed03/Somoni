@@ -18,6 +18,7 @@ pub enum Token {
     Return,
     Struct,
     Null,
+    In,
 
     // names and values
     Ident(String),

@@ -110,6 +110,14 @@ pub struct FieldInit {
     pub index: Option<usize>,
 }
 
+/// What a `for`-each loop runs over.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum IterKind {
+    List,
+    Map,
+    Str,
+}
+
 /// What a call calls: a built-in function, or a function of the program by its number.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CallTarget {
@@ -182,6 +190,18 @@ pub enum Stmt {
         condition: Expr,
         step: Box<Stmt>,
         body: Box<Stmt>,
+        span: Span,
+    },
+    /// `for (x: T in iterable) body` or `for (a: T, b: U in iterable) body`.
+    /// The type checker fills in `slots` (one per variable), `seq_slot` (a hidden copy of the
+    /// iterable, the hidden index is the slot after it) and `over`.
+    ForEach {
+        vars: Vec<Param>,
+        iterable: Expr,
+        body: Box<Stmt>,
+        slots: Vec<usize>,
+        seq_slot: Option<usize>,
+        over: Option<IterKind>,
         span: Span,
     },
     Break {

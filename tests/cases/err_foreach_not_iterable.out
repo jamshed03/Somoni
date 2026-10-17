@@ -1,0 +1,3 @@
+Type error [T038]: Line 1: cannot loop over int (only list, map or string)
+  1 | for (x: int in 5) {
+    |                ^

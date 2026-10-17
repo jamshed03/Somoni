@@ -149,7 +149,8 @@ impl Parser {
         self.advance();
         let (name, name_span) = self.expect_ident("function name")?;
         self.expect(Token::LParen, "'(' after function name")?;
-        let params = self.parse_comma_list(Token::RParen, "')'", Self::parse_param)?;
+        let params =
+            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
         self.expect(Token::Colon, "':' and a return type after ')'")?;
         let return_type = self.parse_type("return type")?;
         let body = self.expect_block_stmts("after function header")?;
@@ -162,11 +163,12 @@ impl Parser {
         }))
     }
 
-    /// Reads one parameter `a: int`.
-    fn parse_param(&mut self) -> Result<Param, SomoniError> {
-        let (name, name_span) = self.expect_ident("parameter name")?;
-        self.expect(Token::Colon, "':' after parameter name")?;
-        let type_name = self.parse_type("parameter type")?;
+    /// Reads `a: int`, a parameter or the variable of a `for`-each loop.
+    /// `what` names it in error messages.
+    fn parse_param(&mut self, what: &str) -> Result<Param, SomoniError> {
+        let (name, name_span) = self.expect_ident(&format!("{} name", what))?;
+        self.expect(Token::Colon, &format!("':' after {} name", what))?;
+        let type_name = self.parse_type(&format!("{} type", what))?;
         Ok(Param {
             name,
             name_span,
@@ -304,6 +306,11 @@ impl Parser {
     fn parse_for(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'for'")?;
+        if let Token::Ident(_) = self.peek()
+            && *self.peek_next() == Token::Colon
+        {
+            return self.parse_foreach(start);
+        }
 
         let init = match self.peek() {
             Token::Var => self.parse_var_decl(true, self.current_span())?,
@@ -340,6 +347,29 @@ impl Parser {
             condition,
             step: Box::new(step),
             body: Box::new(body),
+            span: start,
+        })
+    }
+
+    /// Reads the rest of `for (name: string in namen) { ... }` or `for (i: int, name: string in ...)`.
+    /// `for (` is already read.
+    fn parse_foreach(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        let mut vars = vec![self.parse_param("loop variable")?];
+        if *self.peek() == Token::Comma {
+            self.advance();
+            vars.push(self.parse_param("loop variable")?);
+        }
+        self.expect(Token::In, "'in'")?;
+        let iterable = self.parse_expr()?;
+        self.expect(Token::RParen, "')' after the list")?;
+        let body = self.expect_block("after for header")?;
+        Ok(Stmt::ForEach {
+            vars,
+            iterable,
+            body: Box::new(body),
+            slots: Vec::new(),
+            seq_slot: None,
+            over: None,
             span: start,
         })
     }

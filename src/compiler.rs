@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt};
+use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, IterKind, Stmt};
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
 use crate::span::Span;
@@ -132,6 +132,51 @@ impl Compiler {
                 self.compile_stmt(init)?;
                 self.compile_loop(condition, body, Some(step))?;
             }
+            Stmt::ForEach {
+                vars,
+                iterable,
+                body,
+                slots,
+                seq_slot,
+                over,
+                span,
+            } => {
+                let seq = self.slot(*seq_slot)?;
+                let index = self.slot(Some(seq + 1))?;
+                self.compile_expr(iterable)?;
+                if let Some(IterKind::Str) = over {
+                    self.chunk.push(Op::Chars, iterable.span);
+                }
+                self.chunk.push(Op::SetLocal(seq), *span);
+                self.push_constant(Value::Int(0), *span);
+                self.chunk.push(Op::SetLocal(index), *span);
+
+                let start = self.chunk.code.len();
+                let both = vars.len() == 2;
+                let next = self.chunk.push(
+                    Op::Next {
+                        slot: seq,
+                        end: 0,
+                        both,
+                    },
+                    *span,
+                );
+                for slot in slots.iter().rev() {
+                    let slot = self.slot(Some(*slot))?;
+                    self.chunk.push(Op::SetLocal(slot), *span);
+                }
+                self.loops.push(LoopJumps::default());
+                self.compile_stmt(body)?;
+                let jumps = self.loops.pop().unwrap_or_default();
+                self.chunk.push(Op::Jump(start), *span);
+                for jump in jumps.continues {
+                    self.patch_jump_to(jump, start);
+                }
+                self.patch_jump(next);
+                for jump in jumps.breaks {
+                    self.patch_jump(jump);
+                }
+            }
             Stmt::Break { span } => {
                 let jump = self.chunk.push(Op::Jump(0), *span);
                 self.current_loop()?.breaks.push(jump);
@@ -227,7 +272,9 @@ impl Compiler {
 
     /// Lets the jump at position `at` go to `target`.
     fn patch_jump_to(&mut self, at: usize, target: usize) {
-        if let Some(Op::Jump(to) | Op::JumpIfFalse(to)) = self.chunk.code.get_mut(at) {
+        if let Some(Op::Jump(to) | Op::JumpIfFalse(to) | Op::Next { end: to, .. }) =
+            self.chunk.code.get_mut(at)
+        {
             *to = target;
         }
     }

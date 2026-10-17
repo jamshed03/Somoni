@@ -1,0 +1,3 @@
+Type error [T038]: Line 2: cannot loop over list<int>? (only list, map or string)
+  2 | for (x: int in l) {
+    |                ^

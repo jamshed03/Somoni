@@ -1,0 +1,3 @@
+for (name: string, jahre: string in {"Ali": 30}) {
+    print(name);
+}

@@ -1,0 +1,4 @@
+for (x: int in [1]) {
+    print(x);
+}
+print(x);

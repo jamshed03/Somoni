@@ -58,7 +58,7 @@ Version 0.4.0: the core of the language plus lists, structs, optional types and 
 -   Integer overflow and division by zero are runtime errors
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
--   `while` and `for` loops with `break` and `continue`
+-   `while`, `for` and `for (x: int in list)` over lists, maps and strings, with `break` and `continue`
 -   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)`, joined with `l + [4]` (values are copied like PHP arrays)
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected

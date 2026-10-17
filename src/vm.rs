@@ -4,6 +4,7 @@ use crate::ast::BinaryOp;
 use crate::bytecode::{Chunk, Op, PathStep, Program};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
+use crate::text::Text;
 use crate::value::{self, Step, StructValue, Value, map_key, show_key};
 
 /// More nested calls than this are runtime error R004.
@@ -149,6 +150,46 @@ impl<'p> Vm<'p> {
                 } else {
                     let left = std::mem::replace(target, Value::Void);
                     *target = value::binary(BinaryOp::Add, left, rest)?;
+                }
+            }
+            Op::Chars => {
+                let Value::Str(text) = self.pop()? else {
+                    return Err(SomoniError::internal("characters of a non-string"));
+                };
+                let chars = text
+                    .as_str()
+                    .chars()
+                    .map(|c| Value::Str(Rc::new(Text::new(c.to_string()))))
+                    .collect();
+                self.stack.push(Value::List(Rc::new(chars)));
+            }
+            Op::Next { slot, end, both } => {
+                let place = frame.base + slot;
+                let Value::Int(i) = self.stack[place + 1] else {
+                    return Err(SomoniError::internal("loop index is not an int"));
+                };
+                let position = i as usize;
+                let entry = match &self.stack[place] {
+                    Value::List(items) => items
+                        .get(position)
+                        .map(|item| (Value::Int(i), item.clone(), true)),
+                    Value::Map(map) => map
+                        .nth(position)
+                        .map(|(key, value)| (key.to_value(), value.clone(), false)),
+                    _ => return Err(SomoniError::internal("loop over a non-list")),
+                };
+                let Some((key, item, is_list)) = entry else {
+                    frame.ip = *end;
+                    return Ok(());
+                };
+                self.stack[place + 1] = Value::Int(i + 1);
+                match (*both, is_list) {
+                    (true, _) => {
+                        self.stack.push(key);
+                        self.stack.push(item);
+                    }
+                    (false, true) => self.stack.push(item),
+                    (false, false) => self.stack.push(key),
                 }
             }
             Op::SetPart(i) => {

@@ -1,0 +1,3 @@
+Type error [T039]: Line 1: loop variable 'jahre' must be int here, got string
+  1 | for (name: string, jahre: string in {"Ali": 30}) {
+    |                           ^^^^^^

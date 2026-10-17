@@ -159,6 +159,14 @@ pub enum ErrorCode {
         expected: Type,
         found: Type,
     },
+    NotIterable {
+        found: Type,
+    },
+    LoopVarType {
+        name: String,
+        expected: Type,
+        found: Type,
+    },
 
     // runtime
     Internal {
@@ -240,6 +248,8 @@ impl ErrorCode {
             ErrorCode::EmptyMapType => "T035",
             ErrorCode::MapEntryType { .. } => "T036",
             ErrorCode::MapIndexType { .. } => "T037",
+            ErrorCode::NotIterable { .. } => "T038",
+            ErrorCode::LoopVarType { .. } => "T039",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -305,7 +315,9 @@ impl ErrorCode {
             | ErrorCode::MapKeyType { .. }
             | ErrorCode::EmptyMapType
             | ErrorCode::MapEntryType { .. }
-            | ErrorCode::MapIndexType { .. } => ErrorKind::Type,
+            | ErrorCode::MapIndexType { .. }
+            | ErrorCode::NotIterable { .. }
+            | ErrorCode::LoopVarType { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -442,6 +454,17 @@ impl ErrorCode {
             ErrorCode::MapIndexType { expected, found } => {
                 format!("the key of this map must be {}, got {}", expected, found)
             }
+            ErrorCode::NotIterable { found } => {
+                format!("cannot loop over {} (only list, map or string)", found)
+            }
+            ErrorCode::LoopVarType {
+                name,
+                expected,
+                found,
+            } => format!(
+                "loop variable '{}' must be {} here, got {}",
+                name, expected, found
+            ),
             ErrorCode::StructContainsItself { name } => format!(
                 "struct '{}' contains itself, so no value of it can be built",
                 name
