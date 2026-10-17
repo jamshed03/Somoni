@@ -53,7 +53,7 @@ fn main() {
 
 /// Runs the whole pipeline: lexer, parser, type checker, compiler, VM.
 fn run(source: &str, show_bytecode: bool) -> Result<(), SomoniError> {
-    let tokens = Lexer::new(source).tokenize()?;
+    let tokens = Lexer::new(source, 0).tokenize()?;
     let mut stmts = Parser::new(tokens).parse_program()?;
     TypeChecker::new().check(&mut stmts)?;
     let program = compiler::compile(&stmts)?;

@@ -4,6 +4,7 @@ use crate::token::{SpannedToken, Token};
 
 /// Turns the source text into tokens, each with its place (line and column).
 pub struct Lexer {
+    file: usize,
     chars: Vec<char>,
     pos: usize,
     line: usize,
@@ -11,8 +12,9 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(input: &str) -> Lexer {
+    pub fn new(input: &str, file: usize) -> Lexer {
         Lexer {
+            file,
             chars: input.chars().collect(),
             pos: 0,
             line: 1,
@@ -49,6 +51,7 @@ impl Lexer {
     /// Returns the place from (line, col) up to the current character.
     fn span_from(&self, line: usize, col: usize) -> Span {
         Span {
+            file: self.file,
             line,
             col,
             end_line: self.line,
@@ -130,7 +133,7 @@ impl Lexer {
 
     /// Reads a string `"..."`; it may go over several lines.
     fn read_string(&mut self) -> Result<Token, SomoniError> {
-        let start = Span::in_line(self.line, self.col(), 1);
+        let start = Span::in_line(self.file, self.line, self.col(), 1);
         self.advance();
         let mut text = String::new();
         while let Some(c) = self.peek() {
@@ -160,7 +163,7 @@ impl Lexer {
 
     /// Skips a comment `/* ... */`, also over several lines.
     fn skip_block_comment(&mut self) -> Result<(), SomoniError> {
-        let start = Span::in_line(self.line, self.col(), 2);
+        let start = Span::in_line(self.file, self.line, self.col(), 2);
         self.advance();
         self.advance();
         loop {
@@ -267,7 +270,7 @@ impl Lexer {
                 '?' => (Token::Question, 1),
                 _ => {
                     return Err(SomoniError::at(
-                        Span::in_line(line, col, 1),
+                        Span::in_line(self.file, line, col, 1),
                         ErrorCode::UnexpectedCharacter { found: c },
                     ));
                 }
@@ -295,7 +298,7 @@ mod tests {
 
     /// Returns (line, col, end_line, end_col) of every token, Eof included.
     fn spans(source: &str) -> Vec<(usize, usize, usize, usize)> {
-        Lexer::new(source)
+        Lexer::new(source, 0)
             .tokenize()
             .unwrap()
             .iter()
