@@ -64,6 +64,16 @@ pub enum ExprKind {
     },
 }
 
+impl Expr {
+    // the variable an assignment writes to, None if the expression is no variable
+    pub fn root_variable(&self) -> Option<(&str, Span)> {
+        match &self.kind {
+            ExprKind::Ident { name, .. } => Some((name, self.span)),
+            _ => None,
+        }
+    }
+}
+
 // `field: value` in a struct literal
 #[derive(Debug, Clone, PartialEq)]
 pub struct FieldInit {
@@ -121,11 +131,11 @@ pub enum Stmt {
         expr: Expr,
         span: Span,
     },
+    // target = value; the target is an expression, so the type checker can check it
+    // like any other (the parser only lets a variable through)
     Assign {
-        name: String,
-        name_span: Span,
+        target: Expr,
         value: Expr,
-        slot: Option<usize>,
         span: Span,
     },
     Block(Vec<Stmt>),

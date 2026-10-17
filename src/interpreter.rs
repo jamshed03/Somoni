@@ -182,8 +182,8 @@ impl<'a> Interpreter<'a> {
                 self.set(*slot, v)?;
                 Ok(ControlFlow::Normal)
             }
-            Stmt::Assign { value, slot, .. } => {
-                self.assign(*slot, value)?;
+            Stmt::Assign { target, value, .. } => {
+                self.assign(target, value)?;
                 Ok(ControlFlow::Normal)
             }
             Stmt::Expr { expr, .. } => {
@@ -232,7 +232,10 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn assign(&mut self, slot: Option<usize>, value: &Expr) -> Result<(), SomoniError> {
+    fn assign(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
+        let ExprKind::Ident { slot, .. } = target.kind else {
+            return Err(SomoniError::internal("assignment to a non-variable"));
+        };
         if let Some(slot) = slot
             && let Some(text) = appended_text(slot, value)
             && let Some(Value::Str(_)) = self.stack.get(self.base + slot)

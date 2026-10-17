@@ -230,16 +230,7 @@ impl TypeChecker {
                 *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
                 Ok(())
             }
-            Stmt::Assign {
-                name,
-                name_span,
-                value,
-                slot,
-                ..
-            } => {
-                *slot = Some(self.check_assign(name, *name_span, value)?);
-                Ok(())
-            }
+            Stmt::Assign { target, value, .. } => self.check_assign(target, value),
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
                 Ok(())
@@ -329,22 +320,14 @@ impl TypeChecker {
         Ok(())
     }
 
-    // returns the slot of the variable
-    fn check_assign(
-        &self,
-        name: &str,
-        name_span: Span,
-        value: &mut Expr,
-    ) -> Result<usize, SomoniError> {
-        let info = self.scopes.lookup(name).ok_or_else(|| {
-            SomoniError::at(
-                name_span,
-                ErrorCode::UnknownVariable {
-                    name: name.to_string(),
-                },
-            )
-        })?;
-        if !info.mutable {
+    // The target is checked like an expression that is read: that reports unknown
+    // variables and fills in the slot. Then it must be a variable that is not const.
+    fn check_assign(&self, target: &mut Expr, value: &mut Expr) -> Result<(), SomoniError> {
+        let target_type = self.check_expr(target)?;
+        let Some((name, name_span)) = target.root_variable() else {
+            return Err(SomoniError::internal("assignment to a non-variable"));
+        };
+        if !self.scopes.lookup(name).is_some_and(|info| info.mutable) {
             return Err(SomoniError::at(
                 name_span,
                 ErrorCode::AssignToConst {
@@ -352,8 +335,7 @@ impl TypeChecker {
                 },
             ));
         }
-        self.check_assignable(value, &info.ty)?;
-        Ok(info.slot)
+        self.check_assignable(value, &target_type)
     }
 
     fn check_return(&self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {

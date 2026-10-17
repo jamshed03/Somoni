@@ -346,13 +346,15 @@ impl Parser {
     // `start` is the name
     fn parse_assignment(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
         self.advance(); // name
+        let target = Expr {
+            kind: ExprKind::Ident { name, slot: None },
+            span: start,
+        };
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
         Ok(Stmt::Assign {
-            name,
-            name_span: start,
+            target,
             value,
-            slot: None,
             span: self.since(start),
         })
     }
