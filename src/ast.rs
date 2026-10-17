@@ -242,26 +242,6 @@ pub struct TypeName {
     pub span: Span,
 }
 
-impl Stmt {
-    /// Returns the place of the statement for error messages (None for a block).
-    pub fn span(&self) -> Option<Span> {
-        match self {
-            Stmt::VarDecl { span, .. }
-            | Stmt::Expr { span, .. }
-            | Stmt::Assign { span, .. }
-            | Stmt::If { span, .. }
-            | Stmt::While { span, .. }
-            | Stmt::For { span, .. }
-            | Stmt::Break { span }
-            | Stmt::Continue { span }
-            | Stmt::Return { span, .. } => Some(*span),
-            Stmt::FnDecl(function) => Some(function.name_span),
-            Stmt::StructDecl(decl) => Some(decl.name_span),
-            Stmt::Block(_) => None,
-        }
-    }
-}
-
 /// Returns all structs of the program. Their order gives each struct its number.
 pub fn structs(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<StructDecl>> {
     stmts.iter().filter_map(|stmt| match stmt {

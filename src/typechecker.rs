@@ -32,7 +32,7 @@ struct StructInfo {
 }
 
 /// Checks the types of a program before it runs.
-/// It also writes into the tree what the interpreter needs: slots, call targets, field positions.
+/// It also writes into the tree what the compiler needs: slots, call targets, field positions.
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
     loop_depth: usize,

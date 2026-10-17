@@ -3,12 +3,11 @@ use std::rc::Rc;
 use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt};
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
-use crate::runner::Stop;
 use crate::span::Span;
 use crate::value::Value;
 
 /// Turns a checked program into bytecode.
-pub fn compile(stmts: &[Stmt]) -> Result<Program, Stop> {
+pub fn compile(stmts: &[Stmt]) -> Result<Program, SomoniError> {
     let mut compiler = Compiler::default();
     compiler.chunk.name = "program".to_string();
     for stmt in stmts {
@@ -27,7 +26,7 @@ pub fn compile(stmts: &[Stmt]) -> Result<Program, Stop> {
 
 /// Turns one function into its own chunk. The parameters are its first variables.
 /// A function that reaches its end without `return` returns `void`.
-fn compile_function(function: &Function) -> Result<Chunk, Stop> {
+fn compile_function(function: &Function) -> Result<Chunk, SomoniError> {
     let mut compiler = Compiler::default();
     compiler.chunk.name = format!("fn {}", function.name);
     compiler.chunk.locals = function.params.len();
@@ -56,7 +55,7 @@ struct LoopJumps {
 
 impl Compiler {
     /// Writes the instructions of a statement. Afterwards the stack is as before.
-    fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), Stop> {
+    fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl {
                 value, slot, span, ..
@@ -159,7 +158,7 @@ impl Compiler {
         condition: &Expr,
         body: &Stmt,
         step: Option<&Stmt>,
-    ) -> Result<(), Stop> {
+    ) -> Result<(), SomoniError> {
         let start = self.chunk.code.len();
         self.compile_expr(condition)?;
         let to_end = self.chunk.push(Op::JumpIfFalse(0), condition.span);
@@ -183,7 +182,11 @@ impl Compiler {
 
     /// Writes the indices of an assignment target like `l[i].x` from left to right
     /// and collects its steps. Returns the slot of the variable.
-    fn compile_path(&mut self, target: &Expr, steps: &mut Vec<PathStep>) -> Result<usize, Stop> {
+    fn compile_path(
+        &mut self,
+        target: &Expr,
+        steps: &mut Vec<PathStep>,
+    ) -> Result<usize, SomoniError> {
         match &target.kind {
             ExprKind::Ident { slot, .. } => self.slot(*slot),
             ExprKind::Index {
@@ -206,15 +209,15 @@ impl Compiler {
                 steps.push(PathStep::Field(position));
                 Ok(slot)
             }
-            _ => Err(SomoniError::internal("assignment to a non-variable").into()),
+            _ => Err(SomoniError::internal("assignment to a non-variable")),
         }
     }
 
     /// Returns the jumps of the innermost loop.
-    fn current_loop(&mut self) -> Result<&mut LoopJumps, Stop> {
+    fn current_loop(&mut self) -> Result<&mut LoopJumps, SomoniError> {
         self.loops
             .last_mut()
-            .ok_or_else(|| SomoniError::internal("break or continue outside of a loop").into())
+            .ok_or_else(|| SomoniError::internal("break or continue outside of a loop"))
     }
 
     /// Lets the jump at position `at` go to the next instruction that will be written.
@@ -230,7 +233,7 @@ impl Compiler {
     }
 
     /// Writes the instructions of an expression. Afterwards its value is on top of the stack.
-    fn compile_expr(&mut self, expr: &Expr) -> Result<(), Stop> {
+    fn compile_expr(&mut self, expr: &Expr) -> Result<(), SomoniError> {
         let span = expr.span;
         match &expr.kind {
             ExprKind::Int(n) => self.push_constant(Value::Int(*n), span),
@@ -288,7 +291,7 @@ impl Compiler {
                 let op = match target {
                     Some(CallTarget::Builtin(builtin)) => Op::CallBuiltin(*builtin, args.len()),
                     Some(CallTarget::Function(i)) => Op::Call(*i, args.len()),
-                    None => return Err(SomoniError::internal("call without target").into()),
+                    None => return Err(SomoniError::internal("call without target")),
                 };
                 self.chunk.push(op, span);
             }
@@ -340,7 +343,7 @@ impl Compiler {
     }
 
     /// Returns the slot the type checker gave a variable, and makes room for it.
-    fn slot(&mut self, slot: Option<usize>) -> Result<usize, Stop> {
+    fn slot(&mut self, slot: Option<usize>) -> Result<usize, SomoniError> {
         let slot = slot.ok_or_else(|| SomoniError::internal("variable without a slot"))?;
         self.chunk.locals = self.chunk.locals.max(slot + 1);
         Ok(slot)

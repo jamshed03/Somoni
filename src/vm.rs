@@ -1,22 +1,17 @@
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, Stmt};
+use crate::ast::BinaryOp;
 use crate::bytecode::{Chunk, Op, PathStep, Program};
-use crate::compiler;
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
-use crate::runner::{MAX_CALL_DEPTH, Runner, Stop};
 use crate::value::{self, Step, StructValue, Value, map_key, show_key};
 
-/// Runs a program by compiling it to bytecode first.
-pub struct VmRunner;
+/// More nested calls than this are runtime error R004.
+const MAX_CALL_DEPTH: usize = 10_000;
 
-impl<'a> Runner<'a> for VmRunner {
-    fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), Stop> {
-        let program = compiler::compile(stmts)?;
-        Vm::default().run(&program)?;
-        Ok(())
-    }
+/// Runs a compiled program.
+pub fn run(program: &Program) -> Result<(), SomoniError> {
+    Vm::default().run(program)
 }
 
 /// One running chunk: the program or a called function.

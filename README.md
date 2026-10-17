@@ -15,8 +15,7 @@ print(x % 3);
 
 ## Run
 
-    cargo run -- examples/hello.smn              # tree interpreter
-    cargo run -- --vm examples/hello.smn         # bytecode VM
+    cargo run -- examples/hello.smn              # run it
     cargo run -- --bytecode examples/hello.smn   # show the bytecode instead of running it
 
 ## Tests
@@ -35,12 +34,13 @@ Programs that should fail start with `err_` and must exit with code 1, all other
     bench/run.sh
 
 Runs the programs in `bench/` in Somoni, PHP, Node.js and Python and compares them with
-[hyperfine](https://github.com/sharkdp/hyperfine). Somoni is a tree-walking interpreter without
-optimizations yet, so it is the slowest of the four for now.
+[hyperfine](https://github.com/sharkdp/hyperfine). Somoni runs bytecode in a VM: as fast as PHP and
+Python for function calls, slower than PHP for plain loops, and far behind Node.js, which compiles hot code
+to machine code (JIT).
 
 ## How it works
 
-Pipeline: source text, lexer (tokens), parser (AST), type checker, interpreter.
+Pipeline: source text, lexer (tokens), parser (AST), type checker, compiler (bytecode), VM.
 Type errors are reported before anything runs. Every error has a code and points to the exact place:
 
 ```
