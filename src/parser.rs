@@ -215,7 +215,7 @@ impl Parser {
                 self.expect(Token::Semicolon, "';'")?;
                 Ok(Stmt::Expr { expr, span })
             }
-            Token::Ident(_) | Token::This => self.parse_assign(start),
+            Token::Ident(_) | Token::This | Token::New => self.parse_assign(start),
             other => Err(SomoniError::at(
                 start,
                 ErrorCode::UnexpectedToken { found: other },
@@ -227,20 +227,31 @@ impl Parser {
     fn parse_fn(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("function name")?;
+        let function = self.parse_function_rest(exported, name, name_span)?;
+        Ok(Stmt::FnDecl(function))
+    }
+
+    /// Reads the part of a function or method after its name: `(a: int): int { ... }`.
+    fn parse_function_rest(
+        &mut self,
+        exported: bool,
+        name: String,
+        name_span: Span,
+    ) -> Result<Function, SomoniError> {
         self.expect(Token::LParen, "'(' after function name")?;
         let params =
             self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
         self.expect(Token::Colon, "':' and a return type after ')'")?;
         let return_type = self.parse_type("return type")?;
         let body = self.expect_block_stmts("after function header")?;
-        Ok(Stmt::FnDecl(Function {
+        Ok(Function {
             exported,
             name,
             name_span,
             params,
             return_type,
             body,
-        }))
+        })
     }
 
     /// Reads `a: int`, a parameter or the variable of a `for`-each loop.
@@ -278,6 +289,7 @@ impl Parser {
         self.expect(Token::LBrace, "'{' after class name")?;
         let mut fields = Vec::new();
         let mut constructor = None;
+        let mut methods = Vec::new();
         while *self.peek() != Token::RBrace {
             if *self.peek() == Token::Eof {
                 return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
@@ -288,6 +300,14 @@ impl Parser {
                     return Err(SomoniError::at(span, ErrorCode::DuplicateConstructor));
                 }
                 constructor = Some(self.parse_constructor(span)?);
+                continue;
+            }
+            if let Token::Ident(name) = self.peek().clone()
+                && *self.peek_next() == Token::LParen
+            {
+                let name_span = self.current_span();
+                self.advance();
+                methods.push(self.parse_function_rest(false, name, name_span)?);
                 continue;
             }
             let field = self.parse_field()?;
@@ -311,6 +331,7 @@ impl Parser {
             name_span,
             fields,
             constructor,
+            methods,
         }))
     }
 
@@ -603,8 +624,27 @@ impl Parser {
     }
 
     /// Reads an assignment without `;`, e.g. `x = 5`, `l[i] = 5`, `u.name = "Ali"` or `x += 1`.
+    /// A method call like `k.einzahlen(5)` or `new K()` is read here too, as a statement
+    /// without `=`.
     fn parse_assignment(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         let target = self.parse_postfix()?;
+        let is_assignment = matches!(
+            self.peek(),
+            Token::Equal
+                | Token::PlusEqual
+                | Token::MinusEqual
+                | Token::StarEqual
+                | Token::SlashEqual
+                | Token::PercentEqual
+        );
+        if let ExprKind::MethodCall { .. } | ExprKind::New { .. } = target.kind
+            && !is_assignment
+        {
+            return Ok(Stmt::Expr {
+                expr: target,
+                span: self.since(start),
+            });
+        }
         if target.root_variable().is_none() {
             return Err(SomoniError::at(target.span, ErrorCode::InvalidAssignTarget));
         }
@@ -781,11 +821,23 @@ impl Parser {
                 Token::Dot => {
                     self.advance();
                     let (name, name_span) = self.expect_ident("field name after '.'")?;
-                    ExprKind::Field {
-                        target: Box::new(expr),
-                        name,
-                        name_span,
-                        index: None,
+                    if *self.peek() == Token::LParen {
+                        self.advance();
+                        let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
+                        ExprKind::MethodCall {
+                            target: Box::new(expr),
+                            name,
+                            name_span,
+                            args,
+                            target_fn: None,
+                        }
+                    } else {
+                        ExprKind::Field {
+                            target: Box::new(expr),
+                            name,
+                            name_span,
+                            index: None,
+                        }
                     }
                 }
                 _ => return Ok(expr),

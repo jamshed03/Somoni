@@ -27,10 +27,15 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     for &number in order {
         let stmts = &files[number].stmts;
         for function in ast::functions(stmts) {
-            functions.push(compile_function(function)?);
+            let name = format!("fn {}", function.name);
+            functions.push(compile_function(function, name, function.params.len())?);
         }
         for class in ast::classes(stmts) {
             functions.push(compile_constructor(class, classes.len())?);
+            for method in &class.methods {
+                let name = format!("{}.{}", class.layout.name, method.name);
+                functions.push(compile_function(method, name, method.params.len() + 1)?);
+            }
             classes.push(Rc::clone(&class.layout));
         }
         structs.extend(ast::structs(stmts).cloned());
@@ -70,12 +75,17 @@ fn compile_constructor(class: &ClassDecl, index: usize) -> Result<Chunk, SomoniE
     Ok(compiler.chunk)
 }
 
-/// Turns one function into its own chunk. The parameters are its first variables.
+/// Turns one function or method into its own chunk called `name`. The parameters are its first
+/// `params` variables (for a method `this` and then its parameters).
 /// A function that reaches its end without `return` returns `void`.
-fn compile_function(function: &Function) -> Result<Chunk, SomoniError> {
+fn compile_function(
+    function: &Function,
+    name: String,
+    params: usize,
+) -> Result<Chunk, SomoniError> {
     let mut compiler = Compiler::default();
-    compiler.chunk.name = format!("fn {}", function.name);
-    compiler.chunk.locals = function.params.len();
+    compiler.chunk.name = name;
+    compiler.chunk.locals = params;
     for stmt in &function.body {
         compiler.compile_stmt(stmt)?;
     }
@@ -448,9 +458,7 @@ impl Compiler {
                 self.chunk.push(Op::Unary(*op), span);
             }
             ExprKind::Call { args, target, .. } => {
-                for arg in args {
-                    self.compile_expr(arg)?;
-                }
+                self.compile_args(args)?;
                 let op = match target {
                     Some(CallTarget::Builtin(builtin)) => Op::CallBuiltin(*builtin, args.len()),
                     Some(CallTarget::Function(i)) => Op::Call(*i, args.len()),
@@ -458,10 +466,20 @@ impl Compiler {
                 };
                 self.chunk.push(op, span);
             }
+            ExprKind::MethodCall {
+                target,
+                args,
+                target_fn,
+                ..
+            } => {
+                self.compile_expr(target)?;
+                self.compile_args(args)?;
+                let function =
+                    target_fn.ok_or_else(|| SomoniError::internal("method call without target"))?;
+                self.chunk.push(Op::Call(function, args.len() + 1), span);
+            }
             ExprKind::New { args, target, .. } => {
-                for arg in args {
-                    self.compile_expr(arg)?;
-                }
+                self.compile_args(args)?;
                 let target = target.ok_or_else(|| SomoniError::internal("new without target"))?;
                 self.chunk.push(Op::Call(target, args.len()), span);
             }
@@ -502,6 +520,14 @@ impl Compiler {
                     index.ok_or_else(|| SomoniError::internal("field without a place"))?;
                 self.chunk.push(Op::Field(position), span);
             }
+        }
+        Ok(())
+    }
+
+    /// Writes the arguments of a call from left to right; afterwards they are on the stack.
+    fn compile_args(&mut self, args: &[Expr]) -> Result<(), SomoniError> {
+        for arg in args {
+            self.compile_expr(arg)?;
         }
         Ok(())
     }

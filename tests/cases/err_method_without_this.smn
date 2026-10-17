@@ -1,0 +1,7 @@
+class K {
+    x: int = 1;
+
+    f(): int {
+        return x;
+    }
+}

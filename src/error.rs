@@ -228,6 +228,17 @@ pub enum ErrorCode {
         name: String,
     },
     ThisOutsideClass,
+    DuplicateMember {
+        class: String,
+        name: String,
+    },
+    UnknownMethod {
+        class: String,
+        name: String,
+    },
+    NoMethods {
+        found: Type,
+    },
     ThisBeforeFieldsSet {
         missing: String,
     },
@@ -343,6 +354,9 @@ impl ErrorCode {
             ErrorCode::NotAClass { .. } => "T052",
             ErrorCode::ThisOutsideClass => "T053",
             ErrorCode::ThisBeforeFieldsSet { .. } => "T054",
+            ErrorCode::DuplicateMember { .. } => "T055",
+            ErrorCode::UnknownMethod { .. } => "T056",
+            ErrorCode::NoMethods { .. } => "T057",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -437,7 +451,10 @@ impl ErrorCode {
             | ErrorCode::ClassLiteral { .. }
             | ErrorCode::NotAClass { .. }
             | ErrorCode::ThisOutsideClass
-            | ErrorCode::ThisBeforeFieldsSet { .. } => ErrorKind::Type,
+            | ErrorCode::ThisBeforeFieldsSet { .. }
+            | ErrorCode::DuplicateMember { .. }
+            | ErrorCode::UnknownMethod { .. }
+            | ErrorCode::NoMethods { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -651,6 +668,16 @@ impl ErrorCode {
             ErrorCode::ThisBeforeFieldsSet { missing } => format!(
                 "'this' is used before every field has a value (still missing: {})",
                 missing
+            ),
+            ErrorCode::DuplicateMember { class, name } => {
+                format!("'{}' is already a field or method of '{}'", name, class)
+            }
+            ErrorCode::UnknownMethod { class, name } => {
+                format!("'{}' has no method '{}'", class, name)
+            }
+            ErrorCode::NoMethods { found } => format!(
+                "cannot call a method on {} (only objects of classes have methods)",
+                found
             ),
             ErrorCode::BoundVarType {
                 name,

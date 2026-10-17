@@ -1,0 +1,85 @@
+class Konto {
+    inhaber: string;
+    stand: int = 0;
+    buchungen: list<int> = [];
+
+    constructor(inhaber: string) {
+        this.inhaber = inhaber;
+    }
+
+    einzahlen(betrag: int): void {
+        this.stand += betrag;
+        this.buchungen = this.buchungen + [betrag];
+    }
+
+    abheben(betrag: int): result<int, string> {
+        if (betrag > this.stand) {
+            return err("zu wenig Geld");
+        }
+        this.einzahlen(-betrag);
+        return ok(this.stand);
+    }
+
+    beschreibung(): string {
+        return this.inhaber + ": " + string(this.stand);
+    }
+}
+
+var k: Konto = new Konto("Ali");
+k.einzahlen(100);
+print(k.beschreibung());
+print(k.abheben(30));
+print(k.abheben(500));
+print(k.buchungen);
+
+// a method changes the object for every reference
+var gleich: Konto = k;
+gleich.einzahlen(5);
+print(k.stand);
+
+// method calls inside expressions and on new
+print(new Konto("Sara").beschreibung());
+print(len(k.beschreibung()) > 3);
+
+// the constructor may call methods once all fields are set; recursion
+class Zaehler {
+    stand: int;
+
+    constructor(start: int) {
+        this.stand = start;
+        this.weiter();
+    }
+
+    weiter(): void {
+        this.stand += 1;
+    }
+
+    fakultaet(n: int): int {
+        if (n <= 1) {
+            return 1;
+        }
+        return n * this.fakultaet(n - 1);
+    }
+}
+var z: Zaehler = new Zaehler(10);
+print(z.stand);
+print(z.fakultaet(5));
+
+// objects in a list, changed in a loop
+var konten: list<Konto> = [new Konto("A"), new Konto("B")];
+for (x: Konto in konten) {
+    x.einzahlen(1);
+}
+print(konten[1].stand);
+for (var i: int = 0; i < 3; z.weiter()) {
+    i += 1;
+}
+print(z.stand);
+
+// new as a statement runs the constructor
+class Melder {
+    constructor() {
+        print("gebaut");
+    }
+}
+new Melder();

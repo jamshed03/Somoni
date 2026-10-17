@@ -1,0 +1,11 @@
+class K {
+    x: int;
+
+    constructor() {
+        this.g();
+        this.x = 1;
+    }
+
+    g(): void {
+    }
+}

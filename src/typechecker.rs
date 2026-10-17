@@ -35,11 +35,13 @@ struct StructInfo {
     fields: Vec<(String, Type)>,
 }
 
-/// The type of each field of a class, and the function that builds its objects (`new`).
+/// The type of each field of a class, the function that builds its objects (`new`)
+/// and its methods by name.
 #[derive(Clone)]
 struct ClassInfo {
     fields: Vec<(String, Type)>,
     constructor: Signature,
+    methods: HashMap<String, Signature>,
 }
 
 /// The functions, structs, enums and classes declared at the top level of a file, by name.
@@ -127,7 +129,7 @@ impl TypeChecker {
             self.declare_enums(stmts)?;
             self.declare_structs(stmts)?;
             self.declare_functions(stmts)?;
-            self.declare_constructors(stmts)?;
+            self.declare_class_functions(stmts)?;
             self.check_stmts(stmts)?;
             let exports = self.exports_of(stmts);
             self.exports.insert(number, exports);
@@ -281,6 +283,7 @@ impl TypeChecker {
                     params: Vec::new(),
                     return_type: Type::Class(layout.clone()),
                 },
+                methods: HashMap::new(),
             };
             self.names
                 .classes
@@ -396,57 +399,104 @@ impl TypeChecker {
                     ErrorCode::DuplicateFunction { name: name.clone() },
                 ));
             }
-            let mut params = Vec::new();
-            for param in &function.params {
-                params.push(self.resolve_type(&param.type_name, false)?);
-            }
-            let return_type = self.resolve_type(&function.return_type, true)?;
-            self.names.functions.insert(
-                name.clone(),
-                Signature {
-                    index: self.function_count,
-                    params,
-                    return_type,
-                },
-            );
+            let signature = self.signature_of(function, self.function_count)?;
+            self.names.functions.insert(name.clone(), signature);
             self.function_count += 1;
         }
         Ok(())
     }
 
-    /// Gives the constructor of each class its function number, after the functions of the file
-    /// (the compiler writes them in the same order).
-    /// Also collects the parameter types of each constructor.
-    fn declare_constructors(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+    /// Gives the constructor and then each method of every class a function number, after the
+    /// functions of the file (the compiler writes them in the same order), and collects their
+    /// parameter and return types. A method name may not be a field or another method (T055).
+    fn declare_class_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for class in ast::classes(stmts) {
+            let layout = Decl(Rc::clone(&class.layout));
             let mut params = Vec::new();
             for param in class.constructor.iter().flat_map(|c| &c.params) {
                 params.push(self.resolve_type(&param.type_name, false)?);
             }
-            if let Some(info) = self.classes.get_mut(&Decl(Rc::clone(&class.layout))) {
-                info.constructor.index = self.function_count;
-                info.constructor.params = params;
+            let constructor_index = self.function_count;
+            self.function_count += 1;
+            let mut methods = HashMap::new();
+            for method in &class.methods {
+                if class.layout.fields.contains(&method.name) || methods.contains_key(&method.name)
+                {
+                    return Err(SomoniError::at(
+                        method.name_span,
+                        ErrorCode::DuplicateMember {
+                            class: class.layout.name.clone(),
+                            name: method.name.clone(),
+                        },
+                    ));
+                }
+                let signature = self.signature_of(method, self.function_count)?;
                 self.function_count += 1;
+                methods.insert(method.name.clone(), signature);
+            }
+            if let Some(info) = self.classes.get_mut(&layout) {
+                info.constructor.index = constructor_index;
+                info.constructor.params = params;
+                info.methods = methods;
             }
         }
         Ok(())
     }
 
+    /// Returns the signature of a function or method with the number `index`.
+    fn signature_of(&self, function: &Function, index: usize) -> Result<Signature, SomoniError> {
+        let mut params = Vec::new();
+        for param in &function.params {
+            params.push(self.resolve_type(&param.type_name, false)?);
+        }
+        Ok(Signature {
+            index,
+            params,
+            return_type: self.resolve_type(&function.return_type, true)?,
+        })
+    }
+
     /// Checks a function body with its own variables, and that it returns on every path.
     fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
-        let signature = &self.names.functions[&function.name];
-        let param_types = signature.params.clone();
-        let return_type = signature.return_type.clone();
+        let signature = self.names.functions[&function.name].clone();
+        let name = function.name.clone();
+        self.check_body(function, &name, &signature, None)
+    }
 
+    /// Checks a method of a class: like a function, with `this` as slot 0 before the parameters.
+    fn check_method(
+        &mut self,
+        method: &mut Function,
+        layout: &Decl<ClassLayout>,
+        signature: &Signature,
+    ) -> Result<(), SomoniError> {
+        let name = format!("{}.{}", layout.name, method.name);
+        self.check_body(method, &name, signature, Some(Type::Class(layout.clone())))
+    }
+
+    /// Checks the body of a function or method with its own variables, and that it returns on
+    /// every path. With `this_type`, the hidden variable `this` comes first.
+    fn check_body(
+        &mut self,
+        function: &mut Function,
+        name: &str,
+        signature: &Signature,
+        this_type: Option<Type>,
+    ) -> Result<(), SomoniError> {
+        let return_type = signature.return_type.clone();
         self.in_function(Some(return_type.clone()), |this| {
-            this.check_function_body(function, &param_types)
+            if let Some(ty) = this_type {
+                this.declare(THIS, function.name_span, ty, false)?;
+            }
+            this.declare_params(&function.params, &signature.params)?;
+            this.check_stmts(&mut function.body)
         })?;
 
         if return_type != Type::Void && !always_returns(&function.body) {
             return Err(SomoniError::at(
                 function.return_type.span,
                 ErrorCode::MissingReturn {
-                    name: function.name.clone(),
+                    name: name.to_string(),
                     expected: return_type,
                 },
             ));
@@ -494,6 +544,13 @@ impl TypeChecker {
                 this.check_stmts(&mut constructor.body)
             })?;
         }
+        for method in &mut class.methods {
+            let signature = info
+                .methods
+                .get(&method.name)
+                .ok_or_else(|| SomoniError::internal("method without signature"))?;
+            self.check_method(method, &layout, signature)?;
+        }
         let body = class
             .constructor
             .as_ref()
@@ -525,17 +582,7 @@ impl TypeChecker {
         Err(SomoniError::at(span, code))
     }
 
-    /// Declares the parameters as const variables and checks the body.
-    fn check_function_body(
-        &mut self,
-        function: &mut Function,
-        param_types: &[Type],
-    ) -> Result<(), SomoniError> {
-        self.declare_params(&function.params, param_types)?;
-        self.check_stmts(&mut function.body)
-    }
-
-    /// Declares the parameters of a function or constructor as const variables.
+    /// Declares the parameters of a function, method or constructor as const variables.
     fn declare_params(&mut self, params: &[Param], types: &[Type]) -> Result<(), SomoniError> {
         for (param, ty) in params.iter().zip(types) {
             self.declare(&param.name, param.name_span, ty.clone(), false)?;
@@ -1449,6 +1496,38 @@ impl TypeChecker {
                 *target = Some(CallTarget::Function(signature.index));
                 self.check_args(name, &signature.params, args, expr.span)?;
                 Ok(signature.return_type.clone())
+            }
+            ExprKind::MethodCall {
+                target,
+                name,
+                name_span,
+                args,
+                target_fn,
+            } => {
+                let target_type = self.check_expr(target)?;
+                let Type::Class(layout) = &target_type else {
+                    return Err(SomoniError::at(
+                        target.span,
+                        ErrorCode::NoMethods { found: target_type },
+                    ));
+                };
+                let signature = self
+                    .class_info(layout)?
+                    .methods
+                    .get(name)
+                    .cloned()
+                    .ok_or_else(|| {
+                        SomoniError::at(
+                            *name_span,
+                            ErrorCode::UnknownMethod {
+                                class: layout.name.clone(),
+                                name: name.clone(),
+                            },
+                        )
+                    })?;
+                *target_fn = Some(signature.index);
+                self.check_args(name, &signature.params, args, expr.span)?;
+                Ok(signature.return_type)
             }
             ExprKind::New {
                 name,

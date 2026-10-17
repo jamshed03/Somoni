@@ -1,0 +1,5 @@
+class K {
+    g(n: int): void {
+    }
+}
+new K().g("a");

@@ -1,0 +1,5 @@
+class K {
+    f(): void {
+        this = new K();
+    }
+}

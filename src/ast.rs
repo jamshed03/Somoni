@@ -58,6 +58,15 @@ pub enum ExprKind {
         args: Vec<Expr>,
         target: Option<usize>,
     },
+    /// `target.name(args)`: calls a method of an object. The type checker fills in `target_fn`:
+    /// the number of the function of the method.
+    MethodCall {
+        target: Box<Expr>,
+        name: String,
+        name_span: Span,
+        args: Vec<Expr>,
+        target_fn: Option<usize>,
+    },
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
         name: String,
@@ -104,6 +113,9 @@ impl Expr {
                 fields.iter().find_map(|init| init.value.find_this())
             }
             ExprKind::Field { target, .. } => target.find_this(),
+            ExprKind::MethodCall { target, args, .. } => target
+                .find_this()
+                .or_else(|| args.iter().find_map(Expr::find_this)),
         }
     }
 
@@ -371,7 +383,7 @@ pub struct StructDecl {
     pub fields: Vec<Field>,
 }
 
-/// `class Name { field: type = start; ... constructor(...) { ... } }`,
+/// `class Name { field: type = start; ... constructor(...) { ... } method(...): type { ... } }`,
 /// `exported` with `export` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDecl {
@@ -380,6 +392,8 @@ pub struct ClassDecl {
     pub name_span: Span,
     pub fields: Vec<ClassField>,
     pub constructor: Option<Constructor>,
+    /// The methods; each gets `this` as a hidden first parameter (slot 0).
+    pub methods: Vec<Function>,
 }
 
 /// `constructor(name: string) { ... }` of a class. The type checker fills in `this_slot`:

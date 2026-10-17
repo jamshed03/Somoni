@@ -1,0 +1,9 @@
+class K {
+    x: int = 0;
+
+    f(): int {
+        return this.x;
+    }
+}
+var k: K = new K();
+k.g();

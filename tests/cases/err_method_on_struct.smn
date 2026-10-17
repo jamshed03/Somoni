@@ -1,0 +1,5 @@
+struct P {
+    x: int
+}
+var p: P = P { x: 1 };
+p.f();

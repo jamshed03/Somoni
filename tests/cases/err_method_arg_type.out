@@ -1,0 +1,3 @@
+Type error [T014]: Line 5: cannot use string as argument of 'g'
+  5 | new K().g("a");
+    |           ^^^
