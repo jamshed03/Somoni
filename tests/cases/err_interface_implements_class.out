@@ -1,0 +1,3 @@
+Type error [T062]: Line 3: 'A' is not an interface
+  3 | class B implements A {
+    |                    ^

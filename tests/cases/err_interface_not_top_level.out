@@ -1,0 +1,3 @@
+Parse error [P014]: Line 2: interfaces can only be declared at the top level
+  2 |     interface Form {
+    |     ^^^^^^^^^

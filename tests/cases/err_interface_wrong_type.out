@@ -1,0 +1,3 @@
+Type error [T060]: Line 5: to implement 'Form', this method must be flaeche(): float
+  5 |     flaeche(): int {
+    |     ^^^^^^^

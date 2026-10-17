@@ -47,6 +47,7 @@ pub enum ErrorCode {
     ExportNotTopLevel,
     ClassNotTopLevel,
     DuplicateConstructor,
+    InterfaceNotTopLevel,
     NotYetSupported {
         what: &'static str,
         comes_with: &'static str,
@@ -247,6 +248,24 @@ pub enum ErrorCode {
         class: String,
         name: String,
     },
+    MissingInterfaceMethod {
+        interface: String,
+        method: String,
+    },
+    InterfaceMethodType {
+        interface: String,
+        method: String,
+    },
+    PrivateInterfaceMethod {
+        interface: String,
+        method: String,
+    },
+    NotAnInterface {
+        name: String,
+    },
+    InterfaceNew {
+        name: String,
+    },
     ThisBeforeFieldsSet {
         missing: String,
     },
@@ -299,6 +318,7 @@ impl ErrorCode {
             ErrorCode::ExportNotTopLevel => "P010",
             ErrorCode::ClassNotTopLevel => "P011",
             ErrorCode::DuplicateConstructor => "P012",
+            ErrorCode::InterfaceNotTopLevel => "P014",
             ErrorCode::NotYetSupported { .. } => "P013",
 
             ErrorCode::CannotReadFile { .. } => "M001",
@@ -367,6 +387,11 @@ impl ErrorCode {
             ErrorCode::UnknownMethod { .. } => "T056",
             ErrorCode::NoMethods { .. } => "T057",
             ErrorCode::PrivateMember { .. } => "T058",
+            ErrorCode::MissingInterfaceMethod { .. } => "T059",
+            ErrorCode::InterfaceMethodType { .. } => "T060",
+            ErrorCode::PrivateInterfaceMethod { .. } => "T061",
+            ErrorCode::NotAnInterface { .. } => "T062",
+            ErrorCode::InterfaceNew { .. } => "T063",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -399,6 +424,7 @@ impl ErrorCode {
             | ErrorCode::ExportNotTopLevel
             | ErrorCode::ClassNotTopLevel
             | ErrorCode::DuplicateConstructor
+            | ErrorCode::InterfaceNotTopLevel
             | ErrorCode::NotYetSupported { .. } => ErrorKind::Parse,
 
             ErrorCode::CannotReadFile { .. }
@@ -466,7 +492,12 @@ impl ErrorCode {
             | ErrorCode::DuplicateMember { .. }
             | ErrorCode::UnknownMethod { .. }
             | ErrorCode::NoMethods { .. }
-            | ErrorCode::PrivateMember { .. } => ErrorKind::Type,
+            | ErrorCode::PrivateMember { .. }
+            | ErrorCode::MissingInterfaceMethod { .. }
+            | ErrorCode::InterfaceMethodType { .. }
+            | ErrorCode::PrivateInterfaceMethod { .. }
+            | ErrorCode::NotAnInterface { .. }
+            | ErrorCode::InterfaceNew { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -507,6 +538,9 @@ impl ErrorCode {
                 "classes can only be declared at the top level".to_string()
             }
             ErrorCode::DuplicateConstructor => "a class can only have one constructor".to_string(),
+            ErrorCode::InterfaceNotTopLevel => {
+                "interfaces can only be declared at the top level".to_string()
+            }
             ErrorCode::NotYetSupported { what, comes_with } => format!(
                 "{} is not supported yet (it comes together with {})",
                 what, comes_with
@@ -518,7 +552,8 @@ impl ErrorCode {
             ErrorCode::CannotReadFile { name } => format!("cannot read file '{}'", name),
             ErrorCode::ImportCycle { cycle } => format!("files import each other: {}", cycle),
             ErrorCode::OnlyDeclarations => {
-                "an imported file may only contain fn, struct, enum, class and import".to_string()
+                "an imported file may only contain fn, struct, enum, class, interface and import"
+                    .to_string()
             }
             ErrorCode::ReservedPath { path } => format!(
                 "'{}': paths starting with '/' or '@' are not supported yet, use a path relative to this file",
@@ -698,6 +733,25 @@ impl ErrorCode {
             ErrorCode::PrivateMember { class, name } => format!(
                 "'{}' is private in '{}' and can only be used inside the class",
                 name, class
+            ),
+            ErrorCode::MissingInterfaceMethod { interface, method } => format!(
+                "this class implements '{}' but has no method '{}'",
+                interface, method
+            ),
+            ErrorCode::InterfaceMethodType { interface, method } => {
+                format!(
+                    "to implement '{}', this method must be {}",
+                    interface, method
+                )
+            }
+            ErrorCode::PrivateInterfaceMethod { interface, method } => format!(
+                "'{}' implements '{}', so it must be public",
+                method, interface
+            ),
+            ErrorCode::NotAnInterface { name } => format!("'{}' is not an interface", name),
+            ErrorCode::InterfaceNew { name } => format!(
+                "'{}' is an interface and has no objects of its own, create an object of a class that implements it",
+                name
             ),
             ErrorCode::BoundVarType {
                 name,

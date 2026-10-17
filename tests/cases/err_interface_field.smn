@@ -1,0 +1,10 @@
+interface Form {
+    flaeche(): float;
+}
+class K implements Form {
+    flaeche(): float {
+        return 1.0;
+    }
+}
+var f: Form = new K();
+print(f.r);

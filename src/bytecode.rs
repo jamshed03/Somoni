@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, ClassLayout, StructDecl, UnaryOp};
+use crate::ast::{BinaryOp, ClassLayout, InterfaceLayout, StructDecl, UnaryOp};
 use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::value::{Quoted, Value};
@@ -30,6 +30,13 @@ pub enum Op {
     JumpIfFalse(usize),
     /// Calls function number `i` with `n` arguments from the stack.
     Call(usize, usize),
+    /// Calls method `method` of interface `interface` with `args` arguments from the stack;
+    /// the first is the object, its class decides which function runs (its vtable).
+    CallInterface {
+        interface: usize,
+        method: usize,
+        args: usize,
+    },
     /// Pops the result and goes back to the caller.
     Return,
     /// Pops `n` values and pushes a list of them.
@@ -124,6 +131,10 @@ pub struct Program {
     pub structs: Vec<Rc<StructDecl>>,
     /// The classes of the program, numbered like `ast::classes`, file by file.
     pub classes: Vec<Rc<ClassLayout>>,
+    /// For each class: the interfaces it implements, each with the function of every method.
+    pub vtables: Vec<Vec<(usize, Vec<usize>)>>,
+    /// The interfaces of the program, numbered like `ast::interfaces`, file by file.
+    pub interfaces: Vec<Rc<InterfaceLayout>>,
 }
 
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
@@ -171,6 +182,17 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::Jump(target) => format!("Jump {:04}", target),
         Op::JumpIfFalse(target) => format!("JumpIfFalse {:04}", target),
         Op::Call(i, args) => format!("Call {} {}", program.functions[*i].name, args),
+        Op::CallInterface {
+            interface,
+            method,
+            args,
+        } => {
+            let layout = &program.interfaces[*interface];
+            format!(
+                "CallInterface {}.{} {}",
+                layout.name, layout.methods[*method], args
+            )
+        }
         Op::Return => "Return".to_string(),
         Op::MakeList(count) => format!("MakeList {}", count),
         Op::NewMap => "NewMap".to_string(),

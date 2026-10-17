@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, ClassDecl, Expr, ExprKind, Function, IterKind, Pattern, Stmt,
+    self, BinaryOp, CallTarget, ClassDecl, Expr, ExprKind, Function, IterKind, MethodTarget,
+    Pattern, Stmt,
 };
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
@@ -24,8 +25,11 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     let mut functions = Vec::new();
     let mut structs = Vec::new();
     let mut classes = Vec::new();
+    let mut vtables = Vec::new();
+    let mut interfaces = Vec::new();
     for &number in order {
         let stmts = &files[number].stmts;
+        interfaces.extend(ast::interfaces(stmts).map(|decl| Rc::clone(&decl.layout)));
         for function in ast::functions(stmts) {
             let name = format!("fn {}", function.name);
             functions.push(compile_function(function, name, function.params.len())?);
@@ -37,6 +41,7 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
                 functions.push(compile_function(method, name, method.params.len() + 1)?);
             }
             classes.push(Rc::clone(&class.layout));
+            vtables.push(class.vtables.clone());
         }
         structs.extend(ast::structs(stmts).cloned());
     }
@@ -45,6 +50,8 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
         functions,
         structs,
         classes,
+        vtables,
+        interfaces,
     })
 }
 
@@ -182,6 +189,7 @@ impl Compiler {
             | Stmt::StructDecl(_)
             | Stmt::EnumDecl(_)
             | Stmt::ClassDecl(_)
+            | Stmt::InterfaceDecl(_)
             | Stmt::Import(_) => {}
             Stmt::Match {
                 subject,
@@ -467,16 +475,21 @@ impl Compiler {
                 self.chunk.push(op, span);
             }
             ExprKind::MethodCall {
-                target,
-                args,
-                target_fn,
-                ..
+                target, args, call, ..
             } => {
                 self.compile_expr(target)?;
                 self.compile_args(args)?;
-                let function =
-                    target_fn.ok_or_else(|| SomoniError::internal("method call without target"))?;
-                self.chunk.push(Op::Call(function, args.len() + 1), span);
+                let count = args.len() + 1;
+                let op = match call {
+                    Some(MethodTarget::Function(function)) => Op::Call(*function, count),
+                    Some(MethodTarget::Interface { interface, method }) => Op::CallInterface {
+                        interface: *interface,
+                        method: *method,
+                        args: count,
+                    },
+                    None => return Err(SomoniError::internal("method call without target")),
+                };
+                self.chunk.push(op, span);
             }
             ExprKind::New { args, target, .. } => {
                 self.compile_args(args)?;

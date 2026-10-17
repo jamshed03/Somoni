@@ -1,0 +1,3 @@
+Type error [T029]: Line 10: cannot use '.' on Form
+  10 | print(f.r);
+     |       ^

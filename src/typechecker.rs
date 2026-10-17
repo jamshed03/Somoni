@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use crate::ast::{
     self, BinaryOp, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr, ExprKind,
-    Field, FieldInit, Function, Import, IterKind, MatchArm, Param, Pattern, Stmt, StructDecl, THIS,
-    TypeName, UnaryOp, Visibility,
+    Field, FieldInit, Function, Import, InterfaceLayout, IterKind, MatchArm, MethodTarget, Param,
+    Pattern, Stmt, StructDecl, THIS, TypeName, UnaryOp, Visibility,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -43,6 +43,17 @@ struct ClassInfo {
     constructor: Signature,
     methods: HashMap<String, Signature>,
     private: HashSet<String>,
+    /// The interfaces it implements, and for each the functions of its methods (for the VM).
+    implements: Vec<Decl<InterfaceLayout>>,
+    vtables: Vec<(usize, Vec<usize>)>,
+}
+
+/// The number of an interface and its methods in order; `index` of each signature is the
+/// position of the method in the interface.
+#[derive(Clone)]
+struct InterfaceInfo {
+    index: usize,
+    methods: Vec<(String, Signature)>,
 }
 
 /// The functions, structs, enums and classes declared at the top level of a file, by name.
@@ -52,6 +63,7 @@ struct Names {
     structs: HashMap<String, Decl<StructDecl>>,
     enums: HashMap<String, Decl<EnumDecl>>,
     classes: HashMap<String, Decl<ClassLayout>>,
+    interfaces: HashMap<String, Decl<InterfaceLayout>>,
 }
 
 impl Names {
@@ -61,9 +73,10 @@ impl Names {
             || self.structs.contains_key(name)
             || self.enums.contains_key(name)
             || self.classes.contains_key(name)
+            || self.interfaces.contains_key(name)
     }
 
-    /// Copies the function, struct, enum and class called `name` from `from`, if there are any.
+    /// Copies the function, struct, enum, class and interface called `name` from `from`, if any.
     fn add_from(&mut self, from: &Names, name: &str) {
         if let Some(signature) = from.functions.get(name) {
             self.functions.insert(name.to_string(), signature.clone());
@@ -76,6 +89,9 @@ impl Names {
         }
         if let Some(layout) = from.classes.get(name) {
             self.classes.insert(name.to_string(), layout.clone());
+        }
+        if let Some(layout) = from.interfaces.get(name) {
+            self.interfaces.insert(name.to_string(), layout.clone());
         }
     }
 }
@@ -99,6 +115,7 @@ pub struct TypeChecker {
     exports: HashMap<usize, Exports>,
     structs: HashMap<Decl<StructDecl>, StructInfo>,
     classes: HashMap<Decl<ClassLayout>, ClassInfo>,
+    interfaces: HashMap<Decl<InterfaceLayout>, InterfaceInfo>,
     /// The class whose start values, constructor or methods are being checked.
     current_class: Option<Decl<ClassLayout>>,
     /// How many functions the files checked so far have; gives each function its number.
@@ -116,6 +133,7 @@ impl TypeChecker {
             exports: HashMap::new(),
             structs: HashMap::new(),
             classes: HashMap::new(),
+            interfaces: HashMap::new(),
             current_class: None,
             function_count: 0,
             current_return: None,
@@ -196,6 +214,7 @@ impl TypeChecker {
                 Stmt::StructDecl(decl) => (&decl.name, decl.exported),
                 Stmt::EnumDecl(decl) => (&decl.name, decl.exported),
                 Stmt::ClassDecl(class) => (&class.layout.name, class.exported),
+                Stmt::InterfaceDecl(decl) => (&decl.layout.name, decl.exported),
                 _ => continue,
             };
             if !exported {
@@ -249,6 +268,7 @@ impl TypeChecker {
             || self.names.structs.contains_key(name)
             || self.names.enums.contains_key(name)
             || self.names.classes.contains_key(name)
+            || self.names.interfaces.contains_key(name)
     }
 
     /// Returns T025 if `name` is already a type.
@@ -264,8 +284,8 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Collects all structs and classes: first their names, then their field types,
-    /// then checks that none contains itself.
+    /// Collects all structs, classes and interfaces: first their names, then their field and
+    /// method types, then checks that no struct or class contains itself.
     fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::structs(stmts) {
             self.check_new_type_name(&decl.name, decl.name_span)?;
@@ -289,11 +309,54 @@ impl TypeChecker {
                 },
                 methods: HashMap::new(),
                 private: HashSet::new(),
+                implements: Vec::new(),
+                vtables: Vec::new(),
             };
             self.names
                 .classes
                 .insert(layout.name.clone(), layout.clone());
             self.classes.insert(layout, info);
+        }
+
+        for decl in ast::interfaces(stmts) {
+            self.check_new_type_name(&decl.layout.name, decl.name_span)?;
+            let layout = Decl(Rc::clone(&decl.layout));
+            let info = InterfaceInfo {
+                index: self.interfaces.len(),
+                methods: Vec::new(),
+            };
+            self.names
+                .interfaces
+                .insert(layout.name.clone(), layout.clone());
+            self.interfaces.insert(layout, info);
+        }
+
+        for decl in ast::interfaces(stmts) {
+            let mut methods: Vec<(String, Signature)> = Vec::new();
+            for (position, method) in decl.methods.iter().enumerate() {
+                if methods.iter().any(|(name, _)| *name == method.name) {
+                    return Err(SomoniError::at(
+                        method.name_span,
+                        ErrorCode::DuplicateMember {
+                            class: decl.layout.name.clone(),
+                            name: method.name.clone(),
+                        },
+                    ));
+                }
+                let mut params = Vec::new();
+                for param in &method.params {
+                    params.push(self.resolve_type(&param.type_name, false)?);
+                }
+                let signature = Signature {
+                    index: position,
+                    params,
+                    return_type: self.resolve_type(&method.return_type, true)?,
+                };
+                methods.push((method.name.clone(), signature));
+            }
+            if let Some(info) = self.interfaces.get_mut(&Decl(Rc::clone(&decl.layout))) {
+                info.methods = methods;
+            }
         }
 
         for decl in ast::structs(stmts) {
@@ -453,13 +516,95 @@ impl TypeChecker {
                 self.function_count += 1;
                 methods.insert(method.name.clone(), signature);
             }
+            let (implements, vtables) = self.check_implements(class, &methods)?;
             if let Some(info) = self.classes.get_mut(&layout) {
                 info.constructor.index = constructor_index;
                 info.constructor.params = params;
                 info.methods = methods;
+                info.implements = implements;
+                info.vtables = vtables;
             }
         }
         Ok(())
+    }
+
+    /// Checks that a class has every method of every interface after `implements`: public and
+    /// with the same types (rule 22 of `Klassen.md`). Returns the interfaces and, for each, the
+    /// number of the interface and the function of each of its methods.
+    #[allow(clippy::type_complexity)]
+    fn check_implements(
+        &self,
+        class: &ClassDecl,
+        methods: &HashMap<String, Signature>,
+    ) -> Result<(Vec<Decl<InterfaceLayout>>, Vec<(usize, Vec<usize>)>), SomoniError> {
+        let mut implements = Vec::new();
+        let mut vtables = Vec::new();
+        for (name, span) in &class.implements {
+            let Some(interface) = self.names.interfaces.get(name).cloned() else {
+                let code = if self.is_type_name(name) {
+                    ErrorCode::NotAnInterface { name: name.clone() }
+                } else {
+                    ErrorCode::UnknownType { name: name.clone() }
+                };
+                return Err(SomoniError::at(*span, code));
+            };
+            let info = self.interface_info(&interface)?;
+            let mut functions = Vec::new();
+            for (method_name, wanted) in &info.methods {
+                let missing = || ErrorCode::MissingInterfaceMethod {
+                    interface: interface.name.clone(),
+                    method: method_name.clone(),
+                };
+                let (Some(found), Some(method)) = (
+                    methods.get(method_name),
+                    class
+                        .methods
+                        .iter()
+                        .find(|m| m.function.name == *method_name),
+                ) else {
+                    return Err(SomoniError::at(*span, missing()));
+                };
+                let place = method.function.name_span;
+                if method.visibility == Visibility::Private {
+                    return Err(SomoniError::at(
+                        place,
+                        ErrorCode::PrivateInterfaceMethod {
+                            interface: interface.name.clone(),
+                            method: method_name.clone(),
+                        },
+                    ));
+                }
+                if found.params != wanted.params || found.return_type != wanted.return_type {
+                    let params: Vec<String> = wanted.params.iter().map(Type::to_string).collect();
+                    return Err(SomoniError::at(
+                        place,
+                        ErrorCode::InterfaceMethodType {
+                            interface: interface.name.clone(),
+                            method: format!(
+                                "{}({}): {}",
+                                method_name,
+                                params.join(", "),
+                                wanted.return_type
+                            ),
+                        },
+                    ));
+                }
+                functions.push(found.index);
+            }
+            vtables.push((info.index, functions));
+            implements.push(interface);
+        }
+        Ok((implements, vtables))
+    }
+
+    /// Returns the number and the methods of an interface.
+    fn interface_info(
+        &self,
+        layout: &Decl<InterfaceLayout>,
+    ) -> Result<&InterfaceInfo, SomoniError> {
+        self.interfaces
+            .get(layout)
+            .ok_or_else(|| SomoniError::internal("interface without methods"))
     }
 
     /// Returns the signature of a function or method with the number `index`.
@@ -558,6 +703,7 @@ impl TypeChecker {
         layout: Decl<ClassLayout>,
     ) -> Result<(), SomoniError> {
         let info = self.class_info(&layout)?.clone();
+        class.vtables = info.vtables.clone();
         self.in_function(None, |this| {
             for (field, (_, ty)) in class.fields.iter_mut().zip(&info.fields) {
                 if let Some(start) = &mut field.start {
@@ -623,7 +769,11 @@ impl TypeChecker {
         if let Some(layout) = self.names.classes.get(name) {
             return Ok(layout.clone());
         }
-        let code = if self.names.structs.contains_key(name) {
+        let code = if self.names.interfaces.contains_key(name) {
+            ErrorCode::InterfaceNew {
+                name: name.to_string(),
+            }
+        } else if self.names.structs.contains_key(name) {
             ErrorCode::NotAClass {
                 name: name.to_string(),
             }
@@ -729,7 +879,9 @@ impl TypeChecker {
                 })
             }
             Stmt::FnDecl(function) => self.check_function(function),
-            Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::Import(_) => Ok(()),
+            Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::InterfaceDecl(_) | Stmt::Import(_) => {
+                Ok(())
+            }
             Stmt::ClassDecl(class) => self.check_class(class),
             Stmt::Match {
                 subject,
@@ -848,7 +1000,7 @@ impl TypeChecker {
     /// Checks that `value` has the type `expected`.
     fn check_assignable(&mut self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
         let found = self.check_expr_expecting(value, expected)?;
-        if !fits(&found, expected) {
+        if !self.fits(&found, expected) {
             return Err(SomoniError::at(
                 value.span,
                 ErrorCode::CannotAssign {
@@ -895,7 +1047,7 @@ impl TypeChecker {
             return Ok(in_object);
         };
         let value_type = self.check_expr_expecting(value, &target_type)?;
-        let result = binary_type(op, target_type.clone(), value_type, op_span)?;
+        let result = self.binary_type(op, target_type.clone(), value_type, op_span)?;
         if result != target_type {
             return Err(SomoniError::at(
                 op_span,
@@ -931,7 +1083,7 @@ impl TypeChecker {
             Some(value) => (self.check_expr_expecting(value, expected)?, value.span),
             None => (Type::Void, span),
         };
-        if !fits(&found, expected) {
+        if !self.fits(&found, expected) {
             return Err(SomoniError::at(
                 place,
                 ErrorCode::ReturnType {
@@ -1158,7 +1310,7 @@ impl TypeChecker {
                 check_arg_count(name, builtin.arity(), args, expr.span)?;
                 let inner = if builtin == Builtin::Ok { value } else { error };
                 let found = self.check_expr_expecting(&mut args[0], inner)?;
-                if !fits(&found, inner) {
+                if !self.fits(&found, inner) {
                     return Err(wrong_arg_type(name, found, args[0].span));
                 }
                 Ok(wanted.clone())
@@ -1209,7 +1361,7 @@ impl TypeChecker {
         };
         for element in rest {
             let found = self.check_expr_expecting(element, &element_type)?;
-            if !fits(&found, &element_type) {
+            if !self.fits(&found, &element_type) {
                 return Err(SomoniError::at(
                     element.span,
                     ErrorCode::ListElementType {
@@ -1256,7 +1408,7 @@ impl TypeChecker {
         expected: &Type,
     ) -> Result<(), SomoniError> {
         let found = self.check_expr_expecting(expr, expected)?;
-        if !fits(&found, expected) {
+        if !self.fits(&found, expected) {
             return Err(SomoniError::at(
                 expr.span,
                 ErrorCode::MapEntryType {
@@ -1363,6 +1515,8 @@ impl TypeChecker {
                 Some(Type::Struct(decl.clone()))
             } else if let Some(layout) = self.names.classes.get(&written.name) {
                 Some(Type::Class(layout.clone()))
+            } else if let Some(layout) = self.names.interfaces.get(&written.name) {
+                Some(Type::Interface(layout.clone()))
             } else {
                 self.names.enums.get(&written.name).cloned().map(Type::Enum)
             }
@@ -1415,7 +1569,7 @@ impl TypeChecker {
         check_arg_count(name, params.len(), args, call_span)?;
         for (arg, param_type) in args.iter_mut().zip(params) {
             let arg_type = self.check_expr_expecting(arg, param_type)?;
-            if !fits(&arg_type, param_type) {
+            if !self.fits(&arg_type, param_type) {
                 return Err(wrong_arg_type(name, arg_type, arg.span));
             }
         }
@@ -1455,7 +1609,7 @@ impl TypeChecker {
                 right,
             } => {
                 let (l, r) = self.check_operands(*op, left, right)?;
-                binary_type(*op, l, r, *op_span)
+                self.binary_type(*op, l, r, *op_span)
             }
             ExprKind::List(elements) => self.check_list(elements, expr.span, None),
             ExprKind::Map(entries) => self.check_map(entries, expr.span, None),
@@ -1559,9 +1713,29 @@ impl TypeChecker {
                 name,
                 name_span,
                 args,
-                target_fn,
+                call,
             } => {
                 let target_type = self.check_expr(target)?;
+                if let Type::Interface(layout) = &target_type {
+                    let info = self.interface_info(layout)?;
+                    let Some((_, signature)) =
+                        info.methods.iter().find(|(m, _)| m == name).cloned()
+                    else {
+                        return Err(SomoniError::at(
+                            *name_span,
+                            ErrorCode::UnknownMethod {
+                                class: layout.name.clone(),
+                                name: name.clone(),
+                            },
+                        ));
+                    };
+                    *call = Some(MethodTarget::Interface {
+                        interface: info.index,
+                        method: signature.index,
+                    });
+                    self.check_args(name, &signature.params, args, expr.span)?;
+                    return Ok(signature.return_type);
+                }
                 let Type::Class(layout) = &target_type else {
                     return Err(SomoniError::at(
                         target.span,
@@ -1583,7 +1757,7 @@ impl TypeChecker {
                         )
                     })?;
                 self.check_access(layout, name, *name_span)?;
-                *target_fn = Some(signature.index);
+                *call = Some(MethodTarget::Function(signature.index));
                 self.check_args(name, &signature.params, args, expr.span)?;
                 Ok(signature.return_type)
             }
@@ -1616,6 +1790,64 @@ impl TypeChecker {
             }
         }
     }
+
+    /// Returns the type of `l op r`, or an error if the operator does not fit the types.
+    /// `op_span` is the place of the operator, for the error.
+    fn binary_type(
+        &self,
+        op: BinaryOp,
+        l: Type,
+        r: Type,
+        op_span: Span,
+    ) -> Result<Type, SomoniError> {
+        let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
+        if l != r && !(is_equality && (self.fits(&l, &r) || self.fits(&r, &l))) {
+            return Err(SomoniError::at(
+                op_span,
+                ErrorCode::OperandTypesDiffer { left: l, right: r },
+            ));
+        }
+        match (&l, op) {
+            (Type::Void, _) => Err(SomoniError::at(
+                op_span,
+                ErrorCode::OperatorNotAllowed { found: l },
+            )),
+            (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
+            (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
+            (
+                Type::Int | Type::Float,
+                BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEq | BinaryOp::GreaterEq,
+            ) => Ok(Type::Bool),
+            (
+                Type::Int | Type::Float,
+                BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
+            ) => Ok(l),
+            (Type::Str, BinaryOp::Add) => Ok(Type::Str),
+            (Type::List(_), BinaryOp::Add) => Ok(l),
+            (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
+            _ => Err(SomoniError::at(
+                op_span,
+                ErrorCode::OperatorNotAllowed { found: l },
+            )),
+        }
+    }
+
+    /// Returns true if a value of type `found` may be used where `expected` is wanted:
+    /// the same type, `T` where `T?` is wanted, or an object of a class where an interface
+    /// it implements is wanted (also inside `?`: a `Kreis` fits a `Form?`).
+    fn fits(&self, found: &Type, expected: &Type) -> bool {
+        if found == expected {
+            return true;
+        }
+        match (found, expected) {
+            (_, Type::Optional(inner)) => self.fits(found, inner),
+            (Type::Class(layout), Type::Interface(interface)) => self
+                .classes
+                .get(layout)
+                .is_some_and(|info| info.implements.contains(interface)),
+            _ => false,
+        }
+    }
 }
 
 /// Returns what a `for`-each loop over `ty` runs over and the types of its `count` variables:
@@ -1634,41 +1866,6 @@ fn loop_var_types(ty: &Type, count: usize) -> Option<(IterKind, Vec<Type>)> {
         (IterKind::List | IterKind::Str, _) => vec![second],
     };
     Some((kind, types))
-}
-
-/// Returns the type of `l op r`, or an error if the operator does not fit the types.
-/// `op_span` is the place of the operator, for the error.
-fn binary_type(op: BinaryOp, l: Type, r: Type, op_span: Span) -> Result<Type, SomoniError> {
-    let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
-    if l != r && !(is_equality && (fits(&l, &r) || fits(&r, &l))) {
-        return Err(SomoniError::at(
-            op_span,
-            ErrorCode::OperandTypesDiffer { left: l, right: r },
-        ));
-    }
-    match (&l, op) {
-        (Type::Void, _) => Err(SomoniError::at(
-            op_span,
-            ErrorCode::OperatorNotAllowed { found: l },
-        )),
-        (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
-        (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
-        (
-            Type::Int | Type::Float,
-            BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEq | BinaryOp::GreaterEq,
-        ) => Ok(Type::Bool),
-        (
-            Type::Int | Type::Float,
-            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
-        ) => Ok(l),
-        (Type::Str, BinaryOp::Add) => Ok(Type::Str),
-        (Type::List(_), BinaryOp::Add) => Ok(l),
-        (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
-        _ => Err(SomoniError::at(
-            op_span,
-            ErrorCode::OperatorNotAllowed { found: l },
-        )),
-    }
 }
 
 /// Returns true for `[]`, `{}`, `null`, `ok(...)` and `err(...)`:
@@ -1826,12 +2023,6 @@ fn check_key_type(ty: &Type, span: Span) -> Result<(), SomoniError> {
     }
 }
 
-/// Returns true if a value of type `found` may be used where `expected` is wanted:
-/// the same type, or `T` where `T?` is wanted.
-fn fits(found: &Type, expected: &Type) -> bool {
-    found == expected || matches!(expected, Type::Optional(inner) if **inner == *found)
-}
-
 /// Returns the position and type of a field, or T027 if the struct has no such field.
 fn field_of<'a>(
     fields: &'a [(String, Type)],
@@ -1916,6 +2107,7 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         | Stmt::StructDecl(_)
         | Stmt::EnumDecl(_)
         | Stmt::ClassDecl(_)
+        | Stmt::InterfaceDecl(_)
         | Stmt::Import(_) => false,
         Stmt::Match { arms, .. } => arms.iter().all(|arm| stmt_always_returns(&arm.body)),
     }

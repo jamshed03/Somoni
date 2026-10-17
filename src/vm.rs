@@ -89,6 +89,24 @@ impl<'p> Vm<'p> {
                 }
             }
             Op::Call(i, count) => self.call(&program.functions[*i], *count, frame)?,
+            Op::CallInterface {
+                interface,
+                method,
+                args,
+            } => {
+                let Some(Value::Object(object)) = self.stack.get(self.stack.len() - args) else {
+                    return Err(SomoniError::internal("interface call without an object"));
+                };
+                let class = object.0.borrow().class;
+                let function = program.vtables[class]
+                    .iter()
+                    .find(|(number, _)| number == interface)
+                    .map(|(_, functions)| functions[*method])
+                    .ok_or_else(|| {
+                        SomoniError::internal("class does not implement the interface")
+                    })?;
+                self.call(&program.functions[function], *args, frame)?;
+            }
             Op::Return => {
                 let result = self.pop()?;
                 self.stack.truncate(frame.base);
@@ -126,7 +144,7 @@ impl<'p> Vm<'p> {
             }
             Op::NewObject(i) => {
                 let layout = Rc::clone(&program.classes[*i]);
-                self.stack.push(Value::Object(Object::new(layout)));
+                self.stack.push(Value::Object(Object::new(layout, *i)));
             }
             Op::InitField(position) => {
                 let value = self.pop()?;

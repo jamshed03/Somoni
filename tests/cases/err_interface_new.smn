@@ -1,0 +1,4 @@
+interface Form {
+    flaeche(): float;
+}
+var f: Form = new Form();

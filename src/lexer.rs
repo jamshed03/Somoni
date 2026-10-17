@@ -135,6 +135,8 @@ impl Lexer {
             "public" => Token::Public,
             "private" => Token::Private,
             "protected" => Token::Protected,
+            "interface" => Token::Interface,
+            "implements" => Token::Implements,
             _ => Token::Ident(text),
         }
     }

@@ -1,0 +1,3 @@
+Type error [T003]: Line 10: cannot assign list<K> to list<Form>
+  10 | var fs: list<Form> = ks;
+     |                      ^^

@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use crate::ast::{
     BinaryOp, ClassDecl, ClassField, ClassLayout, Constructor, EnumDecl, Expr, ExprKind, Field,
-    FieldInit, Function, Import, ImportName, MatchArm, Method, Param, Pattern, Stmt, StructDecl,
-    THIS, TypeName, UnaryOp, Visibility,
+    FieldInit, Function, Import, ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod,
+    MatchArm, Method, Param, Pattern, Stmt, StructDecl, THIS, TypeName, UnaryOp, Visibility,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -78,6 +78,7 @@ impl Parser {
                     | Token::Struct
                     | Token::Enum
                     | Token::Class
+                    | Token::Interface
             );
             if imported && !is_declaration {
                 return Err(SomoniError::at(
@@ -92,6 +93,7 @@ impl Parser {
                 Token::Struct => self.parse_struct(false)?,
                 Token::Enum => self.parse_enum(false)?,
                 Token::Class => self.parse_class(false)?,
+                Token::Interface => self.parse_interface(false)?,
                 _ => self.parse_stmt()?,
             };
             only_imports &= matches!(stmt, Stmt::Import(_));
@@ -134,7 +136,10 @@ impl Parser {
             Token::Struct => self.parse_struct(true),
             Token::Enum => self.parse_enum(true),
             Token::Class => self.parse_class(true),
-            _ => Err(self.expected("'fn', 'struct', 'enum' or 'class' after 'export'")),
+            Token::Interface => self.parse_interface(true),
+            _ => {
+                Err(self.expected("'fn', 'struct', 'enum', 'class' or 'interface' after 'export'"))
+            }
         }
     }
 
@@ -195,6 +200,7 @@ impl Parser {
             Token::Struct => Err(SomoniError::at(start, ErrorCode::StructNotTopLevel)),
             Token::Enum => Err(SomoniError::at(start, ErrorCode::EnumNotTopLevel)),
             Token::Class => Err(SomoniError::at(start, ErrorCode::ClassNotTopLevel)),
+            Token::Interface => Err(SomoniError::at(start, ErrorCode::InterfaceNotTopLevel)),
             Token::Import => Err(SomoniError::at(start, ErrorCode::ImportNotFirst)),
             Token::Export => Err(SomoniError::at(start, ErrorCode::ExportNotTopLevel)),
             Token::Match => self.parse_match(start),
@@ -285,6 +291,17 @@ impl Parser {
     fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("class name")?;
+        let mut implements = Vec::new();
+        if *self.peek() == Token::Implements {
+            self.advance();
+            loop {
+                implements.push(self.expect_ident("interface name after 'implements'")?);
+                if *self.peek() != Token::Comma {
+                    break;
+                }
+                self.advance();
+            }
+        }
         let open = self.current_span();
         self.expect(Token::LBrace, "'{' after class name")?;
         let mut fields = Vec::new();
@@ -349,6 +366,49 @@ impl Parser {
             name_span,
             fields,
             constructor,
+            methods,
+            implements,
+            vtables: Vec::new(),
+        }))
+    }
+
+    /// Reads `interface Name { method(a: int): type; ... }`.
+    fn parse_interface(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
+        self.advance();
+        let (name, name_span) = self.expect_ident("interface name")?;
+        let open = self.current_span();
+        self.expect(Token::LBrace, "'{' after interface name")?;
+        let mut methods = Vec::new();
+        while *self.peek() != Token::RBrace {
+            if *self.peek() == Token::Eof {
+                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
+            }
+            let (method, method_span) = self.expect_ident("method name")?;
+            self.expect(Token::LParen, "'(' after method name")?;
+            let params =
+                self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
+            self.expect(Token::Colon, "':' and a return type after ')'")?;
+            let return_type = self.parse_type("return type")?;
+            self.expect(
+                Token::Semicolon,
+                "';' after the method (an interface has no bodies)",
+            )?;
+            methods.push(InterfaceMethod {
+                name: method,
+                name_span: method_span,
+                params,
+                return_type,
+            });
+        }
+        self.advance();
+        let layout = InterfaceLayout {
+            name,
+            methods: methods.iter().map(|m| m.name.clone()).collect(),
+        };
+        Ok(Stmt::InterfaceDecl(InterfaceDecl {
+            exported,
+            layout: Rc::new(layout),
+            name_span,
             methods,
         }))
     }
@@ -867,7 +927,7 @@ impl Parser {
                             name,
                             name_span,
                             args,
-                            target_fn: None,
+                            call: None,
                         }
                     } else {
                         ExprKind::Field {

@@ -63,18 +63,24 @@ impl PartialEq for EnumValue {
 #[derive(Debug, Clone)]
 pub struct Object(pub Rc<RefCell<ObjectValue>>);
 
-/// The layout of the class of an object and its field values, in declaration order.
+/// The layout and number of the class of an object, and its field values in declaration order.
+/// The VM finds the methods of an interface by the number of the class.
 #[derive(Debug)]
 pub struct ObjectValue {
     pub layout: Rc<ClassLayout>,
+    pub class: usize,
     pub fields: Vec<Value>,
 }
 
 impl Object {
-    /// A new object of the class `layout` whose fields are not set yet.
-    pub fn new(layout: Rc<ClassLayout>) -> Object {
+    /// A new object of class number `class` with the layout `layout`, its fields not set yet.
+    pub fn new(layout: Rc<ClassLayout>, class: usize) -> Object {
         let fields = vec![Value::Void; layout.fields.len()];
-        Object(Rc::new(RefCell::new(ObjectValue { layout, fields })))
+        Object(Rc::new(RefCell::new(ObjectValue {
+            layout,
+            class,
+            fields,
+        })))
     }
 }
 

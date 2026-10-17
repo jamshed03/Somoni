@@ -1,0 +1,10 @@
+3
+4
+7
+Quadrat { seite: 3 }
+true
+[Kreis { r: 2 }, Quadrat { seite: 4 }]
+Kreis
+Quadrat
+12
+Zeichnung { haupt: Kreis { r: 2 } }

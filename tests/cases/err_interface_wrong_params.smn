@@ -1,0 +1,8 @@
+interface Form {
+    flaeche(): float;
+}
+class K implements Form {
+    flaeche(genau: int): float {
+        return 1.0;
+    }
+}

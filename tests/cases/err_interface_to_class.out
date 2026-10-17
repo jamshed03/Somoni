@@ -1,0 +1,3 @@
+Type error [T003]: Line 10: cannot assign Form to K
+  10 | var k: K = f;
+     |            ^

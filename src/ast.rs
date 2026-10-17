@@ -58,14 +58,14 @@ pub enum ExprKind {
         args: Vec<Expr>,
         target: Option<usize>,
     },
-    /// `target.name(args)`: calls a method of an object. The type checker fills in `target_fn`:
-    /// the number of the function of the method.
+    /// `target.name(args)`: calls a method of an object. The type checker fills in `call`:
+    /// which function runs.
     MethodCall {
         target: Box<Expr>,
         name: String,
         name_span: Span,
         args: Vec<Expr>,
-        target_fn: Option<usize>,
+        call: Option<MethodTarget>,
     },
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
@@ -151,6 +151,16 @@ impl Expr {
             _ => None,
         }
     }
+}
+
+/// Which function a method call runs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MethodTarget {
+    /// The method of a class, known before the program runs.
+    Function(usize),
+    /// Method number `method` of interface number `interface`: the class of the object decides
+    /// at runtime which function runs.
+    Interface { interface: usize, method: usize },
 }
 
 /// One `field: value` in a struct literal; `index` is the position of the field in the struct.
@@ -270,6 +280,7 @@ pub enum Stmt {
     Import(Import),
     StructDecl(Rc<StructDecl>),
     ClassDecl(ClassDecl),
+    InterfaceDecl(InterfaceDecl),
     EnumDecl(Rc<EnumDecl>),
     /// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
     /// The type checker fills in `arm_of_variant`: for each variant, the number of its branch,
@@ -332,6 +343,7 @@ impl Stmt {
             | Stmt::Import(_)
             | Stmt::StructDecl(_)
             | Stmt::ClassDecl(_)
+            | Stmt::InterfaceDecl(_)
             | Stmt::EnumDecl(_) => None,
         }
     }
@@ -394,6 +406,37 @@ pub struct ClassDecl {
     pub constructor: Option<Constructor>,
     /// The methods; each gets `this` as a hidden first parameter (slot 0).
     pub methods: Vec<Method>,
+    /// The interfaces after `implements`.
+    pub implements: Vec<(String, Span)>,
+    /// Filled in by the type checker: for each interface it implements, the number of the
+    /// interface and the function of each of its methods, in the order of the interface.
+    pub vtables: Vec<(usize, Vec<usize>)>,
+}
+
+/// `interface Name { method(params): type; ... }`, `exported` with `export` in front.
+#[derive(Debug, Clone, PartialEq)]
+pub struct InterfaceDecl {
+    pub exported: bool,
+    pub layout: Rc<InterfaceLayout>,
+    pub name_span: Span,
+    pub methods: Vec<InterfaceMethod>,
+}
+
+/// The name of an interface and of its methods, in declaration order. Types point to it,
+/// so it is the identity of the interface.
+#[derive(Debug, Clone, PartialEq)]
+pub struct InterfaceLayout {
+    pub name: String,
+    pub methods: Vec<String>,
+}
+
+/// One method of an interface: `name(params): type;`, without a body.
+#[derive(Debug, Clone, PartialEq)]
+pub struct InterfaceMethod {
+    pub name: String,
+    pub name_span: Span,
+    pub params: Vec<Param>,
+    pub return_type: TypeName,
 }
 
 /// Who may use a field or method of a class: everyone, or only the class itself.
@@ -509,6 +552,14 @@ pub fn structs(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<StructDecl>> {
 pub fn classes(stmts: &[Stmt]) -> impl Iterator<Item = &ClassDecl> {
     stmts.iter().filter_map(|stmt| match stmt {
         Stmt::ClassDecl(decl) => Some(decl),
+        _ => None,
+    })
+}
+
+/// Returns all interfaces of a file. Their order gives each interface its number.
+pub fn interfaces(stmts: &[Stmt]) -> impl Iterator<Item = &InterfaceDecl> {
+    stmts.iter().filter_map(|stmt| match stmt {
+        Stmt::InterfaceDecl(decl) => Some(decl),
         _ => None,
     })
 }

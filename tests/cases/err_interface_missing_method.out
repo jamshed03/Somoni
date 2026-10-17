@@ -1,0 +1,3 @@
+Type error [T059]: Line 4: this class implements 'Form' but has no method 'flaeche'
+  4 | class K implements Form {
+    |                    ^^^^
