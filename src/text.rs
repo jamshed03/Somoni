@@ -1,8 +1,6 @@
 use std::fmt;
 
-// A Somoni string: the text plus its number of characters.
-// len counts characters, not bytes ("ä" is 1), and counting means reading the whole text.
-// So every Text knows its count from the start, and len only reads a number.
+/// A Somoni string: the text and its number of characters, so `len` needs no counting.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Text {
     text: String,
@@ -10,7 +8,7 @@ pub struct Text {
 }
 
 impl Text {
-    // counts once
+    /// Makes a text and counts its characters.
     pub fn new(text: String) -> Text {
         let chars = text.chars().count();
         Text { text, chars }
@@ -20,11 +18,12 @@ impl Text {
         &self.text
     }
 
+    /// Returns the number of characters (not bytes: "ä" is 1).
     pub fn char_count(&self) -> usize {
         self.chars
     }
 
-    // appends without counting again: both counts are known
+    /// Appends another text.
     pub fn push(&mut self, other: &Text) {
         self.text.push_str(&other.text);
         self.chars += other.chars;

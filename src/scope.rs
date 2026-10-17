@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-// Stack of open blocks and the names declared in them.
-// T is what a name stands for: VarInfo (type, const) in the type checker, Value in the interpreter.
+/// The open blocks and the names declared in each of them.
+/// `T` is what the type checker knows about a name.
 pub struct Scopes<T> {
     stack: Vec<HashMap<String, T>>,
 }
@@ -13,14 +13,17 @@ impl<T> Scopes<T> {
         }
     }
 
+    /// Opens a new block.
     pub fn push(&mut self) {
         self.stack.push(HashMap::new());
     }
 
+    /// Closes the innermost block; its names are gone.
     pub fn pop(&mut self) {
         self.stack.pop();
     }
 
+    /// Adds a name to the innermost block. Returns false if the block already has it.
     pub fn declare(&mut self, name: &str, value: T) -> bool {
         let scope = self.stack.last_mut().expect("scope stack is never empty");
         if scope.contains_key(name) {
@@ -30,6 +33,7 @@ impl<T> Scopes<T> {
         true
     }
 
+    /// Finds a name, starting with the innermost block.
     pub fn lookup(&self, name: &str) -> Option<&T> {
         self.stack.iter().rev().find_map(|scope| scope.get(name))
     }

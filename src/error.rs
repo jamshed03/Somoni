@@ -4,7 +4,7 @@ use crate::span::Span;
 use crate::token::Token;
 use crate::types::Type;
 
-// In which station of the pipeline the error happened.
+/// In which part of the pipeline the error happened.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ErrorKind {
     Lex,
@@ -13,7 +13,7 @@ pub enum ErrorKind {
     Runtime,
 }
 
-// The catalog of all errors Somoni knows, each with an id and a message.
+/// All errors Somoni knows. Each has a code like `T001` and a message.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorCode {
     // lexer
@@ -162,6 +162,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
+    /// Returns the code of the error, e.g. `T001`.
     pub fn code(&self) -> &'static str {
         match self {
             ErrorCode::UnexpectedCharacter { .. } => "L001",
@@ -209,7 +210,6 @@ impl ErrorCode {
             ErrorCode::NoFields { .. } => "T029",
             ErrorCode::StructContainsItself { .. } => "T030",
 
-            // should never happen: the type checker rejects such programs (a bug in Somoni)
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
             ErrorCode::IntegerOverflow => "R002",
@@ -219,6 +219,7 @@ impl ErrorCode {
         }
     }
 
+    /// Returns the part of the pipeline the error belongs to.
     pub fn kind(&self) -> ErrorKind {
         match self {
             ErrorCode::UnexpectedCharacter { .. }
@@ -275,7 +276,7 @@ impl ErrorCode {
         }
     }
 
-    // lowercase, like rustc: the message follows "Line N: "
+    /// Returns the message, in lowercase, e.g. `unknown variable 'y'`.
     pub fn message(&self) -> String {
         match self {
             ErrorCode::UnexpectedCharacter { found } => format!("unexpected character '{}'", found),
@@ -403,6 +404,7 @@ impl ErrorCode {
     }
 }
 
+/// An error with its place in the source (None if the place is not known yet).
 #[derive(Debug, Clone, PartialEq)]
 pub struct SomoniError {
     pub code: ErrorCode,
@@ -410,6 +412,7 @@ pub struct SomoniError {
 }
 
 impl SomoniError {
+    /// An error at this place.
     pub fn at(span: Span, code: ErrorCode) -> SomoniError {
         SomoniError {
             code,
@@ -417,7 +420,7 @@ impl SomoniError {
         }
     }
 
-    // R000: a check the type checker should have made failed (a bug in Somoni)
+    /// Error R000: something the type checker should have prevented. This is a bug in Somoni.
     pub fn internal(message: impl Into<String>) -> SomoniError {
         ErrorCode::Internal {
             message: message.into(),
@@ -425,6 +428,7 @@ impl SomoniError {
         .into()
     }
 
+    /// Returns the error message with the source line and `^^^` under the place.
     pub fn render(&self, source: &str) -> String {
         let header = self.to_string();
         let Some(span) = self.span else {
@@ -459,6 +463,7 @@ impl SomoniError {
         )
     }
 
+    /// Sets the place if the error has none yet.
     pub fn with_span_if_missing(mut self, span: Option<Span>) -> SomoniError {
         if self.span.is_none() {
             self.span = span;
@@ -467,14 +472,14 @@ impl SomoniError {
     }
 }
 
-// ErrorCode -> SomoniError without a place, used for runtime errors
+/// Turns an error code into an error without a place (used for runtime errors).
 impl From<ErrorCode> for SomoniError {
     fn from(code: ErrorCode) -> SomoniError {
         SomoniError { code, span: None }
     }
 }
 
-// e.g. "Type error [T002]: Line 4: unknown variable 'y'"
+/// The first line of the message, e.g. `Type error [T002]: Line 4: unknown variable 'y'`.
 impl fmt::Display for SomoniError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let kind = match self.code.kind() {

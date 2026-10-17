@@ -1,9 +1,8 @@
-// Runs every tests/cases/*.smn
-
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Runs every program in tests/cases and compares it with its .out file.
 #[test]
 fn smn_programs_match_expected_output() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/cases");
@@ -34,12 +33,13 @@ fn smn_programs_match_expected_output() {
     );
 }
 
+/// Runs one program and returns what is wrong: other output or another exit code.
+/// `err_*` programs must end with exit code 1, all others with 0.
 fn check_program(program: &Path) -> Vec<String> {
     let Ok(expected) = fs::read_to_string(program.with_extension("out")) else {
         return vec!["missing .out file".to_string()];
     };
 
-    // CARGO_BIN_EXE_somoni = path to the compiled binary (set by cargo for tests)
     let output = Command::new(env!("CARGO_BIN_EXE_somoni"))
         .arg(program)
         .output()
@@ -58,7 +58,6 @@ fn check_program(program: &Path) -> Vec<String> {
         ));
     }
 
-    // err_* programs must stop with exit code 1, all others must end with 0
     let name = program.file_name().unwrap().to_string_lossy();
     let expected_code = if name.starts_with("err_") { 1 } else { 0 };
     if output.status.code() != Some(expected_code) {

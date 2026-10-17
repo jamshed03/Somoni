@@ -9,33 +9,34 @@ use crate::scope::Scopes;
 use crate::span::Span;
 use crate::types::Type;
 
+/// What the type checker knows about a variable.
 struct VarInfo {
     ty: Type,
     mutable: bool,
     slot: usize,
 }
 
+/// The number, parameter types and return type of a function.
 struct Signature {
     index: usize,
     params: Vec<Type>,
     return_type: Type,
 }
 
+/// The number of a struct and the name and type of each field, in declaration order.
 struct StructInfo {
-    // the index of the struct in `ast::structs`
     index: usize,
-    // name and type of every field, in the order of the declaration
     fields: Vec<(String, Type)>,
 }
 
+/// Checks the types of a program before it runs.
+/// It also writes into the tree what the interpreter needs: slots, call targets, field positions.
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
     loop_depth: usize,
     functions: HashMap<String, Signature>,
     structs: HashMap<String, StructInfo>,
-    // the return type of the function being checked, None at the top level
     current_return: Option<Type>,
-    // the next free place in the current frame (top level or function)
     next_slot: usize,
 }
 
@@ -51,9 +52,8 @@ impl TypeChecker {
         }
     }
 
-    // Checks the program and writes the slot of every variable into the tree.
+    /// Checks the whole program.
     pub fn check(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
-        // structs first: the signatures of functions may use them
         self.declare_structs(stmts)?;
         self.declare_functions(stmts)?;
         self.check_stmts(stmts)
@@ -66,8 +66,8 @@ impl TypeChecker {
         Ok(())
     }
 
-    // Three passes: first all names (a field may use a struct declared further down),
-    // then the field types, then the check that no struct contains itself.
+    /// Collects all structs: first their names, then their field types,
+    /// then checks that no struct contains itself.
     fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for (index, decl) in ast::structs(stmts).enumerate() {
             if Type::is_builtin_name(&decl.name) || self.structs.contains_key(&decl.name) {
@@ -124,9 +124,8 @@ impl TypeChecker {
         Ok(())
     }
 
-    // Does a value of struct `from` hold a `target`, as a field or inside a field?
-    // A list does not count: it can be empty, so `list<Tree>` in Tree is fine.
-    // `seen` stops the search in a cycle that does not lead to `target`.
+    /// Returns true if struct `from` contains struct `target` in a field, also through other structs.
+    /// Fields of type `list<...>` do not count.
     fn struct_contains(&self, from: &str, target: &str, seen: &mut HashSet<String>) -> bool {
         if from == target {
             return true;
@@ -143,6 +142,7 @@ impl TypeChecker {
         })
     }
 
+    /// Collects the signatures of all functions, so they can be called before they are declared.
     fn declare_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for (index, function) in ast::functions(stmts).enumerate() {
             let name = &function.name;
@@ -175,12 +175,12 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Checks a function body with its own variables, and that it returns on every path.
     fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
         let signature = &self.functions[&function.name];
         let param_types = signature.params.clone();
         let return_type = signature.return_type.clone();
 
-        // a function has its own frame: its slots start at 0, with the parameters
         let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
         let outer_return = self.current_return.replace(return_type.clone());
         let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);
@@ -202,12 +202,12 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Declares the parameters as const variables and checks the body.
     fn check_function_body(
         &mut self,
         function: &mut Function,
         param_types: &[Type],
     ) -> Result<(), SomoniError> {
-        // parameters are const; they get the slots 0, 1, 2, ... in their order
         for (param, ty) in function.params.iter().zip(param_types) {
             self.declare(&param.name, param.name_span, ty.clone(), false)?;
         }
@@ -243,7 +243,6 @@ impl TypeChecker {
                 ..
             } => {
                 self.check_condition(condition)?;
-                // both branches are checked, even the one that will not run
                 self.check_stmt(then_branch)?;
                 if let Some(else_branch) = else_branch {
                     self.check_stmt(else_branch)?;
@@ -254,7 +253,6 @@ impl TypeChecker {
                 condition, body, ..
             } => {
                 self.check_condition(condition)?;
-                // checked once, even if it runs many times (or never)
                 self.check_loop_body(body)
             }
             Stmt::For {
@@ -265,7 +263,6 @@ impl TypeChecker {
                 ..
             } => self.in_scope(|this| this.check_for(init, condition, step, body)),
             Stmt::FnDecl(function) => self.check_function(function),
-            // already checked in declare_structs
             Stmt::StructDecl(_) => Ok(()),
             Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
@@ -273,8 +270,7 @@ impl TypeChecker {
         }
     }
 
-    // runs `check` inside a new block scope; the scope is removed again, also after an error
-    // After the block its slots are free again for the variables that follow.
+    /// Runs `check` inside a new block. Afterwards the variables of the block are gone.
     fn in_scope<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> T {
         self.scopes.push();
         let first_slot = self.next_slot;
@@ -284,7 +280,7 @@ impl TypeChecker {
         result
     }
 
-    // a name may exist only once per block; returns the slot of the new variable
+    /// Declares a new variable and returns its slot. A name may exist only once per block.
     fn declare(
         &mut self,
         name: &str,
@@ -306,6 +302,7 @@ impl TypeChecker {
         Ok(slot)
     }
 
+    /// Checks that `value` has the type `expected`.
     fn check_assignable(&self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
         let found = self.check_expr_expecting(value, expected)?;
         if found != *expected {
@@ -320,8 +317,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    // The target is checked like an expression that is read: that reports unknown
-    // variables and fills in the slot. Then it must be a variable that is not const.
+    /// Checks `target = value;`: the target must exist, must not be const, and the types must match.
     fn check_assign(&self, target: &mut Expr, value: &mut Expr) -> Result<(), SomoniError> {
         let target_type = self.check_expr(target)?;
         let Some((name, name_span)) = target.root_variable() else {
@@ -338,11 +334,11 @@ impl TypeChecker {
         self.check_assignable(value, &target_type)
     }
 
+    /// Checks that `return` is inside a function and returns the right type.
     fn check_return(&self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
         let Some(expected) = &self.current_return else {
             return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
         };
-        // `return;` gives nothing, that is void
         let (found, place) = match value {
             Some(value) => (self.check_expr_expecting(value, expected)?, value.span),
             None => (Type::Void, span),
@@ -372,6 +368,7 @@ impl TypeChecker {
         self.check_loop_body(body)
     }
 
+    /// Checks a loop body; inside it, `break` and `continue` are allowed.
     fn check_loop_body(&mut self, body: &mut Stmt) -> Result<(), SomoniError> {
         self.loop_depth += 1;
         let result = self.check_stmt(body);
@@ -379,6 +376,7 @@ impl TypeChecker {
         result
     }
 
+    /// Checks that `break` or `continue` is inside a loop.
     fn check_inside_loop(&self, keyword: &'static str, span: Span) -> Result<(), SomoniError> {
         if self.loop_depth == 0 {
             return Err(SomoniError::at(span, ErrorCode::OutsideLoop { keyword }));
@@ -386,7 +384,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    // conditions of if and while must be bool, `if (1)` is an error
+    /// Checks that a condition of `if`, `while` or `for` is a bool.
     fn check_condition(&self, condition: &mut Expr) -> Result<(), SomoniError> {
         let ty = self.check_expr(condition)?;
         if ty != Type::Bool {
@@ -398,8 +396,8 @@ impl TypeChecker {
         Ok(())
     }
 
-    // Like check_expr, but knows which type the place wants (variable, parameter, return).
-    // A list literal takes its element type from there, so `var l: list<int> = [];` works.
+    /// Like `check_expr`, but knows which type is expected.
+    /// This lets an empty list get its type: `var l: list<int> = [];`.
     fn check_expr_expecting(&self, expr: &mut Expr, expected: &Type) -> Result<Type, SomoniError> {
         if let (ExprKind::List(elements), Type::List(element_type)) = (&mut expr.kind, expected) {
             return self.check_list(elements, expr.span, Some(element_type));
@@ -407,8 +405,7 @@ impl TypeChecker {
         self.check_expr(expr)
     }
 
-    // Both sides of a binary operator. One side is the hint for the other, so an empty
-    // list takes the type of the other side: `l + []`, `[] + l`, `l == []`.
+    /// Checks both sides of an operator. An empty list gets the type of the other side: `l + []`.
     fn check_operands(
         &self,
         left: &mut Expr,
@@ -425,8 +422,8 @@ impl TypeChecker {
         }
     }
 
-    // All elements must have the type of the first one. An empty list needs `hint`:
-    // the element type the place wants; without it its type is unknown.
+    /// Checks a list literal: all elements must have the same type.
+    /// An empty list needs `hint`, the expected element type.
     fn check_list(
         &self,
         elements: &mut [Expr],
@@ -458,8 +455,7 @@ impl TypeChecker {
         Ok(Type::List(Box::new(element_type)))
     }
 
-    // Every field exactly once, in any order. Each gets its place in the declaration,
-    // so the interpreter can store the values in that order.
+    /// Checks a struct literal: every field must be given exactly once, in any order.
     fn check_struct_literal(
         &self,
         name: &str,
@@ -497,6 +493,7 @@ impl TypeChecker {
         Ok(Type::Struct(name.to_string()))
     }
 
+    /// Returns the struct with this name, or T001 if there is none.
     fn struct_info(&self, name: &str, span: Span) -> Result<&StructInfo, SomoniError> {
         self.structs.get(name).ok_or_else(|| {
             SomoniError::at(
@@ -508,7 +505,7 @@ impl TypeChecker {
         })
     }
 
-    // A type as written (e.g. `list<int>`) to a Type. `void` only where allowed (return types).
+    /// Turns a written type like `list<int>` into a `Type`. `void` is only allowed if `allow_void`.
     fn resolve_type(&self, written: &TypeName, allow_void: bool) -> Result<Type, SomoniError> {
         let simple = if allow_void {
             Type::from_return_name(&written.name)
@@ -550,6 +547,7 @@ impl TypeChecker {
         }
     }
 
+    /// Returns the type of an expression, or a type error.
     fn check_expr(&self, expr: &mut Expr) -> Result<Type, SomoniError> {
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
@@ -692,11 +690,12 @@ impl TypeChecker {
     }
 }
 
+/// Returns true if the expression is `[]`.
 fn is_empty_list(expr: &Expr) -> bool {
     matches!(&expr.kind, ExprKind::List(elements) if elements.is_empty())
 }
 
-// the place and type of field `name` in a struct, T027 if the struct has no such field
+/// Returns the position and type of a field, or T027 if the struct has no such field.
 fn field_of<'a>(
     info: &'a StructInfo,
     struct_name: &str,
@@ -719,6 +718,7 @@ fn field_of<'a>(
         })
 }
 
+/// Checks that a call has the right number of arguments.
 fn check_arg_count(
     name: &str,
     expected: usize,
@@ -738,6 +738,7 @@ fn check_arg_count(
     Ok(())
 }
 
+/// The error for an argument with the wrong type.
 fn wrong_arg_type(name: &str, found: Type, span: Span) -> SomoniError {
     SomoniError::at(
         span,
@@ -748,12 +749,12 @@ fn wrong_arg_type(name: &str, found: Type, span: Span) -> SomoniError {
     )
 }
 
-// Does every path through these statements end with `return`?
-// One statement that always returns is enough (the rest after it never runs).
+/// Returns true if every path through these statements ends with `return`.
 fn always_returns(stmts: &[Stmt]) -> bool {
     stmts.iter().any(stmt_always_returns)
 }
 
+/// Returns true if this statement always ends with `return` (an `if` only with `else`).
 fn stmt_always_returns(stmt: &Stmt) -> bool {
     match stmt {
         Stmt::Return { .. } => true,

@@ -1,8 +1,9 @@
 use crate::span::Span;
 
+/// The smallest parts of the source: keywords, names, values and symbols.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    // Schlüsselwörter
+    // keywords
     Var,
     Const,
     True,
@@ -17,13 +18,13 @@ pub enum Token {
     Return,
     Struct,
 
-    // Namen und Werte
+    // names and values
     Ident(String),
     Int(i64),
     Str(String),
     Float(f64),
 
-    // Symbole
+    // symbols
     Colon,
     Comma,
     Dot,
@@ -51,10 +52,11 @@ pub enum Token {
     OrOr,
     Bang,
 
-    // Ende der Eingabe
+    /// The end of the input.
     Eof,
 }
 
+/// A token with its place in the source.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SpannedToken {
     pub token: Token,

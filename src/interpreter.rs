@@ -8,38 +8,34 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::text::Text;
 
+/// A value while the program runs.
+/// Strings, lists and structs are shared with `Rc` and only copied when one copy is changed.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Int(i64),
     Float(f64),
     Bool(bool),
-    // Rc: reading or passing a string only counts one more user instead of copying
-    // the text. Text (not str) so a string with only one user can still grow.
     Str(Rc<Text>),
-    // Rc like Str: a copy of a list shares the elements until one of them is changed
     List(Rc<Vec<Value>>),
-    // Rc like List: a copy of a struct shares the fields until one of them is changed
     Struct(Rc<StructValue>),
     Void,
 }
 
+/// The value of a struct: its declaration and the field values in declaration order.
 #[derive(Debug, Clone)]
 pub struct StructValue {
-    // which struct this is, with the field names for print
     pub decl: Rc<StructDecl>,
-    // in the order of the declaration
     pub fields: Vec<Value>,
 }
 
-// By hand instead of derive: derive would compare the two declarations field by field
-// (names, types, even spans). Both values are of the same struct (the type checker made
-// sure), so pointing to the same declaration is enough.
+/// Two struct values are equal if they are the same struct and all fields are equal.
 impl PartialEq for StructValue {
     fn eq(&self, other: &StructValue) -> bool {
         Rc::ptr_eq(&self.decl, &other.decl) && self.fields == other.fields
     }
 }
 
+/// The text `print` shows, e.g. `[1, 2]` or `Point { x: 1, y: 2 }`.
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -57,7 +53,6 @@ impl fmt::Display for Value {
                 }
                 write!(f, "]")
             }
-            // like the literal: Point { x: 1, y: 2 }, and Empty {} without fields
             Value::Struct(value) => {
                 write!(f, "{} {{", value.decl.name)?;
                 for (i, (field, item)) in value.decl.fields.iter().zip(&value.fields).enumerate() {
@@ -76,7 +71,7 @@ impl fmt::Display for Value {
     }
 }
 
-// a value inside a list or struct: strings get quotes, so ["1"] and [1] look different
+/// Writes a value that is inside a list or struct. Strings get quotes: `["1"]`.
 fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
     match value {
         Value::Str(s) => write!(f, "\"{}\"", s),
@@ -84,14 +79,13 @@ fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
     }
 }
 
-// one step from a variable to a part of it, see place_steps
+/// One step from a variable to a part of it: a list index or a field.
 enum Step {
-    // span: the indexed part, e.g. `l[3]`, where R005 points to
     Index { index: i64, span: Span },
     Field(usize),
 }
 
-// Return carries the value up to the call, like Break carries "leave the loop"
+/// What happens after a statement: go on, leave a loop, next round, or leave a function.
 #[derive(Debug, Clone, PartialEq)]
 enum ControlFlow {
     Normal,
@@ -100,17 +94,15 @@ enum ControlFlow {
     Return(Value),
 }
 
-// more nested calls are an error (R004) instead of a crash; Python allows 1000, JavaScript ~10000
+/// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
 
-// All frames lie one after another on one stack (like a real VM). The current frame
-// starts at `base`; slot i of a variable is stack[base + i]. A call needs no own memory.
+/// Runs a checked program.
+/// All variables live on one stack; the variables of the current function start at `base`.
 pub struct Interpreter<'a> {
     stack: Vec<Value>,
     base: usize,
-    // indexed like ast::functions, the type checker wrote the index into every call
     functions: Vec<&'a Function>,
-    // indexed like ast::structs, the type checker wrote the index into every literal
     structs: Vec<Rc<StructDecl>>,
     call_depth: usize,
 }
@@ -126,6 +118,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    /// Runs all statements of the program.
     pub fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), SomoniError> {
         self.functions = ast::functions(stmts).collect();
         self.structs = ast::structs(stmts).cloned().collect();
@@ -133,6 +126,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
+    /// Calls a function: puts the arguments on the stack, runs the body, returns the result.
     fn call_function(&mut self, function: &Function, args: &[Expr]) -> Result<Value, SomoniError> {
         if self.call_depth >= MAX_CALL_DEPTH {
             return Err(ErrorCode::RecursionTooDeep {
@@ -140,8 +134,6 @@ impl<'a> Interpreter<'a> {
             }
             .into());
         }
-        // The arguments go on top of the stack and become slots 0, 1, ... of the new frame.
-        // They are evaluated first, while the caller's frame is still the current one.
         let new_base = self.stack.len();
         for arg in args {
             match self.eval(arg) {
@@ -157,7 +149,6 @@ impl<'a> Interpreter<'a> {
         let result = self.exec_all(&function.body);
         self.call_depth -= 1;
         self.base = caller_base;
-        // the frame of the called function is gone
         self.stack.truncate(new_base);
         match result? {
             ControlFlow::Return(value) => Ok(value),
@@ -168,6 +159,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    /// Runs statements one after another until one of them breaks, continues or returns.
     fn exec_all(&mut self, stmts: &[Stmt]) -> Result<ControlFlow, SomoniError> {
         for stmt in stmts {
             let flow = self.exec(stmt)?;
@@ -178,6 +170,7 @@ impl<'a> Interpreter<'a> {
         Ok(ControlFlow::Normal)
     }
 
+    /// Runs one statement. An error without a place gets the place of the statement.
     fn exec(&mut self, stmt: &Stmt) -> Result<ControlFlow, SomoniError> {
         self.exec_stmt(stmt)
             .map_err(|error| error.with_span_if_missing(stmt.span()))
@@ -198,7 +191,6 @@ impl<'a> Interpreter<'a> {
                 self.eval(expr)?;
                 Ok(ControlFlow::Normal)
             }
-            // scopes are already resolved into slots, a block needs nothing at runtime
             Stmt::Block(stmts) => self.exec_all(stmts),
             Stmt::If {
                 condition,
@@ -223,10 +215,7 @@ impl<'a> Interpreter<'a> {
                 step,
                 body,
                 ..
-            } => {
-                // the counter lives in its own scope around the whole loop, gone afterwards
-                self.run_for(init, condition, step, body)
-            }
+            } => self.run_for(init, condition, step, body),
             Stmt::FnDecl(_) | Stmt::StructDecl(_) => Ok(ControlFlow::Normal),
             Stmt::Return { value, .. } => {
                 let value = match value {
@@ -240,12 +229,12 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    /// Runs `target = value`.
+    /// `s = s + text` and `l = l + [x]` append in place, so the string or list is not copied.
     fn assign(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
         let ExprKind::Ident { slot, .. } = target.kind else {
             return self.assign_part(target, value);
         };
-        // s = s + text and l = l + [x]: grow the variable in place instead of
-        // building a new string or list (that would copy all of it every time)
         if let Some(slot) = slot
             && let Some(rest) = appended_part(slot, value)
             && let Some(Value::Str(_) | Value::List(_)) = self.stack.get(self.base + slot)
@@ -260,6 +249,8 @@ impl<'a> Interpreter<'a> {
         self.set(slot, v)
     }
 
+    /// Writes a value into a list element or a field, e.g. `l[0].x = 5`.
+    /// A list or struct that another variable also uses is copied first.
     fn assign_part(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
         let mut steps = Vec::new();
         let slot = self.place_steps(target, &mut steps)?;
@@ -286,6 +277,8 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
+    /// Collects the steps from the variable to the part, e.g. `l[0].x` gives index 0, field x.
+    /// Indices are evaluated from left to right. Returns the slot of the variable.
     fn place_steps(
         &mut self,
         target: &Expr,
@@ -317,14 +310,14 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    // the value of a variable; the type checker filled in every slot
+    /// Reads the variable in `slot` of the current function.
     fn get(&self, slot: Option<usize>) -> Result<Value, SomoniError> {
         slot.and_then(|slot| self.stack.get(self.base + slot))
             .cloned()
             .ok_or_else(|| SomoniError::internal("variable without a value"))
     }
 
-    // the frame grows when a variable gets a slot that is not there yet
+    /// Writes the variable in `slot` of the current function; the stack grows if needed.
     fn set(&mut self, slot: Option<usize>, value: Value) -> Result<(), SomoniError> {
         let Some(slot) = slot else {
             return Err(SomoniError::internal("variable without a slot"));
@@ -337,6 +330,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
+    /// Runs `for (init; condition; step) body`.
     fn run_for(
         &mut self,
         init: &Stmt,
@@ -348,6 +342,7 @@ impl<'a> Interpreter<'a> {
         self.run_loop(condition, body, Some(step))
     }
 
+    /// Runs `body` while `condition` is true; `step` (in a for loop) runs after every round.
     fn run_loop(
         &mut self,
         condition: &Expr,
@@ -374,6 +369,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    /// Computes the value of an expression. An error without a place gets the place of it.
     fn eval(&mut self, expr: &Expr) -> Result<Value, SomoniError> {
         self.eval_kind(&expr.kind)
             .map_err(|error| error.with_span_if_missing(Some(expr.span)))
@@ -424,7 +420,8 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    // evaluated in the order of the literal, stored in the order of the declaration
+    /// Builds a struct value, e.g. `Point { y: 2, x: 1 }`.
+    /// The fields are evaluated in the order of the literal and stored in declaration order.
     fn eval_struct_literal(
         &mut self,
         index: Option<usize>,
@@ -433,7 +430,6 @@ impl<'a> Interpreter<'a> {
         let Some(decl) = index.and_then(|i| self.structs.get(i)).cloned() else {
             return Err(SomoniError::internal("struct literal without struct"));
         };
-        // every place is filled below, the type checker made sure each field is given once
         let mut values = vec![Value::Void; decl.fields.len()];
         for init in fields {
             let value = self.eval(&init.value)?;
@@ -448,6 +444,7 @@ impl<'a> Interpreter<'a> {
         })))
     }
 
+    /// Calls a built-in function or a function of the program.
     fn eval_call(
         &mut self,
         target: Option<CallTarget>,
@@ -471,6 +468,7 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    /// Computes `left op right`. `&&` and `||` skip the right side when the left decides.
     fn eval_binary(
         &mut self,
         op: BinaryOp,
@@ -507,6 +505,7 @@ impl<'a> Interpreter<'a> {
     }
 }
 
+/// Computes `!value` or `-value`.
 fn unary(op: UnaryOp, value: Value) -> Result<Value, SomoniError> {
     match (op, value) {
         (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
@@ -518,7 +517,7 @@ fn unary(op: UnaryOp, value: Value) -> Result<Value, SomoniError> {
     }
 }
 
-// + - * / % for int: overflow and division by zero are runtime errors, never silent
+/// Computes `+ - * / %` for two ints. Overflow and division by zero are runtime errors.
 fn int_arithmetic(op: BinaryOp, a: i64, b: i64) -> Result<Value, SomoniError> {
     let result = match op {
         BinaryOp::Div | BinaryOp::Mod if b == 0 => return Err(ErrorCode::DivisionByZero.into()),
@@ -532,13 +531,14 @@ fn int_arithmetic(op: BinaryOp, a: i64, b: i64) -> Result<Value, SomoniError> {
     int_or_overflow(result)
 }
 
-// checked_* gives None on overflow
+/// Turns the result of a `checked_*` operation into an int, or R002 on overflow.
 fn int_or_overflow(result: Option<i64>) -> Result<Value, SomoniError> {
     result
         .map(Value::Int)
         .ok_or_else(|| ErrorCode::IntegerOverflow.into())
 }
 
+/// Computes `+ - * /` for two floats. Division by zero is a runtime error.
 fn float_arithmetic(op: BinaryOp, a: f64, b: f64) -> Result<Value, SomoniError> {
     let result = match op {
         BinaryOp::Div if b == 0.0 => return Err(ErrorCode::DivisionByZero.into()),
@@ -551,6 +551,7 @@ fn float_arithmetic(op: BinaryOp, a: f64, b: f64) -> Result<Value, SomoniError> 
     Ok(Value::Float(result))
 }
 
+/// Computes a comparison (`== != < > <= >=`), or None if `op` is no comparison.
 fn compare(op: BinaryOp, l: &Value, r: &Value) -> Option<bool> {
     match (op, l, r) {
         (BinaryOp::Eq, _, _) => Some(l == r),
@@ -561,6 +562,7 @@ fn compare(op: BinaryOp, l: &Value, r: &Value) -> Option<bool> {
     }
 }
 
+/// Computes `< > <= >=` for two numbers, or None for other operators.
 fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
     match op {
         BinaryOp::Less => Some(a < b),
@@ -571,8 +573,8 @@ fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
     }
 }
 
-// `target + rest` for strings and lists, written into target.
-// Copy-on-write: grows in place if nothing else uses the text or list, otherwise copies it once.
+/// Appends `rest` to the string or list in `target`.
+/// Copies `target` first only if another variable also uses it.
 fn append(target: &mut Value, rest: Value) -> Result<(), SomoniError> {
     match (target, rest) {
         (Value::Str(text), Value::Str(rest)) => Rc::make_mut(text).push(&rest),
@@ -584,7 +586,7 @@ fn append(target: &mut Value, rest: Value) -> Result<(), SomoniError> {
     Ok(())
 }
 
-// the `rest` in `x = x + rest`, if `value` has this form for the variable in `slot`
+/// Returns `rest` if `value` is `x + rest` and `x` is the variable in `slot`.
 fn appended_part(slot: usize, value: &Expr) -> Option<&Expr> {
     let ExprKind::Binary {
         left,
@@ -605,8 +607,8 @@ fn appended_part(slot: usize, value: &Expr) -> Option<&Expr> {
     (left_slot == slot).then_some(right)
 }
 
-// The place of `index` in a list of `length` elements, or R005 if it is outside
-// (also negative). One check for reading and writing: afterwards items[place] cannot panic.
+/// Returns the position of `index` in a list with `length` elements,
+/// or R005 if the index is outside the list (also when negative).
 fn list_position(index: i64, length: usize) -> Result<usize, SomoniError> {
     usize::try_from(index)
         .ok()

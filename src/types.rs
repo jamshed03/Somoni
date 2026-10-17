@@ -1,38 +1,37 @@
 use std::fmt;
 
-// Not Copy: list<int> holds another type inside (a Box), so a Type is cloned where needed.
+/// A type in the type checker.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     Int,
     Float,
     Bool,
     Str,
-    // "no value": only the result of a function like print, never a variable type
+    /// No value: only the result of a function like `print`, never the type of a variable.
     Void,
     List(Box<Type>),
-    // a struct declared in the program, by its name
+    /// A struct of the program, by its name.
     Struct(String),
 }
 
 impl Type {
-    // the types without type arguments; list<T> is built by the type checker
+    /// Returns the type with this name: `int`, `float`, `bool` or `string`.
     pub fn from_name(name: &str) -> Option<Type> {
         match name {
             "int" => Some(Type::Int),
             "float" => Some(Type::Float),
             "bool" => Some(Type::Bool),
             "string" => Some(Type::Str),
-            // "void" is missing on purpose: `var x: void` makes no sense
             _ => None,
         }
     }
 
-    // the names a struct may not take: every built-in type, also void and list
+    /// Returns true for the names of built-in types; a struct may not use them.
     pub fn is_builtin_name(name: &str) -> bool {
         name == "list" || Type::from_return_name(name).is_some()
     }
 
-    // like from_name, but also "void": a function may return nothing
+    /// Like `from_name`, but also knows `void` (for return types).
     pub fn from_return_name(name: &str) -> Option<Type> {
         match name {
             "void" => Some(Type::Void),
@@ -41,7 +40,7 @@ impl Type {
     }
 }
 
-// how a type is written in Somoni, e.g. "list<list<int>>"
+/// The type as written in Somoni, e.g. `list<list<int>>`.
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

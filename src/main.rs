@@ -22,11 +22,10 @@ use lexer::Lexer;
 use parser::Parser;
 use typechecker::TypeChecker;
 
-// Every Somoni call uses several Rust calls, and the main thread has only a few MB
-// of stack (a debug build crashes after about 700 Somoni calls). So the pipeline
-// runs in its own thread with a big stack; memory is only used when needed.
+/// Stack size of the thread that runs the program. Deep recursion in Somoni needs a big stack.
 const STACK_SIZE: usize = 256 * 1024 * 1024;
 
+/// Reads the file from the command line and runs it. Exit code 1 on an error.
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
@@ -53,11 +52,11 @@ fn main() {
             eprintln!("{}", message);
             process::exit(1);
         }
-        // a panic (a bug in Somoni): Rust already printed the message
         Err(_) => process::exit(101),
     }
 }
 
+/// Runs the whole pipeline: lexer, parser, type checker, interpreter.
 fn run(source: &str) -> Result<(), SomoniError> {
     let tokens = Lexer::new(source).tokenize()?;
     let mut stmts = Parser::new(tokens).parse_program()?;

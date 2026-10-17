@@ -2,11 +2,11 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
 
+/// Turns the source text into tokens, each with its place (line and column).
 pub struct Lexer {
     chars: Vec<char>,
     pos: usize,
     line: usize,
-    // position of the first character of the current line, for the column
     line_start: usize,
 }
 
@@ -20,10 +20,12 @@ impl Lexer {
         }
     }
 
+    /// Returns the current character, None at the end.
     fn peek(&self) -> Option<char> {
         self.chars.get(self.pos).copied()
     }
 
+    /// Returns the character after the current one.
     fn peek_next(&self) -> Option<char> {
         self.chars.get(self.pos + 1).copied()
     }
@@ -32,18 +34,19 @@ impl Lexer {
         self.pos += 1;
     }
 
-    // skip a '\n' and start the next line
+    /// Skips a line break and starts the next line.
     fn newline(&mut self) {
         self.advance();
         self.line += 1;
         self.line_start = self.pos;
     }
 
+    /// Returns the column of the current character, starting at 1.
     fn col(&self) -> usize {
         self.pos - self.line_start + 1
     }
 
-    // from (line, col) up to the current position
+    /// Returns the place from (line, col) up to the current character.
     fn span_from(&self, line: usize, col: usize) -> Span {
         Span {
             line,
@@ -53,6 +56,7 @@ impl Lexer {
         }
     }
 
+    /// Reads an int like `42` or a float like `1.5`.
     fn read_number(&mut self) -> Result<Token, SomoniError> {
         let (line, col) = (self.line, self.col());
         let mut text = String::new();
@@ -65,7 +69,6 @@ impl Lexer {
             }
         }
 
-        // a '.' only belongs to the number if a digit follows
         let next_is_digit = self.peek_next().is_some_and(|c| c.is_ascii_digit());
 
         if self.peek() == Some('.') && next_is_digit {
@@ -92,6 +95,7 @@ impl Lexer {
             .map_err(|_| SomoniError::at(span, ErrorCode::IntegerTooLarge { text }))
     }
 
+    /// Reads a keyword like `if` or a name like `count`.
     fn read_word(&mut self) -> Token {
         let mut text = String::new();
         while let Some(c) = self.peek() {
@@ -120,13 +124,14 @@ impl Lexer {
         }
     }
 
+    /// Reads a string `"..."`; it may go over several lines.
     fn read_string(&mut self) -> Result<Token, SomoniError> {
         let start = Span::in_line(self.line, self.col(), 1);
-        self.advance(); // opening "
+        self.advance();
         let mut text = String::new();
         while let Some(c) = self.peek() {
             if c == '"' {
-                self.advance(); // closing "
+                self.advance();
                 return Ok(Token::Str(text));
             }
             text.push(c);
@@ -139,7 +144,7 @@ impl Lexer {
         Err(SomoniError::at(start, ErrorCode::UnterminatedString))
     }
 
-    // `// ...` up to the end of the line; the '\n' itself is left for the line counter
+    /// Skips a comment `// ...` up to the end of the line.
     fn skip_line_comment(&mut self) {
         while let Some(c) = self.peek() {
             if c == '\n' {
@@ -149,17 +154,17 @@ impl Lexer {
         }
     }
 
-    // `/* ... */` over several lines, not nested
+    /// Skips a comment `/* ... */`, also over several lines.
     fn skip_block_comment(&mut self) -> Result<(), SomoniError> {
-        let start = Span::in_line(self.line, self.col(), 2); // the '/*'
-        self.advance(); // '/'
-        self.advance(); // '*'
+        let start = Span::in_line(self.line, self.col(), 2);
+        self.advance();
+        self.advance();
         loop {
             match self.peek() {
                 None => return Err(SomoniError::at(start, ErrorCode::UnterminatedComment)),
                 Some('*') if self.peek_next() == Some('/') => {
-                    self.advance(); // '*'
-                    self.advance(); // '/'
+                    self.advance();
+                    self.advance();
                     return Ok(());
                 }
                 Some('\n') => self.newline(),
@@ -168,6 +173,7 @@ impl Lexer {
         }
     }
 
+    /// Reads the whole source and returns its tokens. The last token is always `Eof`.
     pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
         let mut tokens = Vec::new();
 
@@ -225,7 +231,6 @@ impl Lexer {
             let (token, len) = match c {
                 ':' => (Token::Colon, 1),
                 ',' => (Token::Comma, 1),
-                // a '.' after a digit is already part of the float (read_number)
                 '.' => (Token::Dot, 1),
                 ';' => (Token::Semicolon, 1),
                 '+' => (Token::Plus, 1),
@@ -265,7 +270,6 @@ impl Lexer {
             });
         }
 
-        // Eof has no width: it sits right after the last character
         tokens.push(SpannedToken {
             token: Token::Eof,
             span: self.span_from(self.line, self.col()),
@@ -278,7 +282,7 @@ impl Lexer {
 mod tests {
     use super::*;
 
-    // (line, col, end_line, end_col) of every token, Eof included
+    /// Returns (line, col, end_line, end_col) of every token, Eof included.
     fn spans(source: &str) -> Vec<(usize, usize, usize, usize)> {
         Lexer::new(source)
             .tokenize()
