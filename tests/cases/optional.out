@@ -1,0 +1,14 @@
+null
+5
+true
+true
+true
+false
+true
+["Ali", null]
+[]
+1
+null
+false
+true
+Node { value: 1, next: Node { value: 2, next: null } }

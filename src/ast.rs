@@ -33,6 +33,7 @@ pub enum ExprKind {
         operand: Box<Expr>,
     },
     Bool(bool),
+    Null,
     /// `[a, b, c]`
     List(Vec<Expr>),
     /// `target[index]`
@@ -208,11 +209,13 @@ pub struct Field {
     pub type_name: TypeName,
 }
 
-/// A type as written in the source, e.g. `list<int>`: the name `list` and the argument `int`.
+/// A type as written in the source, e.g. `list<int>?`: the name `list`, the argument `int`
+/// and `optional` for the `?`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeName {
     pub name: String,
     pub args: Vec<TypeName>,
+    pub optional: bool,
     pub span: Span,
 }
 

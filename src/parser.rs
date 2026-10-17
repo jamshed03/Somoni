@@ -563,7 +563,7 @@ impl Parser {
         })
     }
 
-    /// Reads a type like `int`, `list<int>` or `list<list<string>>`.
+    /// Reads a type like `int`, `int?`, `list<int>` or `list<list<string?>>`.
     fn parse_type(&mut self, what: &str) -> Result<TypeName, SomoniError> {
         let (name, start) = self.expect_ident(what)?;
         let mut args = Vec::new();
@@ -572,9 +572,14 @@ impl Parser {
             args.push(self.parse_type("type")?);
             self.expect(Token::Greater, "'>'")?;
         }
+        let optional = *self.peek() == Token::Question;
+        if optional {
+            self.advance();
+        }
         Ok(TypeName {
             name,
             args,
+            optional,
             span: self.since(start),
         })
     }
@@ -588,6 +593,7 @@ impl Parser {
             Token::Str(s) => ExprKind::Str(Rc::new(Text::new(s))),
             Token::True => ExprKind::Bool(true),
             Token::False => ExprKind::Bool(false),
+            Token::Null => ExprKind::Null,
             Token::Ident(name) if *self.peek_next() == Token::LParen => {
                 return self.parse_call(name, span);
             }

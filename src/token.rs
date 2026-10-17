@@ -17,6 +17,7 @@ pub enum Token {
     Fn,
     Return,
     Struct,
+    Null,
 
     // names and values
     Ident(String),
@@ -51,6 +52,7 @@ pub enum Token {
     AndAnd,
     OrOr,
     Bang,
+    Question,
 
     /// The end of the input.
     Eof,

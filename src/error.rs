@@ -141,6 +141,11 @@ pub enum ErrorCode {
     StructContainsItself {
         name: String,
     },
+    NullNotAllowed {
+        expected: Type,
+    },
+    NullTypeUnknown,
+    OptionalVoid,
 
     // runtime
     Internal {
@@ -209,6 +214,9 @@ impl ErrorCode {
             ErrorCode::MissingField { .. } => "T028",
             ErrorCode::NoFields { .. } => "T029",
             ErrorCode::StructContainsItself { .. } => "T030",
+            ErrorCode::NullNotAllowed { .. } => "T031",
+            ErrorCode::NullTypeUnknown => "T032",
+            ErrorCode::OptionalVoid => "T033",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -265,7 +273,10 @@ impl ErrorCode {
             | ErrorCode::UnknownField { .. }
             | ErrorCode::MissingField { .. }
             | ErrorCode::NoFields { .. }
-            | ErrorCode::StructContainsItself { .. } => ErrorKind::Type,
+            | ErrorCode::StructContainsItself { .. }
+            | ErrorCode::NullNotAllowed { .. }
+            | ErrorCode::NullTypeUnknown
+            | ErrorCode::OptionalVoid => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -382,6 +393,12 @@ impl ErrorCode {
                 format!("missing field '{}' of '{}'", name, struct_name)
             }
             ErrorCode::NoFields { found } => format!("cannot use '.' on {}", found),
+            ErrorCode::NullNotAllowed { expected } => format!(
+                "null is not allowed for {}, only for types with '?' like {}?",
+                expected, expected
+            ),
+            ErrorCode::NullTypeUnknown => "the type of this null is unknown here".to_string(),
+            ErrorCode::OptionalVoid => "'void' cannot be optional".to_string(),
             ErrorCode::StructContainsItself { name } => format!(
                 "struct '{}' contains itself, so no value of it can be built",
                 name

@@ -307,7 +307,7 @@ impl TypeChecker {
     /// Checks that `value` has the type `expected`.
     fn check_assignable(&mut self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
         let found = self.check_expr_expecting(value, expected)?;
-        if found != *expected {
+        if !fits(&found, expected) {
             return Err(SomoniError::at(
                 value.span,
                 ErrorCode::CannotAssign {
@@ -345,7 +345,7 @@ impl TypeChecker {
             Some(value) => (self.check_expr_expecting(value, expected)?, value.span),
             None => (Type::Void, span),
         };
-        if found != *expected {
+        if !fits(&found, expected) {
             return Err(SomoniError::at(
                 place,
                 ErrorCode::ReturnType {
@@ -399,21 +399,39 @@ impl TypeChecker {
     }
 
     /// Like `check_expr`, but knows which type is expected.
-    /// This lets an empty list get its type: `var l: list<int> = [];`.
-    fn check_expr_expecting(&mut self, expr: &mut Expr, expected: &Type) -> Result<Type, SomoniError> {
-        if let (ExprKind::List(elements), Type::List(element_type)) = (&mut expr.kind, expected) {
-            return self.check_list(elements, expr.span, Some(element_type));
+    /// This lets `[]` and `null` get their type: `var l: list<int> = [];`, `var a: int? = null;`.
+    fn check_expr_expecting(
+        &mut self,
+        expr: &mut Expr,
+        expected: &Type,
+    ) -> Result<Type, SomoniError> {
+        let wanted = match expected {
+            Type::Optional(inner) => inner,
+            other => other,
+        };
+        match (&mut expr.kind, wanted) {
+            (ExprKind::List(elements), Type::List(element_type)) => {
+                self.check_list(elements, expr.span, Some(element_type))
+            }
+            (ExprKind::Null, _) if matches!(expected, Type::Optional(_)) => Ok(expected.clone()),
+            (ExprKind::Null, _) => Err(SomoniError::at(
+                expr.span,
+                ErrorCode::NullNotAllowed {
+                    expected: expected.clone(),
+                },
+            )),
+            _ => self.check_expr(expr),
         }
-        self.check_expr(expr)
     }
 
-    /// Checks both sides of an operator. An empty list gets the type of the other side: `l + []`.
+    /// Checks both sides of an operator. `[]` and `null` get the type of the other side:
+    /// `l + []`, `a == null`.
     fn check_operands(
         &mut self,
         left: &mut Expr,
         right: &mut Expr,
     ) -> Result<(Type, Type), SomoniError> {
-        if is_empty_list(left) {
+        if needs_type_hint(left) {
             let r = self.check_expr(right)?;
             let l = self.check_expr_expecting(left, &r)?;
             Ok((l, r))
@@ -425,26 +443,25 @@ impl TypeChecker {
     }
 
     /// Checks a list literal: all elements must have the same type.
-    /// An empty list needs `hint`, the expected element type.
+    /// `hint` is the expected element type; without it, the first element gives the type.
     fn check_list(
         &mut self,
         elements: &mut [Expr],
         span: Span,
         hint: Option<&Type>,
     ) -> Result<Type, SomoniError> {
-        let Some((first, rest)) = elements.split_first_mut() else {
-            return match hint {
-                Some(element_type) => Ok(Type::List(Box::new(element_type.clone()))),
-                None => Err(SomoniError::at(span, ErrorCode::EmptyListType)),
-            };
-        };
-        let element_type = match hint {
-            Some(hint) => self.check_expr_expecting(first, hint)?,
-            None => self.check_expr(first)?,
+        let (element_type, rest) = match hint {
+            Some(hint) => (hint.clone(), elements),
+            None => {
+                let Some((first, rest)) = elements.split_first_mut() else {
+                    return Err(SomoniError::at(span, ErrorCode::EmptyListType));
+                };
+                (self.check_expr(first)?, rest)
+            }
         };
         for element in rest {
             let found = self.check_expr_expecting(element, &element_type)?;
-            if found != element_type {
+            if !fits(&found, &element_type) {
                 return Err(SomoniError::at(
                     element.span,
                     ErrorCode::ListElementType {
@@ -507,8 +524,24 @@ impl TypeChecker {
         })
     }
 
-    /// Turns a written type like `list<int>` into a `Type`. `void` is only allowed if `allow_void`.
+    /// Turns a written type like `list<int>?` into a `Type`. `void` is only allowed if `allow_void`.
     fn resolve_type(&self, written: &TypeName, allow_void: bool) -> Result<Type, SomoniError> {
+        let ty = self.resolve_without_optional(written, allow_void)?;
+        if !written.optional {
+            return Ok(ty);
+        }
+        if ty == Type::Void {
+            return Err(SomoniError::at(written.span, ErrorCode::OptionalVoid));
+        }
+        Ok(Type::Optional(Box::new(ty)))
+    }
+
+    /// Like `resolve_type`, but without the `?`: `list<int>?` gives `list<int>`.
+    fn resolve_without_optional(
+        &self,
+        written: &TypeName,
+        allow_void: bool,
+    ) -> Result<Type, SomoniError> {
         let simple = if allow_void {
             Type::from_return_name(&written.name)
         } else {
@@ -556,6 +589,7 @@ impl TypeChecker {
             ExprKind::Float(_) => Ok(Type::Float),
             ExprKind::Bool(_) => Ok(Type::Bool),
             ExprKind::Str(_) => Ok(Type::Str),
+            ExprKind::Null => Err(SomoniError::at(expr.span, ErrorCode::NullTypeUnknown)),
             ExprKind::Ident { name, slot } => {
                 let info = self.scopes.lookup(name).ok_or_else(|| {
                     SomoniError::at(expr.span, ErrorCode::UnknownVariable { name: name.clone() })
@@ -570,7 +604,8 @@ impl TypeChecker {
                 right,
             } => {
                 let (l, r) = self.check_operands(left, right)?;
-                if l != r {
+                let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
+                if l != r && !(is_equality && (fits(&l, &r) || fits(&r, &l))) {
                     return Err(SomoniError::at(
                         *op_span,
                         ErrorCode::OperandTypesDiffer { left: l, right: r },
@@ -667,7 +702,7 @@ impl TypeChecker {
                 check_arg_count(name, signature.params.len(), args, expr.span)?;
                 for (arg, param_type) in args.iter_mut().zip(&signature.params) {
                     let arg_type = self.check_expr_expecting(arg, param_type)?;
-                    if arg_type != *param_type {
+                    if !fits(&arg_type, param_type) {
                         return Err(wrong_arg_type(name, arg_type, arg.span));
                     }
                 }
@@ -692,9 +727,19 @@ impl TypeChecker {
     }
 }
 
-/// Returns true if the expression is `[]`.
-fn is_empty_list(expr: &Expr) -> bool {
-    matches!(&expr.kind, ExprKind::List(elements) if elements.is_empty())
+/// Returns true for `[]` and `null`: they need the type of the place where they are used.
+fn needs_type_hint(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::List(elements) => elements.is_empty(),
+        ExprKind::Null => true,
+        _ => false,
+    }
+}
+
+/// Returns true if a value of type `found` may be used where `expected` is wanted:
+/// the same type, or `T` where `T?` is wanted.
+fn fits(found: &Type, expected: &Type) -> bool {
+    found == expected || matches!(expected, Type::Optional(inner) if **inner == *found)
 }
 
 /// Returns the position and type of a field, or T027 if the struct has no such field.

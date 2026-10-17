@@ -1,0 +1,3 @@
+Type error [T031]: Line 1: null is not allowed for int, only for types with '?' like int?
+  1 | var b: int = null;
+    |              ^^^^

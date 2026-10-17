@@ -1,0 +1,3 @@
+Type error [T033]: Line 1: 'void' cannot be optional
+  1 | fn nothing(): void? {
+    |               ^^^^^

@@ -18,6 +18,7 @@ pub enum Value {
     Str(Rc<Text>),
     List(Rc<Vec<Value>>),
     Struct(Rc<StructValue>),
+    Null,
     Void,
 }
 
@@ -66,6 +67,7 @@ impl fmt::Display for Value {
                     write!(f, " }}")
                 }
             }
+            Value::Null => write!(f, "null"),
             Value::Void => write!(f, "void"),
         }
     }
@@ -381,6 +383,7 @@ impl<'a> Interpreter<'a> {
             ExprKind::Float(f) => Ok(Value::Float(*f)),
             ExprKind::Str(s) => Ok(Value::Str(Rc::clone(s))),
             ExprKind::Bool(b) => Ok(Value::Bool(*b)),
+            ExprKind::Null => Ok(Value::Null),
             ExprKind::Ident { slot, .. } => self.get(*slot),
             ExprKind::Call { target, args, .. } => self.eval_call(*target, args),
             ExprKind::List(elements) => {

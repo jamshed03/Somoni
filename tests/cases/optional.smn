@@ -1,0 +1,43 @@
+var a: int? = null;
+print(a);
+a = 5;
+print(a);
+
+// only == and != work without a null check, also with an int
+print(a == 5);
+print(a != null);
+a = null;
+print(a == null);
+print(a == 5);
+print(null == a);
+
+var names: list<string?> = ["Ali", null];
+print(names);
+var maybe_list: list<int>? = [];
+print(maybe_list);
+
+// an int fits where an int? is expected: return, argument
+fn find(l: list<int>, x: int): int? {
+    for (var i: int = 0; i < len(l); i = i + 1) {
+        if (l[i] == x) {
+            return i;
+        }
+    }
+    return null;
+}
+print(find([4, 5, 6], 5));
+print(find([4, 5, 6], 9));
+
+fn is_missing(x: int?): bool {
+    return x == null;
+}
+print(is_missing(3));
+print(is_missing(null));
+
+// a struct may contain itself through ?
+struct Node {
+    value: int,
+    next: Node?
+}
+var chain: Node = Node { value: 1, next: Node { value: 2, next: null } };
+print(chain);

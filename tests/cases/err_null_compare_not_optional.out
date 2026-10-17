@@ -1,0 +1,3 @@
+Type error [T031]: Line 2: null is not allowed for int, only for types with '?' like int?
+  2 | print(n == null);
+    |            ^^^^

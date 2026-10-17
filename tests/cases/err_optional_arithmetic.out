@@ -1,0 +1,3 @@
+Type error [T006]: Line 2: cannot use operator on int? and int
+  2 | print(a + 1);
+    |         ^

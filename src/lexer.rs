@@ -120,6 +120,7 @@ impl Lexer {
             "fn" => Token::Fn,
             "return" => Token::Return,
             "struct" => Token::Struct,
+            "null" => Token::Null,
             _ => Token::Ident(text),
         }
     }
@@ -254,6 +255,7 @@ impl Lexer {
                 '>' => (Token::Greater, 1),
                 '&' if self.peek_next() == Some('&') => (Token::AndAnd, 2),
                 '|' if self.peek_next() == Some('|') => (Token::OrOr, 2),
+                '?' => (Token::Question, 1),
                 _ => {
                     return Err(SomoniError::at(
                         Span::in_line(line, col, 1),

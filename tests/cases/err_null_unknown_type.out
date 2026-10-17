@@ -1,0 +1,3 @@
+Type error [T032]: Line 1: the type of this null is unknown here
+  1 | print(null);
+    |       ^^^^

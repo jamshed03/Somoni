@@ -12,6 +12,8 @@ pub enum Type {
     List(Box<Type>),
     /// A struct of the program, by its name.
     Struct(String),
+    /// `int?`: an int or null.
+    Optional(Box<Type>),
 }
 
 impl Type {
@@ -51,6 +53,7 @@ impl fmt::Display for Type {
             Type::Void => write!(f, "void"),
             Type::List(element) => write!(f, "list<{}>", element),
             Type::Struct(name) => write!(f, "{}", name),
+            Type::Optional(inner) => write!(f, "{}?", inner),
         }
     }
 }
