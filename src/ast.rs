@@ -65,10 +65,14 @@ pub enum ExprKind {
 }
 
 impl Expr {
-    // the variable an assignment writes to, None if the expression is no variable
+    // the variable an assignment writes to: `l` in `l[0].x`.
+    // None if the expression does not start with a variable, e.g. `Point { x: 1 }.x`.
     pub fn root_variable(&self) -> Option<(&str, Span)> {
         match &self.kind {
             ExprKind::Ident { name, .. } => Some((name, self.span)),
+            ExprKind::Index { target, .. } | ExprKind::Field { target, .. } => {
+                target.root_variable()
+            }
             _ => None,
         }
     }

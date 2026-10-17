@@ -1,0 +1,77 @@
+var l: list<int> = [1, 2, 3];
+l[0] = 10;
+print(l);
+
+// copies: b is a list of its own, changing it leaves l as it is
+var b: list<int> = l;
+b[1] = 20;
+print(l);
+print(b);
+
+struct Point {
+    x: int,
+    y: int
+}
+var p: Point = Point { x: 1, y: 2 };
+var q: Point = p;
+q.x = 5;
+print(p);
+print(q);
+
+// as deep as needed
+var matrix: list<list<int>> = [[1, 2], [3, 4]];
+matrix[1][0] = 30;
+print(matrix);
+matrix[0] = [];
+print(matrix);
+
+struct Line {
+    from: Point,
+    to: Point
+}
+var lines: list<Line> = [Line { from: p, to: q }];
+lines[0].from.x = 7;
+print(lines[0]);
+print(p);
+
+struct User {
+    name: string,
+    tags: list<string>
+}
+var u: User = User { name: "Ali", tags: ["a"] };
+u.tags[0] = "b";
+u.name = u.name + "!";
+print(u);
+
+// a function gets a copy: changing it inside leaves the caller's list as it is
+fn zeroed(l: list<int>): list<int> {
+    var copy: list<int> = l;
+    copy[0] = 0;
+    return copy;
+}
+print(zeroed(l));
+print(l);
+
+// in a loop and as the step of a for loop
+var squares: list<int> = [0, 0, 0, 0];
+for (var i: int = 0; i < len(squares); i = i + 1) {
+    squares[i] = i * i;
+}
+print(squares);
+var c: Point = Point { x: 0, y: 0 };
+for (var i: int = 0; i < 3; c.x = c.x + 2) {
+    i = i + 1;
+}
+print(c.x);
+
+// left to right: first the index, then the value
+fn index(): int {
+    print("index");
+    return 0;
+}
+fn value(): int {
+    print("value");
+    return 9;
+}
+l[index()] = value();
+print(l);

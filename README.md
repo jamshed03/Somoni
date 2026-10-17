@@ -59,6 +59,7 @@ Version 0.2.0, the core of the language:
 -   `while` and `for` loops with `break` and `continue`
 -   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)` (values are copied like PHP arrays)
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
+-   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
 -   Built-in functions `print`, `int`, `float`, `string`, `len` (conversions are always explicit)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
 -   Comments `//` and `/* */`

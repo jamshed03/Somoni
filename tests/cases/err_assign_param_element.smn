@@ -1,0 +1,4 @@
+// parameters are const, also their elements
+fn reset(l: list<int>): void {
+    l[0] = 0;
+}

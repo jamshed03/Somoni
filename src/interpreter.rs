@@ -5,6 +5,7 @@ use crate::ast::{
     self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, StructDecl, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
+use crate::span::Span;
 use crate::text::Text;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,6 +82,13 @@ fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
         Value::Str(s) => write!(f, "\"{}\"", s),
         other => write!(f, "{}", other),
     }
+}
+
+// one step from a variable to a part of it, see place_steps
+enum Step {
+    // span: the indexed part, e.g. `l[3]`, where R005 points to
+    Index { index: i64, span: Span },
+    Field(usize),
 }
 
 // Return carries the value up to the call, like Break carries "leave the loop"
@@ -234,7 +242,7 @@ impl<'a> Interpreter<'a> {
 
     fn assign(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
         let ExprKind::Ident { slot, .. } = target.kind else {
-            return Err(SomoniError::internal("assignment to a non-variable"));
+            return self.assign_part(target, value);
         };
         if let Some(slot) = slot
             && let Some(text) = appended_text(slot, value)
@@ -251,6 +259,69 @@ impl<'a> Interpreter<'a> {
         }
         let v = self.eval(value)?;
         self.set(slot, v)
+    }
+
+    // l[i].x = value: first the indices from left to right, then the value, then the write.
+    // Rc::make_mut on the way down is copy-on-write: a list or struct that another
+    // variable also uses is copied once, so that variable keeps its old value.
+    fn assign_part(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
+        let mut steps = Vec::new();
+        let slot = self.place_steps(target, &mut steps)?;
+        let value = self.eval(value)?;
+        let Some(mut place) = slot.and_then(|slot| self.stack.get_mut(self.base + slot)) else {
+            return Err(SomoniError::internal("variable without a value"));
+        };
+        for step in steps {
+            place = match (step, place) {
+                (Step::Index { index, span }, Value::List(items)) => {
+                    let items = Rc::make_mut(items);
+                    let position = list_position(index, items.len())
+                        .map_err(|error| error.with_span_if_missing(Some(span)))?;
+                    &mut items[position]
+                }
+                (Step::Field(position), Value::Struct(fields)) => Rc::make_mut(fields)
+                    .fields
+                    .get_mut(position)
+                    .ok_or_else(|| SomoniError::internal("unknown field"))?,
+                _ => return Err(SomoniError::internal("step does not fit the value")),
+            };
+        }
+        *place = value;
+        Ok(())
+    }
+
+    // The way from the variable to the part, e.g. [Index 0, Field 1] for l[0].x.
+    // Goes down to the variable first, so the indices are evaluated from left to right.
+    // Returns the slot of the variable.
+    fn place_steps(
+        &mut self,
+        target: &Expr,
+        steps: &mut Vec<Step>,
+    ) -> Result<Option<usize>, SomoniError> {
+        let target_span = target.span;
+        match &target.kind {
+            ExprKind::Ident { slot, .. } => Ok(*slot),
+            ExprKind::Index { target, index } => {
+                let slot = self.place_steps(target, steps)?;
+                let Value::Int(index) = self.eval(index)? else {
+                    return Err(SomoniError::internal("index is not an int"));
+                };
+                steps.push(Step::Index {
+                    index,
+                    span: target_span,
+                });
+                Ok(slot)
+            }
+            ExprKind::Field { target, index, .. } => {
+                let slot = self.place_steps(target, steps)?;
+                let Some(position) = *index else {
+                    return Err(SomoniError::internal("field without a place"));
+                };
+                steps.push(Step::Field(position));
+                Ok(slot)
+            }
+            _ => Err(SomoniError::internal("assignment to a non-variable")),
+        }
     }
 
     // the value of a variable; the type checker filled in every slot
@@ -336,7 +407,7 @@ impl<'a> Interpreter<'a> {
                 let (Value::List(items), Value::Int(i)) = (list, index) else {
                     return Err(SomoniError::internal("index on a non-list"));
                 };
-                element_at(&items, i).cloned()
+                Ok(items[list_position(i, items.len())?].clone())
             }
             ExprKind::StructLiteral { fields, index, .. } => {
                 self.eval_struct_literal(*index, fields)
@@ -530,16 +601,11 @@ fn appended_text(slot: usize, value: &Expr) -> Option<&Expr> {
     (left_slot == slot).then_some(right)
 }
 
-// the element at `index`, or R005 if the index is outside the list (also negative)
-fn element_at(items: &[Value], index: i64) -> Result<&Value, SomoniError> {
+// The place of `index` in a list of `length` elements, or R005 if it is outside
+// (also negative). One check for reading and writing: afterwards items[place] cannot panic.
+fn list_position(index: i64, length: usize) -> Result<usize, SomoniError> {
     usize::try_from(index)
         .ok()
-        .and_then(|i| items.get(i))
-        .ok_or_else(|| {
-            ErrorCode::IndexOutOfRange {
-                index,
-                length: items.len(),
-            }
-            .into()
-        })
+        .filter(|&i| i < length)
+        .ok_or_else(|| ErrorCode::IndexOutOfRange { index, length }.into())
 }

@@ -40,6 +40,7 @@ pub enum ErrorCode {
     ForStartConst,
     FnNotTopLevel,
     StructNotTopLevel,
+    InvalidAssignTarget,
 
     // type checker
     UnknownType {
@@ -175,6 +176,7 @@ impl ErrorCode {
             ErrorCode::ForStartConst => "P004",
             ErrorCode::FnNotTopLevel => "P005",
             ErrorCode::StructNotTopLevel => "P006",
+            ErrorCode::InvalidAssignTarget => "P007",
 
             ErrorCode::UnknownType { .. } => "T001",
             ErrorCode::UnknownVariable { .. } => "T002",
@@ -230,7 +232,8 @@ impl ErrorCode {
             | ErrorCode::BlockNotClosed
             | ErrorCode::ForStartConst
             | ErrorCode::FnNotTopLevel
-            | ErrorCode::StructNotTopLevel => ErrorKind::Parse,
+            | ErrorCode::StructNotTopLevel
+            | ErrorCode::InvalidAssignTarget => ErrorKind::Parse,
 
             ErrorCode::UnknownType { .. }
             | ErrorCode::UnknownVariable { .. }
@@ -290,6 +293,9 @@ impl ErrorCode {
             }
             ErrorCode::StructNotTopLevel => {
                 "structs can only be declared at the top level".to_string()
+            }
+            ErrorCode::InvalidAssignTarget => {
+                "can only assign to a variable, a list element or a field".to_string()
             }
 
             ErrorCode::UnknownType { name } => format!("unknown type '{}'", name),

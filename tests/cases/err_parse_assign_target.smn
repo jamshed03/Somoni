@@ -1,0 +1,2 @@
+struct Point { x: int }
+Point { x: 1 }.x = 5;

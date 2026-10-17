@@ -125,7 +125,7 @@ impl Parser {
                 self.expect(Token::Semicolon, "';'")?;
                 Ok(Stmt::Expr { expr, span })
             }
-            Token::Ident(name) => self.parse_assign(name, start),
+            Token::Ident(_) => self.parse_assign(start),
             other => Err(SomoniError::at(
                 start,
                 ErrorCode::UnexpectedToken { found: other },
@@ -313,7 +313,7 @@ impl Parser {
 
         // step: an assignment without ';'
         let step = match self.peek().clone() {
-            Token::Ident(name) => self.parse_assignment(name, self.current_span())?,
+            Token::Ident(_) => self.parse_assignment(self.current_span())?,
             _ => {
                 return Err(SomoniError::at(
                     self.current_span(),
@@ -336,20 +336,20 @@ impl Parser {
     }
 
     // x = value;
-    fn parse_assign(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
-        let assign = self.parse_assignment(name, start)?;
+    fn parse_assign(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        let assign = self.parse_assignment(start)?;
         self.expect(Token::Semicolon, "';'")?;
         Ok(assign)
     }
 
-    // x = value (without ';', also used as the step of a for loop)
-    // `start` is the name
-    fn parse_assignment(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
-        self.advance(); // name
-        let target = Expr {
-            kind: ExprKind::Ident { name, slot: None },
-            span: start,
-        };
+    // x = value, l[i] = value, u.name = value (without ';', also the step of a for loop)
+    // `start` is the name at the beginning
+    fn parse_assignment(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        // read like l[0].x in an expression, then make sure it starts with a variable
+        let target = self.parse_postfix()?;
+        if target.root_variable().is_none() {
+            return Err(SomoniError::at(target.span, ErrorCode::InvalidAssignTarget));
+        }
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
         Ok(Stmt::Assign {

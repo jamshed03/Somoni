@@ -1,0 +1,17 @@
+[10, 2, 3]
+[10, 2, 3]
+[10, 20, 3]
+Point { x: 1, y: 2 }
+Point { x: 5, y: 2 }
+[[1, 2], [30, 4]]
+[[], [30, 4]]
+Line { from: Point { x: 7, y: 2 }, to: Point { x: 5, y: 2 } }
+Point { x: 1, y: 2 }
+User { name: "Ali!", tags: ["b"] }
+[0, 2, 3]
+[10, 2, 3]
+[0, 1, 4, 9]
+6
+index
+value
+[9, 2, 3]
