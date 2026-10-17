@@ -15,7 +15,9 @@ print(x % 3);
 
 ## Run
 
-    cargo run -- examples/hello.smn
+    cargo run -- examples/hello.smn              # tree interpreter
+    cargo run -- --vm examples/hello.smn         # bytecode VM (step 12, not complete yet)
+    cargo run -- --bytecode examples/hello.smn   # show the bytecode instead of running it
 
 ## Tests
 

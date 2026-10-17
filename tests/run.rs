@@ -2,7 +2,24 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Runs every program in tests/cases and compares it with its .out file.
+/// Exit code of somoni when the VM cannot run a program yet.
+const EXIT_NOT_IN_VM: i32 = 3;
+
+/// How a program is run: by the tree interpreter, or by the VM with `--vm`.
+#[derive(Clone, Copy)]
+enum Mode {
+    Tree,
+    Vm,
+}
+
+/// The result of one run: what is wrong (empty if all is fine), or skipped by the VM.
+enum Outcome {
+    Checked(Vec<String>),
+    Skipped,
+}
+
+/// Runs every program in tests/cases with the tree interpreter and with the VM,
+/// and compares each run with the .out file of the program.
 #[test]
 fn smn_programs_match_expected_output() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/cases");
@@ -16,34 +33,48 @@ fn smn_programs_match_expected_output() {
     assert!(!programs.is_empty(), "no .smn files in tests/cases");
 
     let mut failures = Vec::new();
+    let mut skipped = 0;
     for program in &programs {
-        let problems = check_program(program);
-        if !problems.is_empty() {
-            let name = program.file_name().unwrap().to_string_lossy();
-            failures.push(format!("{}\n{}", name, problems.join("\n")));
+        let name = program.file_name().unwrap().to_string_lossy();
+        for (mode, label) in [(Mode::Tree, "tree"), (Mode::Vm, "vm")] {
+            match check_program(program, mode) {
+                Outcome::Checked(problems) if !problems.is_empty() => {
+                    failures.push(format!("{} ({})\n{}", name, label, problems.join("\n")));
+                }
+                Outcome::Checked(_) => {}
+                Outcome::Skipped => skipped += 1,
+            }
         }
     }
 
+    eprintln!(
+        "VM: {} of {} programs skipped (not in the VM yet)",
+        skipped,
+        programs.len()
+    );
     assert!(
         failures.is_empty(),
-        "{} of {} programs failed:\n\n{}",
+        "{} runs failed:\n\n{}",
         failures.len(),
-        programs.len(),
         failures.join("\n\n")
     );
 }
 
 /// Runs one program and returns what is wrong: other output or another exit code.
 /// `err_*` programs must end with exit code 1, all others with 0.
-fn check_program(program: &Path) -> Vec<String> {
+fn check_program(program: &Path, mode: Mode) -> Outcome {
     let Ok(expected) = fs::read_to_string(program.with_extension("out")) else {
-        return vec!["missing .out file".to_string()];
+        return Outcome::Checked(vec!["missing .out file".to_string()]);
     };
 
-    let output = Command::new(env!("CARGO_BIN_EXE_somoni"))
-        .arg(program)
-        .output()
-        .expect("cannot start somoni");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_somoni"));
+    if let Mode::Vm = mode {
+        command.arg("--vm");
+    }
+    let output = command.arg(program).output().expect("cannot start somoni");
+    if let (Mode::Vm, Some(EXIT_NOT_IN_VM)) = (mode, output.status.code()) {
+        return Outcome::Skipped;
+    }
     let actual = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
@@ -67,5 +98,5 @@ fn check_program(program: &Path) -> Vec<String> {
             expected_code
         ));
     }
-    problems
+    Outcome::Checked(problems)
 }

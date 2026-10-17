@@ -49,7 +49,7 @@ impl fmt::Display for Value {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write_inner(f, item)?;
+                    write!(f, "{}", Quoted(item))?;
                 }
                 write!(f, "]")
             }
@@ -58,7 +58,7 @@ impl fmt::Display for Value {
                 for (i, (field, item)) in value.decl.fields.iter().zip(&value.fields).enumerate() {
                     let comma = if i > 0 { "," } else { "" };
                     write!(f, "{} {}: ", comma, field.name)?;
-                    write_inner(f, item)?;
+                    write!(f, "{}", Quoted(item))?;
                 }
                 if value.fields.is_empty() {
                     write!(f, "}}")
@@ -72,9 +72,9 @@ impl fmt::Display for Value {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write_inner(f, &key.to_value())?;
+                    write!(f, "{}", Quoted(&key.to_value()))?;
                     write!(f, ": ")?;
-                    write_inner(f, value)?;
+                    write!(f, "{}", Quoted(value))?;
                 }
                 write!(f, "}}")
             }
@@ -84,11 +84,15 @@ impl fmt::Display for Value {
     }
 }
 
-/// Writes a value that is inside a list or struct. Strings get quotes: `["1"]`.
-fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
-    match value {
-        Value::Str(s) => write!(f, "\"{}\"", s),
-        other => write!(f, "{}", other),
+/// A value shown like inside a list or struct: strings get quotes, `"1"`, other values not.
+pub struct Quoted<'a>(pub &'a Value);
+
+impl fmt::Display for Quoted<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.0 {
+            Value::Str(s) => write!(f, "\"{}\"", s),
+            other => write!(f, "{}", other),
+        }
     }
 }
 

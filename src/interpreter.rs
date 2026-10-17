@@ -5,6 +5,7 @@ use crate::ast::{
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
+use crate::runner::{Runner, Stop};
 use crate::span::Span;
 use crate::value::{
     self, StructValue, Value, append, key_not_found, list_position, map_key, show_key, unary,
@@ -38,6 +39,16 @@ pub struct Interpreter<'a> {
     call_depth: usize,
 }
 
+/// Runs all statements of the program by walking the tree.
+impl<'a> Runner<'a> for Interpreter<'a> {
+    fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), Stop> {
+        self.functions = ast::functions(stmts).collect();
+        self.structs = ast::structs(stmts).cloned().collect();
+        self.exec_all(stmts)?;
+        Ok(())
+    }
+}
+
 impl<'a> Interpreter<'a> {
     pub fn new() -> Interpreter<'a> {
         Interpreter {
@@ -47,14 +58,6 @@ impl<'a> Interpreter<'a> {
             structs: Vec::new(),
             call_depth: 0,
         }
-    }
-
-    /// Runs all statements of the program.
-    pub fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), SomoniError> {
-        self.functions = ast::functions(stmts).collect();
-        self.structs = ast::structs(stmts).cloned().collect();
-        self.exec_all(stmts)?;
-        Ok(())
     }
 
     /// Calls a function: puts the arguments on the stack, runs the body, returns the result.
