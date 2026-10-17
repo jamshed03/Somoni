@@ -50,12 +50,14 @@ pub enum ExprKind {
         args: Vec<Expr>,
         target: Option<CallTarget>,
     },
-    /// `new Name(args)`: creates an object of a class. The type checker fills in `target`:
-    /// the number of the function that builds it (its constructor).
+    /// `new Name(args)`: creates an object of a class. The type checker fills in `class`, the
+    /// number of the class, and `target`, the number of its function `init Name`, which sets
+    /// the start values and runs the constructor.
     New {
         name: String,
         name_span: Span,
         args: Vec<Expr>,
+        class: Option<usize>,
         target: Option<usize>,
     },
     /// `target.name(args)`: calls a method of an object. The type checker fills in `call`:
@@ -156,8 +158,9 @@ impl Expr {
 /// Which function a method call runs.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MethodTarget {
-    /// The method of a class, known before the program runs.
-    Function(usize),
+    /// Method slot `slot` of a class: the class of the object decides at runtime which
+    /// function runs (later a subclass may run its own one).
+    Virtual { slot: usize },
     /// Method number `method` of interface number `interface`: the class of the object decides
     /// at runtime which function runs.
     Interface { interface: usize, method: usize },
@@ -408,8 +411,17 @@ pub struct ClassDecl {
     pub methods: Vec<Method>,
     /// The interfaces after `implements`.
     pub implements: Vec<(String, Span)>,
-    /// Filled in by the type checker: for each interface it implements, the number of the
-    /// interface and the function of each of its methods, in the order of the interface.
+    /// Filled in by the type checker for the compiler.
+    pub plan: ClassPlan,
+}
+
+/// What the type checker works out about a class for the compiler.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ClassPlan {
+    /// For each method slot: the function the objects of this class run for it.
+    pub methods: Vec<usize>,
+    /// For each interface it implements: the number of the interface and the function of each
+    /// of its methods, in the order of the interface.
     pub vtables: Vec<(usize, Vec<usize>)>,
 }
 
@@ -453,13 +465,12 @@ pub struct Method {
     pub function: Function,
 }
 
-/// `constructor(name: string) { ... }` of a class. The type checker fills in `this_slot`:
-/// the slot of the hidden variable `this`, after the parameters.
+/// `constructor(name: string) { ... }` of a class. Like in a method, `this` is slot 0,
+/// the parameters come after it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Constructor {
     pub params: Vec<Param>,
     pub body: Vec<Stmt>,
-    pub this_slot: Option<usize>,
     pub span: Span,
 }
 

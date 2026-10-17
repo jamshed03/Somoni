@@ -89,15 +89,17 @@ impl<'p> Vm<'p> {
                 }
             }
             Op::Call(i, count) => self.call(&program.functions[*i], *count, frame)?,
+            Op::CallVirtual { slot, args } => {
+                let class = self.receiver_class(*args)?;
+                let function = program.method_tables[class][*slot];
+                self.call(&program.functions[function], *args, frame)?;
+            }
             Op::CallInterface {
                 interface,
                 method,
                 args,
             } => {
-                let Some(Value::Object(object)) = self.stack.get(self.stack.len() - args) else {
-                    return Err(SomoniError::internal("interface call without an object"));
-                };
-                let class = object.0.borrow().class;
+                let class = self.receiver_class(*args)?;
                 let function = program.vtables[class]
                     .iter()
                     .find(|(number, _)| number == interface)
@@ -153,6 +155,13 @@ impl<'p> Vm<'p> {
                     Some(Value::Object(object)) => object.0.borrow_mut().fields[*position] = value,
                     _ => return Err(SomoniError::internal("field without a struct")),
                 }
+            }
+            Op::InitLocalField(slot, position) => {
+                let value = self.pop()?;
+                let Value::Object(object) = &self.stack[frame.base + slot] else {
+                    return Err(SomoniError::internal("field of a non-object"));
+                };
+                object.0.borrow_mut().fields[*position] = value;
             }
             Op::Index => {
                 let index = self.pop()?;
@@ -272,6 +281,15 @@ impl<'p> Vm<'p> {
         let callee = Frame { chunk, ip: 0, base };
         self.callers.push(std::mem::replace(frame, callee));
         Ok(())
+    }
+
+    /// Returns the number of the class of the object a method is called on: the first of the
+    /// `args` arguments on top of the stack.
+    fn receiver_class(&self, args: usize) -> Result<usize, SomoniError> {
+        match self.stack.get(self.stack.len() - args) {
+            Some(Value::Object(object)) => Ok(object.0.borrow().class),
+            _ => Err(SomoniError::internal("method call without an object")),
+        }
     }
 
     /// Takes the indices of `path` from the stack and returns its steps with them.

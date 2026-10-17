@@ -1,9 +1,10 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, ClassDecl, ClassField, ClassLayout, Constructor, EnumDecl, Expr, ExprKind, Field,
-    FieldInit, Function, Import, ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod,
-    MatchArm, Method, Param, Pattern, Stmt, StructDecl, THIS, TypeName, UnaryOp, Visibility,
+    BinaryOp, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, EnumDecl, Expr, ExprKind,
+    Field, FieldInit, Function, Import, ImportName, InterfaceDecl, InterfaceLayout,
+    InterfaceMethod, MatchArm, Method, Param, Pattern, Stmt, StructDecl, THIS, TypeName, UnaryOp,
+    Visibility,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -368,7 +369,7 @@ impl Parser {
             constructor,
             methods,
             implements,
-            vtables: Vec::new(),
+            plan: ClassPlan::default(),
         }))
     }
 
@@ -440,12 +441,7 @@ impl Parser {
         let params =
             self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
         let body = self.expect_block_stmts("after the constructor parameters")?;
-        Ok(Constructor {
-            params,
-            body,
-            this_slot: None,
-            span,
-        })
+        Ok(Constructor { params, body, span })
     }
 
     /// Reads `enum Farbe { Rot, Gruen, Blau }`.
@@ -1024,6 +1020,7 @@ impl Parser {
                         name,
                         name_span,
                         args,
+                        class: None,
                         target: None,
                     },
                     span: span.to(self.last_span()),

@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr, ExprKind,
-    Field, FieldInit, Function, Import, InterfaceLayout, IterKind, MatchArm, MethodTarget, Param,
-    Pattern, Stmt, StructDecl, THIS, TypeName, UnaryOp, Visibility,
+    self, BinaryOp, CallTarget, ClassDecl, ClassField, ClassLayout, ClassPlan, EnumDecl, Expr,
+    ExprKind, Field, FieldInit, Function, Import, InterfaceLayout, IterKind, MatchArm,
+    MethodTarget, Param, Pattern, Stmt, StructDecl, THIS, TypeName, UnaryOp, Visibility,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -41,11 +41,23 @@ struct StructInfo {
 struct ClassInfo {
     fields: Vec<(String, Type)>,
     constructor: Signature,
-    methods: HashMap<String, Signature>,
+    methods: HashMap<String, MethodInfo>,
+    /// For each method slot: the function the objects of this class run.
+    method_table: Vec<usize>,
+    /// The number of the class (for `NewObject`).
+    index: usize,
     private: HashSet<String>,
     /// The interfaces it implements, and for each the functions of its methods (for the VM).
     implements: Vec<Decl<InterfaceLayout>>,
     vtables: Vec<(usize, Vec<usize>)>,
+}
+
+/// A method of a class: its slot in the method table, and its signature (`index` is the
+/// function this class runs for it).
+#[derive(Clone)]
+struct MethodInfo {
+    slot: usize,
+    signature: Signature,
 }
 
 /// The number of an interface and its methods in order; `index` of each signature is the
@@ -308,6 +320,8 @@ impl TypeChecker {
                     return_type: Type::Class(layout.clone()),
                 },
                 methods: HashMap::new(),
+                method_table: Vec::new(),
+                index: self.classes.len(),
                 private: HashSet::new(),
                 implements: Vec::new(),
                 vtables: Vec::new(),
@@ -488,9 +502,9 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Gives the constructor and then each method of every class a function number, after the
-    /// functions of the file (the compiler writes them in the same order), and collects their
-    /// parameter and return types. A method name may not be a field or another method (T055).
+    /// Gives every class its function numbers, after the functions of the file (the compiler
+    /// writes them in the same order): `init Name` (the constructor), then each method with its
+    /// slot in the method table. Collects their parameter and return types. A method name may not be a field or another method (T055).
     fn declare_class_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for class in ast::classes(stmts) {
             let layout = Decl(Rc::clone(&class.layout));
@@ -501,6 +515,7 @@ impl TypeChecker {
             let constructor_index = self.function_count;
             self.function_count += 1;
             let mut methods = HashMap::new();
+            let mut method_table = Vec::new();
             for method in class.methods.iter().map(|m| &m.function) {
                 if class.layout.fields.contains(&method.name) || methods.contains_key(&method.name)
                 {
@@ -514,13 +529,16 @@ impl TypeChecker {
                 }
                 let signature = self.signature_of(method, self.function_count)?;
                 self.function_count += 1;
-                methods.insert(method.name.clone(), signature);
+                let slot = method_table.len();
+                method_table.push(signature.index);
+                methods.insert(method.name.clone(), MethodInfo { slot, signature });
             }
             let (implements, vtables) = self.check_implements(class, &methods)?;
             if let Some(info) = self.classes.get_mut(&layout) {
                 info.constructor.index = constructor_index;
                 info.constructor.params = params;
                 info.methods = methods;
+                info.method_table = method_table;
                 info.implements = implements;
                 info.vtables = vtables;
             }
@@ -535,7 +553,7 @@ impl TypeChecker {
     fn check_implements(
         &self,
         class: &ClassDecl,
-        methods: &HashMap<String, Signature>,
+        methods: &HashMap<String, MethodInfo>,
     ) -> Result<(Vec<Decl<InterfaceLayout>>, Vec<(usize, Vec<usize>)>), SomoniError> {
         let mut implements = Vec::new();
         let mut vtables = Vec::new();
@@ -556,7 +574,7 @@ impl TypeChecker {
                     method: method_name.clone(),
                 };
                 let (Some(found), Some(method)) = (
-                    methods.get(method_name),
+                    methods.get(method_name).map(|m| &m.signature),
                     class
                         .methods
                         .iter()
@@ -703,7 +721,10 @@ impl TypeChecker {
         layout: Decl<ClassLayout>,
     ) -> Result<(), SomoniError> {
         let info = self.class_info(&layout)?.clone();
-        class.vtables = info.vtables.clone();
+        class.plan = ClassPlan {
+            methods: info.method_table.clone(),
+            vtables: info.vtables.clone(),
+        };
         self.in_function(None, |this| {
             for (field, (_, ty)) in class.fields.iter_mut().zip(&info.fields) {
                 if let Some(start) = &mut field.start {
@@ -715,10 +736,9 @@ impl TypeChecker {
         if let Some(constructor) = &mut class.constructor {
             let params = &info.constructor.params;
             self.in_function(Some(Type::Void), |this| {
-                this.declare_params(&constructor.params, params)?;
                 let this_type = Type::Class(layout.clone());
-                let slot = this.declare(THIS, constructor.span, this_type, false)?;
-                constructor.this_slot = Some(slot);
+                this.declare(THIS, constructor.span, this_type, false)?;
+                this.declare_params(&constructor.params, params)?;
                 this.check_stmts(&mut constructor.body)
             })?;
         }
@@ -726,6 +746,7 @@ impl TypeChecker {
             let signature = info
                 .methods
                 .get(&method.name)
+                .map(|m| &m.signature)
                 .ok_or_else(|| SomoniError::internal("method without signature"))?;
             self.check_method(method, &layout, signature)?;
         }
@@ -1742,7 +1763,7 @@ impl TypeChecker {
                         ErrorCode::NoMethods { found: target_type },
                     ));
                 };
-                let signature = self
+                let method = self
                     .class_info(layout)?
                     .methods
                     .get(name)
@@ -1757,18 +1778,21 @@ impl TypeChecker {
                         )
                     })?;
                 self.check_access(layout, name, *name_span)?;
-                *call = Some(MethodTarget::Function(signature.index));
-                self.check_args(name, &signature.params, args, expr.span)?;
-                Ok(signature.return_type)
+                *call = Some(MethodTarget::Virtual { slot: method.slot });
+                self.check_args(name, &method.signature.params, args, expr.span)?;
+                Ok(method.signature.return_type)
             }
             ExprKind::New {
                 name,
                 name_span,
                 args,
+                class,
                 target,
             } => {
                 let layout = self.class_named(name, *name_span)?;
-                let constructor = self.class_info(&layout)?.constructor.clone();
+                let info = self.class_info(&layout)?;
+                let constructor = info.constructor.clone();
+                *class = Some(info.index);
                 *target = Some(constructor.index);
                 self.check_args(name, &constructor.params, args, expr.span)?;
                 Ok(constructor.return_type)

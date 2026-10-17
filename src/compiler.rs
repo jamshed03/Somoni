@@ -25,6 +25,7 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     let mut functions = Vec::new();
     let mut structs = Vec::new();
     let mut classes = Vec::new();
+    let mut method_tables = Vec::new();
     let mut vtables = Vec::new();
     let mut interfaces = Vec::new();
     for &number in order {
@@ -35,13 +36,14 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
             functions.push(compile_function(function, name, function.params.len())?);
         }
         for class in ast::classes(stmts) {
-            functions.push(compile_constructor(class, classes.len())?);
+            functions.push(compile_init(class)?);
             for method in class.methods.iter().map(|m| &m.function) {
                 let name = format!("{}.{}", class.layout.name, method.name);
                 functions.push(compile_function(method, name, method.params.len() + 1)?);
             }
             classes.push(Rc::clone(&class.layout));
-            vtables.push(class.vtables.clone());
+            method_tables.push(class.plan.methods.clone());
+            vtables.push(class.plan.vtables.clone());
         }
         structs.extend(ast::structs(stmts).cloned());
     }
@@ -50,34 +52,33 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
         functions,
         structs,
         classes,
+        method_tables,
         vtables,
         interfaces,
     })
 }
 
-/// Writes the function behind `new Name(...)`: it creates an object of class number `index`,
-/// sets the start values, runs the constructor with the object in `this` and returns the object.
-/// The arguments are its first variables, like in any function.
-fn compile_constructor(class: &ClassDecl, index: usize) -> Result<Chunk, SomoniError> {
-    let mut compiler = Compiler::default();
-    compiler.chunk.name = format!("new {}", class.layout.name);
-    compiler.chunk.locals = class.constructor.as_ref().map_or(0, |c| c.params.len());
-    compiler.chunk.push(Op::NewObject(index), class.name_span);
+/// Writes the function `init Name`: with the new object in `this` (slot 0) and the arguments
+/// after it, it sets the start values of the fields, runs the constructor and returns `this`.
+/// `new Name(args)` is `NewObject` and a call of this function, so it needs only one call.
+fn compile_init(class: &ClassDecl) -> Result<Chunk, SomoniError> {
+    let mut compiler = Compiler {
+        returns_this: true,
+        ..Compiler::default()
+    };
+    let constructor = class.constructor.as_ref();
+    compiler.chunk.name = format!("init {}", class.layout.name);
+    compiler.chunk.locals = constructor.map_or(0, |c| c.params.len()) + 1;
     for (position, field) in class.fields.iter().enumerate() {
         if let Some(start) = &field.start {
             compiler.compile_expr(start)?;
-            compiler.chunk.push(Op::InitField(position), start.span);
+            compiler.chunk.push(Op::InitLocalField(0, position), start.span);
         }
     }
-    if let Some(constructor) = &class.constructor {
-        let this = compiler.slot(constructor.this_slot)?;
-        compiler.this_slot = Some(this);
-        compiler.chunk.push(Op::SetLocal(this), constructor.span);
-        for stmt in &constructor.body {
-            compiler.compile_stmt(stmt)?;
-        }
-        compiler.chunk.push(Op::GetLocal(this), constructor.span);
+    for stmt in constructor.iter().flat_map(|c| &c.body) {
+        compiler.compile_stmt(stmt)?;
     }
+    compiler.chunk.push(Op::GetLocal(0), class.name_span);
     compiler.chunk.push(Op::Return, class.name_span);
     Ok(compiler.chunk)
 }
@@ -106,8 +107,8 @@ fn compile_function(
 struct Compiler {
     chunk: Chunk,
     loops: Vec<LoopJumps>,
-    /// In a constructor: the slot of `this`, which a `return;` gives back.
-    this_slot: Option<usize>,
+    /// True in `init Name`: a `return;` gives back `this` (slot 0).
+    returns_this: bool,
 }
 
 /// The jumps of `break` and `continue` in one loop. Their targets are filled in
@@ -310,12 +311,12 @@ impl Compiler {
                 self.current_loop()?.continues.push(jump);
             }
             Stmt::Return { value, span } => {
-                match (value, self.this_slot) {
+                match (value, self.returns_this) {
                     (Some(value), _) => self.compile_expr(value)?,
-                    (None, Some(this)) => {
-                        self.chunk.push(Op::GetLocal(this), *span);
+                    (None, true) => {
+                        self.chunk.push(Op::GetLocal(0), *span);
                     }
-                    (None, None) => self.push_constant(Value::Void, *span),
+                    (None, false) => self.push_constant(Value::Void, *span),
                 }
                 self.chunk.push(Op::Return, *span);
             }
@@ -481,7 +482,10 @@ impl Compiler {
                 self.compile_args(args)?;
                 let count = args.len() + 1;
                 let op = match call {
-                    Some(MethodTarget::Function(function)) => Op::Call(*function, count),
+                    Some(MethodTarget::Virtual { slot }) => Op::CallVirtual {
+                        slot: *slot,
+                        args: count,
+                    },
                     Some(MethodTarget::Interface { interface, method }) => Op::CallInterface {
                         interface: *interface,
                         method: *method,
@@ -491,10 +495,17 @@ impl Compiler {
                 };
                 self.chunk.push(op, span);
             }
-            ExprKind::New { args, target, .. } => {
+            ExprKind::New {
+                args,
+                class,
+                target,
+                ..
+            } => {
+                let class = class.ok_or_else(|| SomoniError::internal("new without class"))?;
+                self.chunk.push(Op::NewObject(class), span);
                 self.compile_args(args)?;
                 let target = target.ok_or_else(|| SomoniError::internal("new without target"))?;
-                self.chunk.push(Op::Call(target, args.len()), span);
+                self.chunk.push(Op::Call(target, args.len() + 1), span);
             }
             ExprKind::List(elements) => {
                 for element in elements {

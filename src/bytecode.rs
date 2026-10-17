@@ -30,6 +30,9 @@ pub enum Op {
     JumpIfFalse(usize),
     /// Calls function number `i` with `n` arguments from the stack.
     Call(usize, usize),
+    /// Calls method slot `slot` with `args` arguments from the stack; the first is the object,
+    /// its class decides which function runs (its method table).
+    CallVirtual { slot: usize, args: usize },
     /// Calls method `method` of interface `interface` with `args` arguments from the stack;
     /// the first is the object, its class decides which function runs (its vtable).
     CallInterface {
@@ -51,6 +54,8 @@ pub enum Op {
     NewObject(usize),
     /// Pops a value and sets field `p` of the struct or object below.
     InitField(usize),
+    /// Pops a value and sets field `p` of the object in local `slot` (start values in `init`).
+    InitLocalField(usize, usize),
     /// Pops an index (or key) and a list (or map), pushes the element.
     Index,
     /// Pops a struct or object, pushes its field `p`.
@@ -131,6 +136,8 @@ pub struct Program {
     pub structs: Vec<Rc<StructDecl>>,
     /// The classes of the program, numbered like `ast::classes`, file by file.
     pub classes: Vec<Rc<ClassLayout>>,
+    /// For each class: the function of each method slot.
+    pub method_tables: Vec<Vec<usize>>,
     /// For each class: the interfaces it implements, each with the function of every method.
     pub vtables: Vec<Vec<(usize, Vec<usize>)>>,
     /// The interfaces of the program, numbered like `ast::interfaces`, file by file.
@@ -182,6 +189,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::Jump(target) => format!("Jump {:04}", target),
         Op::JumpIfFalse(target) => format!("JumpIfFalse {:04}", target),
         Op::Call(i, args) => format!("Call {} {}", program.functions[*i].name, args),
+        Op::CallVirtual { slot, args } => format!("CallVirtual #{} {}", slot, args),
         Op::CallInterface {
             interface,
             method,
@@ -200,6 +208,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::NewStruct(i) => format!("NewStruct {}", program.structs[*i].name),
         Op::NewObject(i) => format!("NewObject {}", program.classes[*i].name),
         Op::InitField(p) => format!("InitField {}", p),
+        Op::InitLocalField(slot, p) => format!("InitLocalField {} {}", slot, p),
         Op::Index => "Index".to_string(),
         Op::Field(p) => format!("Field {}", p),
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
