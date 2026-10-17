@@ -15,15 +15,14 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Checks a function body with its own variables, and that it returns on every path.
+    /// Checks a function.
     fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
         let signature = self.names.functions[&function.name].clone();
         let name = function.name.clone();
         self.check_body(function, &name, &signature, None)
     }
 
-    /// Checks the body of a function or method with its own variables, and that it returns on
-    /// every path. With `this_type`, the hidden variable `this` comes first.
+    /// Checks the body of a function or method and that it returns on every path.
     pub(super) fn check_body(
         &mut self,
         function: &mut Function,
@@ -163,8 +162,7 @@ impl TypeChecker {
         }
     }
 
-    /// Runs `check` while the variables in `known` have the type without `?`, e.g. `int` for an
-    /// `int?` after `a != null`. They keep their slot, so they are the same variables.
+    /// Runs `check` while the variables in `known` are known not to be null.
     pub(super) fn with_not_null<T>(
         &mut self,
         known: Vec<(String, Type)>,
@@ -186,8 +184,7 @@ impl TypeChecker {
         result
     }
 
-    /// Returns the variables that cannot be null when `condition` is `when`, each with its type
-    /// without `?`. Example: `a != null && b != null` gives `a` and `b` when it is true.
+    /// Returns the variables that cannot be null when `condition` is `when`.
     pub(super) fn known_not_null(&self, condition: &Expr, when: bool) -> Vec<(String, Type)> {
         match &condition.kind {
             ExprKind::Binary {
@@ -211,7 +208,7 @@ impl TypeChecker {
         }
     }
 
-    /// For `a != null` or `null != a` with `a: T?`: returns `a` and `T`.
+    /// Returns the variable and its type without `?` for `a != null`.
     fn null_checked(&self, left: &Expr, right: &Expr) -> Option<(String, Type)> {
         let name = match (&left.kind, &right.kind) {
             (ExprKind::Ident { name, .. }, ExprKind::Null)
@@ -224,9 +221,7 @@ impl TypeChecker {
         Some((name.clone(), (**inner).clone()))
     }
 
-    /// Checks `target = value;` or `target += value;`: the target must exist and must not be
-    /// const. The value must fit the target, or `target op value` must have the target's type.
-    /// Returns true if the target lies inside an object.
+    /// Checks an assignment and returns true if its target lies inside an object.
     fn check_assign(
         &mut self,
         target: &mut Expr,
@@ -242,7 +237,7 @@ impl TypeChecker {
             ));
         }
         let target_type = self.check_expr(target)?;
-        let in_object = self.inside_object(target)?;
+        let in_object = self.target_in_object(target)?;
         let Some((name, name_span)) = target.root_variable() else {
             return Err(SomoniError::internal("assignment to a non-variable"));
         };
@@ -272,9 +267,8 @@ impl TypeChecker {
         Ok(in_object)
     }
 
-    /// Returns true if the target of an assignment lies inside an object (`u.age`, `l[0].age`):
-    /// then it changes the object and not the variable, so `const` does not protect it.
-    fn inside_object(&mut self, target: &mut Expr) -> Result<bool, SomoniError> {
+    /// Returns true if an assignment changes an object, which `const` does not protect.
+    fn target_in_object(&mut self, target: &mut Expr) -> Result<bool, SomoniError> {
         let (ExprKind::Field { target: inner, .. } | ExprKind::Index { target: inner, .. }) =
             &mut target.kind
         else {
@@ -283,7 +277,7 @@ impl TypeChecker {
         if let Type::Class(_) = self.check_expr(inner)? {
             return Ok(true);
         }
-        self.inside_object(inner)
+        self.target_in_object(inner)
     }
 
     /// Checks that `return` is inside a function and returns the right type.
@@ -321,9 +315,7 @@ impl TypeChecker {
         self.with_not_null(known, |this| this.check_loop_body(body))
     }
 
-    /// Declares variables whose value is given by the language as const and returns their slots:
-    /// the variables of a `for`-each loop or of `ok(n: int)`.
-    /// Each must have exactly the type in `expected`.
+    /// Declares the variables of a `for`-each loop or of `ok(n: int)` and returns their slots.
     pub(super) fn declare_bound_vars(
         &mut self,
         vars: &[Param],
@@ -347,7 +339,7 @@ impl TypeChecker {
         Ok(slots)
     }
 
-    /// Checks a loop body; inside it, `break` and `continue` are allowed.
+    /// Checks a loop body, where `break` and `continue` are allowed.
     fn check_loop_body(&mut self, body: &mut Stmt) -> Result<(), SomoniError> {
         self.loop_depth += 1;
         let result = self.check_stmt(body);
@@ -376,9 +368,7 @@ impl TypeChecker {
     }
 }
 
-/// Returns what a `for`-each loop over `ty` runs over and the types of its `count` variables:
-/// a list gives the element (or index and element), a map the key (or key and value),
-/// a string a character (or index and character). None if `ty` cannot be looped over.
+/// Returns what a `for`-each loop over `ty` runs over and the types of its variables.
 fn loop_var_types(ty: &Type, count: usize) -> Option<(IterKind, Vec<Type>)> {
     let (kind, first, second) = match ty {
         Type::List(element) => (IterKind::List, Type::Int, (**element).clone()),
@@ -399,7 +389,7 @@ fn always_returns(stmts: &[Stmt]) -> bool {
     stmts.iter().any(stmt_always_returns)
 }
 
-/// Returns true if this statement always ends with `return` (an `if` only with `else`).
+/// Returns true if this statement always ends with `return`.
 fn stmt_always_returns(stmt: &Stmt) -> bool {
     match stmt {
         Stmt::Return { .. } => true,

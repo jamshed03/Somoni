@@ -34,35 +34,29 @@ struct Signature {
     return_type: Type,
 }
 
-/// The number of a struct and the name and type of each field, in declaration order.
+/// The number and the fields of a struct.
 #[derive(Clone)]
 struct StructInfo {
     index: usize,
     fields: Vec<(String, Type)>,
 }
 
-/// What the type checker knows about a class: its fields (those of the parent classes first),
-/// its constructor (`init`), its methods (also the inherited ones) and who may use each name.
+/// What the type checker knows about a class, inherited members included.
 #[derive(Clone)]
 struct ClassInfo {
     fields: Vec<(String, Type)>,
-    /// The position of the first own field.
-    field_offset: usize,
+    first_own_field: usize,
     parent: Option<Decl<ClassLayout>>,
     constructor: Signature,
     methods: HashMap<String, MethodInfo>,
-    /// For each method slot: the function the objects of this class run.
     method_table: Vec<usize>,
-    /// The number of the class (for `NewObject`).
     index: usize,
-    /// Every field and method name, also inherited ones.
     members: HashMap<String, Member>,
-    /// The interfaces it implements, and for each the functions of its methods (for the VM).
     implements: Vec<Decl<InterfaceLayout>>,
     vtables: Vec<(usize, Vec<usize>)>,
 }
 
-/// A field or method name of a class: who may use it and in which class it is declared.
+/// Who may use a field or method, and which class declares it.
 #[derive(Clone)]
 struct Member {
     visibility: Visibility,
@@ -70,23 +64,21 @@ struct Member {
     is_method: bool,
 }
 
-/// A method of a class: its slot in the method table, and its signature (`index` is the
-/// function this class runs for it).
+/// A method of a class with its slot in the method table.
 #[derive(Clone)]
 struct MethodInfo {
     slot: usize,
     signature: Signature,
 }
 
-/// The number of an interface and its methods in order; `index` of each signature is the
-/// position of the method in the interface.
+/// The number of an interface and its methods in order.
 #[derive(Clone)]
 struct InterfaceInfo {
     index: usize,
     methods: Vec<(String, Signature)>,
 }
 
-/// The functions, structs, enums and classes declared at the top level of a file, by name.
+/// The names a file can use: its own declarations and its imports.
 #[derive(Default)]
 struct Names {
     functions: HashMap<String, Signature>,
@@ -97,7 +89,7 @@ struct Names {
 }
 
 impl Names {
-    /// Returns true if a function, struct, enum or class has this name.
+    /// Returns true if anything has this name.
     fn contains(&self, name: &str) -> bool {
         self.functions.contains_key(name)
             || self.structs.contains_key(name)
@@ -106,7 +98,7 @@ impl Names {
             || self.interfaces.contains_key(name)
     }
 
-    /// Copies the function, struct, enum, class and interface called `name` from `from`, if any.
+    /// Copies everything called `name` from `from`.
     fn add_from(&mut self, from: &Names, name: &str) {
         if let Some(signature) = from.functions.get(name) {
             self.functions.insert(name.to_string(), signature.clone());
@@ -126,32 +118,24 @@ impl Names {
     }
 }
 
-/// What a checked file offers to the files that import it: its exported names,
-/// and the names of its other declarations (for a clear error if someone imports one).
+/// The exported names of a file, and its private ones for clear errors.
 #[derive(Default)]
 struct Exports {
     names: Names,
     private: HashSet<String>,
 }
 
-/// Checks the types of a program before it runs.
-/// It also writes into the tree what the compiler needs: slots, call targets, field positions.
+/// Checks the types of a program and writes into the tree what the compiler needs.
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
     loop_depth: usize,
-    /// The names of the file being checked: its own and the imported ones.
     names: Names,
-    /// What each checked file exports, by file number.
-    exports: HashMap<usize, Exports>,
+    exports_by_file: HashMap<usize, Exports>,
     structs: HashMap<Decl<StructDecl>, StructInfo>,
     classes: HashMap<Decl<ClassLayout>, ClassInfo>,
     interfaces: HashMap<Decl<InterfaceLayout>, InterfaceInfo>,
-    /// The class whose start values, constructor or methods are being checked.
     current_class: Option<Decl<ClassLayout>>,
-    /// True while the first statement of the constructor of a subclass is checked:
-    /// only there `super(...)` is allowed.
     super_init_allowed: bool,
-    /// How many functions the files checked so far have; gives each function its number.
     function_count: usize,
     current_return: Option<Type>,
     next_slot: usize,
@@ -163,7 +147,7 @@ impl TypeChecker {
             scopes: Scopes::new(),
             loop_depth: 0,
             names: Names::default(),
-            exports: HashMap::new(),
+            exports_by_file: HashMap::new(),
             structs: HashMap::new(),
             classes: HashMap::new(),
             interfaces: HashMap::new(),
@@ -175,8 +159,7 @@ impl TypeChecker {
         }
     }
 
-    /// Checks the whole program, one file after the other in `order`
-    /// (every file after the files it imports).
+    /// Checks the whole program, every file after the files it imports.
     pub fn check(&mut self, files: &mut [SourceFile], order: &[usize]) -> Result<(), SomoniError> {
         for &number in order {
             let stmts = &mut files[number].stmts;
@@ -188,13 +171,12 @@ impl TypeChecker {
             self.declare_class_functions(stmts)?;
             self.check_stmts(stmts)?;
             let exports = self.exports_of(stmts);
-            self.exports.insert(number, exports);
+            self.exports_by_file.insert(number, exports);
         }
         Ok(())
     }
 
-    /// Runs `check` like inside a new function: no variables from outside, slots from 0,
-    /// and `return` must give `return_type` (None: `return` is not allowed).
+    /// Runs `check` inside a new function with its own variables and return type.
     fn in_function<T>(
         &mut self,
         return_type: Option<Type>,
@@ -210,7 +192,7 @@ impl TypeChecker {
         result
     }
 
-    /// Declares the parameters of a function, method or constructor as const variables.
+    /// Declares the parameters of a function as const variables.
     fn declare_params(&mut self, params: &[Param], types: &[Type]) -> Result<(), SomoniError> {
         for (param, ty) in params.iter().zip(types) {
             self.declare(&param.name, param.name_span, ty.clone(), false)?;
@@ -218,7 +200,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Runs `check` inside a new block. Afterwards the variables of the block are gone.
+    /// Runs `check` inside a new block.
     fn in_scope<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> T {
         self.scopes.push();
         let first_slot = self.next_slot;
@@ -228,7 +210,7 @@ impl TypeChecker {
         result
     }
 
-    /// Declares a new variable and returns its slot. A name may exist only once per block.
+    /// Declares a new variable and returns its slot.
     fn declare(
         &mut self,
         name: &str,
@@ -283,9 +265,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns true if a value of type `found` may be used where `expected` is wanted:
-    /// the same type, `T` where `T?` is wanted, or an object of a class where an interface
-    /// it implements is wanted (also inside `?`: a `Kreis` fits a `Form?`).
+    /// Returns true if a value of type `found` may be used where `expected` is wanted.
     fn fits(&self, found: &Type, expected: &Type) -> bool {
         if found == expected {
             return true;
@@ -302,7 +282,7 @@ impl TypeChecker {
     }
 }
 
-/// Returns the position and type of a field, or T027 if the struct has no such field.
+/// Returns the position and type of a field.
 fn field_of<'a>(
     fields: &'a [(String, Type)],
     struct_name: &str,
@@ -345,7 +325,7 @@ fn check_arg_count(
     Ok(())
 }
 
-/// The error for an argument with the wrong type.
+/// Returns the error for an argument with the wrong type.
 fn wrong_arg_type(name: &str, found: Type, span: Span) -> SomoniError {
     SomoniError::at(
         span,

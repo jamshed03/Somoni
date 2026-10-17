@@ -10,8 +10,7 @@ use crate::types::Type;
 use super::TypeChecker;
 
 impl TypeChecker {
-    /// Checks the branches of a `match` over a value of type `ty`: every variant needs one,
-    /// either its own or `_`. Returns, for each variant, the number of its branch.
+    /// Checks that a `match` covers every variant and returns the branch of each.
     pub(super) fn check_match(
         &self,
         ty: &Type,
@@ -72,8 +71,7 @@ impl TypeChecker {
         }
     }
 
-    /// Checks the body of one branch of a `match` over `subject`.
-    /// The variable of `ok(n: int)` exists only inside its branch.
+    /// Checks one branch of a `match`.
     pub(super) fn check_arm(
         &mut self,
         arm: &mut MatchArm,
@@ -96,8 +94,7 @@ impl TypeChecker {
         })
     }
 
-    /// If `expr` is `Farbe.Rot` and `Farbe` is an enum (and no variable), returns the enum
-    /// and the number of the variant.
+    /// Returns the enum and variant number if `expr` is a variant like `Farbe.Rot`.
     pub(super) fn enum_variant(
         &self,
         expr: &Expr,
@@ -128,8 +125,7 @@ impl TypeChecker {
     }
 }
 
-/// Returns the variants a `match` over `ty` must cover, as written in a branch:
-/// `Farbe.Rot, ...` for an enum, `ok` and `err` for a result. None if `match` cannot take `ty`.
+/// Returns the variants a `match` over `ty` must cover.
 fn variant_names(ty: &Type) -> Option<Vec<String>> {
     match ty {
         Type::Enum(decl) => Some(
@@ -143,8 +139,7 @@ fn variant_names(ty: &Type) -> Option<Vec<String>> {
     }
 }
 
-/// Returns the number of the variant a branch stands for (`ok` is 0, `err` is 1) and the
-/// place of the pattern, or T042 if the pattern does not fit the type of the `match`.
+/// Returns the number and place of the variant a branch stands for.
 fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), SomoniError> {
     let (found, span) = match (ty, pattern) {
         (
@@ -181,7 +176,7 @@ fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), Somoni
     ))
 }
 
-/// Returns the number of the variant `name` of an enum, or T040 if it has none.
+/// Returns the number of a variant of an enum.
 fn variant_of(decl: &EnumDecl, name: &str, span: Span) -> Result<usize, SomoniError> {
     decl.variants
         .iter()

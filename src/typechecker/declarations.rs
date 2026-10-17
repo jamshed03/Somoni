@@ -12,7 +12,7 @@ use crate::types::{Decl, Type};
 use super::{ClassInfo, InterfaceInfo, Signature, StructInfo, TypeChecker};
 
 impl TypeChecker {
-    /// Collects all enums. Each needs a free name and different variants.
+    /// Collects all enums of a file.
     pub(super) fn declare_enums(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::enums(stmts) {
             if self.is_type_name(&decl.name) {
@@ -41,7 +41,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns true if `name` is already a type: built in, a struct, an enum or a class.
+    /// Returns true if `name` is already a type.
     pub(super) fn is_type_name(&self, name: &str) -> bool {
         Type::is_builtin_name(name)
             || self.names.structs.contains_key(name)
@@ -63,8 +63,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Collects all structs, classes and interfaces: first their names, then their field and
-    /// method types, then checks that no struct or class contains itself.
+    /// Collects all structs, classes and interfaces of a file: names first, then their types.
     pub(super) fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::structs(stmts) {
             self.check_new_type_name(&decl.name, decl.name_span)?;
@@ -81,7 +80,7 @@ impl TypeChecker {
             let layout = Decl(Rc::clone(&class.layout));
             let info = ClassInfo {
                 fields: Vec::new(),
-                field_offset: 0,
+                first_own_field: 0,
                 parent: None,
                 constructor: Signature {
                     index: 0,
@@ -164,7 +163,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns the name and type of each field. A name may appear only once (T026).
+    /// Returns the name and type of each field.
     pub(super) fn resolve_fields<'a>(
         &self,
         fields: impl IntoIterator<Item = &'a Field>,
@@ -207,8 +206,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns true if a value of type `from` contains a `target` in a field, also through other
-    /// structs and classes. Fields of type `list<...>` or `T?` do not count.
+    /// Returns true if a value of type `from` contains a `target`, also through other fields.
     fn contains(&self, from: &Type, target: &Type, seen: &mut Vec<Type>) -> bool {
         if from == target {
             return true;
@@ -223,7 +221,7 @@ impl TypeChecker {
         fields.iter().any(|(_, ty)| self.contains(ty, target, seen))
     }
 
-    /// Returns the name and type of each field of a struct or class type, None for other types.
+    /// Returns the fields of a struct or class type.
     pub(super) fn fields_of(&self, ty: &Type) -> Option<&[(String, Type)]> {
         match ty {
             Type::Struct(decl) => self.structs.get(decl).map(|info| info.fields.as_slice()),
@@ -232,7 +230,7 @@ impl TypeChecker {
         }
     }
 
-    /// Collects the signatures of all functions, so they can be called before they are declared.
+    /// Collects the signatures of all functions of a file.
     pub(super) fn declare_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for function in ast::functions(stmts) {
             let name = &function.name;
@@ -255,7 +253,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns the signature of a function or method with the number `index`.
+    /// Returns the signature of a function or method.
     pub(super) fn signature_of(
         &self,
         function: &Function,
@@ -288,14 +286,14 @@ impl TypeChecker {
         })
     }
 
-    /// Returns the number and the field types of a struct.
+    /// Returns what the type checker knows about a struct.
     pub(super) fn struct_info(&self, decl: &Decl<StructDecl>) -> Result<&StructInfo, SomoniError> {
         self.structs
             .get(decl)
             .ok_or_else(|| SomoniError::internal("struct without fields"))
     }
 
-    /// Turns a written type like `list<int>?` into a `Type`. `void` is only allowed if `allow_void`.
+    /// Turns a written type like `list<int>?` into a `Type`.
     pub(super) fn resolve_type(
         &self,
         written: &TypeName,
@@ -311,7 +309,7 @@ impl TypeChecker {
         Ok(Type::Optional(Box::new(ty)))
     }
 
-    /// Like `resolve_type`, but without the `?`: `list<int>?` gives `list<int>`.
+    /// Turns a written type into a `Type` without its `?`.
     fn resolve_without_optional(
         &self,
         written: &TypeName,
@@ -371,7 +369,7 @@ impl TypeChecker {
     }
 }
 
-/// Checks that a type may be the key of a map: only `string` and `int`.
+/// Checks that a type may be the key of a map.
 pub(super) fn check_key_type(ty: &Type, span: Span) -> Result<(), SomoniError> {
     match ty {
         Type::Str | Type::Int => Ok(()),

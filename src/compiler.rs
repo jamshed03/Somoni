@@ -76,7 +76,6 @@ fn compile_init(class: &ClassDecl) -> Result<Chunk, SomoniError> {
     compiler.chunk.name = format!("init {}", class.layout.name);
     compiler.chunk.locals = plan.params + 1;
     let body: &[Stmt] = class.constructor.as_ref().map_or(&[], |c| &c.body);
-    // the parent first: super(...) is the first statement, without a constructor it is implicit
     let rest = match (plan.parent_init, body.split_first()) {
         (Some(_), Some((super_init, rest))) if class.constructor.is_some() => {
             compiler.compile_stmt(super_init)?;

@@ -6,7 +6,7 @@ use crate::error::{ErrorCode, SomoniError};
 use super::{Exports, TypeChecker};
 
 impl TypeChecker {
-    /// Adds the names of all `import`s of a file to `names`.
+    /// Adds the names of all imports of a file.
     pub(super) fn import_names(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for stmt in stmts {
             if let Stmt::Import(import) = stmt {
@@ -16,12 +16,11 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Adds the names of one `import { ... } from "..."`: each must be exported by that file
-    /// and must not be imported twice.
+    /// Adds the names of one import.
     fn import(&mut self, import: &Import) -> Result<(), SomoniError> {
         let exports = import
             .file
-            .and_then(|file| self.exports.get(&file))
+            .and_then(|file| self.exports_by_file.get(&file))
             .ok_or_else(|| SomoniError::internal("import of a file that is not checked"))?;
         for item in &import.names {
             if self.names.contains(&item.name) {
@@ -52,7 +51,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Collects what a checked file exports: its own declarations with `export`.
+    /// Collects the exports of a checked file.
     pub(super) fn exports_of(&self, stmts: &[Stmt]) -> Exports {
         let mut exports = Exports::default();
         for stmt in stmts {

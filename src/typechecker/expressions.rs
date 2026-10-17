@@ -12,8 +12,7 @@ use super::declarations::check_key_type;
 use super::{TypeChecker, check_arg_count, field_of, wrong_arg_type};
 
 impl TypeChecker {
-    /// Like `check_expr`, but knows which type is expected.
-    /// This lets `[]` and `null` get their type: `var l: list<int> = [];`, `var a: int? = null;`.
+    /// Checks an expression whose type is expected, so `[]`, `null` and `ok(...)` get it.
     pub(super) fn check_expr_expecting(
         &mut self,
         expr: &mut Expr,
@@ -58,8 +57,7 @@ impl TypeChecker {
         }
     }
 
-    /// Checks both sides of an operator. `[]` and `null` get the type of the other side:
-    /// `l + []`, `a == null`. Right of `&&` and `||`, the null checks on the left count.
+    /// Checks both sides of an operator.
     fn check_operands(
         &mut self,
         op: BinaryOp,
@@ -81,8 +79,7 @@ impl TypeChecker {
         Ok((l, r))
     }
 
-    /// Checks a list literal: all elements must have the same type.
-    /// `hint` is the expected element type; without it, the first element gives the type.
+    /// Checks a list literal.
     fn check_list(
         &mut self,
         elements: &mut [Expr],
@@ -113,8 +110,7 @@ impl TypeChecker {
         Ok(Type::List(Box::new(element_type)))
     }
 
-    /// Checks a map literal: all keys must have one type, and all values too.
-    /// `hint` is the expected key and value type; without it, the first entry gives them.
+    /// Checks a map literal.
     fn check_map(
         &mut self,
         entries: &mut [(Expr, Expr)],
@@ -139,7 +135,7 @@ impl TypeChecker {
         Ok(Type::Map(Box::new(key_type), Box::new(value_type)))
     }
 
-    /// Checks that a key or a value in a map literal has the type of the others.
+    /// Checks a key or a value of a map literal.
     fn check_map_part(
         &mut self,
         part: &'static str,
@@ -160,7 +156,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Checks a struct literal: every field must be given exactly once, in any order.
+    /// Checks a struct literal.
     fn check_struct_literal(
         &mut self,
         name: &str,
@@ -207,8 +203,7 @@ impl TypeChecker {
         Ok(Type::Struct(decl))
     }
 
-    /// Returns the type of an expression, or a type error. Each kind of expression that needs
-    /// more than a line has its own `check_*` method below.
+    /// Returns the type of an expression.
     pub(super) fn check_expr(&mut self, expr: &mut Expr) -> Result<Type, SomoniError> {
         if let Some((decl, variant)) = self.enum_variant(expr)? {
             let ty = Type::Enum(Decl(Rc::clone(&decl)));
@@ -279,7 +274,7 @@ impl TypeChecker {
         }
     }
 
-    /// Checks a variable and gives it its slot. `this` outside of a class is T053.
+    /// Checks a variable and gives it its slot.
     fn check_variable(
         &self,
         name: &str,
@@ -300,7 +295,7 @@ impl TypeChecker {
         Ok(info.ty.clone())
     }
 
-    /// Checks `list[index]` (the index must be an int) or `map[key]` (the key type of the map).
+    /// Checks `list[index]` or `map[key]`.
     fn check_index(&mut self, target: &mut Expr, index: &mut Expr) -> Result<Type, SomoniError> {
         match self.check_expr(target)? {
             Type::List(element_type) => {
@@ -333,8 +328,7 @@ impl TypeChecker {
         }
     }
 
-    /// Checks `target.name` on a struct or object and writes the position of the field into
-    /// `index`. On an object, the field must be visible here.
+    /// Checks `target.name` on a struct or object.
     fn check_field(
         &mut self,
         target: &mut Expr,
@@ -359,8 +353,7 @@ impl TypeChecker {
         Ok(ty)
     }
 
-    /// Checks a call of a built-in or an own function and writes which one into `target`.
-    /// `ok(...)` and `err(...)` without a known type are T049.
+    /// Checks a call of a built-in or an own function.
     fn check_call(
         &mut self,
         name: &str,
@@ -401,8 +394,7 @@ impl TypeChecker {
         Ok(signature.return_type)
     }
 
-    /// Checks `target.name(args)` on an object or an interface and writes into `call` how the
-    /// VM finds the method: by its slot (class) or in the vtable (interface).
+    /// Checks `target.name(args)` on an object or an interface.
     fn check_method_call(
         &mut self,
         target: &mut Expr,
@@ -452,7 +444,7 @@ impl TypeChecker {
         Ok(method.signature.return_type)
     }
 
-    /// Checks `super(args)`: only as the first statement in the constructor of a subclass (T070).
+    /// Checks `super(args)`.
     fn check_super_init(
         &mut self,
         args: &mut [Expr],
@@ -469,7 +461,7 @@ impl TypeChecker {
         Ok(Type::Void)
     }
 
-    /// Checks `super.name(args)` and writes the function of the parent's method into `target`.
+    /// Checks `super.name(args)`.
     fn check_super_call(
         &mut self,
         name: &str,
@@ -495,7 +487,7 @@ impl TypeChecker {
         Ok(method.signature.return_type)
     }
 
-    /// Checks `new Name(args)` and writes the number of the class and of its `init` function.
+    /// Checks `new Name(args)`.
     fn check_new(
         &mut self,
         name: &str,
@@ -514,7 +506,7 @@ impl TypeChecker {
         Ok(constructor.return_type)
     }
 
-    /// Checks `!x` (needs a bool) or `-x` (needs an int or float).
+    /// Checks `!x` or `-x`.
     fn check_unary(
         &mut self,
         op: UnaryOp,
@@ -533,8 +525,7 @@ impl TypeChecker {
         }
     }
 
-    /// Returns the type of `l op r`, or an error if the operator does not fit the types.
-    /// `op_span` is the place of the operator, for the error.
+    /// Returns the type of `l op r`.
     pub(super) fn binary_type(
         &self,
         op: BinaryOp,
@@ -575,8 +566,7 @@ impl TypeChecker {
     }
 }
 
-/// Returns true for `[]`, `{}`, `null`, `ok(...)` and `err(...)`:
-/// they need the type of the place where they are used.
+/// Returns true if an expression gets its type from where it is used.
 fn needs_type_hint(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::List(elements) => elements.is_empty(),

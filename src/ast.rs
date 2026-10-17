@@ -133,7 +133,6 @@ impl Expr {
                 .find_this()
                 .or_else(|| args.iter().find_map(Expr::find_this)),
             ExprKind::SuperInit { args, .. } => args.iter().find_map(Expr::find_this),
-            // `super.name()` runs on `this`
             ExprKind::SuperCall { .. } => Some(self.span),
         }
     }

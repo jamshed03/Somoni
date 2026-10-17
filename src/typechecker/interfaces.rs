@@ -10,9 +10,7 @@ use super::classes::describe_method;
 use super::{InterfaceInfo, Member, MethodInfo, TypeChecker};
 
 impl TypeChecker {
-    /// Checks that a class has every method of every interface after `implements`: public and
-    /// with the same types (rule 22 of `Klassen.md`); inherited methods count. Returns the
-    /// interfaces.
+    /// Checks that a class has every method of the interfaces it implements.
     pub(super) fn check_implements(
         &self,
         class: &ClassDecl,
@@ -73,8 +71,7 @@ impl TypeChecker {
         Ok(implements)
     }
 
-    /// Returns the vtable of a class for an interface: the number of the interface and, for each
-    /// of its methods, the function the class runs for it.
+    /// Returns the vtable of a class for an interface.
     pub(super) fn vtable(
         &self,
         interface: &Decl<InterfaceLayout>,
@@ -92,7 +89,7 @@ impl TypeChecker {
         Ok((info.index, functions))
     }
 
-    /// Returns the number and the methods of an interface.
+    /// Returns what the type checker knows about an interface.
     pub(super) fn interface_info(
         &self,
         layout: &Decl<InterfaceLayout>,

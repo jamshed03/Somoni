@@ -14,8 +14,7 @@ use crate::types::{Decl, Type};
 use super::{ClassInfo, Member, MethodInfo, Signature, TypeChecker};
 
 impl TypeChecker {
-    /// Finds the parent class after `extends` of every class of a file: it must be a class
-    /// (T064), and no class may inherit from itself (T065).
+    /// Finds the parent class of every class of a file and rejects cycles.
     pub(super) fn resolve_parents(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for class in ast::classes(stmts) {
             let Some((name, span)) = &class.extends else {
@@ -79,8 +78,7 @@ impl TypeChecker {
         false
     }
 
-    /// Returns the classes of a file so that every class comes after its parent class
-    /// (sorted by the number of parent classes above it).
+    /// Returns the classes of a file, every parent class before its subclasses.
     pub(super) fn parents_first<'a>(&self, stmts: &'a [Stmt]) -> Vec<&'a ClassDecl> {
         let depth = |class: &&ClassDecl| {
             let mut count = 0;
@@ -96,26 +94,23 @@ impl TypeChecker {
         classes
     }
 
-    /// Collects the fields of a class: those of its parent class first, then its own.
+    /// Collects the fields of a class, those of its parent class first.
     pub(super) fn declare_class_fields(&mut self, class: &ClassDecl) -> Result<(), SomoniError> {
         let layout = Decl(Rc::clone(&class.layout));
         let mut fields = match self.parent_of(&layout) {
             Some(parent) => self.class_info(&parent)?.fields.clone(),
             None => Vec::new(),
         };
-        let field_offset = fields.len();
+        let first_own_field = fields.len();
         fields.extend(self.resolve_fields(class.fields.iter().map(|f| &f.field))?);
         if let Some(info) = self.classes.get_mut(&layout) {
             info.fields = fields;
-            info.field_offset = field_offset;
+            info.first_own_field = first_own_field;
         }
         Ok(())
     }
 
-    /// Gives every class its function numbers, after the functions of the file (the compiler
-    /// writes them in the same order): `init Name` (the constructor), then each own method.
-    /// Then, parents first, builds the method table of each class: the inherited one, with
-    /// `override` methods in the slot of the method they replace and new methods at the end.
+    /// Numbers the functions of every class like the compiler and builds their method tables.
     pub(super) fn declare_class_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         let mut numbers: HashMap<Decl<ClassLayout>, (usize, Vec<usize>)> = HashMap::new();
         for class in ast::classes(stmts) {
@@ -136,10 +131,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Builds the constructor signature, the members, the methods and the method table of one
-    /// class whose parent class is already done. `init` and `functions` are its function numbers.
-    /// A name of the parent class may not come again as a field or method (T055), except as
-    /// `override` of a method that is not private.
+    /// Builds members, methods and method table of a class whose parent class is done.
     fn declare_class_methods(
         &mut self,
         class: &ClassDecl,
@@ -278,7 +270,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Checks a method of a class: like a function, with `this` as slot 0 before the parameters.
+    /// Checks a method like a function, with `this` in slot 0.
     fn check_method(
         &mut self,
         method: &mut Function,
@@ -289,9 +281,7 @@ impl TypeChecker {
         self.check_body(method, &name, signature, Some(Type::Class(layout.clone())))
     }
 
-    /// Checks the start values and the constructor of a class, and that every field gets a value.
-    /// Start values see no variables, like the body of a function without parameters.
-    /// Private fields and methods may be used inside, see `check_access`.
+    /// Checks a class with access to its private members.
     pub(super) fn check_class(&mut self, class: &mut ClassDecl) -> Result<(), SomoniError> {
         let layout = Decl(Rc::clone(&class.layout));
         let outer_class = self.current_class.replace(layout.clone());
@@ -300,7 +290,7 @@ impl TypeChecker {
         result
     }
 
-    /// Checks the parts of a class for `check_class`.
+    /// Checks the start values, the constructor and the methods of a class.
     fn check_class_parts(
         &mut self,
         class: &mut ClassDecl,
@@ -310,13 +300,13 @@ impl TypeChecker {
         let parent = self.parent_info(&info)?;
         class.plan = ClassPlan {
             fields: info.fields.iter().map(|(name, _)| name.clone()).collect(),
-            field_offset: info.field_offset,
+            field_offset: info.first_own_field,
             params: info.constructor.params.len(),
             parent_init: parent.as_ref().map(|p| p.constructor.index),
             methods: info.method_table.clone(),
             vtables: info.vtables.clone(),
         };
-        let own_fields = &info.fields[info.field_offset..];
+        let own_fields = &info.fields[info.first_own_field..];
         self.in_function(None, |this| {
             for (field, (_, ty)) in class.fields.iter_mut().zip(own_fields) {
                 if let Some(start) = &mut field.start {
@@ -364,10 +354,7 @@ impl TypeChecker {
         check_fields_set(class, body)
     }
 
-    /// Returns T058 if `name` is a private field or method of the class `layout` (or one it
-    /// inherits) and the code being checked is not inside the class that declares it
-    /// (rule 17 of `Klassen.md`); T072 if it is protected and the code is not in that class or a
-    /// subclass (rule 34).
+    /// Returns an error if `name` is private or protected and not visible here.
     pub(super) fn check_access(
         &self,
         layout: &Decl<ClassLayout>,
@@ -400,7 +387,7 @@ impl TypeChecker {
         Err(SomoniError::at(span, code))
     }
 
-    /// Returns what the type checker knows about the parent class of a class, if it has one.
+    /// Returns the info of the parent class, if there is one.
     fn parent_info(&self, info: &ClassInfo) -> Result<Option<ClassInfo>, SomoniError> {
         match &info.parent {
             Some(parent) => Ok(Some(self.class_info(parent)?.clone())),
@@ -408,8 +395,7 @@ impl TypeChecker {
         }
     }
 
-    /// Returns the parent class of the class being checked, or T071 if there is none
-    /// (`super` outside of a subclass).
+    /// Returns the parent of the class being checked, for `super`.
     pub(super) fn current_parent(&self, span: Span) -> Result<Decl<ClassLayout>, SomoniError> {
         self.current_class
             .as_ref()
@@ -417,7 +403,7 @@ impl TypeChecker {
             .ok_or_else(|| SomoniError::at(span, ErrorCode::SuperOutsideSubclass))
     }
 
-    /// Returns the field types and the constructor of a class.
+    /// Returns what the type checker knows about a class.
     pub(super) fn class_info(&self, layout: &Decl<ClassLayout>) -> Result<&ClassInfo, SomoniError> {
         self.classes
             .get(layout)
@@ -450,9 +436,7 @@ impl TypeChecker {
     }
 }
 
-/// Checks rule 5 of `Klassen.md`: every field without a start value is set in `body`, the
-/// constructor, directly with `this.field = value;`. Until all are set, `this` may not be used
-/// in any other way (T054). A field that is never set is T050.
+/// Checks that the constructor sets every field without a start value before using `this`.
 fn check_fields_set(class: &ClassDecl, body: &[Stmt]) -> Result<(), SomoniError> {
     let mut missing: Vec<&ClassField> = class.fields.iter().filter(|f| f.start.is_none()).collect();
     for stmt in body {
@@ -517,7 +501,7 @@ pub(super) fn describe_method(name: &str, visibility: Visibility, signature: &Si
     )
 }
 
-/// For `this.name = value;` where `value` does not use `this`, returns `name`.
+/// Returns the field that `this.field = value;` sets, if `value` does not use `this`.
 fn sets_field(stmt: &Stmt) -> Option<&str> {
     let Stmt::Assign {
         target,
