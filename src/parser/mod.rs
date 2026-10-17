@@ -6,6 +6,7 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
 
+mod classes;
 mod declarations;
 mod expressions;
 mod statements;
@@ -113,13 +114,34 @@ impl Parser {
 
     /// Reads a name that is a keyword only at this place, like `from` in an import.
     fn expect_word(&mut self, word: &str, what: &str) -> Result<(), SomoniError> {
-        match self.peek() {
-            Token::Ident(name) if name == word => {
-                self.advance();
-                Ok(())
-            }
-            _ => Err(self.expected(what)),
+        if !self.at_word(word) {
+            return Err(self.expected(what));
         }
+        self.advance();
+        Ok(())
+    }
+
+    /// Returns true if the next token is the name `word`, like `constructor` in a class.
+    fn at_word(&self, word: &str) -> bool {
+        matches!(self.peek(), Token::Ident(name) if name == word)
+    }
+
+    /// Reads `token` if it comes next and returns whether it did.
+    fn eat(&mut self, token: Token) -> bool {
+        let found = *self.peek() == token;
+        if found {
+            self.advance();
+        }
+        found
+    }
+
+    /// Reads names separated by `,`, like `A, B` after `implements`.
+    fn parse_names(&mut self, what: &str) -> Result<Vec<(String, Span)>, SomoniError> {
+        let mut names = vec![self.expect_ident(what)?];
+        while self.eat(Token::Comma) {
+            names.push(self.expect_ident(what)?);
+        }
+        Ok(names)
     }
 
     /// Reads a name, or returns the error "expected `what`".
@@ -168,8 +190,7 @@ impl Parser {
         mut parse_item: impl FnMut(&mut Self) -> Result<T, SomoniError>,
     ) -> Result<Vec<T>, SomoniError> {
         let mut items = Vec::new();
-        if *self.peek() == close {
-            self.advance();
+        if self.eat(close.clone()) {
             return Ok(items);
         }
         loop {
@@ -187,14 +208,10 @@ impl Parser {
     fn parse_type(&mut self, what: &str) -> Result<TypeName, SomoniError> {
         let (name, start) = self.expect_ident(what)?;
         let mut args = Vec::new();
-        if *self.peek() == Token::Less {
-            self.advance();
+        if self.eat(Token::Less) {
             args = self.parse_comma_list(Token::Greater, "'>'", |this| this.parse_type("type"))?;
         }
-        let optional = *self.peek() == Token::Question;
-        if optional {
-            self.advance();
-        }
+        let optional = self.eat(Token::Question);
         Ok(TypeName {
             name,
             args,

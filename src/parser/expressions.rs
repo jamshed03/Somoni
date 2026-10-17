@@ -19,7 +19,7 @@ impl Parser {
     ) -> Result<Expr, SomoniError> {
         self.advance();
         self.advance();
-        let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
+        let args = self.parse_args()?;
         Ok(Expr {
             kind: ExprKind::Call {
                 name,
@@ -146,9 +146,8 @@ impl Parser {
                 Token::Dot => {
                     self.advance();
                     let (name, name_span) = self.expect_ident("field name after '.'")?;
-                    if *self.peek() == Token::LParen {
-                        self.advance();
-                        let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
+                    if self.eat(Token::LParen) {
+                        let args = self.parse_args()?;
                         ExprKind::MethodCall {
                             target: Box::new(expr),
                             name,
@@ -211,6 +210,54 @@ impl Parser {
         })
     }
 
+    /// Reads the arguments of a call up to `)`; the `(` is already read.
+    fn parse_args(&mut self) -> Result<Vec<Expr>, SomoniError> {
+        self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)
+    }
+
+    /// Reads `new Name(args)`.
+    fn parse_new(&mut self, span: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        let (name, name_span) = self.expect_ident("class name after 'new'")?;
+        self.expect(Token::LParen, "'(' after the class name")?;
+        let args = self.parse_args()?;
+        let kind = ExprKind::New {
+            name,
+            name_span,
+            args,
+            class: None,
+            target: None,
+        };
+        Ok(Expr {
+            kind,
+            span: span.to(self.last_span()),
+        })
+    }
+
+    /// Reads `super(args)` or `super.name(args)`.
+    fn parse_super(&mut self, span: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        let kind = if self.eat(Token::LParen) {
+            let args = self.parse_args()?;
+            ExprKind::SuperInit { args, target: None }
+        } else {
+            self.expect(Token::Dot, "'(' or '.' after 'super'")?;
+            let (name, name_span) = self.expect_ident("method name after 'super.'")?;
+            self.expect(Token::LParen, "'(' after the method name")?;
+            let args = self.parse_args()?;
+            ExprKind::SuperCall {
+                name,
+                name_span,
+                args,
+                target: None,
+            }
+        };
+        Ok(Expr {
+            kind,
+            span: span.to(self.last_span()),
+        })
+    }
+
     /// Reads a value, a name, a call, a struct literal, a list literal or `( ... )`.
     fn parse_primary(&mut self) -> Result<Expr, SomoniError> {
         let span = self.current_span();
@@ -221,22 +268,7 @@ impl Parser {
             Token::True => ExprKind::Bool(true),
             Token::False => ExprKind::Bool(false),
             Token::Null => ExprKind::Null,
-            Token::New => {
-                self.advance();
-                let (name, name_span) = self.expect_ident("class name after 'new'")?;
-                self.expect(Token::LParen, "'(' after the class name")?;
-                let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
-                return Ok(Expr {
-                    kind: ExprKind::New {
-                        name,
-                        name_span,
-                        args,
-                        class: None,
-                        target: None,
-                    },
-                    span: span.to(self.last_span()),
-                });
-            }
+            Token::New => return self.parse_new(span),
             Token::Ident(name) if *self.peek_next() == Token::LParen => {
                 return self.parse_call(name, span);
             }
@@ -244,30 +276,7 @@ impl Parser {
                 return self.parse_struct_literal(name, span);
             }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
-            Token::Super => {
-                self.advance();
-                if *self.peek() == Token::LParen {
-                    self.advance();
-                    let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
-                    return Ok(Expr {
-                        kind: ExprKind::SuperInit { args, target: None },
-                        span: span.to(self.last_span()),
-                    });
-                }
-                self.expect(Token::Dot, "'(' or '.' after 'super'")?;
-                let (name, name_span) = self.expect_ident("method name after 'super.'")?;
-                self.expect(Token::LParen, "'(' after the method name")?;
-                let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
-                return Ok(Expr {
-                    kind: ExprKind::SuperCall {
-                        name,
-                        name_span,
-                        args,
-                        target: None,
-                    },
-                    span: span.to(self.last_span()),
-                });
-            }
+            Token::Super => return self.parse_super(span),
             Token::This => ExprKind::Ident {
                 name: THIS.to_string(),
                 slot: None,

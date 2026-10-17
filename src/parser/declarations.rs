@@ -3,9 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, EnumDecl, Function, Import,
-    ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod, Method, Stmt, StructDecl,
-    Visibility,
+    EnumDecl, Function, Import, ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod, Stmt,
+    StructDecl,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -64,7 +63,7 @@ impl Parser {
     }
 
     /// Reads the part of a function or method after its name: `(a: int): int { ... }`.
-    fn parse_function_rest(
+    pub(super) fn parse_function_rest(
         &mut self,
         exported: bool,
         name: String,
@@ -98,102 +97,6 @@ impl Parser {
             name_span,
             fields,
         })))
-    }
-
-    /// Reads `class Name { field: type; field: type = start; }`.
-    pub(super) fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
-        self.advance();
-        let (name, name_span) = self.expect_ident("class name")?;
-        let mut extends = None;
-        if *self.peek() == Token::Extends {
-            self.advance();
-            extends = Some(self.expect_ident("class name after 'extends'")?);
-        }
-        let mut implements = Vec::new();
-        if *self.peek() == Token::Implements {
-            self.advance();
-            loop {
-                implements.push(self.expect_ident("interface name after 'implements'")?);
-                if *self.peek() != Token::Comma {
-                    break;
-                }
-                self.advance();
-            }
-        }
-        let open = self.current_span();
-        self.expect(Token::LBrace, "'{' after class name")?;
-        let mut fields = Vec::new();
-        let mut constructor = None;
-        let mut methods = Vec::new();
-        while *self.peek() != Token::RBrace {
-            if *self.peek() == Token::Eof {
-                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
-            }
-            let visibility = self.parse_visibility()?;
-            let is_override = *self.peek() == Token::Override;
-            if is_override {
-                self.advance();
-            }
-            if matches!(self.peek(), Token::Ident(name) if name == "constructor") {
-                let span = self.current_span();
-                if visibility != Visibility::Public {
-                    return Err(SomoniError::at(
-                        span,
-                        ErrorCode::NotYetSupported {
-                            what: "'private constructor'",
-                            comes_with: "static",
-                        },
-                    ));
-                }
-                if constructor.is_some() {
-                    return Err(SomoniError::at(span, ErrorCode::DuplicateConstructor));
-                }
-                constructor = Some(self.parse_constructor(span)?);
-                continue;
-            }
-            if let Token::Ident(name) = self.peek().clone()
-                && *self.peek_next() == Token::LParen
-            {
-                let name_span = self.current_span();
-                self.advance();
-                let function = self.parse_function_rest(false, name, name_span)?;
-                methods.push(Method {
-                    visibility,
-                    is_override,
-                    function,
-                });
-                continue;
-            }
-            let field = self.parse_field()?;
-            let start = if *self.peek() == Token::Equal {
-                self.advance();
-                Some(self.parse_expr()?)
-            } else {
-                None
-            };
-            self.expect(Token::Semicolon, "';' after the field")?;
-            fields.push(ClassField {
-                visibility,
-                field,
-                start,
-            });
-        }
-        self.advance();
-        let layout = ClassLayout {
-            name,
-            fields: fields.iter().map(|f| f.field.name.clone()).collect(),
-        };
-        Ok(Stmt::ClassDecl(ClassDecl {
-            exported,
-            layout: Rc::new(layout),
-            name_span,
-            fields,
-            constructor,
-            methods,
-            extends,
-            implements,
-            plan: ClassPlan::default(),
-        }))
     }
 
     /// Reads `interface Name { method(a: int): type; ... }`.
@@ -235,29 +138,6 @@ impl Parser {
             name_span,
             methods,
         }))
-    }
-
-    /// Reads `public`, `protected` or `private` in front of a field or method; without it,
-    /// it is public.
-    fn parse_visibility(&mut self) -> Result<Visibility, SomoniError> {
-        let visibility = match self.peek() {
-            Token::Public => Visibility::Public,
-            Token::Private => Visibility::Private,
-            Token::Protected => Visibility::Protected,
-            _ => return Ok(Visibility::Public),
-        };
-        self.advance();
-        Ok(visibility)
-    }
-
-    /// Reads `constructor(a: int) { ... }`. The current token is `constructor`.
-    fn parse_constructor(&mut self, span: Span) -> Result<Constructor, SomoniError> {
-        self.advance();
-        self.expect(Token::LParen, "'(' after 'constructor'")?;
-        let params =
-            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
-        let body = self.expect_block_stmts("after the constructor parameters")?;
-        Ok(Constructor { params, body, span })
     }
 
     /// Reads `enum Farbe { Rot, Gruen, Blau }`.

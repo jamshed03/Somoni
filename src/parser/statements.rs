@@ -168,8 +168,7 @@ impl Parser {
         self.expect(Token::RParen, "')' after if condition")?;
         let then_branch = self.expect_block("after if condition")?;
 
-        let else_branch = if *self.peek() == Token::Else {
-            self.advance();
+        let else_branch = if self.eat(Token::Else) {
             let next = self.current_span();
             match self.peek() {
                 Token::If => Some(Box::new(self.parse_if(next)?)),
@@ -257,8 +256,7 @@ impl Parser {
     /// `for (` is already read.
     fn parse_foreach(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         let mut vars = vec![self.parse_param("loop variable")?];
-        if *self.peek() == Token::Comma {
-            self.advance();
+        if self.eat(Token::Comma) {
             vars.push(self.parse_param("loop variable")?);
         }
         self.expect(Token::In, "'in'")?;
