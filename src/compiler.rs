@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt};
-use crate::bytecode::{Chunk, Op, Program};
+use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
 use crate::runner::Stop;
 use crate::span::Span;
@@ -71,13 +71,25 @@ impl Compiler {
                 span,
             } => {
                 let ExprKind::Ident { slot, .. } = target.kind else {
-                    return Err(not_in_vm(
-                        "assignment to a list element, map entry or field",
-                    ));
+                    let mut steps = Vec::new();
+                    let slot = self.compile_path(target, &mut steps)?;
+                    self.compile_expr(value)?;
+                    self.chunk.paths.push(Path { slot, steps });
+                    let i = self.chunk.paths.len() - 1;
+                    self.chunk.push(Op::SetPart(i), *span);
+                    return Ok(());
                 };
-                self.compile_expr(value)?;
                 let slot = self.slot(slot)?;
-                self.chunk.push(Op::SetLocal(slot), *span);
+                match value.appended_to(slot) {
+                    Some(rest) => {
+                        self.compile_expr(rest)?;
+                        self.chunk.push(Op::AppendLocal(slot), value.span);
+                    }
+                    None => {
+                        self.compile_expr(value)?;
+                        self.chunk.push(Op::SetLocal(slot), *span);
+                    }
+                }
             }
             Stmt::Expr { expr, span } => {
                 self.compile_expr(expr)?;
@@ -167,6 +179,35 @@ impl Compiler {
             self.patch_jump(jump);
         }
         Ok(())
+    }
+
+    /// Writes the indices of an assignment target like `l[i].x` from left to right
+    /// and collects its steps. Returns the slot of the variable.
+    fn compile_path(&mut self, target: &Expr, steps: &mut Vec<PathStep>) -> Result<usize, Stop> {
+        match &target.kind {
+            ExprKind::Ident { slot, .. } => self.slot(*slot),
+            ExprKind::Index {
+                target: inner,
+                index,
+            } => {
+                let slot = self.compile_path(inner, steps)?;
+                self.compile_expr(index)?;
+                steps.push(PathStep::Index(target.span));
+                Ok(slot)
+            }
+            ExprKind::Field {
+                target: inner,
+                index,
+                ..
+            } => {
+                let slot = self.compile_path(inner, steps)?;
+                let position =
+                    index.ok_or_else(|| SomoniError::internal("field without a place"))?;
+                steps.push(PathStep::Field(position));
+                Ok(slot)
+            }
+            _ => Err(SomoniError::internal("assignment to a non-variable").into()),
+        }
     }
 
     /// Returns the jumps of the innermost loop.
@@ -304,9 +345,4 @@ impl Compiler {
         self.chunk.locals = self.chunk.locals.max(slot + 1);
         Ok(slot)
     }
-}
-
-/// The stop for a part of the language the VM cannot run yet.
-fn not_in_vm(what: &str) -> Stop {
-    Stop::NotInVm(what.to_string())
 }

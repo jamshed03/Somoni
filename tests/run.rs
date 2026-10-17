@@ -2,20 +2,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Exit code of somoni when the VM cannot run a program yet.
-const EXIT_NOT_IN_VM: i32 = 3;
-
 /// How a program is run: by the tree interpreter, or by the VM with `--vm`.
 #[derive(Clone, Copy)]
 enum Mode {
     Tree,
     Vm,
-}
-
-/// The result of one run: what is wrong (empty if all is fine), or skipped by the VM.
-enum Outcome {
-    Checked(Vec<String>),
-    Skipped,
 }
 
 /// Runs every program in tests/cases with the tree interpreter and with the VM,
@@ -33,25 +24,16 @@ fn smn_programs_match_expected_output() {
     assert!(!programs.is_empty(), "no .smn files in tests/cases");
 
     let mut failures = Vec::new();
-    let mut skipped = 0;
     for program in &programs {
         let name = program.file_name().unwrap().to_string_lossy();
         for (mode, label) in [(Mode::Tree, "tree"), (Mode::Vm, "vm")] {
-            match check_program(program, mode) {
-                Outcome::Checked(problems) if !problems.is_empty() => {
-                    failures.push(format!("{} ({})\n{}", name, label, problems.join("\n")));
-                }
-                Outcome::Checked(_) => {}
-                Outcome::Skipped => skipped += 1,
+            let problems = check_program(program, mode);
+            if !problems.is_empty() {
+                failures.push(format!("{} ({})\n{}", name, label, problems.join("\n")));
             }
         }
     }
 
-    eprintln!(
-        "VM: {} of {} programs skipped (not in the VM yet)",
-        skipped,
-        programs.len()
-    );
     assert!(
         failures.is_empty(),
         "{} runs failed:\n\n{}",
@@ -62,9 +44,9 @@ fn smn_programs_match_expected_output() {
 
 /// Runs one program and returns what is wrong: other output or another exit code.
 /// `err_*` programs must end with exit code 1, all others with 0.
-fn check_program(program: &Path, mode: Mode) -> Outcome {
+fn check_program(program: &Path, mode: Mode) -> Vec<String> {
     let Ok(expected) = fs::read_to_string(program.with_extension("out")) else {
-        return Outcome::Checked(vec!["missing .out file".to_string()]);
+        return vec!["missing .out file".to_string()];
     };
 
     let mut command = Command::new(env!("CARGO_BIN_EXE_somoni"));
@@ -72,9 +54,6 @@ fn check_program(program: &Path, mode: Mode) -> Outcome {
         command.arg("--vm");
     }
     let output = command.arg(program).output().expect("cannot start somoni");
-    if let (Mode::Vm, Some(EXIT_NOT_IN_VM)) = (mode, output.status.code()) {
-        return Outcome::Skipped;
-    }
     let actual = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
@@ -98,5 +77,5 @@ fn check_program(program: &Path, mode: Mode) -> Outcome {
             expected_code
         ));
     }
-    Outcome::Checked(problems)
+    problems
 }

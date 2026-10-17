@@ -1,12 +1,12 @@
 use std::rc::Rc;
 
-use crate::ast::Stmt;
-use crate::bytecode::{Chunk, Op, Program};
+use crate::ast::{BinaryOp, Stmt};
+use crate::bytecode::{Chunk, Op, PathStep, Program};
 use crate::compiler;
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::runner::{MAX_CALL_DEPTH, Runner, Stop};
-use crate::value::{self, StructValue, Value, map_key, show_key};
+use crate::value::{self, Step, StructValue, Value, map_key, show_key};
 
 /// Runs a program by compiling it to bytecode first.
 pub struct VmRunner;
@@ -143,6 +143,39 @@ impl<'p> Vm<'p> {
                     return Err(SomoniError::internal("field of a non-struct"));
                 };
                 self.stack.push(target.fields[*position].clone());
+            }
+            Op::AppendLocal(slot) => {
+                let rest = self.pop()?;
+                let target = &mut self.locals[frame.base + slot];
+                if let Value::Str(_) | Value::List(_) = target {
+                    value::append(target, rest)?;
+                } else {
+                    let left = std::mem::replace(target, Value::Void);
+                    *target = value::binary(BinaryOp::Add, left, rest)?;
+                }
+            }
+            Op::SetPart(i) => {
+                let path = &frame.chunk.paths[*i];
+                let value = self.pop()?;
+                let count = path
+                    .steps
+                    .iter()
+                    .filter(|step| matches!(step, PathStep::Index(_)))
+                    .count();
+                let start = self.stack.len() - count;
+                let mut indices = self.stack.drain(start..);
+                let mut steps = Vec::with_capacity(path.steps.len());
+                for step in &path.steps {
+                    steps.push(match step {
+                        PathStep::Index(span) => Step::Index {
+                            index: indices.next().unwrap_or(Value::Void),
+                            span: *span,
+                        },
+                        PathStep::Field(position) => Step::Field(*position),
+                    });
+                }
+                drop(indices);
+                value::set_part(&mut self.locals[frame.base + path.slot], steps, value)?;
             }
         }
         Ok(())

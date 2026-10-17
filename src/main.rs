@@ -32,9 +32,6 @@ use vm::VmRunner;
 /// Stack size of the thread that runs the program. Deep recursion in Somoni needs a big stack.
 const STACK_SIZE: usize = 256 * 1024 * 1024;
 
-/// Exit code when the VM cannot run a program yet; the test runner skips such programs.
-const EXIT_NOT_IN_VM: i32 = 3;
-
 /// How the program is run.
 #[derive(Clone, Copy)]
 enum Mode {
@@ -71,18 +68,15 @@ fn main() {
         .stack_size(STACK_SIZE)
         .spawn(move || match run(&source, mode) {
             Ok(()) => Ok(()),
-            Err(Stop::Error(error)) => Err((1, error.render(&source))),
-            Err(Stop::NotInVm(what)) => {
-                Err((EXIT_NOT_IN_VM, format!("not in the VM yet: {}", what)))
-            }
+            Err(Stop::Error(error)) => Err(error.render(&source)),
         })
         .expect("cannot start the interpreter thread");
 
     match pipeline.join() {
         Ok(Ok(())) => {}
-        Ok(Err((code, message))) => {
+        Ok(Err(message)) => {
             eprintln!("{}", message);
-            process::exit(code);
+            process::exit(1);
         }
         Err(_) => process::exit(101),
     }

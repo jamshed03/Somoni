@@ -9,8 +9,6 @@ pub const MAX_CALL_DEPTH: usize = 10_000;
 pub enum Stop {
     /// A normal Somoni error, e.g. a runtime error.
     Error(SomoniError),
-    /// The program uses something the VM cannot run yet.
-    NotInVm(String),
 }
 
 impl From<SomoniError> for Stop {

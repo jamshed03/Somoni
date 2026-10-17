@@ -46,6 +46,25 @@ pub enum Op {
     Index,
     /// Pops a struct, pushes its field `p`.
     Field(usize),
+    /// Pops a value and appends it to the string or list in this slot (`s = s + x`).
+    /// For other values (`i = i + 1`) it adds them.
+    AppendLocal(usize),
+    /// Pops a value and the indices of path number `i`, writes the value into that part.
+    SetPart(usize),
+}
+
+/// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
+#[derive(Debug)]
+pub struct Path {
+    pub slot: usize,
+    pub steps: Vec<PathStep>,
+}
+
+/// One step of a path. The value of an index is on the stack when the path is used.
+#[derive(Debug)]
+pub enum PathStep {
+    Index(Span),
+    Field(usize),
 }
 
 /// A list of instructions with the constants they use.
@@ -57,6 +76,8 @@ pub struct Chunk {
     pub code: Vec<Op>,
     pub spans: Vec<Span>,
     pub constants: Vec<Value>,
+    /// The paths of `SetPart`.
+    pub paths: Vec<Path>,
     /// How many variable slots the code needs.
     pub locals: usize,
 }
@@ -126,5 +147,18 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::InitField(p) => format!("InitField {}", p),
         Op::Index => "Index".to_string(),
         Op::Field(p) => format!("Field {}", p),
+        Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
+        Op::SetPart(i) => {
+            let path = &chunk.paths[*i];
+            let steps: String = path
+                .steps
+                .iter()
+                .map(|step| match step {
+                    PathStep::Index(_) => "[]".to_string(),
+                    PathStep::Field(p) => format!(".{}", p),
+                })
+                .collect();
+            format!("SetPart {}{}", path.slot, steps)
+        }
     }
 }
