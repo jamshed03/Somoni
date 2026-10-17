@@ -32,7 +32,26 @@ impl Type {
 
     /// Returns true for the names of built-in types; a struct may not use them.
     pub fn is_builtin_name(name: &str) -> bool {
-        name == "list" || name == "map" || Type::from_return_name(name).is_some()
+        Type::arg_count(name).is_some() || Type::from_return_name(name).is_some()
+    }
+
+    /// Returns how many type arguments `list` and `map` take, None for all other names.
+    pub fn arg_count(name: &str) -> Option<usize> {
+        match name {
+            "list" => Some(1),
+            "map" => Some(2),
+            _ => None,
+        }
+    }
+
+    /// Builds `list<T>` or `map<K, V>` from the name and the type arguments.
+    pub fn with_args(name: &str, args: Vec<Type>) -> Option<Type> {
+        let mut args = args.into_iter().map(Box::new);
+        match (name, args.next(), args.next(), args.next()) {
+            ("list", Some(element), None, None) => Some(Type::List(element)),
+            ("map", Some(key), Some(value), None) => Some(Type::Map(key, value)),
+            _ => None,
+        }
     }
 
     /// Like `from_name`, but also knows `void` (for return types).

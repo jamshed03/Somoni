@@ -672,15 +672,14 @@ impl TypeChecker {
                 .contains_key(&written.name)
                 .then(|| Type::Struct(written.name.clone()))
         });
-        let expected_args = match (written.name.as_str(), &simple) {
-            ("list", _) => 1,
-            ("map", _) => 2,
-            (_, Some(_)) => 0,
-            (name, None) => {
+        let expected_args = match (Type::arg_count(&written.name), &simple) {
+            (Some(count), _) => count,
+            (None, Some(_)) => 0,
+            (None, None) => {
                 return Err(SomoniError::at(
                     written.span,
                     ErrorCode::UnknownType {
-                        name: name.to_string(),
+                        name: written.name.clone(),
                     },
                 ));
             }
@@ -698,13 +697,16 @@ impl TypeChecker {
         if let Some(ty) = simple {
             return Ok(ty);
         }
-        let first = self.resolve_type(&written.args[0], false)?;
-        if written.name == "list" {
-            return Ok(Type::List(Box::new(first)));
+        let mut args = Vec::new();
+        for arg in &written.args {
+            args.push(self.resolve_type(arg, false)?);
         }
-        check_key_type(&first, written.args[0].span)?;
-        let value = self.resolve_type(&written.args[1], false)?;
-        Ok(Type::Map(Box::new(first), Box::new(value)))
+        let ty = Type::with_args(&written.name, args)
+            .ok_or_else(|| SomoniError::internal("type arguments do not fit"))?;
+        if let Type::Map(key, _) = &ty {
+            check_key_type(key, written.args[0].span)?;
+        }
+        Ok(ty)
     }
 
     /// Returns the type of an expression, or a type error.
