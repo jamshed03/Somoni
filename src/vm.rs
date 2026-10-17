@@ -20,20 +20,19 @@ impl<'a> Runner<'a> for VmRunner {
 }
 
 /// One running chunk: the program or a called function.
-/// `ip` is the next instruction, `base` the place of its first variable in `locals`.
+/// `ip` is the next instruction, `base` the place of its first variable on the stack.
 struct Frame<'p> {
     chunk: &'p Chunk,
     ip: usize,
     base: usize,
 }
 
-/// The virtual machine: a loop over the instructions with a stack for the values
-/// they work on, the variables of all running functions in `locals`,
-/// and the frames of the callers.
+/// The virtual machine: a loop over the instructions, and the frames of the callers.
+/// The stack holds the variables of each running function, starting at its `base`,
+/// and above them the values the instructions work on.
 #[derive(Default)]
 struct Vm<'p> {
     stack: Vec<Value>,
-    locals: Vec<Value>,
     callers: Vec<Frame<'p>>,
 }
 
@@ -45,7 +44,7 @@ impl<'p> Vm<'p> {
             ip: 0,
             base: 0,
         };
-        self.locals.resize(frame.chunk.locals, Value::Void);
+        self.stack.resize(frame.chunk.locals, Value::Void);
         while let Some(op) = frame.chunk.code.get(frame.ip) {
             let (chunk, at) = (frame.chunk, frame.ip);
             frame.ip += 1;
@@ -64,8 +63,11 @@ impl<'p> Vm<'p> {
     ) -> Result<(), SomoniError> {
         match op {
             Op::Push(i) => self.stack.push(frame.chunk.constants[*i].clone()),
-            Op::GetLocal(slot) => self.stack.push(self.locals[frame.base + slot].clone()),
-            Op::SetLocal(slot) => self.locals[frame.base + slot] = self.pop()?,
+            Op::GetLocal(slot) => self.stack.push(self.stack[frame.base + slot].clone()),
+            Op::SetLocal(slot) => {
+                let value = self.pop()?;
+                self.stack[frame.base + slot] = value;
+            }
             Op::Pop => {
                 self.pop()?;
             }
@@ -93,7 +95,7 @@ impl<'p> Vm<'p> {
             Op::Call(i, count) => self.call(&program.functions[*i], *count, frame)?,
             Op::Return => {
                 let result = self.pop()?;
-                self.locals.truncate(frame.base);
+                self.stack.truncate(frame.base);
                 *frame = self
                     .callers
                     .pop()
@@ -146,7 +148,7 @@ impl<'p> Vm<'p> {
             }
             Op::AppendLocal(slot) => {
                 let rest = self.pop()?;
-                let target = &mut self.locals[frame.base + slot];
+                let target = &mut self.stack[frame.base + slot];
                 if let Value::Str(_) | Value::List(_) = target {
                     value::append(target, rest)?;
                 } else {
@@ -175,14 +177,14 @@ impl<'p> Vm<'p> {
                     });
                 }
                 drop(indices);
-                value::set_part(&mut self.locals[frame.base + path.slot], steps, value)?;
+                value::set_part(&mut self.stack[frame.base + path.slot], steps, value)?;
             }
         }
         Ok(())
     }
 
-    /// Starts a call of `chunk`: its arguments move from the stack into its first variables,
-    /// and the current frame waits in `callers` until the function returns.
+    /// Starts a call of `chunk`. Its arguments are already on top of the stack and become its
+    /// first variables. The current frame waits in `callers` until the function returns.
     fn call(
         &mut self,
         chunk: &'p Chunk,
@@ -195,10 +197,8 @@ impl<'p> Vm<'p> {
             }
             .into());
         }
-        let base = self.locals.len();
-        let start = self.stack.len() - count;
-        self.locals.extend(self.stack.drain(start..));
-        self.locals.resize(base + chunk.locals, Value::Void);
+        let base = self.stack.len() - count;
+        self.stack.resize(base + chunk.locals, Value::Void);
         let callee = Frame { chunk, ip: 0, base };
         self.callers.push(std::mem::replace(frame, callee));
         Ok(())
