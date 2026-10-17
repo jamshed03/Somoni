@@ -245,9 +245,11 @@ impl TypeChecker {
                 ..
             } => {
                 self.check_condition(condition)?;
-                self.check_stmt(then_branch)?;
+                let then_known = self.known_not_null(condition, true);
+                let else_known = self.known_not_null(condition, false);
+                self.with_not_null(then_known, |this| this.check_stmt(then_branch))?;
                 if let Some(else_branch) = else_branch {
-                    self.check_stmt(else_branch)?;
+                    self.with_not_null(else_known, |this| this.check_stmt(else_branch))?;
                 }
                 Ok(())
             }
@@ -255,7 +257,8 @@ impl TypeChecker {
                 condition, body, ..
             } => {
                 self.check_condition(condition)?;
-                self.check_loop_body(body)
+                let known = self.known_not_null(condition, true);
+                self.with_not_null(known, |this| this.check_loop_body(body))
             }
             Stmt::For {
                 init,
@@ -270,6 +273,67 @@ impl TypeChecker {
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
         }
+    }
+
+    /// Runs `check` while the variables in `known` have the type without `?`, e.g. `int` for an
+    /// `int?` after `a != null`. They keep their slot, so they are the same variables.
+    fn with_not_null<T>(
+        &mut self,
+        known: Vec<(String, Type)>,
+        check: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        self.scopes.push();
+        for (name, ty) in known {
+            if let Some(info) = self.scopes.lookup(&name) {
+                let narrowed = VarInfo {
+                    ty,
+                    mutable: info.mutable,
+                    slot: info.slot,
+                };
+                self.scopes.declare(&name, narrowed);
+            }
+        }
+        let result = check(self);
+        self.scopes.pop();
+        result
+    }
+
+    /// Returns the variables that cannot be null when `condition` is `when`, each with its type
+    /// without `?`. Example: `a != null && b != null` gives `a` and `b` when it is true.
+    fn known_not_null(&self, condition: &Expr, when: bool) -> Vec<(String, Type)> {
+        match &condition.kind {
+            ExprKind::Binary {
+                left, op, right, ..
+            } => match (op, when) {
+                (BinaryOp::NotEq, true) | (BinaryOp::Eq, false) => {
+                    self.null_checked(left, right).into_iter().collect()
+                }
+                (BinaryOp::And, true) | (BinaryOp::Or, false) => {
+                    let mut known = self.known_not_null(left, when);
+                    known.extend(self.known_not_null(right, when));
+                    known
+                }
+                _ => Vec::new(),
+            },
+            ExprKind::Unary {
+                op: UnaryOp::Not,
+                operand,
+            } => self.known_not_null(operand, !when),
+            _ => Vec::new(),
+        }
+    }
+
+    /// For `a != null` or `null != a` with `a: T?`: returns `a` and `T`.
+    fn null_checked(&self, left: &Expr, right: &Expr) -> Option<(String, Type)> {
+        let name = match (&left.kind, &right.kind) {
+            (ExprKind::Ident { name, .. }, ExprKind::Null)
+            | (ExprKind::Null, ExprKind::Ident { name, .. }) => name,
+            _ => return None,
+        };
+        let Type::Optional(inner) = &self.scopes.lookup(name)?.ty else {
+            return None;
+        };
+        Some((name.clone(), (**inner).clone()))
     }
 
     /// Runs `check` inside a new block. Afterwards the variables of the block are gone.
@@ -367,7 +431,8 @@ impl TypeChecker {
         self.check_stmt(init)?;
         self.check_condition(condition)?;
         self.check_stmt(step)?;
-        self.check_loop_body(body)
+        let known = self.known_not_null(condition, true);
+        self.with_not_null(known, |this| this.check_loop_body(body))
     }
 
     /// Checks a loop body; inside it, `break` and `continue` are allowed.
@@ -425,21 +490,26 @@ impl TypeChecker {
     }
 
     /// Checks both sides of an operator. `[]` and `null` get the type of the other side:
-    /// `l + []`, `a == null`.
+    /// `l + []`, `a == null`. Right of `&&` and `||`, the null checks on the left count.
     fn check_operands(
         &mut self,
+        op: BinaryOp,
         left: &mut Expr,
         right: &mut Expr,
     ) -> Result<(Type, Type), SomoniError> {
         if needs_type_hint(left) {
             let r = self.check_expr(right)?;
             let l = self.check_expr_expecting(left, &r)?;
-            Ok((l, r))
-        } else {
-            let l = self.check_expr(left)?;
-            let r = self.check_expr_expecting(right, &l)?;
-            Ok((l, r))
+            return Ok((l, r));
         }
+        let l = self.check_expr(left)?;
+        let known = match op {
+            BinaryOp::And => self.known_not_null(left, true),
+            BinaryOp::Or => self.known_not_null(left, false),
+            _ => Vec::new(),
+        };
+        let r = self.with_not_null(known, |this| this.check_expr_expecting(right, &l))?;
+        Ok((l, r))
     }
 
     /// Checks a list literal: all elements must have the same type.
@@ -603,7 +673,7 @@ impl TypeChecker {
                 op_span,
                 right,
             } => {
-                let (l, r) = self.check_operands(left, right)?;
+                let (l, r) = self.check_operands(*op, left, right)?;
                 let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
                 if l != r && !(is_equality && (fits(&l, &r) || fits(&r, &l))) {
                     return Err(SomoniError::at(

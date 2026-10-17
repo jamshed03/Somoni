@@ -1,0 +1,8 @@
+// only variables are checked, not fields
+struct User {
+    email: string?
+}
+var u: User = User { email: "a@b.de" };
+if (u.email != null) {
+    print(u.email + "!");
+}

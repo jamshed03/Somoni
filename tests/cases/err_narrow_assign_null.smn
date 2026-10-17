@@ -1,0 +1,4 @@
+var a: int? = 5;
+if (a != null) {
+    a = null;
+}

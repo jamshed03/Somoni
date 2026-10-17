@@ -1,0 +1,57 @@
+var a: int? = 5;
+if (a != null) {
+    print(a + 1);
+}
+if (null != a) {
+    print(a + 2);
+}
+
+// in the else branch after == null
+if (a == null) {
+    print("no value");
+} else {
+    print(a * 2);
+}
+
+// right of && and ||, and turned around with !
+if (a != null && a > 3) {
+    print("big");
+}
+var b: int? = null;
+if (b == null || b > 3) {
+    print("missing or big");
+}
+if (!(a == null)) {
+    print(a - 1);
+}
+
+// in a loop body; there an int may be assigned
+var steps: int? = 3;
+while (steps != null && steps > 0) {
+    steps = steps - 1;
+}
+print(steps);
+
+fn greet(name: string?): string {
+    if (name != null) {
+        return "Hello " + name;
+    }
+    return "Hello stranger";
+}
+print(greet("Ali"));
+print(greet(null));
+
+// a linked list, walked with recursion
+struct Node {
+    value: int,
+    next: Node?
+}
+fn sum(node: Node?): int {
+    if (node == null) {
+        return 0;
+    } else {
+        return node.value + sum(node.next);
+    }
+}
+var chain: Node = Node { value: 1, next: Node { value: 2, next: Node { value: 3, next: null } } };
+print(sum(chain));

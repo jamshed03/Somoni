@@ -1,0 +1,5 @@
+// right of || the left side was false: a is null there
+var a: int? = 5;
+if (a != null || a > 3) {
+    print("?");
+}

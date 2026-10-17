@@ -1,0 +1,6 @@
+// the check only counts inside the block
+var a: int? = 5;
+if (a != null) {
+    print(a);
+}
+print(a + 1);
