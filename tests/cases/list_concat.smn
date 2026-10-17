@@ -1,0 +1,34 @@
+var zahlen: list<int> = [1, 2];
+zahlen = zahlen + [3];
+print(zahlen);
+print([1] + [2, 3] + [4]);
+
+// the empty list takes its type from the other side
+print(zahlen + []);
+print([] + zahlen);
+print(zahlen == []);
+var leer: list<int> = [];
+print(leer + leer);
+
+// growing in a loop: appended in place, not copied every round
+var squares: list<int> = [];
+for (var i: int = 0; i < 5; i = i + 1) {
+    squares = squares + [i * i];
+}
+print(squares);
+
+// a copy keeps its old value when the original grows
+var copy: list<int> = squares;
+squares = squares + [25];
+print(len(copy));
+print(len(squares));
+
+// joined with itself
+var twice: list<string> = ["a", "b"];
+twice = twice + twice;
+print(twice);
+
+var matrix: list<list<int>> = [[1]];
+matrix = matrix + [[2, 3]];
+matrix[0] = matrix[0] + [10];
+print(matrix);

@@ -1,0 +1,3 @@
+Type error [T024]: Line 1: the type of this empty list is unknown here
+  1 | print([] + []);
+    |            ^^

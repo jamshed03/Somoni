@@ -1,0 +1,3 @@
+var a: list<int> = [1];
+var b: list<string> = ["x"];
+print(a + b);

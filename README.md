@@ -57,7 +57,7 @@ Version 0.2.0, the core of the language:
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
 -   `while` and `for` loops with `break` and `continue`
--   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)` (values are copied like PHP arrays)
+-   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)`, joined with `l + [4]` (values are copied like PHP arrays)
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
 -   Built-in functions `print`, `int`, `float`, `string`, `len` (conversions are always explicit)

@@ -244,26 +244,22 @@ impl<'a> Interpreter<'a> {
         let ExprKind::Ident { slot, .. } = target.kind else {
             return self.assign_part(target, value);
         };
+        // s = s + text and l = l + [x]: grow the variable in place instead of
+        // building a new string or list (that would copy all of it every time)
         if let Some(slot) = slot
-            && let Some(text) = appended_text(slot, value)
-            && let Some(Value::Str(_)) = self.stack.get(self.base + slot)
+            && let Some(rest) = appended_part(slot, value)
+            && let Some(Value::Str(_) | Value::List(_)) = self.stack.get(self.base + slot)
         {
-            let Value::Str(text) = self.eval(text)? else {
-                return Err(SomoniError::internal("string + non-string"));
+            let rest = self.eval(rest)?;
+            let Some(target) = self.stack.get_mut(self.base + slot) else {
+                return Err(SomoniError::internal("variable without a value"));
             };
-            if let Some(Value::Str(target)) = self.stack.get_mut(self.base + slot) {
-                // copy-on-write: grows in place if only this variable uses the text
-                Rc::make_mut(target).push(&text);
-                return Ok(());
-            }
+            return append(target, rest);
         }
         let v = self.eval(value)?;
         self.set(slot, v)
     }
 
-    // l[i].x = value: first the indices from left to right, then the value, then the write.
-    // Rc::make_mut on the way down is copy-on-write: a list or struct that another
-    // variable also uses is copied once, so that variable keeps its old value.
     fn assign_part(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
         let mut steps = Vec::new();
         let slot = self.place_steps(target, &mut steps)?;
@@ -290,9 +286,6 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    // The way from the variable to the part, e.g. [Index 0, Field 1] for l[0].x.
-    // Goes down to the variable first, so the indices are evaluated from left to right.
-    // Returns the slot of the variable.
     fn place_steps(
         &mut self,
         target: &Expr,
@@ -500,11 +493,9 @@ impl<'a> Interpreter<'a> {
         match (l, r) {
             (Value::Int(a), Value::Int(b)) => int_arithmetic(op, a, b),
             (Value::Float(a), Value::Float(b)) => float_arithmetic(op, a, b),
-            (Value::Str(a), Value::Str(b)) if op == BinaryOp::Add => {
-                // takes over a's text if nothing else uses it, otherwise copies it once
-                let mut joined = Rc::unwrap_or_clone(a);
-                joined.push(&b);
-                Ok(Value::Str(Rc::new(joined)))
+            (mut joined @ (Value::Str(_) | Value::List(_)), b) if op == BinaryOp::Add => {
+                append(&mut joined, b)?;
+                Ok(joined)
             }
             (Value::Bool(_), Value::Bool(b)) if matches!(op, BinaryOp::And | BinaryOp::Or) => {
                 Ok(Value::Bool(b))
@@ -580,8 +571,21 @@ fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
     }
 }
 
-// the `text` in `s = s + text`, if `value` has this form for the variable in `slot`
-fn appended_text(slot: usize, value: &Expr) -> Option<&Expr> {
+// `target + rest` for strings and lists, written into target.
+// Copy-on-write: grows in place if nothing else uses the text or list, otherwise copies it once.
+fn append(target: &mut Value, rest: Value) -> Result<(), SomoniError> {
+    match (target, rest) {
+        (Value::Str(text), Value::Str(rest)) => Rc::make_mut(text).push(&rest),
+        (Value::List(items), Value::List(rest)) => {
+            Rc::make_mut(items).extend(rest.iter().cloned());
+        }
+        _ => return Err(SomoniError::internal("'+' needs two strings or two lists")),
+    }
+    Ok(())
+}
+
+// the `rest` in `x = x + rest`, if `value` has this form for the variable in `slot`
+fn appended_part(slot: usize, value: &Expr) -> Option<&Expr> {
     let ExprKind::Binary {
         left,
         op: BinaryOp::Add,

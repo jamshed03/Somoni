@@ -407,6 +407,24 @@ impl TypeChecker {
         self.check_expr(expr)
     }
 
+    // Both sides of a binary operator. One side is the hint for the other, so an empty
+    // list takes the type of the other side: `l + []`, `[] + l`, `l == []`.
+    fn check_operands(
+        &self,
+        left: &mut Expr,
+        right: &mut Expr,
+    ) -> Result<(Type, Type), SomoniError> {
+        if is_empty_list(left) {
+            let r = self.check_expr(right)?;
+            let l = self.check_expr_expecting(left, &r)?;
+            Ok((l, r))
+        } else {
+            let l = self.check_expr(left)?;
+            let r = self.check_expr_expecting(right, &l)?;
+            Ok((l, r))
+        }
+    }
+
     // All elements must have the type of the first one. An empty list needs `hint`:
     // the element type the place wants; without it its type is unknown.
     fn check_list(
@@ -551,8 +569,7 @@ impl TypeChecker {
                 op_span,
                 right,
             } => {
-                let l = self.check_expr(left)?;
-                let r = self.check_expr(right)?;
+                let (l, r) = self.check_operands(left, right)?;
                 if l != r {
                     return Err(SomoniError::at(
                         *op_span,
@@ -575,6 +592,7 @@ impl TypeChecker {
                         BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
                     ) => Ok(l.clone()),
                     (Type::Str, BinaryOp::Add) => Ok(Type::Str),
+                    (Type::List(_), BinaryOp::Add) => Ok(l.clone()),
                     (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
                     _ => Err(SomoniError::at(
                         *op_span,
@@ -672,6 +690,10 @@ impl TypeChecker {
             }
         }
     }
+}
+
+fn is_empty_list(expr: &Expr) -> bool {
+    matches!(&expr.kind, ExprKind::List(elements) if elements.is_empty())
 }
 
 // the place and type of field `name` in a struct, T027 if the struct has no such field
