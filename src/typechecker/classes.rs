@@ -11,7 +11,8 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::{Decl, Type};
 
-use super::{ClassInfo, Member, MethodInfo, Signature, TypeChecker};
+use super::members::ClassMembers;
+use super::{ClassInfo, Signature, TypeChecker};
 
 impl TypeChecker {
     /// Finds the parent class of every class of a file and rejects cycles.
@@ -131,7 +132,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Builds members, methods and method table of a class whose parent class is done.
+    /// Builds members, methods, method table and vtables of a class whose parent class is done.
     fn declare_class_methods(
         &mut self,
         class: &ClassDecl,
@@ -141,133 +142,46 @@ impl TypeChecker {
         let layout = Decl(Rc::clone(&class.layout));
         let info = self.class_info(&layout)?.clone();
         let parent = self.parent_info(&info)?;
-        let params = match &class.constructor {
-            Some(constructor) => {
-                let mut params = Vec::new();
-                for param in &constructor.params {
-                    params.push(self.resolve_type(&param.type_name, false)?);
-                }
-                params
-            }
-            None => parent
-                .as_ref()
-                .map_or(Vec::new(), |p| p.constructor.params.clone()),
-        };
-        let (mut methods, mut table) = match &parent {
-            Some(parent) => (parent.methods.clone(), parent.method_table.clone()),
-            None => (HashMap::new(), Vec::new()),
-        };
-        let mut members = parent
-            .as_ref()
-            .map_or(HashMap::new(), |p| p.members.clone());
+        let params = self.constructor_params(class, parent.as_ref())?;
+        let mut built = ClassMembers::inherit(layout.clone(), parent.as_ref());
         for field in &class.fields {
-            if members.contains_key(&field.field.name) {
-                return Err(SomoniError::at(
-                    field.field.name_span,
-                    ErrorCode::DuplicateMember {
-                        class: layout.name.clone(),
-                        name: field.field.name.clone(),
-                    },
-                ));
-            }
-            let member = Member {
-                visibility: field.visibility,
-                owner: layout.clone(),
-                is_method: false,
-            };
-            members.insert(field.field.name.clone(), member);
+            built.add_field(field)?;
         }
         for (method, &function) in class.methods.iter().zip(functions) {
-            let name = &method.function.name;
-            let span = method.function.name_span;
             let signature = self.signature_of(&method.function, function)?;
-            let duplicate = || {
-                SomoniError::at(
-                    span,
-                    ErrorCode::DuplicateMember {
-                        class: layout.name.clone(),
-                        name: name.clone(),
-                    },
-                )
-            };
-            let slot = match members.get(name) {
-                Some(member)
-                    if !member.is_method
-                        || member.visibility == Visibility::Private
-                        || member.owner == layout =>
-                {
-                    return Err(duplicate());
-                }
-                Some(member) => {
-                    let inherited = methods.get(name).ok_or_else(duplicate)?;
-                    let same_types = inherited.signature.params == signature.params
-                        && inherited.signature.return_type == signature.return_type;
-                    if !method.is_override {
-                        return Err(SomoniError::at(
-                            span,
-                            ErrorCode::MissingOverride {
-                                method: name.clone(),
-                                parent: member.owner.name.clone(),
-                            },
-                        ));
-                    }
-                    if !same_types || member.visibility != method.visibility {
-                        return Err(SomoniError::at(
-                            span,
-                            ErrorCode::OverrideMismatch {
-                                parent: member.owner.name.clone(),
-                                method: describe_method(
-                                    name,
-                                    member.visibility,
-                                    &inherited.signature,
-                                ),
-                            },
-                        ));
-                    }
-                    inherited.slot
-                }
-                None if method.is_override => {
-                    return Err(SomoniError::at(
-                        span,
-                        ErrorCode::NothingToOverride {
-                            method: name.clone(),
-                        },
-                    ));
-                }
-                None => {
-                    table.push(function);
-                    table.len() - 1
-                }
-            };
-            table[slot] = function;
-            methods.insert(name.clone(), MethodInfo { slot, signature });
-            let member = Member {
-                visibility: method.visibility,
-                owner: layout.clone(),
-                is_method: true,
-            };
-            members.insert(name.clone(), member);
+            built.add_method(method, signature)?;
         }
-        let mut implements = parent.as_ref().map_or(Vec::new(), |p| p.implements.clone());
-        for interface in self.check_implements(class, &methods, &members)? {
-            if !implements.contains(&interface) {
-                implements.push(interface);
-            }
-        }
+        let implements = self.all_interfaces(class, &built, parent.as_ref())?;
         let mut vtables = Vec::new();
         for interface in &implements {
-            vtables.push(self.vtable(interface, &methods, &table)?);
+            vtables.push(self.vtable(interface, &built.methods, &built.table)?);
         }
         if let Some(info) = self.classes.get_mut(&layout) {
             info.constructor.index = init;
             info.constructor.params = params;
-            info.methods = methods;
-            info.method_table = table;
-            info.members = members;
+            info.methods = built.methods;
+            info.method_table = built.table;
+            info.members = built.members;
             info.implements = implements;
             info.vtables = vtables;
         }
         Ok(())
+    }
+
+    /// Returns the parameter types of the own constructor of a class, or else of the inherited one.
+    fn constructor_params(
+        &self,
+        class: &ClassDecl,
+        parent: Option<&ClassInfo>,
+    ) -> Result<Vec<Type>, SomoniError> {
+        let Some(constructor) = &class.constructor else {
+            return Ok(parent.map_or(Vec::new(), |p| p.constructor.params.clone()));
+        };
+        let mut params = Vec::new();
+        for param in &constructor.params {
+            params.push(self.resolve_type(&param.type_name, false)?);
+        }
+        Ok(params)
     }
 
     /// Checks a method like a function, with `this` in slot 0.

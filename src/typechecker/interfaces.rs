@@ -7,7 +7,8 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::types::Decl;
 
 use super::classes::describe_method;
-use super::{InterfaceInfo, Member, MethodInfo, TypeChecker};
+use super::members::ClassMembers;
+use super::{ClassInfo, InterfaceInfo, Member, MethodInfo, TypeChecker};
 
 impl TypeChecker {
     /// Checks that a class has every method of the interfaces it implements.
@@ -67,6 +68,22 @@ impl TypeChecker {
                 }
             }
             implements.push(interface);
+        }
+        Ok(implements)
+    }
+
+    /// Returns the interfaces of a class: those of its parent class and those after `implements`.
+    pub(super) fn all_interfaces(
+        &self,
+        class: &ClassDecl,
+        built: &ClassMembers,
+        parent: Option<&ClassInfo>,
+    ) -> Result<Vec<Decl<InterfaceLayout>>, SomoniError> {
+        let mut implements = parent.map_or(Vec::new(), |p| p.implements.clone());
+        for interface in self.check_implements(class, &built.methods, &built.members)? {
+            if !implements.contains(&interface) {
+                implements.push(interface);
+            }
         }
         Ok(implements)
     }

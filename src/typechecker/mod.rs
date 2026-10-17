@@ -15,6 +15,7 @@ mod classes;
 mod declarations;
 mod expressions;
 mod interfaces;
+mod members;
 mod modules;
 mod patterns;
 mod statements;
