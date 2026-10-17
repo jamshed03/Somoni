@@ -756,11 +756,13 @@ impl TypeChecker {
                 if let Some(builtin) = Builtin::from_name(name) {
                     *target = Some(CallTarget::Builtin(builtin));
                     check_arg_count(name, builtin.arity(), args, expr.span)?;
-                    let arg = &mut args[0];
-                    let arg_type = self.check_expr(arg)?;
-                    return builtin
-                        .result_type(&arg_type)
-                        .ok_or_else(|| wrong_arg_type(name, arg_type, arg.span));
+                    let mut arg_types = Vec::new();
+                    for arg in args.iter_mut() {
+                        arg_types.push(self.check_expr(arg)?);
+                    }
+                    return builtin.result_type(&arg_types).map_err(|bad| {
+                        wrong_arg_type(name, arg_types[bad].clone(), args[bad].span)
+                    });
                 }
                 let Some(signature) = &self.functions.get(name).cloned() else {
                     return Err(SomoniError::at(

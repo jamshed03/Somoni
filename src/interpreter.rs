@@ -454,13 +454,18 @@ impl<'a> Interpreter<'a> {
         args: &[Expr],
     ) -> Result<Value, SomoniError> {
         match target {
-            Some(CallTarget::Builtin(builtin)) => {
-                let [arg] = args else {
-                    return Err(SomoniError::internal("a built-in takes one argument"));
-                };
-                let value = self.eval(arg)?;
-                builtin.call(value)
-            }
+            Some(CallTarget::Builtin(builtin)) => match args {
+                [a] => {
+                    let a = self.eval(a)?;
+                    builtin.call(&[a])
+                }
+                [a, b] => {
+                    let a = self.eval(a)?;
+                    let b = self.eval(b)?;
+                    builtin.call(&[a, b])
+                }
+                _ => Err(SomoniError::internal("a built-in takes one or two arguments")),
+            },
             Some(CallTarget::Function(index)) => {
                 let Some(&function) = self.functions.get(index) else {
                     return Err(SomoniError::internal("unknown function index"));
