@@ -11,6 +11,7 @@ mod text;
 mod token;
 mod typechecker;
 mod types;
+mod value;
 
 use std::env;
 use std::fs;

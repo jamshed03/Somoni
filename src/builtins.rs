@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
-use crate::interpreter::Value;
 use crate::map::Key;
 use crate::text::Text;
 use crate::types::Type;
+use crate::value::Value;
 
 /// The functions built into Somoni.
 #[derive(Debug, Clone, Copy, PartialEq)]

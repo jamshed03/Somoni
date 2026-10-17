@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::interpreter::Value;
 use crate::text::Text;
+use crate::value::Value;
 
 /// A key of a map: an int or a string.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

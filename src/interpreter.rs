@@ -1,99 +1,14 @@
-use std::fmt;
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, StructDecl, UnaryOp,
+    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, StructDecl,
 };
 use crate::error::{ErrorCode, SomoniError};
-use crate::map::{Key, MapValue};
+use crate::map::MapValue;
 use crate::span::Span;
-use crate::text::Text;
-
-/// A value while the program runs.
-/// Strings, lists and structs are shared with `Rc` and only copied when one copy is changed.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Value {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    Str(Rc<Text>),
-    List(Rc<Vec<Value>>),
-    Struct(Rc<StructValue>),
-    Map(Rc<MapValue>),
-    Null,
-    Void,
-}
-
-/// The value of a struct: its declaration and the field values in declaration order.
-#[derive(Debug, Clone)]
-pub struct StructValue {
-    pub decl: Rc<StructDecl>,
-    pub fields: Vec<Value>,
-}
-
-/// Two struct values are equal if they are the same struct and all fields are equal.
-impl PartialEq for StructValue {
-    fn eq(&self, other: &StructValue) -> bool {
-        Rc::ptr_eq(&self.decl, &other.decl) && self.fields == other.fields
-    }
-}
-
-/// The text `print` shows, e.g. `[1, 2]` or `Point { x: 1, y: 2 }`.
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Value::Int(n) => write!(f, "{}", n),
-            Value::Float(x) => write!(f, "{}", x),
-            Value::Bool(b) => write!(f, "{}", b),
-            Value::Str(s) => write!(f, "{}", s),
-            Value::List(items) => {
-                write!(f, "[")?;
-                for (i, item) in items.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write_inner(f, item)?;
-                }
-                write!(f, "]")
-            }
-            Value::Struct(value) => {
-                write!(f, "{} {{", value.decl.name)?;
-                for (i, (field, item)) in value.decl.fields.iter().zip(&value.fields).enumerate() {
-                    let comma = if i > 0 { "," } else { "" };
-                    write!(f, "{} {}: ", comma, field.name)?;
-                    write_inner(f, item)?;
-                }
-                if value.fields.is_empty() {
-                    write!(f, "}}")
-                } else {
-                    write!(f, " }}")
-                }
-            }
-            Value::Map(map) => {
-                write!(f, "{{")?;
-                for (i, (key, value)) in map.entries().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-                    write_inner(f, &key.to_value())?;
-                    write!(f, ": ")?;
-                    write_inner(f, value)?;
-                }
-                write!(f, "}}")
-            }
-            Value::Null => write!(f, "null"),
-            Value::Void => write!(f, "void"),
-        }
-    }
-}
-
-/// Writes a value that is inside a list or struct. Strings get quotes: `["1"]`.
-fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
-    match value {
-        Value::Str(s) => write!(f, "\"{}\"", s),
-        other => write!(f, "{}", other),
-    }
-}
+use crate::value::{
+    self, StructValue, Value, append, key_not_found, list_position, map_key, show_key, unary,
+};
 
 /// One step from a variable to a part of it: a list index or a field.
 enum Step {
@@ -427,16 +342,7 @@ impl<'a> Interpreter<'a> {
             ExprKind::Index { target, index } => {
                 let container = self.eval(target)?;
                 let index = self.eval(index)?;
-                match (container, index) {
-                    (Value::List(items), Value::Int(i)) => {
-                        Ok(items[list_position(i, items.len())?].clone())
-                    }
-                    (Value::Map(map), key) => {
-                        let key = map_key(&key)?;
-                        map.get(&key).cloned().ok_or_else(|| key_not_found(&key))
-                    }
-                    _ => Err(SomoniError::internal("index on a non-list")),
-                }
+                value::index(&container, &index)
             }
             ExprKind::Map(entries) => {
                 let mut map = MapValue::default();
@@ -546,106 +452,8 @@ impl<'a> Interpreter<'a> {
         }
 
         let r = self.eval(right)?;
-        if let Some(result) = compare(op, &l, &r) {
-            return Ok(Value::Bool(result));
-        }
-
-        match (l, r) {
-            (Value::Int(a), Value::Int(b)) => int_arithmetic(op, a, b),
-            (Value::Float(a), Value::Float(b)) => float_arithmetic(op, a, b),
-            (mut joined @ (Value::Str(_) | Value::List(_)), b) if op == BinaryOp::Add => {
-                append(&mut joined, b)?;
-                Ok(joined)
-            }
-            (Value::Bool(_), Value::Bool(b)) if matches!(op, BinaryOp::And | BinaryOp::Or) => {
-                Ok(Value::Bool(b))
-            }
-            _ => Err(SomoniError::internal(
-                "operator not supported for these values",
-            )),
-        }
+        value::binary(op, l, r)
     }
-}
-
-/// Computes `!value` or `-value`.
-fn unary(op: UnaryOp, value: Value) -> Result<Value, SomoniError> {
-    match (op, value) {
-        (UnaryOp::Not, Value::Bool(b)) => Ok(Value::Bool(!b)),
-        (UnaryOp::Neg, Value::Int(n)) => int_or_overflow(n.checked_neg()),
-        (UnaryOp::Neg, Value::Float(f)) => Ok(Value::Float(-f)),
-        _ => Err(SomoniError::internal(
-            "operator not supported for this value",
-        )),
-    }
-}
-
-/// Computes `+ - * / %` for two ints. Overflow and division by zero are runtime errors.
-fn int_arithmetic(op: BinaryOp, a: i64, b: i64) -> Result<Value, SomoniError> {
-    let result = match op {
-        BinaryOp::Div | BinaryOp::Mod if b == 0 => return Err(ErrorCode::DivisionByZero.into()),
-        BinaryOp::Add => a.checked_add(b),
-        BinaryOp::Sub => a.checked_sub(b),
-        BinaryOp::Mul => a.checked_mul(b),
-        BinaryOp::Div => a.checked_div(b),
-        BinaryOp::Mod => a.checked_rem(b),
-        _ => return Err(SomoniError::internal("operator not supported for int")),
-    };
-    int_or_overflow(result)
-}
-
-/// Turns the result of a `checked_*` operation into an int, or R002 on overflow.
-fn int_or_overflow(result: Option<i64>) -> Result<Value, SomoniError> {
-    result
-        .map(Value::Int)
-        .ok_or_else(|| ErrorCode::IntegerOverflow.into())
-}
-
-/// Computes `+ - * /` for two floats. Division by zero is a runtime error.
-fn float_arithmetic(op: BinaryOp, a: f64, b: f64) -> Result<Value, SomoniError> {
-    let result = match op {
-        BinaryOp::Div if b == 0.0 => return Err(ErrorCode::DivisionByZero.into()),
-        BinaryOp::Add => a + b,
-        BinaryOp::Sub => a - b,
-        BinaryOp::Mul => a * b,
-        BinaryOp::Div => a / b,
-        _ => return Err(SomoniError::internal("operator not supported for float")),
-    };
-    Ok(Value::Float(result))
-}
-
-/// Computes a comparison (`== != < > <= >=`), or None if `op` is no comparison.
-fn compare(op: BinaryOp, l: &Value, r: &Value) -> Option<bool> {
-    match (op, l, r) {
-        (BinaryOp::Eq, _, _) => Some(l == r),
-        (BinaryOp::NotEq, _, _) => Some(l != r),
-        (_, Value::Int(a), Value::Int(b)) => order(op, a, b),
-        (_, Value::Float(a), Value::Float(b)) => order(op, a, b),
-        _ => None,
-    }
-}
-
-/// Computes `< > <= >=` for two numbers, or None for other operators.
-fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
-    match op {
-        BinaryOp::Less => Some(a < b),
-        BinaryOp::Greater => Some(a > b),
-        BinaryOp::LessEq => Some(a <= b),
-        BinaryOp::GreaterEq => Some(a >= b),
-        _ => None,
-    }
-}
-
-/// Appends `rest` to the string or list in `target`.
-/// Copies `target` first only if another variable also uses it.
-fn append(target: &mut Value, rest: Value) -> Result<(), SomoniError> {
-    match (target, rest) {
-        (Value::Str(text), Value::Str(rest)) => Rc::make_mut(text).push(&rest),
-        (Value::List(items), Value::List(rest)) => {
-            Rc::make_mut(items).extend(rest.iter().cloned());
-        }
-        _ => return Err(SomoniError::internal("'+' needs two strings or two lists")),
-    }
-    Ok(())
 }
 
 /// Returns `rest` if `value` is `x + rest` and `x` is the variable in `slot`.
@@ -667,31 +475,4 @@ fn appended_part(slot: usize, value: &Expr) -> Option<&Expr> {
         return None;
     };
     (left_slot == slot).then_some(right)
-}
-
-/// Turns a value into a map key; the type checker made sure it is an int or a string.
-fn map_key(value: &Value) -> Result<Key, SomoniError> {
-    Key::from_value(value).ok_or_else(|| SomoniError::internal("map key is no int or string"))
-}
-
-/// Shows a key in an error message, strings with quotes: `"Tom"`.
-fn show_key(key: &Key) -> String {
-    match key {
-        Key::Int(n) => n.to_string(),
-        Key::Str(s) => format!("\"{}\"", s),
-    }
-}
-
-/// The error R006 for a key that is not in the map.
-fn key_not_found(key: &Key) -> SomoniError {
-    ErrorCode::KeyNotFound { key: show_key(key) }.into()
-}
-
-/// Returns the position of `index` in a list with `length` elements,
-/// or R005 if the index is outside the list (also when negative).
-fn list_position(index: i64, length: usize) -> Result<usize, SomoniError> {
-    usize::try_from(index)
-        .ok()
-        .filter(|&i| i < length)
-        .ok_or_else(|| ErrorCode::IndexOutOfRange { index, length }.into())
 }
