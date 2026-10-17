@@ -27,12 +27,18 @@ pub enum Op {
     Jump(usize),
     /// Pops a bool; if it is false, goes on at this instruction.
     JumpIfFalse(usize),
+    /// Calls function number `i` with `n` arguments from the stack.
+    Call(usize, usize),
+    /// Pops the result and goes back to the caller.
+    Return,
 }
 
 /// A list of instructions with the constants they use.
 /// `spans[i]` is the place in the source of `code[i]`, for error messages.
 #[derive(Debug, Default)]
 pub struct Chunk {
+    /// `program` or `fn name`, for `--bytecode`.
+    pub name: String,
     pub code: Vec<Op>,
     pub spans: Vec<Span>,
     pub constants: Vec<Value>,
@@ -55,32 +61,35 @@ impl Chunk {
     }
 }
 
-/// A compiled program.
+/// A compiled program: the code at the top level and one chunk per function,
+/// numbered like `ast::functions`.
 #[derive(Debug, Default)]
 pub struct Program {
     pub main: Chunk,
+    pub functions: Vec<Chunk>,
 }
 
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
 pub fn disassemble(program: &Program) -> String {
     let mut out = String::new();
-    let chunk = &program.main;
-    let _ = writeln!(out, "== main ({} locals) ==", chunk.locals);
-    let mut last_line = 0;
-    for (i, (op, span)) in chunk.code.iter().zip(&chunk.spans).enumerate() {
-        let line = if span.line == last_line {
-            "    ".to_string()
-        } else {
-            format!("{:>4}", span.line)
-        };
-        last_line = span.line;
-        let _ = writeln!(out, "{:04}  {}  {}", i, line, show_op(op, chunk));
+    for chunk in std::iter::once(&program.main).chain(&program.functions) {
+        let _ = writeln!(out, "== {} ({} locals) ==", chunk.name, chunk.locals);
+        let mut last_line = 0;
+        for (i, (op, span)) in chunk.code.iter().zip(&chunk.spans).enumerate() {
+            let line = if span.line == last_line {
+                "    ".to_string()
+            } else {
+                format!("{:>4}", span.line)
+            };
+            last_line = span.line;
+            let _ = writeln!(out, "{:04}  {}  {}", i, line, show_op(op, chunk, program));
+        }
     }
     out
 }
 
 /// Shows one instruction, e.g. `Push 5` or `Binary Add`.
-fn show_op(op: &Op, chunk: &Chunk) -> String {
+fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
     match op {
         Op::Push(i) => format!("Push {}", Quoted(&chunk.constants[*i])),
         Op::GetLocal(slot) => format!("GetLocal {}", slot),
@@ -91,5 +100,7 @@ fn show_op(op: &Op, chunk: &Chunk) -> String {
         Op::CallBuiltin(builtin, args) => format!("CallBuiltin {} {}", builtin.name(), args),
         Op::Jump(target) => format!("Jump {:04}", target),
         Op::JumpIfFalse(target) => format!("JumpIfFalse {:04}", target),
+        Op::Call(i, args) => format!("Call {} {}", program.functions[*i].name, args),
+        Op::Return => "Return".to_string(),
     }
 }

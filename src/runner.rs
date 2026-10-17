@@ -1,6 +1,9 @@
 use crate::ast::Stmt;
 use crate::error::SomoniError;
 
+/// More nested calls than this are runtime error R004, in the tree interpreter and in the VM.
+pub const MAX_CALL_DEPTH: usize = 10_000;
+
 /// Why a run stopped early.
 #[derive(Debug)]
 pub enum Stop {

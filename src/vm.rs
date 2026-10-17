@@ -1,8 +1,8 @@
 use crate::ast::Stmt;
 use crate::bytecode::{Chunk, Op, Program};
 use crate::compiler;
-use crate::error::SomoniError;
-use crate::runner::{Runner, Stop};
+use crate::error::{ErrorCode, SomoniError};
+use crate::runner::{MAX_CALL_DEPTH, Runner, Stop};
 use crate::value::{self, Value};
 
 /// Runs a program by compiling it to bytecode first.
@@ -16,35 +16,53 @@ impl<'a> Runner<'a> for VmRunner {
     }
 }
 
-/// The virtual machine: a loop over the instructions with a stack for the values
-/// they work on, and the variables of the program in `locals`.
-#[derive(Default)]
-struct Vm {
-    stack: Vec<Value>,
-    locals: Vec<Value>,
+/// One running chunk: the program or a called function.
+/// `ip` is the next instruction, `base` the place of its first variable in `locals`.
+struct Frame<'p> {
+    chunk: &'p Chunk,
+    ip: usize,
+    base: usize,
 }
 
-impl Vm {
-    /// Runs the main chunk of a program.
-    fn run(&mut self, program: &Program) -> Result<(), SomoniError> {
-        let chunk = &program.main;
-        self.locals.resize(chunk.locals, Value::Void);
-        let mut ip = 0;
-        while let Some(op) = chunk.code.get(ip) {
-            let jump = self
-                .execute(op, chunk)
-                .map_err(|error| error.with_span_if_missing(Some(chunk.spans[ip])))?;
-            ip = jump.unwrap_or(ip + 1);
+/// The virtual machine: a loop over the instructions with a stack for the values
+/// they work on, the variables of all running functions in `locals`,
+/// and the frames of the callers.
+#[derive(Default)]
+struct Vm<'p> {
+    stack: Vec<Value>,
+    locals: Vec<Value>,
+    callers: Vec<Frame<'p>>,
+}
+
+impl<'p> Vm<'p> {
+    /// Runs a program, starting with its main chunk.
+    fn run(&mut self, program: &'p Program) -> Result<(), SomoniError> {
+        let mut frame = Frame {
+            chunk: &program.main,
+            ip: 0,
+            base: 0,
+        };
+        self.locals.resize(frame.chunk.locals, Value::Void);
+        while let Some(op) = frame.chunk.code.get(frame.ip) {
+            let (chunk, at) = (frame.chunk, frame.ip);
+            frame.ip += 1;
+            self.execute(op, &mut frame, program)
+                .map_err(|error| error.with_span_if_missing(Some(chunk.spans[at])))?;
         }
         Ok(())
     }
 
-    /// Runs one instruction. Returns the instruction to go on with if it jumps.
-    fn execute(&mut self, op: &Op, chunk: &Chunk) -> Result<Option<usize>, SomoniError> {
+    /// Runs one instruction of `frame`. Calls and returns change `frame` to another chunk.
+    fn execute(
+        &mut self,
+        op: &Op,
+        frame: &mut Frame<'p>,
+        program: &'p Program,
+    ) -> Result<(), SomoniError> {
         match op {
-            Op::Push(i) => self.stack.push(chunk.constants[*i].clone()),
-            Op::GetLocal(slot) => self.stack.push(self.locals[*slot].clone()),
-            Op::SetLocal(slot) => self.locals[*slot] = self.pop()?,
+            Op::Push(i) => self.stack.push(frame.chunk.constants[*i].clone()),
+            Op::GetLocal(slot) => self.stack.push(self.locals[frame.base + slot].clone()),
+            Op::SetLocal(slot) => self.locals[frame.base + slot] = self.pop()?,
             Op::Pop => {
                 self.pop()?;
             }
@@ -63,14 +81,47 @@ impl Vm {
                 self.stack.truncate(start);
                 self.stack.push(result);
             }
-            Op::Jump(target) => return Ok(Some(*target)),
+            Op::Jump(target) => frame.ip = *target,
             Op::JumpIfFalse(target) => {
                 if let Value::Bool(false) = self.pop()? {
-                    return Ok(Some(*target));
+                    frame.ip = *target;
                 }
             }
+            Op::Call(i, count) => self.call(&program.functions[*i], *count, frame)?,
+            Op::Return => {
+                let result = self.pop()?;
+                self.locals.truncate(frame.base);
+                *frame = self
+                    .callers
+                    .pop()
+                    .ok_or_else(|| SomoniError::internal("return outside of a function"))?;
+                self.stack.push(result);
+            }
         }
-        Ok(None)
+        Ok(())
+    }
+
+    /// Starts a call of `chunk`: its arguments move from the stack into its first variables,
+    /// and the current frame waits in `callers` until the function returns.
+    fn call(
+        &mut self,
+        chunk: &'p Chunk,
+        count: usize,
+        frame: &mut Frame<'p>,
+    ) -> Result<(), SomoniError> {
+        if self.callers.len() >= MAX_CALL_DEPTH {
+            return Err(ErrorCode::RecursionTooDeep {
+                limit: MAX_CALL_DEPTH,
+            }
+            .into());
+        }
+        let base = self.locals.len();
+        let start = self.stack.len() - count;
+        self.locals.extend(self.stack.drain(start..));
+        self.locals.resize(base + chunk.locals, Value::Void);
+        let callee = Frame { chunk, ip: 0, base };
+        self.callers.push(std::mem::replace(frame, callee));
+        Ok(())
     }
 
     /// Takes the top value from the stack.

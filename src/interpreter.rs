@@ -5,7 +5,7 @@ use crate::ast::{
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
-use crate::runner::{Runner, Stop};
+use crate::runner::{MAX_CALL_DEPTH, Runner, Stop};
 use crate::span::Span;
 use crate::value::{
     self, StructValue, Value, append, key_not_found, list_position, map_key, show_key, unary,
@@ -25,9 +25,6 @@ enum ControlFlow {
     Continue,
     Return(Value),
 }
-
-/// More nested calls than this are runtime error R004.
-const MAX_CALL_DEPTH: usize = 10_000;
 
 /// Runs a checked program.
 /// All variables live on one stack; the variables of the current function start at `base`.

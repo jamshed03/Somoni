@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, CallTarget, Expr, ExprKind, Stmt};
+use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt};
 use crate::bytecode::{Chunk, Op, Program};
 use crate::error::SomoniError;
 use crate::runner::Stop;
@@ -10,12 +10,32 @@ use crate::value::Value;
 /// Turns a checked program into bytecode.
 pub fn compile(stmts: &[Stmt]) -> Result<Program, Stop> {
     let mut compiler = Compiler::default();
+    compiler.chunk.name = "program".to_string();
     for stmt in stmts {
         compiler.compile_stmt(stmt)?;
     }
+    let mut functions = Vec::new();
+    for function in ast::functions(stmts) {
+        functions.push(compile_function(function)?);
+    }
     Ok(Program {
         main: compiler.chunk,
+        functions,
     })
+}
+
+/// Turns one function into its own chunk. The parameters are its first variables.
+/// A function that reaches its end without `return` returns `void`.
+fn compile_function(function: &Function) -> Result<Chunk, Stop> {
+    let mut compiler = Compiler::default();
+    compiler.chunk.name = format!("fn {}", function.name);
+    compiler.chunk.locals = function.params.len();
+    for stmt in &function.body {
+        compiler.compile_stmt(stmt)?;
+    }
+    compiler.push_constant(Value::Void, function.name_span);
+    compiler.chunk.push(Op::Return, function.name_span);
+    Ok(compiler.chunk)
 }
 
 /// Writes the instructions of one chunk.
@@ -108,7 +128,13 @@ impl Compiler {
                 let jump = self.chunk.push(Op::Jump(0), *span);
                 self.current_loop()?.continues.push(jump);
             }
-            Stmt::Return { .. } => return Err(not_in_vm("return")),
+            Stmt::Return { value, span } => {
+                match value {
+                    Some(value) => self.compile_expr(value)?,
+                    None => self.push_constant(Value::Void, *span),
+                }
+                self.chunk.push(Op::Return, *span);
+            }
         }
         Ok(())
     }
@@ -214,13 +240,15 @@ impl Compiler {
                 self.chunk.push(Op::Unary(*op), span);
             }
             ExprKind::Call { args, target, .. } => {
-                let Some(CallTarget::Builtin(builtin)) = target else {
-                    return Err(not_in_vm("calls of own functions"));
-                };
                 for arg in args {
                     self.compile_expr(arg)?;
                 }
-                self.chunk.push(Op::CallBuiltin(*builtin, args.len()), span);
+                let op = match target {
+                    Some(CallTarget::Builtin(builtin)) => Op::CallBuiltin(*builtin, args.len()),
+                    Some(CallTarget::Function(i)) => Op::Call(*i, args.len()),
+                    None => return Err(SomoniError::internal("call without target").into()),
+                };
+                self.chunk.push(op, span);
             }
             ExprKind::List(_) => return Err(not_in_vm("lists")),
             ExprKind::Map(_) => return Err(not_in_vm("maps")),
