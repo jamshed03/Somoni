@@ -1,0 +1,3 @@
+Type error [T025]: Line 2: type 'Point' already exists
+  2 | struct Point { y: int }
+    |        ^^^^^

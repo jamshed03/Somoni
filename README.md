@@ -58,6 +58,7 @@ Version 0.2.0, the core of the language:
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
 -   `while` and `for` loops with `break` and `continue`
 -   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)` (values are copied like PHP arrays)
+-   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Built-in functions `print`, `int`, `float`, `string`, `len` (conversions are always explicit)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
 -   Comments `//` and `/* */`

@@ -1,0 +1,2 @@
+struct Point { x: int }
+var p: Point = Point { x 1 };

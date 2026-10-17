@@ -1,0 +1,17 @@
+Point { x: 1, y: 2 }
+3
+User { name: "Ali", age: 30, tags: [] }
+Ali
+0
+Line { from: Point { x: 0, y: 0 }, to: Point { x: 1, y: 2 } }
+2
+[Point { x: 1, y: 2 }, Point { x: 5, y: 6 }]
+5
+2
+true
+true
+Empty {}
+Point { x: 11, y: 2 }
+11
+b
+a

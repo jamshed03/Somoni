@@ -1,0 +1,3 @@
+Type error [T025]: Line 1: type 'int' already exists
+  1 | struct int { x: int }
+    |        ^^^

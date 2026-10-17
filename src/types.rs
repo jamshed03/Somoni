@@ -10,6 +10,8 @@ pub enum Type {
     // "no value": only the result of a function like print, never a variable type
     Void,
     List(Box<Type>),
+    // a struct declared in the program, by its name
+    Struct(String),
 }
 
 impl Type {
@@ -23,6 +25,11 @@ impl Type {
             // "void" is missing on purpose: `var x: void` makes no sense
             _ => None,
         }
+    }
+
+    // the names a struct may not take: every built-in type, also void and list
+    pub fn is_builtin_name(name: &str) -> bool {
+        name == "list" || Type::from_return_name(name).is_some()
     }
 
     // like from_name, but also "void": a function may return nothing
@@ -44,6 +51,7 @@ impl fmt::Display for Type {
             Type::Str => write!(f, "string"),
             Type::Void => write!(f, "void"),
             Type::List(element) => write!(f, "list<{}>", element),
+            Type::Struct(name) => write!(f, "{}", name),
         }
     }
 }

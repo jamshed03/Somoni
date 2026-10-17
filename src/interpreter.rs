@@ -1,7 +1,9 @@
 use std::fmt;
 use std::rc::Rc;
 
-use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, UnaryOp};
+use crate::ast::{
+    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, StructDecl, UnaryOp,
+};
 use crate::error::{ErrorCode, SomoniError};
 use crate::text::Text;
 
@@ -15,7 +17,26 @@ pub enum Value {
     Str(Rc<Text>),
     // Rc like Str: a copy of a list shares the elements until one of them is changed
     List(Rc<Vec<Value>>),
+    // Rc like List: a copy of a struct shares the fields until one of them is changed
+    Struct(Rc<StructValue>),
     Void,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructValue {
+    // which struct this is, with the field names for print
+    pub decl: Rc<StructDecl>,
+    // in the order of the declaration
+    pub fields: Vec<Value>,
+}
+
+// By hand instead of derive: derive would compare the two declarations field by field
+// (names, types, even spans). Both values are of the same struct (the type checker made
+// sure), so pointing to the same declaration is enough.
+impl PartialEq for StructValue {
+    fn eq(&self, other: &StructValue) -> bool {
+        Rc::ptr_eq(&self.decl, &other.decl) && self.fields == other.fields
+    }
 }
 
 impl fmt::Display for Value {
@@ -31,16 +52,34 @@ impl fmt::Display for Value {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    // strings in a list get quotes: ["1"] and [1] must look different
-                    match item {
-                        Value::Str(s) => write!(f, "\"{}\"", s)?,
-                        other => write!(f, "{}", other)?,
-                    }
+                    write_inner(f, item)?;
                 }
                 write!(f, "]")
             }
+            // like the literal: Point { x: 1, y: 2 }, and Empty {} without fields
+            Value::Struct(value) => {
+                write!(f, "{} {{", value.decl.name)?;
+                for (i, (field, item)) in value.decl.fields.iter().zip(&value.fields).enumerate() {
+                    let comma = if i > 0 { "," } else { "" };
+                    write!(f, "{} {}: ", comma, field.name)?;
+                    write_inner(f, item)?;
+                }
+                if value.fields.is_empty() {
+                    write!(f, "}}")
+                } else {
+                    write!(f, " }}")
+                }
+            }
             Value::Void => write!(f, "void"),
         }
+    }
+}
+
+// a value inside a list or struct: strings get quotes, so ["1"] and [1] look different
+fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
+    match value {
+        Value::Str(s) => write!(f, "\"{}\"", s),
+        other => write!(f, "{}", other),
     }
 }
 
@@ -63,6 +102,8 @@ pub struct Interpreter<'a> {
     base: usize,
     // indexed like ast::functions, the type checker wrote the index into every call
     functions: Vec<&'a Function>,
+    // indexed like ast::structs, the type checker wrote the index into every literal
+    structs: Vec<Rc<StructDecl>>,
     call_depth: usize,
 }
 
@@ -72,12 +113,14 @@ impl<'a> Interpreter<'a> {
             stack: Vec::new(),
             base: 0,
             functions: Vec::new(),
+            structs: Vec::new(),
             call_depth: 0,
         }
     }
 
     pub fn run(&mut self, stmts: &'a [Stmt]) -> Result<(), SomoniError> {
         self.functions = ast::functions(stmts).collect();
+        self.structs = ast::structs(stmts).cloned().collect();
         self.exec_all(stmts)?;
         Ok(())
     }
@@ -176,7 +219,7 @@ impl<'a> Interpreter<'a> {
                 // the counter lives in its own scope around the whole loop, gone afterwards
                 self.run_for(init, condition, step, body)
             }
-            Stmt::FnDecl(_) => Ok(ControlFlow::Normal),
+            Stmt::FnDecl(_) | Stmt::StructDecl(_) => Ok(ControlFlow::Normal),
             Stmt::Return { value, .. } => {
                 let value = match value {
                     Some(value) => self.eval(value)?,
@@ -292,6 +335,18 @@ impl<'a> Interpreter<'a> {
                 };
                 element_at(&items, i).cloned()
             }
+            ExprKind::StructLiteral { fields, index, .. } => {
+                self.eval_struct_literal(*index, fields)
+            }
+            ExprKind::Field { target, index, .. } => {
+                let Value::Struct(value) = self.eval(target)? else {
+                    return Err(SomoniError::internal("field of a non-struct"));
+                };
+                index
+                    .and_then(|i| value.fields.get(i))
+                    .cloned()
+                    .ok_or_else(|| SomoniError::internal("unknown field"))
+            }
             ExprKind::Unary { op, operand } => {
                 let value = self.eval(operand)?;
                 unary(*op, value)
@@ -300,6 +355,30 @@ impl<'a> Interpreter<'a> {
                 left, op, right, ..
             } => self.eval_binary(*op, left, right),
         }
+    }
+
+    // evaluated in the order of the literal, stored in the order of the declaration
+    fn eval_struct_literal(
+        &mut self,
+        index: Option<usize>,
+        fields: &[FieldInit],
+    ) -> Result<Value, SomoniError> {
+        let Some(decl) = index.and_then(|i| self.structs.get(i)).cloned() else {
+            return Err(SomoniError::internal("struct literal without struct"));
+        };
+        // every place is filled below, the type checker made sure each field is given once
+        let mut values = vec![Value::Void; decl.fields.len()];
+        for init in fields {
+            let value = self.eval(&init.value)?;
+            let Some(place) = init.index.and_then(|i| values.get_mut(i)) else {
+                return Err(SomoniError::internal("field without a place"));
+            };
+            *place = value;
+        }
+        Ok(Value::Struct(Rc::new(StructValue {
+            decl,
+            fields: values,
+        })))
     }
 
     fn eval_call(

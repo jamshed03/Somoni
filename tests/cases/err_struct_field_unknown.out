@@ -1,0 +1,3 @@
+Type error [T027]: Line 3: 'Point' has no field 'z'
+  3 | print(p.z);
+    |         ^

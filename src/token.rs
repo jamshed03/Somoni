@@ -15,6 +15,7 @@ pub enum Token {
     Continue,
     Fn,
     Return,
+    Struct,
 
     // Namen und Werte
     Ident(String),
@@ -25,6 +26,7 @@ pub enum Token {
     // Symbole
     Colon,
     Comma,
+    Dot,
     Equal,
     Semicolon,
     Plus,

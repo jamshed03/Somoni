@@ -39,6 +39,7 @@ pub enum ErrorCode {
     BlockNotClosed,
     ForStartConst,
     FnNotTopLevel,
+    StructNotTopLevel,
 
     // type checker
     UnknownType {
@@ -119,6 +120,26 @@ pub enum ErrorCode {
         found: usize,
     },
     EmptyListType,
+    DuplicateType {
+        name: String,
+    },
+    DuplicateField {
+        name: String,
+    },
+    UnknownField {
+        struct_name: String,
+        name: String,
+    },
+    MissingField {
+        struct_name: String,
+        name: String,
+    },
+    NoFields {
+        found: Type,
+    },
+    StructContainsItself {
+        name: String,
+    },
 
     // runtime
     Internal {
@@ -153,6 +174,7 @@ impl ErrorCode {
             ErrorCode::BlockNotClosed => "P003",
             ErrorCode::ForStartConst => "P004",
             ErrorCode::FnNotTopLevel => "P005",
+            ErrorCode::StructNotTopLevel => "P006",
 
             ErrorCode::UnknownType { .. } => "T001",
             ErrorCode::UnknownVariable { .. } => "T002",
@@ -178,6 +200,12 @@ impl ErrorCode {
             ErrorCode::NotIndexable { .. } => "T022",
             ErrorCode::TypeArguments { .. } => "T023",
             ErrorCode::EmptyListType => "T024",
+            ErrorCode::DuplicateType { .. } => "T025",
+            ErrorCode::DuplicateField { .. } => "T026",
+            ErrorCode::UnknownField { .. } => "T027",
+            ErrorCode::MissingField { .. } => "T028",
+            ErrorCode::NoFields { .. } => "T029",
+            ErrorCode::StructContainsItself { .. } => "T030",
 
             // should never happen: the type checker rejects such programs (a bug in Somoni)
             ErrorCode::Internal { .. } => "R000",
@@ -201,7 +229,8 @@ impl ErrorCode {
             | ErrorCode::UnexpectedToken { .. }
             | ErrorCode::BlockNotClosed
             | ErrorCode::ForStartConst
-            | ErrorCode::FnNotTopLevel => ErrorKind::Parse,
+            | ErrorCode::FnNotTopLevel
+            | ErrorCode::StructNotTopLevel => ErrorKind::Parse,
 
             ErrorCode::UnknownType { .. }
             | ErrorCode::UnknownVariable { .. }
@@ -226,7 +255,13 @@ impl ErrorCode {
             | ErrorCode::IndexNotInt { .. }
             | ErrorCode::NotIndexable { .. }
             | ErrorCode::TypeArguments { .. }
-            | ErrorCode::EmptyListType => ErrorKind::Type,
+            | ErrorCode::EmptyListType
+            | ErrorCode::DuplicateType { .. }
+            | ErrorCode::DuplicateField { .. }
+            | ErrorCode::UnknownField { .. }
+            | ErrorCode::MissingField { .. }
+            | ErrorCode::NoFields { .. }
+            | ErrorCode::StructContainsItself { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -252,6 +287,9 @@ impl ErrorCode {
             ErrorCode::ForStartConst => "for loop start must be 'var', not 'const'".to_string(),
             ErrorCode::FnNotTopLevel => {
                 "functions can only be declared at the top level".to_string()
+            }
+            ErrorCode::StructNotTopLevel => {
+                "structs can only be declared at the top level".to_string()
             }
 
             ErrorCode::UnknownType { name } => format!("unknown type '{}'", name),
@@ -326,6 +364,21 @@ impl ErrorCode {
                 )
             }
             ErrorCode::EmptyListType => "the type of this empty list is unknown here".to_string(),
+            ErrorCode::DuplicateType { name } => format!("type '{}' already exists", name),
+            ErrorCode::DuplicateField { name } => {
+                format!("field '{}' appears more than once", name)
+            }
+            ErrorCode::UnknownField { struct_name, name } => {
+                format!("'{}' has no field '{}'", struct_name, name)
+            }
+            ErrorCode::MissingField { struct_name, name } => {
+                format!("missing field '{}' of '{}'", name, struct_name)
+            }
+            ErrorCode::NoFields { found } => format!("cannot use '.' on {}", found),
+            ErrorCode::StructContainsItself { name } => format!(
+                "struct '{}' contains itself, so no value of it can be built",
+                name
+            ),
 
             ErrorCode::Internal { message } => format!("internal error: {}", message),
             ErrorCode::DivisionByZero => "division by zero".to_string(),

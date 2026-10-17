@@ -1,6 +1,9 @@
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Function, Param, Stmt, TypeName, UnaryOp};
+use crate::ast::{
+    BinaryOp, Expr, ExprKind, Field, FieldInit, Function, Param, Stmt, StructDecl, TypeName,
+    UnaryOp,
+};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::text::Text;
@@ -53,12 +56,13 @@ impl Parser {
     pub fn parse_program(&mut self) -> Result<Vec<Stmt>, SomoniError> {
         let mut stmts = Vec::new();
         while *self.peek() != Token::Eof {
-            // fn is only allowed here, at the top level
-            if *self.peek() == Token::Fn {
-                stmts.push(self.parse_fn()?);
-            } else {
-                stmts.push(self.parse_stmt()?);
-            }
+            // fn and struct are only allowed here, at the top level
+            let stmt = match self.peek() {
+                Token::Fn => self.parse_fn()?,
+                Token::Struct => self.parse_struct()?,
+                _ => self.parse_stmt()?,
+            };
+            stmts.push(stmt);
         }
         Ok(stmts)
     }
@@ -103,6 +107,7 @@ impl Parser {
                 Ok(Stmt::Continue { span: start })
             }
             Token::Fn => Err(SomoniError::at(start, ErrorCode::FnNotTopLevel)),
+            Token::Struct => Err(SomoniError::at(start, ErrorCode::StructNotTopLevel)),
             Token::Return => {
                 self.advance(); // 'return'
                 let value = if *self.peek() == Token::Semicolon {
@@ -158,8 +163,33 @@ impl Parser {
         })
     }
 
-    // Items separated by ',' up to ')', e.g. arguments or parameters. The '(' is already read.
-    // `()` gives an empty list; a ',' before ')' is an error.
+    // struct Point { x: int, y: int }
+    fn parse_struct(&mut self) -> Result<Stmt, SomoniError> {
+        self.advance(); // 'struct'
+        let (name, name_span) = self.expect_ident("struct name")?;
+        self.expect(Token::LBrace, "'{' after struct name")?;
+        let fields = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_field)?;
+        Ok(Stmt::StructDecl(Rc::new(StructDecl {
+            name,
+            name_span,
+            fields,
+        })))
+    }
+
+    // x: int
+    fn parse_field(&mut self) -> Result<Field, SomoniError> {
+        let (name, name_span) = self.expect_ident("field name")?;
+        self.expect(Token::Colon, "':' after field name")?;
+        let type_name = self.parse_type("field type")?;
+        Ok(Field {
+            name,
+            name_span,
+            type_name,
+        })
+    }
+
+    // Items separated by ',' up to `close`, e.g. arguments or parameters. The opening
+    // '(' (or '[', '{') is already read. `()` gives an empty list; a ',' before ')' is an error.
     fn parse_comma_list<T>(
         &mut self,
         close: Token,
@@ -455,23 +485,68 @@ impl Parser {
         })
     }
 
-    // a primary expression followed by any number of [index]
+    // a primary expression followed by any number of [index] and .field, e.g. l[0].x
     fn parse_postfix(&mut self) -> Result<Expr, SomoniError> {
         let mut expr = self.parse_primary()?;
-        while *self.peek() == Token::LBracket {
-            self.advance(); // '['
-            let index = self.parse_expr()?;
-            self.expect(Token::RBracket, "']'")?;
-            let span = expr.span.to(self.last_span());
+        loop {
+            // remembered before `expr` is moved into the new node
+            let start = expr.span;
+            let kind = match self.peek() {
+                Token::LBracket => {
+                    self.advance(); // '['
+                    let index = self.parse_expr()?;
+                    self.expect(Token::RBracket, "']'")?;
+                    ExprKind::Index {
+                        target: Box::new(expr),
+                        index: Box::new(index),
+                    }
+                }
+                Token::Dot => {
+                    self.advance(); // '.'
+                    let (name, name_span) = self.expect_ident("field name after '.'")?;
+                    ExprKind::Field {
+                        target: Box::new(expr),
+                        name,
+                        name_span,
+                        index: None,
+                    }
+                }
+                _ => return Ok(expr),
+            };
             expr = Expr {
-                kind: ExprKind::Index {
-                    target: Box::new(expr),
-                    index: Box::new(index),
-                },
-                span,
+                kind,
+                span: start.to(self.last_span()),
             };
         }
-        Ok(expr)
+    }
+
+    // Point { x: 1, y: 2 }
+    fn parse_struct_literal(&mut self, name: String, name_span: Span) -> Result<Expr, SomoniError> {
+        self.advance(); // name
+        self.advance(); // '{'
+        let fields = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_field_init)?;
+        Ok(Expr {
+            kind: ExprKind::StructLiteral {
+                name,
+                name_span,
+                fields,
+                index: None,
+            },
+            span: self.since(name_span),
+        })
+    }
+
+    // x: 1
+    fn parse_field_init(&mut self) -> Result<FieldInit, SomoniError> {
+        let (name, name_span) = self.expect_ident("field name")?;
+        self.expect(Token::Colon, "':' after field name")?;
+        let value = self.parse_expr()?;
+        Ok(FieldInit {
+            name,
+            name_span,
+            value,
+            index: None,
+        })
     }
 
     // int, string, list<int>, list<list<string>>, ...
@@ -500,6 +575,10 @@ impl Parser {
             Token::False => ExprKind::Bool(false),
             Token::Ident(name) if *self.peek_next() == Token::LParen => {
                 return self.parse_call(name, span);
+            }
+            // No clash with blocks: in `if (x) {` a ')' comes before the '{', never a name.
+            Token::Ident(name) if *self.peek_next() == Token::LBrace => {
+                return self.parse_struct_literal(name, span);
             }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
             Token::LBracket => {

@@ -1,0 +1,3 @@
+Type error [T001]: Line 1: unknown type 'Point'
+  1 | print(Point { x: 1 });
+    |       ^^^^^

@@ -115,6 +115,7 @@ impl Lexer {
             "continue" => Token::Continue,
             "fn" => Token::Fn,
             "return" => Token::Return,
+            "struct" => Token::Struct,
             _ => Token::Ident(text),
         }
     }
@@ -224,6 +225,8 @@ impl Lexer {
             let (token, len) = match c {
                 ':' => (Token::Colon, 1),
                 ',' => (Token::Comma, 1),
+                // a '.' after a digit is already part of the float (read_number)
+                '.' => (Token::Dot, 1),
                 ';' => (Token::Semicolon, 1),
                 '+' => (Token::Plus, 1),
                 '-' => (Token::Minus, 1),

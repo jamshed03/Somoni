@@ -1,0 +1,3 @@
+// A contains B and B contains A: no value of them can ever be built
+struct A { b: B }
+struct B { a: A }

@@ -1,6 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::ast::{self, BinaryOp, CallTarget, Expr, ExprKind, Function, Stmt, TypeName, UnaryOp};
+use crate::ast::{
+    self, BinaryOp, CallTarget, Expr, ExprKind, FieldInit, Function, Stmt, TypeName, UnaryOp,
+};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::scope::Scopes;
@@ -19,10 +21,18 @@ struct Signature {
     return_type: Type,
 }
 
+struct StructInfo {
+    // the index of the struct in `ast::structs`
+    index: usize,
+    // name and type of every field, in the order of the declaration
+    fields: Vec<(String, Type)>,
+}
+
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
     loop_depth: usize,
     functions: HashMap<String, Signature>,
+    structs: HashMap<String, StructInfo>,
     // the return type of the function being checked, None at the top level
     current_return: Option<Type>,
     // the next free place in the current frame (top level or function)
@@ -35,6 +45,7 @@ impl TypeChecker {
             scopes: Scopes::new(),
             loop_depth: 0,
             functions: HashMap::new(),
+            structs: HashMap::new(),
             current_return: None,
             next_slot: 0,
         }
@@ -42,6 +53,8 @@ impl TypeChecker {
 
     // Checks the program and writes the slot of every variable into the tree.
     pub fn check(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
+        // structs first: the signatures of functions may use them
+        self.declare_structs(stmts)?;
         self.declare_functions(stmts)?;
         self.check_stmts(stmts)
     }
@@ -51,6 +64,83 @@ impl TypeChecker {
             self.check_stmt(stmt)?;
         }
         Ok(())
+    }
+
+    // Three passes: first all names (a field may use a struct declared further down),
+    // then the field types, then the check that no struct contains itself.
+    fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        for (index, decl) in ast::structs(stmts).enumerate() {
+            if Type::is_builtin_name(&decl.name) || self.structs.contains_key(&decl.name) {
+                return Err(SomoniError::at(
+                    decl.name_span,
+                    ErrorCode::DuplicateType {
+                        name: decl.name.clone(),
+                    },
+                ));
+            }
+            let info = StructInfo {
+                index,
+                fields: Vec::new(),
+            };
+            self.structs.insert(decl.name.clone(), info);
+        }
+
+        for decl in ast::structs(stmts) {
+            let mut fields: Vec<(String, Type)> = Vec::new();
+            for field in &decl.fields {
+                if fields.iter().any(|(name, _)| *name == field.name) {
+                    return Err(SomoniError::at(
+                        field.name_span,
+                        ErrorCode::DuplicateField {
+                            name: field.name.clone(),
+                        },
+                    ));
+                }
+                fields.push((
+                    field.name.clone(),
+                    self.resolve_type(&field.type_name, false)?,
+                ));
+            }
+            if let Some(info) = self.structs.get_mut(&decl.name) {
+                info.fields = fields;
+            }
+        }
+
+        for decl in ast::structs(stmts) {
+            let info = &self.structs[&decl.name];
+            for (field, (_, ty)) in decl.fields.iter().zip(&info.fields) {
+                if let Type::Struct(inner) = ty
+                    && self.struct_contains(inner, &decl.name, &mut HashSet::new())
+                {
+                    return Err(SomoniError::at(
+                        field.type_name.span,
+                        ErrorCode::StructContainsItself {
+                            name: decl.name.clone(),
+                        },
+                    ));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // Does a value of struct `from` hold a `target`, as a field or inside a field?
+    // A list does not count: it can be empty, so `list<Tree>` in Tree is fine.
+    // `seen` stops the search in a cycle that does not lead to `target`.
+    fn struct_contains(&self, from: &str, target: &str, seen: &mut HashSet<String>) -> bool {
+        if from == target {
+            return true;
+        }
+        if !seen.insert(from.to_string()) {
+            return false;
+        }
+        let Some(info) = self.structs.get(from) else {
+            return false;
+        };
+        info.fields.iter().any(|(_, ty)| match ty {
+            Type::Struct(inner) => self.struct_contains(inner, target, seen),
+            _ => false,
+        })
     }
 
     fn declare_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
@@ -70,9 +160,9 @@ impl TypeChecker {
             }
             let mut params = Vec::new();
             for param in &function.params {
-                params.push(resolve_type(&param.type_name, false)?);
+                params.push(self.resolve_type(&param.type_name, false)?);
             }
-            let return_type = resolve_type(&function.return_type, true)?;
+            let return_type = self.resolve_type(&function.return_type, true)?;
             self.functions.insert(
                 name.clone(),
                 Signature {
@@ -135,7 +225,7 @@ impl TypeChecker {
                 slot,
                 ..
             } => {
-                let declared = resolve_type(type_name, false)?;
+                let declared = self.resolve_type(type_name, false)?;
                 self.check_assignable(value, &declared)?;
                 *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
                 Ok(())
@@ -184,6 +274,8 @@ impl TypeChecker {
                 ..
             } => self.in_scope(|this| this.check_for(init, condition, step, body)),
             Stmt::FnDecl(function) => self.check_function(function),
+            // already checked in declare_structs
+            Stmt::StructDecl(_) => Ok(()),
             Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
@@ -366,6 +458,98 @@ impl TypeChecker {
         Ok(Type::List(Box::new(element_type)))
     }
 
+    // Every field exactly once, in any order. Each gets its place in the declaration,
+    // so the interpreter can store the values in that order.
+    fn check_struct_literal(
+        &self,
+        name: &str,
+        name_span: Span,
+        fields: &mut [FieldInit],
+        index: &mut Option<usize>,
+    ) -> Result<Type, SomoniError> {
+        let info = self.struct_info(name, name_span)?;
+        *index = Some(info.index);
+        let mut given = vec![false; info.fields.len()];
+        for init in fields {
+            let (position, ty) = field_of(info, name, &init.name, init.name_span)?;
+            if given[position] {
+                return Err(SomoniError::at(
+                    init.name_span,
+                    ErrorCode::DuplicateField {
+                        name: init.name.clone(),
+                    },
+                ));
+            }
+            given[position] = true;
+            init.index = Some(position);
+            self.check_assignable(&mut init.value, ty)?;
+        }
+        let missing = info.fields.iter().zip(&given).find(|(_, given)| !**given);
+        if let Some(((field, _), _)) = missing {
+            return Err(SomoniError::at(
+                name_span,
+                ErrorCode::MissingField {
+                    struct_name: name.to_string(),
+                    name: field.clone(),
+                },
+            ));
+        }
+        Ok(Type::Struct(name.to_string()))
+    }
+
+    fn struct_info(&self, name: &str, span: Span) -> Result<&StructInfo, SomoniError> {
+        self.structs.get(name).ok_or_else(|| {
+            SomoniError::at(
+                span,
+                ErrorCode::UnknownType {
+                    name: name.to_string(),
+                },
+            )
+        })
+    }
+
+    // A type as written (e.g. `list<int>`) to a Type. `void` only where allowed (return types).
+    fn resolve_type(&self, written: &TypeName, allow_void: bool) -> Result<Type, SomoniError> {
+        let simple = if allow_void {
+            Type::from_return_name(&written.name)
+        } else {
+            Type::from_name(&written.name)
+        };
+        let simple = simple.or_else(|| {
+            self.structs
+                .contains_key(&written.name)
+                .then(|| Type::Struct(written.name.clone()))
+        });
+        let expected_args = match (written.name.as_str(), &simple) {
+            ("list", _) => 1,
+            (_, Some(_)) => 0,
+            (name, None) => {
+                return Err(SomoniError::at(
+                    written.span,
+                    ErrorCode::UnknownType {
+                        name: name.to_string(),
+                    },
+                ));
+            }
+        };
+        if written.args.len() != expected_args {
+            return Err(SomoniError::at(
+                written.span,
+                ErrorCode::TypeArguments {
+                    name: written.name.clone(),
+                    expected: expected_args,
+                    found: written.args.len(),
+                },
+            ));
+        }
+        match simple {
+            Some(ty) => Ok(ty),
+            None => Ok(Type::List(Box::new(
+                self.resolve_type(&written.args[0], false)?,
+            ))),
+        }
+    }
+
     fn check_expr(&self, expr: &mut Expr) -> Result<Type, SomoniError> {
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
@@ -434,6 +618,30 @@ impl TypeChecker {
                 }
                 Ok(*element_type)
             }
+            ExprKind::StructLiteral {
+                name,
+                name_span,
+                fields,
+                index,
+            } => self.check_struct_literal(name, *name_span, fields, index),
+            ExprKind::Field {
+                target,
+                name,
+                name_span,
+                index,
+            } => {
+                let target_type = self.check_expr(target)?;
+                let Type::Struct(struct_name) = &target_type else {
+                    return Err(SomoniError::at(
+                        target.span,
+                        ErrorCode::NoFields { found: target_type },
+                    ));
+                };
+                let info = self.struct_info(struct_name, target.span)?;
+                let (position, ty) = field_of(info, struct_name, name, *name_span)?;
+                *index = Some(position);
+                Ok(ty.clone())
+            }
             ExprKind::Call {
                 name,
                 name_span,
@@ -484,39 +692,27 @@ impl TypeChecker {
     }
 }
 
-// A type as written (e.g. `list<int>`) to a Type. `void` only where allowed (return types).
-fn resolve_type(written: &TypeName, allow_void: bool) -> Result<Type, SomoniError> {
-    let simple = if allow_void {
-        Type::from_return_name(&written.name)
-    } else {
-        Type::from_name(&written.name)
-    };
-    let expected_args = match (written.name.as_str(), &simple) {
-        ("list", _) => 1,
-        (_, Some(_)) => 0,
-        (name, None) => {
-            return Err(SomoniError::at(
-                written.span,
-                ErrorCode::UnknownType {
+// the place and type of field `name` in a struct, T027 if the struct has no such field
+fn field_of<'a>(
+    info: &'a StructInfo,
+    struct_name: &str,
+    name: &str,
+    span: Span,
+) -> Result<(usize, &'a Type), SomoniError> {
+    info.fields
+        .iter()
+        .enumerate()
+        .find(|(_, (field, _))| field == name)
+        .map(|(position, (_, ty))| (position, ty))
+        .ok_or_else(|| {
+            SomoniError::at(
+                span,
+                ErrorCode::UnknownField {
+                    struct_name: struct_name.to_string(),
                     name: name.to_string(),
                 },
-            ));
-        }
-    };
-    if written.args.len() != expected_args {
-        return Err(SomoniError::at(
-            written.span,
-            ErrorCode::TypeArguments {
-                name: written.name.clone(),
-                expected: expected_args,
-                found: written.args.len(),
-            },
-        ));
-    }
-    match simple {
-        Some(ty) => Ok(ty),
-        None => Ok(Type::List(Box::new(resolve_type(&written.args[0], false)?))),
-    }
+            )
+        })
 }
 
 fn check_arg_count(
@@ -574,6 +770,7 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         | Stmt::Expr { .. }
         | Stmt::Break { .. }
         | Stmt::Continue { .. }
-        | Stmt::FnDecl(_) => false,
+        | Stmt::FnDecl(_)
+        | Stmt::StructDecl(_) => false,
     }
 }

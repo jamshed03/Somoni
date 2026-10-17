@@ -46,6 +46,32 @@ pub enum ExprKind {
         // what is called, filled in by the type checker
         target: Option<CallTarget>,
     },
+    // Name { field: value, ... }
+    StructLiteral {
+        name: String,
+        name_span: Span,
+        fields: Vec<FieldInit>,
+        // the index of the struct in `structs(stmts)`, filled in by the type checker
+        index: Option<usize>,
+    },
+    // target.name
+    Field {
+        target: Box<Expr>,
+        name: String,
+        name_span: Span,
+        // the place of the field in the struct declaration, filled in by the type checker
+        index: Option<usize>,
+    },
+}
+
+// `field: value` in a struct literal
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldInit {
+    pub name: String,
+    pub name_span: Span,
+    pub value: Expr,
+    // the place of the field in the struct declaration, filled in by the type checker
+    pub index: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -130,6 +156,8 @@ pub enum Stmt {
         span: Span,
     },
     FnDecl(Function),
+    // Rc: every struct value points to its declaration, for the names in print
+    StructDecl(Rc<StructDecl>),
     Return {
         value: Option<Expr>,
         span: Span,
@@ -148,6 +176,23 @@ pub struct Function {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Param {
+    pub name: String,
+    pub name_span: Span,
+    pub type_name: TypeName,
+}
+
+// struct Name { field: type, ... }
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub fields: Vec<Field>,
+}
+
+// Looks like Param, but is kept apart: the two have different reasons to change
+// (parameters may get default values, fields may not).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Field {
     pub name: String,
     pub name_span: Span,
     pub type_name: TypeName,
@@ -174,9 +219,18 @@ impl Stmt {
             | Stmt::Continue { span }
             | Stmt::Return { span, .. } => Some(*span),
             Stmt::FnDecl(function) => Some(function.name_span),
+            Stmt::StructDecl(decl) => Some(decl.name_span),
             Stmt::Block(_) => None,
         }
     }
+}
+
+// All structs of the program, numbered like `functions`.
+pub fn structs(stmts: &[Stmt]) -> impl Iterator<Item = &Rc<StructDecl>> {
+    stmts.iter().filter_map(|stmt| match stmt {
+        Stmt::StructDecl(decl) => Some(decl),
+        _ => None,
+    })
 }
 
 // All functions of the program, in the order that gives them their index.

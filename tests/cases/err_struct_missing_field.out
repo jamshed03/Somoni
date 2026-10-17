@@ -1,0 +1,3 @@
+Type error [T028]: Line 2: missing field 'x' of 'Point'
+  2 | var p: Point = Point { y: 2 };
+    |                ^^^^^

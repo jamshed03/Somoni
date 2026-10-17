@@ -1,0 +1,3 @@
+Type error [T030]: Line 3: struct 'Node' contains itself, so no value of it can be built
+  3 |     next: Node
+    |           ^^^^

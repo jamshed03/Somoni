@@ -1,0 +1,63 @@
+// Point is used before it is declared: structs are collected first, like functions
+var p: Point = Point { x: 1, y: 2 };
+print(p);
+print(p.x + p.y);
+
+struct Point {
+    x: int,
+    y: int
+}
+
+struct User {
+    name: string,
+    age: int,
+    tags: list<string>
+}
+
+// the fields may come in any order; print shows them in the order of the declaration
+var u: User = User { age: 30, tags: [], name: "Ali" };
+print(u);
+print(u.name);
+print(len(u.tags));
+
+// structs inside structs and lists of structs
+struct Line {
+    from: Point,
+    to: Point
+}
+var line: Line = Line { from: Point { x: 0, y: 0 }, to: p };
+print(line);
+print(line.to.y);
+
+var points: list<Point> = [p, Point { x: 5, y: 6 }];
+print(points);
+print(points[1].x);
+
+// a list of its own type is allowed: a tree
+struct Tree {
+    value: int,
+    children: list<Tree>
+}
+var tree: Tree = Tree { value: 1, children: [Tree { value: 2, children: [] }] };
+print(tree.children[0].value);
+
+// == compares field by field
+print(p == Point { x: 1, y: 2 });
+print(p != Point { x: 2, y: 1 });
+
+struct Empty {}
+print(Empty {});
+
+// as parameter and return value
+fn moved(p: Point, dx: int): Point {
+    return Point { x: p.x + dx, y: p.y };
+}
+print(moved(p, 10));
+print(moved(p, 10).x);
+
+// the literal is evaluated in its own order: first "b", then "a"
+fn say(text: string): int {
+    print(text);
+    return len(text);
+}
+var order: Point = Point { y: say("b"), x: say("a") };

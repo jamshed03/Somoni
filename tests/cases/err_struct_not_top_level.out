@@ -1,0 +1,3 @@
+Parse error [P006]: Line 2: structs can only be declared at the top level
+  2 |     struct Point { x: int }
+    |     ^^^^^^
