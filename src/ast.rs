@@ -69,6 +69,20 @@ pub enum ExprKind {
         args: Vec<Expr>,
         call: Option<MethodTarget>,
     },
+    /// `super(args)` as the first statement of the constructor of a subclass: runs the `init`
+    /// of the parent class on `this`. The type checker fills in `target`, that function.
+    SuperInit {
+        args: Vec<Expr>,
+        target: Option<usize>,
+    },
+    /// `super.name(args)`: calls the method of the parent class on `this`, without dynamic
+    /// dispatch. The type checker fills in `target`, the function of that method.
+    SuperCall {
+        name: String,
+        name_span: Span,
+        args: Vec<Expr>,
+        target: Option<usize>,
+    },
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
         name: String,
@@ -118,6 +132,9 @@ impl Expr {
             ExprKind::MethodCall { target, args, .. } => target
                 .find_this()
                 .or_else(|| args.iter().find_map(Expr::find_this)),
+            ExprKind::SuperInit { args, .. } => args.iter().find_map(Expr::find_this),
+            // `super.name()` runs on `this`
+            ExprKind::SuperCall { .. } => Some(self.span),
         }
     }
 
@@ -409,6 +426,8 @@ pub struct ClassDecl {
     pub constructor: Option<Constructor>,
     /// The methods; each gets `this` as a hidden first parameter (slot 0).
     pub methods: Vec<Method>,
+    /// The class after `extends`.
+    pub extends: Option<(String, Span)>,
     /// The interfaces after `implements`.
     pub implements: Vec<(String, Span)>,
     /// Filled in by the type checker for the compiler.
@@ -418,6 +437,14 @@ pub struct ClassDecl {
 /// What the type checker works out about a class for the compiler.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ClassPlan {
+    /// The names of all fields, those of the parent classes first.
+    pub fields: Vec<String>,
+    /// The position of the first own field (after the fields of the parent classes).
+    pub field_offset: usize,
+    /// How many parameters `init` has (the own constructor's or the inherited one's).
+    pub params: usize,
+    /// The `init` function of the parent class, if there is one.
+    pub parent_init: Option<usize>,
     /// For each method slot: the function the objects of this class run for it.
     pub methods: Vec<usize>,
     /// For each interface it implements: the number of the interface and the function of each
@@ -451,17 +478,20 @@ pub struct InterfaceMethod {
     pub return_type: TypeName,
 }
 
-/// Who may use a field or method of a class: everyone, or only the class itself.
+/// Who may use a field or method of a class: everyone, the class and its subclasses, or only
+/// the class itself.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Visibility {
     Public,
+    Protected,
     Private,
 }
 
-/// A method of a class with its visibility.
+/// A method of a class with its visibility; `is_override` with `override` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Method {
     pub visibility: Visibility,
+    pub is_override: bool,
     pub function: Function,
 }
 

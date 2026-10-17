@@ -1,0 +1,9 @@
+class Tier {
+    constructor(art: string) {
+    }
+}
+class Hund extends Tier {
+    constructor() {
+        super();
+    }
+}

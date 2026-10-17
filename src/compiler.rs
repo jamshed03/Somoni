@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, BinaryOp, CallTarget, ClassDecl, Expr, ExprKind, Function, IterKind, MethodTarget,
-    Pattern, Stmt,
+    self, BinaryOp, CallTarget, ClassDecl, ClassLayout, Expr, ExprKind, Function, IterKind,
+    MethodTarget, Pattern, Stmt,
 };
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::SomoniError;
@@ -41,7 +41,11 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
                 let name = format!("{}.{}", class.layout.name, method.name);
                 functions.push(compile_function(method, name, method.params.len() + 1)?);
             }
-            classes.push(Rc::clone(&class.layout));
+            let layout = ClassLayout {
+                name: class.layout.name.clone(),
+                fields: class.plan.fields.clone(),
+            };
+            classes.push(Rc::new(layout));
             method_tables.push(class.plan.methods.clone());
             vtables.push(class.plan.vtables.clone());
         }
@@ -59,23 +63,47 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
 }
 
 /// Writes the function `init Name`: with the new object in `this` (slot 0) and the arguments
-/// after it, it sets the start values of the fields, runs the constructor and returns `this`.
+/// after it, it runs the `init` of the parent class, sets the start values of the own fields,
+/// runs the rest of the constructor and returns `this` (rule 32 of `Klassen.md`).
 /// `new Name(args)` is `NewObject` and a call of this function, so it needs only one call.
 fn compile_init(class: &ClassDecl) -> Result<Chunk, SomoniError> {
     let mut compiler = Compiler {
         returns_this: true,
         ..Compiler::default()
     };
-    let constructor = class.constructor.as_ref();
+    let plan = &class.plan;
+    let span = class.name_span;
     compiler.chunk.name = format!("init {}", class.layout.name);
-    compiler.chunk.locals = constructor.map_or(0, |c| c.params.len()) + 1;
+    compiler.chunk.locals = plan.params + 1;
+    let body: &[Stmt] = class.constructor.as_ref().map_or(&[], |c| &c.body);
+    // the parent first: super(...) is the first statement, without a constructor it is implicit
+    let rest = match (plan.parent_init, body.split_first()) {
+        (Some(_), Some((super_init, rest))) if class.constructor.is_some() => {
+            compiler.compile_stmt(super_init)?;
+            rest
+        }
+        (Some(parent_init), _) => {
+            for slot in 0..=plan.params {
+                compiler.chunk.push(Op::GetLocal(slot), span);
+            }
+            compiler
+                .chunk
+                .push(Op::Call(parent_init, plan.params + 1), span);
+            compiler.chunk.push(Op::Pop, span);
+            body
+        }
+        (None, _) => body,
+    };
     for (position, field) in class.fields.iter().enumerate() {
         if let Some(start) = &field.start {
             compiler.compile_expr(start)?;
-            compiler.chunk.push(Op::InitLocalField(0, position), start.span);
+            let position = plan.field_offset + position;
+            compiler
+                .chunk
+                .push(Op::InitLocalField(0, position), start.span);
         }
     }
-    for stmt in constructor.iter().flat_map(|c| &c.body) {
+    for stmt in rest {
         compiler.compile_stmt(stmt)?;
     }
     compiler.chunk.push(Op::GetLocal(0), class.name_span);
@@ -494,6 +522,12 @@ impl Compiler {
                     None => return Err(SomoniError::internal("method call without target")),
                 };
                 self.chunk.push(op, span);
+            }
+            ExprKind::SuperInit { args, target } | ExprKind::SuperCall { args, target, .. } => {
+                self.chunk.push(Op::GetLocal(0), span);
+                self.compile_args(args)?;
+                let target = target.ok_or_else(|| SomoniError::internal("super without target"))?;
+                self.chunk.push(Op::Call(target, args.len() + 1), span);
             }
             ExprKind::New {
                 args,

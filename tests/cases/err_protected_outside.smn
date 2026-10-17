@@ -1,0 +1,13 @@
+class Tier {
+    protected art: string = "?";
+    private geheim: int = 1;
+
+    laut(): string {
+        return "...";
+    }
+
+    private intern(): void {
+    }
+}
+var t: Tier = new Tier();
+print(t.art);

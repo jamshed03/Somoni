@@ -222,7 +222,7 @@ impl Parser {
                 self.expect(Token::Semicolon, "';'")?;
                 Ok(Stmt::Expr { expr, span })
             }
-            Token::Ident(_) | Token::This | Token::New => self.parse_assign(start),
+            Token::Ident(_) | Token::This | Token::New | Token::Super => self.parse_assign(start),
             other => Err(SomoniError::at(
                 start,
                 ErrorCode::UnexpectedToken { found: other },
@@ -292,6 +292,11 @@ impl Parser {
     fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("class name")?;
+        let mut extends = None;
+        if *self.peek() == Token::Extends {
+            self.advance();
+            extends = Some(self.expect_ident("class name after 'extends'")?);
+        }
         let mut implements = Vec::new();
         if *self.peek() == Token::Implements {
             self.advance();
@@ -313,9 +318,13 @@ impl Parser {
                 return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
             }
             let visibility = self.parse_visibility()?;
+            let is_override = *self.peek() == Token::Override;
+            if is_override {
+                self.advance();
+            }
             if matches!(self.peek(), Token::Ident(name) if name == "constructor") {
                 let span = self.current_span();
-                if visibility == Visibility::Private {
+                if visibility != Visibility::Public {
                     return Err(SomoniError::at(
                         span,
                         ErrorCode::NotYetSupported {
@@ -338,6 +347,7 @@ impl Parser {
                 let function = self.parse_function_rest(false, name, name_span)?;
                 methods.push(Method {
                     visibility,
+                    is_override,
                     function,
                 });
                 continue;
@@ -368,6 +378,7 @@ impl Parser {
             fields,
             constructor,
             methods,
+            extends,
             implements,
             plan: ClassPlan::default(),
         }))
@@ -414,20 +425,13 @@ impl Parser {
         }))
     }
 
-    /// Reads `public` or `private` in front of a field or method; without it, it is public.
+    /// Reads `public`, `protected` or `private` in front of a field or method; without it,
+    /// it is public.
     fn parse_visibility(&mut self) -> Result<Visibility, SomoniError> {
         let visibility = match self.peek() {
             Token::Public => Visibility::Public,
             Token::Private => Visibility::Private,
-            Token::Protected => {
-                return Err(SomoniError::at(
-                    self.current_span(),
-                    ErrorCode::NotYetSupported {
-                        what: "'protected'",
-                        comes_with: "extends",
-                    },
-                ));
-            }
+            Token::Protected => Visibility::Protected,
             _ => return Ok(Visibility::Public),
         };
         self.advance();
@@ -731,7 +735,10 @@ impl Parser {
                 | Token::SlashEqual
                 | Token::PercentEqual
         );
-        if let ExprKind::MethodCall { .. } | ExprKind::New { .. } = target.kind
+        if let ExprKind::MethodCall { .. }
+        | ExprKind::New { .. }
+        | ExprKind::SuperInit { .. }
+        | ExprKind::SuperCall { .. } = target.kind
             && !is_assignment
         {
             return Ok(Stmt::Expr {
@@ -1033,6 +1040,30 @@ impl Parser {
                 return self.parse_struct_literal(name, span);
             }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
+            Token::Super => {
+                self.advance();
+                if *self.peek() == Token::LParen {
+                    self.advance();
+                    let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
+                    return Ok(Expr {
+                        kind: ExprKind::SuperInit { args, target: None },
+                        span: span.to(self.last_span()),
+                    });
+                }
+                self.expect(Token::Dot, "'(' or '.' after 'super'")?;
+                let (name, name_span) = self.expect_ident("method name after 'super.'")?;
+                self.expect(Token::LParen, "'(' after the method name")?;
+                let args = self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)?;
+                return Ok(Expr {
+                    kind: ExprKind::SuperCall {
+                        name,
+                        name_span,
+                        args,
+                        target: None,
+                    },
+                    span: span.to(self.last_span()),
+                });
+            }
             Token::This => ExprKind::Ident {
                 name: THIS.to_string(),
                 slot: None,

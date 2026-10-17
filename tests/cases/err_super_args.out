@@ -1,0 +1,3 @@
+Type error [T013]: Line 7: 'Tier' expects 1 argument, got 0
+  7 |         super();
+    |         ^^^^^^^

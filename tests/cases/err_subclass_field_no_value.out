@@ -1,0 +1,3 @@
+Type error [T050]: Line 13: field 'rufname' of 'Hund' gets no value (give it a start value or set it in the constructor)
+  13 |     rufname: string;
+     |     ^^^^^^^

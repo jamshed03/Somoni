@@ -137,6 +137,9 @@ impl Lexer {
             "protected" => Token::Protected,
             "interface" => Token::Interface,
             "implements" => Token::Implements,
+            "extends" => Token::Extends,
+            "super" => Token::Super,
+            "override" => Token::Override,
             _ => Token::Ident(text),
         }
     }

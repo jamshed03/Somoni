@@ -1,0 +1,3 @@
+Type error [T055]: Line 13: 'intern' is already a field or method of 'Hund'
+  13 |     intern(): void {
+     |     ^^^^^^

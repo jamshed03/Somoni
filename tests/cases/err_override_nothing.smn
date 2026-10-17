@@ -1,0 +1,16 @@
+class Tier {
+    protected art: string = "?";
+    private geheim: int = 1;
+
+    laut(): string {
+        return "...";
+    }
+
+    private intern(): void {
+    }
+}
+class Hund extends Tier {
+    override bellen(): string {
+        return "wuff";
+    }
+}

@@ -1,0 +1,8 @@
+class Tier {
+}
+class Hund extends Tier {
+    constructor() {
+        print(1);
+        super();
+    }
+}

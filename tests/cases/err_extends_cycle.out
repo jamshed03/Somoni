@@ -1,0 +1,3 @@
+Type error [T065]: Line 1: 'A' inherits from itself
+  1 | class A extends B {
+    |                 ^

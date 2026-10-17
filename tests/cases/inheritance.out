@@ -1,0 +1,12 @@
+Rex der Hund sagt wuffwuff
+Katze sagt miau
+Bello der Hund sagt wiwuffwuff
+Fisch sagt ...
+Hund { art: "Hund", geheim: 7, rufname: "Rex" }
+9
+Fips der Hund
+true
+A: Startwerte
+A: constructor
+B: Startwerte
+B: constructor

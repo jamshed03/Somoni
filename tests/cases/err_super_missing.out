@@ -1,0 +1,3 @@
+Type error [T069]: Line 6: the constructor of 'Hund' must start with super(...), because it extends another class
+  6 |     constructor() {
+    |     ^^^^^^^^^^^

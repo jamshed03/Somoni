@@ -31,6 +31,9 @@ pub enum Token {
     Protected,
     Interface,
     Implements,
+    Extends,
+    Super,
+    Override,
 
     // names and values
     Ident(String),

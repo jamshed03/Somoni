@@ -1,0 +1,7 @@
+class Tier {
+}
+class Hund extends Tier {
+    f(): void {
+        super();
+    }
+}

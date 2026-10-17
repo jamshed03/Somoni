@@ -1,0 +1,3 @@
+Type error [T071]: Line 3: 'super' only works in a class that extends another class
+  3 |         super.f();
+    |         ^^^^^^^^^

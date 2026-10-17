@@ -35,21 +35,33 @@ struct StructInfo {
     fields: Vec<(String, Type)>,
 }
 
-/// The type of each field of a class, the function that builds its objects (`new`),
-/// its methods by name, and the names of its private fields and methods.
+/// What the type checker knows about a class: its fields (those of the parent classes first),
+/// its constructor (`init`), its methods (also the inherited ones) and who may use each name.
 #[derive(Clone)]
 struct ClassInfo {
     fields: Vec<(String, Type)>,
+    /// The position of the first own field.
+    field_offset: usize,
+    parent: Option<Decl<ClassLayout>>,
     constructor: Signature,
     methods: HashMap<String, MethodInfo>,
     /// For each method slot: the function the objects of this class run.
     method_table: Vec<usize>,
     /// The number of the class (for `NewObject`).
     index: usize,
-    private: HashSet<String>,
+    /// Every field and method name, also inherited ones.
+    members: HashMap<String, Member>,
     /// The interfaces it implements, and for each the functions of its methods (for the VM).
     implements: Vec<Decl<InterfaceLayout>>,
     vtables: Vec<(usize, Vec<usize>)>,
+}
+
+/// A field or method name of a class: who may use it and in which class it is declared.
+#[derive(Clone)]
+struct Member {
+    visibility: Visibility,
+    owner: Decl<ClassLayout>,
+    is_method: bool,
 }
 
 /// A method of a class: its slot in the method table, and its signature (`index` is the
@@ -130,6 +142,9 @@ pub struct TypeChecker {
     interfaces: HashMap<Decl<InterfaceLayout>, InterfaceInfo>,
     /// The class whose start values, constructor or methods are being checked.
     current_class: Option<Decl<ClassLayout>>,
+    /// True while the first statement of the constructor of a subclass is checked:
+    /// only there `super(...)` is allowed.
+    super_init_allowed: bool,
     /// How many functions the files checked so far have; gives each function its number.
     function_count: usize,
     current_return: Option<Type>,
@@ -147,6 +162,7 @@ impl TypeChecker {
             classes: HashMap::new(),
             interfaces: HashMap::new(),
             current_class: None,
+            super_init_allowed: false,
             function_count: 0,
             current_return: None,
             next_slot: 0,
@@ -314,6 +330,8 @@ impl TypeChecker {
             let layout = Decl(Rc::clone(&class.layout));
             let info = ClassInfo {
                 fields: Vec::new(),
+                field_offset: 0,
+                parent: None,
                 constructor: Signature {
                     index: 0,
                     params: Vec::new(),
@@ -322,7 +340,7 @@ impl TypeChecker {
                 methods: HashMap::new(),
                 method_table: Vec::new(),
                 index: self.classes.len(),
-                private: HashSet::new(),
+                members: HashMap::new(),
                 implements: Vec::new(),
                 vtables: Vec::new(),
             };
@@ -379,25 +397,9 @@ impl TypeChecker {
                 info.fields = fields;
             }
         }
-        for class in ast::classes(stmts) {
-            let fields = self.resolve_fields(class.fields.iter().map(|f| &f.field))?;
-            let private = class
-                .fields
-                .iter()
-                .filter(|f| f.visibility == Visibility::Private)
-                .map(|f| f.field.name.clone())
-                .chain(
-                    class
-                        .methods
-                        .iter()
-                        .filter(|m| m.visibility == Visibility::Private)
-                        .map(|m| m.function.name.clone()),
-                )
-                .collect();
-            if let Some(info) = self.classes.get_mut(&Decl(Rc::clone(&class.layout))) {
-                info.fields = fields;
-                info.private = private;
-            }
+        self.resolve_parents(stmts)?;
+        for class in self.parents_first(stmts) {
+            self.declare_class_fields(class)?;
         }
 
         for decl in ast::structs(stmts) {
@@ -407,6 +409,100 @@ impl TypeChecker {
         for class in ast::classes(stmts) {
             let ty = Type::Class(Decl(Rc::clone(&class.layout)));
             self.check_not_contains_itself(&ty, class.fields.iter().map(|f| &f.field))?;
+        }
+        Ok(())
+    }
+
+    /// Finds the parent class after `extends` of every class of a file: it must be a class
+    /// (T064), and no class may inherit from itself (T065).
+    fn resolve_parents(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        for class in ast::classes(stmts) {
+            let Some((name, span)) = &class.extends else {
+                continue;
+            };
+            let Some(parent) = self.names.classes.get(name).cloned() else {
+                let code = if self.is_type_name(name) {
+                    ErrorCode::ExtendsNotClass { name: name.clone() }
+                } else {
+                    ErrorCode::UnknownType { name: name.clone() }
+                };
+                return Err(SomoniError::at(*span, code));
+            };
+            let layout = Decl(Rc::clone(&class.layout));
+            if let Some(info) = self.classes.get_mut(&layout) {
+                info.parent = Some(parent);
+            }
+        }
+        for class in ast::classes(stmts) {
+            let layout = Decl(Rc::clone(&class.layout));
+            let mut current = self.parent_of(&layout);
+            for _ in 0..self.classes.len() {
+                let Some(ancestor) = current else {
+                    break;
+                };
+                if ancestor == layout {
+                    let span = class.extends.as_ref().map_or(class.name_span, |(_, s)| *s);
+                    return Err(SomoniError::at(
+                        span,
+                        ErrorCode::InheritanceCycle {
+                            name: layout.name.clone(),
+                        },
+                    ));
+                }
+                current = self.parent_of(&ancestor);
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the parent class of a class, if it has one.
+    fn parent_of(&self, layout: &Decl<ClassLayout>) -> Option<Decl<ClassLayout>> {
+        self.classes
+            .get(layout)
+            .and_then(|info| info.parent.clone())
+    }
+
+    /// Returns true if `class` is `ancestor` or inherits from it, also over several steps.
+    fn is_subclass(&self, class: &Decl<ClassLayout>, ancestor: &Decl<ClassLayout>) -> bool {
+        let mut current = Some(class.clone());
+        while let Some(layout) = current {
+            if layout == *ancestor {
+                return true;
+            }
+            current = self.parent_of(&layout);
+        }
+        false
+    }
+
+    /// Returns the classes of a file so that every class comes after its parent class
+    /// (sorted by the number of parent classes above it).
+    fn parents_first<'a>(&self, stmts: &'a [Stmt]) -> Vec<&'a ClassDecl> {
+        let depth = |class: &&ClassDecl| {
+            let mut count = 0;
+            let mut current = self.parent_of(&Decl(Rc::clone(&class.layout)));
+            while let Some(layout) = current {
+                count += 1;
+                current = self.parent_of(&layout);
+            }
+            count
+        };
+        let mut classes: Vec<&ClassDecl> = ast::classes(stmts).collect();
+        classes.sort_by_key(depth);
+        classes
+    }
+
+    /// Collects the fields of a class: those of its parent class first, then its own.
+    fn declare_class_fields(&mut self, class: &ClassDecl) -> Result<(), SomoniError> {
+        let layout = Decl(Rc::clone(&class.layout));
+        let mut fields = match self.parent_of(&layout) {
+            Some(parent) => self.class_info(&parent)?.fields.clone(),
+            None => Vec::new(),
+        };
+        let field_offset = fields.len();
+        fields.extend(self.resolve_fields(class.fields.iter().map(|f| &f.field))?);
+        if let Some(info) = self.classes.get_mut(&layout) {
+            info.fields = fields;
+            info.field_offset = field_offset;
         }
         Ok(())
     }
@@ -503,60 +599,181 @@ impl TypeChecker {
     }
 
     /// Gives every class its function numbers, after the functions of the file (the compiler
-    /// writes them in the same order): `init Name` (the constructor), then each method with its
-    /// slot in the method table. Collects their parameter and return types. A method name may not be a field or another method (T055).
+    /// writes them in the same order): `init Name` (the constructor), then each own method.
+    /// Then, parents first, builds the method table of each class: the inherited one, with
+    /// `override` methods in the slot of the method they replace and new methods at the end.
     fn declare_class_functions(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        let mut numbers: HashMap<Decl<ClassLayout>, (usize, Vec<usize>)> = HashMap::new();
         for class in ast::classes(stmts) {
+            let init = self.function_count;
+            let methods = (1..=class.methods.len())
+                .map(|i| self.function_count + i)
+                .collect();
+            self.function_count += 1 + class.methods.len();
+            numbers.insert(Decl(Rc::clone(&class.layout)), (init, methods));
+        }
+        for class in self.parents_first(stmts) {
             let layout = Decl(Rc::clone(&class.layout));
-            let mut params = Vec::new();
-            for param in class.constructor.iter().flat_map(|c| &c.params) {
-                params.push(self.resolve_type(&param.type_name, false)?);
+            let (init, functions) = numbers
+                .remove(&layout)
+                .ok_or_else(|| SomoniError::internal("class without numbers"))?;
+            self.declare_class_methods(class, init, &functions)?;
+        }
+        Ok(())
+    }
+
+    /// Builds the constructor signature, the members, the methods and the method table of one
+    /// class whose parent class is already done. `init` and `functions` are its function numbers.
+    /// A name of the parent class may not come again as a field or method (T055), except as
+    /// `override` of a method that is not private.
+    fn declare_class_methods(
+        &mut self,
+        class: &ClassDecl,
+        init: usize,
+        functions: &[usize],
+    ) -> Result<(), SomoniError> {
+        let layout = Decl(Rc::clone(&class.layout));
+        let info = self.class_info(&layout)?.clone();
+        let parent = self.parent_info(&info)?;
+        let params = match &class.constructor {
+            Some(constructor) => {
+                let mut params = Vec::new();
+                for param in &constructor.params {
+                    params.push(self.resolve_type(&param.type_name, false)?);
+                }
+                params
             }
-            let constructor_index = self.function_count;
-            self.function_count += 1;
-            let mut methods = HashMap::new();
-            let mut method_table = Vec::new();
-            for method in class.methods.iter().map(|m| &m.function) {
-                if class.layout.fields.contains(&method.name) || methods.contains_key(&method.name)
+            None => parent
+                .as_ref()
+                .map_or(Vec::new(), |p| p.constructor.params.clone()),
+        };
+        let (mut methods, mut table) = match &parent {
+            Some(parent) => (parent.methods.clone(), parent.method_table.clone()),
+            None => (HashMap::new(), Vec::new()),
+        };
+        let mut members = parent
+            .as_ref()
+            .map_or(HashMap::new(), |p| p.members.clone());
+        for field in &class.fields {
+            if members.contains_key(&field.field.name) {
+                return Err(SomoniError::at(
+                    field.field.name_span,
+                    ErrorCode::DuplicateMember {
+                        class: layout.name.clone(),
+                        name: field.field.name.clone(),
+                    },
+                ));
+            }
+            let member = Member {
+                visibility: field.visibility,
+                owner: layout.clone(),
+                is_method: false,
+            };
+            members.insert(field.field.name.clone(), member);
+        }
+        for (method, &function) in class.methods.iter().zip(functions) {
+            let name = &method.function.name;
+            let span = method.function.name_span;
+            let signature = self.signature_of(&method.function, function)?;
+            let duplicate = || {
+                SomoniError::at(
+                    span,
+                    ErrorCode::DuplicateMember {
+                        class: layout.name.clone(),
+                        name: name.clone(),
+                    },
+                )
+            };
+            let slot = match members.get(name) {
+                Some(member)
+                    if !member.is_method
+                        || member.visibility == Visibility::Private
+                        || member.owner == layout =>
                 {
+                    return Err(duplicate());
+                }
+                Some(member) => {
+                    let inherited = methods.get(name).ok_or_else(duplicate)?;
+                    let same_types = inherited.signature.params == signature.params
+                        && inherited.signature.return_type == signature.return_type;
+                    if !method.is_override {
+                        return Err(SomoniError::at(
+                            span,
+                            ErrorCode::MissingOverride {
+                                method: name.clone(),
+                                parent: member.owner.name.clone(),
+                            },
+                        ));
+                    }
+                    if !same_types || member.visibility != method.visibility {
+                        return Err(SomoniError::at(
+                            span,
+                            ErrorCode::OverrideMismatch {
+                                parent: member.owner.name.clone(),
+                                method: describe_method(
+                                    name,
+                                    member.visibility,
+                                    &inherited.signature,
+                                ),
+                            },
+                        ));
+                    }
+                    inherited.slot
+                }
+                None if method.is_override => {
                     return Err(SomoniError::at(
-                        method.name_span,
-                        ErrorCode::DuplicateMember {
-                            class: class.layout.name.clone(),
-                            name: method.name.clone(),
+                        span,
+                        ErrorCode::NothingToOverride {
+                            method: name.clone(),
                         },
                     ));
                 }
-                let signature = self.signature_of(method, self.function_count)?;
-                self.function_count += 1;
-                let slot = method_table.len();
-                method_table.push(signature.index);
-                methods.insert(method.name.clone(), MethodInfo { slot, signature });
+                None => {
+                    table.push(function);
+                    table.len() - 1
+                }
+            };
+            table[slot] = function;
+            methods.insert(name.clone(), MethodInfo { slot, signature });
+            let member = Member {
+                visibility: method.visibility,
+                owner: layout.clone(),
+                is_method: true,
+            };
+            members.insert(name.clone(), member);
+        }
+        let mut implements = parent.as_ref().map_or(Vec::new(), |p| p.implements.clone());
+        for interface in self.check_implements(class, &methods, &members)? {
+            if !implements.contains(&interface) {
+                implements.push(interface);
             }
-            let (implements, vtables) = self.check_implements(class, &methods)?;
-            if let Some(info) = self.classes.get_mut(&layout) {
-                info.constructor.index = constructor_index;
-                info.constructor.params = params;
-                info.methods = methods;
-                info.method_table = method_table;
-                info.implements = implements;
-                info.vtables = vtables;
-            }
+        }
+        let mut vtables = Vec::new();
+        for interface in &implements {
+            vtables.push(self.vtable(interface, &methods, &table)?);
+        }
+        if let Some(info) = self.classes.get_mut(&layout) {
+            info.constructor.index = init;
+            info.constructor.params = params;
+            info.methods = methods;
+            info.method_table = table;
+            info.members = members;
+            info.implements = implements;
+            info.vtables = vtables;
         }
         Ok(())
     }
 
     /// Checks that a class has every method of every interface after `implements`: public and
-    /// with the same types (rule 22 of `Klassen.md`). Returns the interfaces and, for each, the
-    /// number of the interface and the function of each of its methods.
-    #[allow(clippy::type_complexity)]
+    /// with the same types (rule 22 of `Klassen.md`); inherited methods count. Returns the
+    /// interfaces.
     fn check_implements(
         &self,
         class: &ClassDecl,
         methods: &HashMap<String, MethodInfo>,
-    ) -> Result<(Vec<Decl<InterfaceLayout>>, Vec<(usize, Vec<usize>)>), SomoniError> {
+        members: &HashMap<String, Member>,
+    ) -> Result<Vec<Decl<InterfaceLayout>>, SomoniError> {
         let mut implements = Vec::new();
-        let mut vtables = Vec::new();
         for (name, span) in &class.implements {
             let Some(interface) = self.names.interfaces.get(name).cloned() else {
                 let code = if self.is_type_name(name) {
@@ -566,24 +783,24 @@ impl TypeChecker {
                 };
                 return Err(SomoniError::at(*span, code));
             };
-            let info = self.interface_info(&interface)?;
-            let mut functions = Vec::new();
-            for (method_name, wanted) in &info.methods {
-                let missing = || ErrorCode::MissingInterfaceMethod {
-                    interface: interface.name.clone(),
-                    method: method_name.clone(),
+            for (method_name, wanted) in &self.interface_info(&interface)?.methods {
+                let (Some(found), Some(member)) =
+                    (methods.get(method_name), members.get(method_name))
+                else {
+                    return Err(SomoniError::at(
+                        *span,
+                        ErrorCode::MissingInterfaceMethod {
+                            interface: interface.name.clone(),
+                            method: method_name.clone(),
+                        },
+                    ));
                 };
-                let (Some(found), Some(method)) = (
-                    methods.get(method_name).map(|m| &m.signature),
-                    class
-                        .methods
-                        .iter()
-                        .find(|m| m.function.name == *method_name),
-                ) else {
-                    return Err(SomoniError::at(*span, missing()));
-                };
-                let place = method.function.name_span;
-                if method.visibility == Visibility::Private {
+                let place = class
+                    .methods
+                    .iter()
+                    .find(|m| m.function.name == *method_name)
+                    .map_or(*span, |m| m.function.name_span);
+                if member.visibility != Visibility::Public {
                     return Err(SomoniError::at(
                         place,
                         ErrorCode::PrivateInterfaceMethod {
@@ -592,27 +809,41 @@ impl TypeChecker {
                         },
                     ));
                 }
+                let found = &found.signature;
                 if found.params != wanted.params || found.return_type != wanted.return_type {
-                    let params: Vec<String> = wanted.params.iter().map(Type::to_string).collect();
                     return Err(SomoniError::at(
                         place,
                         ErrorCode::InterfaceMethodType {
                             interface: interface.name.clone(),
-                            method: format!(
-                                "{}({}): {}",
-                                method_name,
-                                params.join(", "),
-                                wanted.return_type
-                            ),
+                            method: describe_method(method_name, Visibility::Public, wanted)
+                                .trim_start_matches("public ")
+                                .to_string(),
                         },
                     ));
                 }
-                functions.push(found.index);
             }
-            vtables.push((info.index, functions));
             implements.push(interface);
         }
-        Ok((implements, vtables))
+        Ok(implements)
+    }
+
+    /// Returns the vtable of a class for an interface: the number of the interface and, for each
+    /// of its methods, the function the class runs for it.
+    fn vtable(
+        &self,
+        interface: &Decl<InterfaceLayout>,
+        methods: &HashMap<String, MethodInfo>,
+        table: &[usize],
+    ) -> Result<(usize, Vec<usize>), SomoniError> {
+        let info = self.interface_info(interface)?;
+        let mut functions = Vec::new();
+        for (name, _) in &info.methods {
+            let method = methods
+                .get(name)
+                .ok_or_else(|| SomoniError::internal("interface method missing"))?;
+            functions.push(table[method.slot]);
+        }
+        Ok((info.index, functions))
     }
 
     /// Returns the number and the methods of an interface.
@@ -721,12 +952,18 @@ impl TypeChecker {
         layout: Decl<ClassLayout>,
     ) -> Result<(), SomoniError> {
         let info = self.class_info(&layout)?.clone();
+        let parent = self.parent_info(&info)?;
         class.plan = ClassPlan {
+            fields: info.fields.iter().map(|(name, _)| name.clone()).collect(),
+            field_offset: info.field_offset,
+            params: info.constructor.params.len(),
+            parent_init: parent.as_ref().map(|p| p.constructor.index),
             methods: info.method_table.clone(),
             vtables: info.vtables.clone(),
         };
+        let own_fields = &info.fields[info.field_offset..];
         self.in_function(None, |this| {
-            for (field, (_, ty)) in class.fields.iter_mut().zip(&info.fields) {
+            for (field, (_, ty)) in class.fields.iter_mut().zip(own_fields) {
                 if let Some(start) = &mut field.start {
                     this.check_assignable(start, ty)?;
                 }
@@ -735,11 +972,26 @@ impl TypeChecker {
         })?;
         if let Some(constructor) = &mut class.constructor {
             let params = &info.constructor.params;
+            let has_parent = parent.is_some();
+            if has_parent && !starts_with_super(&constructor.body) {
+                return Err(SomoniError::at(
+                    constructor.span,
+                    ErrorCode::MissingSuper {
+                        class: layout.name.clone(),
+                    },
+                ));
+            }
             self.in_function(Some(Type::Void), |this| {
                 let this_type = Type::Class(layout.clone());
                 this.declare(THIS, constructor.span, this_type, false)?;
                 this.declare_params(&constructor.params, params)?;
-                this.check_stmts(&mut constructor.body)
+                for (i, stmt) in constructor.body.iter_mut().enumerate() {
+                    this.super_init_allowed = has_parent && i == 0;
+                    let result = this.check_stmt(stmt);
+                    this.super_init_allowed = false;
+                    result?;
+                }
+                Ok::<(), SomoniError>(())
             })?;
         }
         for method in class.methods.iter_mut().map(|m| &mut m.function) {
@@ -757,25 +1009,57 @@ impl TypeChecker {
         check_fields_set(class, body)
     }
 
-    /// Returns T058 if `name` is a private field or method of the class `layout` and the code
-    /// being checked is not inside that class (rule 17 of `Klassen.md`).
+    /// Returns T058 if `name` is a private field or method of the class `layout` (or one it
+    /// inherits) and the code being checked is not inside the class that declares it
+    /// (rule 17 of `Klassen.md`); T072 if it is protected and the code is not in that class or a
+    /// subclass (rule 34).
     fn check_access(
         &self,
         layout: &Decl<ClassLayout>,
         name: &str,
         span: Span,
     ) -> Result<(), SomoniError> {
-        let private = self.class_info(layout)?.private.contains(name);
-        if private && self.current_class.as_ref() != Some(layout) {
-            return Err(SomoniError::at(
-                span,
-                ErrorCode::PrivateMember {
-                    class: layout.name.clone(),
-                    name: name.to_string(),
-                },
-            ));
+        let Some(member) = self.class_info(layout)?.members.get(name) else {
+            return Ok(());
+        };
+        let inside = |allowed: &dyn Fn(&Decl<ClassLayout>) -> bool| {
+            self.current_class.as_ref().is_some_and(allowed)
+        };
+        let code = match member.visibility {
+            Visibility::Public => return Ok(()),
+            Visibility::Private if inside(&|current| *current == member.owner) => return Ok(()),
+            Visibility::Protected
+                if inside(&|current| self.is_subclass(current, &member.owner)) =>
+            {
+                return Ok(());
+            }
+            Visibility::Private => ErrorCode::PrivateMember {
+                class: member.owner.name.clone(),
+                name: name.to_string(),
+            },
+            Visibility::Protected => ErrorCode::ProtectedMember {
+                class: member.owner.name.clone(),
+                name: name.to_string(),
+            },
+        };
+        Err(SomoniError::at(span, code))
+    }
+
+    /// Returns what the type checker knows about the parent class of a class, if it has one.
+    fn parent_info(&self, info: &ClassInfo) -> Result<Option<ClassInfo>, SomoniError> {
+        match &info.parent {
+            Some(parent) => Ok(Some(self.class_info(parent)?.clone())),
+            None => Ok(None),
         }
-        Ok(())
+    }
+
+    /// Returns the parent class of the class being checked, or T071 if there is none
+    /// (`super` outside of a subclass).
+    fn current_parent(&self, span: Span) -> Result<Decl<ClassLayout>, SomoniError> {
+        self.current_class
+            .as_ref()
+            .and_then(|class| self.parent_of(class))
+            .ok_or_else(|| SomoniError::at(span, ErrorCode::SuperOutsideSubclass))
     }
 
     /// Returns the field types and the constructor of a class.
@@ -1782,6 +2066,38 @@ impl TypeChecker {
                 self.check_args(name, &method.signature.params, args, expr.span)?;
                 Ok(method.signature.return_type)
             }
+            ExprKind::SuperInit { args, target } => {
+                let parent = self.current_parent(expr.span)?;
+                if !self.super_init_allowed {
+                    return Err(SomoniError::at(expr.span, ErrorCode::SuperInitMisplaced));
+                }
+                let constructor = self.class_info(&parent)?.constructor.clone();
+                *target = Some(constructor.index);
+                self.check_args(&parent.name, &constructor.params, args, expr.span)?;
+                Ok(Type::Void)
+            }
+            ExprKind::SuperCall {
+                name,
+                name_span,
+                args,
+                target,
+            } => {
+                let parent = self.current_parent(expr.span)?;
+                let info = self.class_info(&parent)?;
+                let Some(method) = info.methods.get(name).cloned() else {
+                    return Err(SomoniError::at(
+                        *name_span,
+                        ErrorCode::UnknownMethod {
+                            class: parent.name.clone(),
+                            name: name.clone(),
+                        },
+                    ));
+                };
+                *target = Some(info.method_table[method.slot]);
+                self.check_access(&parent, name, *name_span)?;
+                self.check_args(name, &method.signature.params, args, expr.span)?;
+                Ok(method.signature.return_type)
+            }
             ExprKind::New {
                 name,
                 name_span,
@@ -1865,6 +2181,7 @@ impl TypeChecker {
         }
         match (found, expected) {
             (_, Type::Optional(inner)) => self.fits(found, inner),
+            (Type::Class(class), Type::Class(ancestor)) => self.is_subclass(class, ancestor),
             (Type::Class(layout), Type::Interface(interface)) => self
                 .classes
                 .get(layout)
@@ -1938,6 +2255,37 @@ fn check_fields_set(class: &ClassDecl, body: &[Stmt]) -> Result<(), SomoniError>
         )),
         None => Ok(()),
     }
+}
+
+/// Returns true if the first statement is `super(...)`.
+fn starts_with_super(body: &[Stmt]) -> bool {
+    matches!(
+        body.first(),
+        Some(Stmt::Expr {
+            expr: Expr {
+                kind: ExprKind::SuperInit { .. },
+                ..
+            },
+            ..
+        })
+    )
+}
+
+/// Describes a method for a message, e.g. `public laut(): string`.
+fn describe_method(name: &str, visibility: Visibility, signature: &Signature) -> String {
+    let visibility = match visibility {
+        Visibility::Public => "public",
+        Visibility::Protected => "protected",
+        Visibility::Private => "private",
+    };
+    let params: Vec<String> = signature.params.iter().map(Type::to_string).collect();
+    format!(
+        "{} {}({}): {}",
+        visibility,
+        name,
+        params.join(", "),
+        signature.return_type
+    )
 }
 
 /// For `this.name = value;` where `value` does not use `this`, returns `name`.

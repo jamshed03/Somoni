@@ -1,0 +1,3 @@
+Type error [T067]: Line 13: there is no inherited method 'bellen' to override
+  13 |     override bellen(): string {
+     |              ^^^^^^

@@ -1,0 +1,97 @@
+import { Benannt } from "modules/benannt.smn";
+
+class Tier implements Benannt {
+    protected art: string;
+    private geheim: int = 7;
+
+    constructor(art: string) {
+        this.art = art;
+    }
+
+    laut(): string {
+        return "...";
+    }
+
+    // calls laut() of the class of the object, also from here
+    vorstellen(): string {
+        return this.name() + " sagt " + this.laut();
+    }
+
+    name(): string {
+        return this.art;
+    }
+
+    protected doppelt(s: string): string {
+        return s + s;
+    }
+}
+
+class Hund extends Tier {
+    rufname: string;
+
+    constructor(rufname: string) {
+        super("Hund");
+        this.rufname = rufname;
+    }
+
+    override laut(): string {
+        return this.doppelt("wuff");
+    }
+
+    override name(): string {
+        return this.rufname + " der " + super.name();
+    }
+}
+
+// no constructor: takes the one of Tier
+class Katze extends Tier {
+    leben: int = 9;
+
+    override laut(): string {
+        return "miau";
+    }
+}
+
+// more than one level
+class Welpe extends Hund {
+    override laut(): string {
+        return "wi" + super.laut();
+    }
+}
+
+var tiere: list<Tier> = [new Hund("Rex"), new Katze("Katze"), new Welpe("Bello"), new Tier("Fisch")];
+for (t: Tier in tiere) {
+    print(t.vorstellen());
+}
+
+// print shows the fields of Tier first
+print(tiere[0]);
+print(new Katze("Katze").leben);
+
+// a Hund fits where a Tier or an interface of Tier is wanted
+var b: Benannt = new Welpe("Fips");
+print(b.name());
+var t: Tier = tiere[2];
+print(t == tiere[2]);
+
+// the order: start values and constructor of the parent first
+fn zeige(s: string): string {
+    print(s);
+    return s;
+}
+class A {
+    a: string = zeige("A: Startwerte");
+
+    constructor() {
+        print("A: constructor");
+    }
+}
+class B extends A {
+    b: string = zeige("B: Startwerte");
+
+    constructor() {
+        super();
+        print("B: constructor");
+    }
+}
+new B();

@@ -1,0 +1,3 @@
+Type error [T068]: Line 13: to override it, this method must be public laut(): string like in 'Tier'
+  13 |     override laut(): int {
+     |              ^^^^

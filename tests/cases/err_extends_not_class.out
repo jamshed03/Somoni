@@ -1,0 +1,3 @@
+Type error [T064]: Line 4: 'P' is not a class, only a class can be extended
+  4 | class A extends P {
+    |                 ^

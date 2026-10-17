@@ -266,6 +266,32 @@ pub enum ErrorCode {
     InterfaceNew {
         name: String,
     },
+    ExtendsNotClass {
+        name: String,
+    },
+    InheritanceCycle {
+        name: String,
+    },
+    MissingOverride {
+        method: String,
+        parent: String,
+    },
+    NothingToOverride {
+        method: String,
+    },
+    OverrideMismatch {
+        parent: String,
+        method: String,
+    },
+    MissingSuper {
+        class: String,
+    },
+    SuperInitMisplaced,
+    SuperOutsideSubclass,
+    ProtectedMember {
+        class: String,
+        name: String,
+    },
     ThisBeforeFieldsSet {
         missing: String,
     },
@@ -392,6 +418,15 @@ impl ErrorCode {
             ErrorCode::PrivateInterfaceMethod { .. } => "T061",
             ErrorCode::NotAnInterface { .. } => "T062",
             ErrorCode::InterfaceNew { .. } => "T063",
+            ErrorCode::ExtendsNotClass { .. } => "T064",
+            ErrorCode::InheritanceCycle { .. } => "T065",
+            ErrorCode::MissingOverride { .. } => "T066",
+            ErrorCode::NothingToOverride { .. } => "T067",
+            ErrorCode::OverrideMismatch { .. } => "T068",
+            ErrorCode::MissingSuper { .. } => "T069",
+            ErrorCode::SuperInitMisplaced => "T070",
+            ErrorCode::SuperOutsideSubclass => "T071",
+            ErrorCode::ProtectedMember { .. } => "T072",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -497,7 +532,16 @@ impl ErrorCode {
             | ErrorCode::InterfaceMethodType { .. }
             | ErrorCode::PrivateInterfaceMethod { .. }
             | ErrorCode::NotAnInterface { .. }
-            | ErrorCode::InterfaceNew { .. } => ErrorKind::Type,
+            | ErrorCode::InterfaceNew { .. }
+            | ErrorCode::ExtendsNotClass { .. }
+            | ErrorCode::InheritanceCycle { .. }
+            | ErrorCode::MissingOverride { .. }
+            | ErrorCode::NothingToOverride { .. }
+            | ErrorCode::OverrideMismatch { .. }
+            | ErrorCode::MissingSuper { .. }
+            | ErrorCode::SuperInitMisplaced
+            | ErrorCode::SuperOutsideSubclass
+            | ErrorCode::ProtectedMember { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -752,6 +796,40 @@ impl ErrorCode {
             ErrorCode::InterfaceNew { name } => format!(
                 "'{}' is an interface and has no objects of its own, create an object of a class that implements it",
                 name
+            ),
+            ErrorCode::ExtendsNotClass { name } => {
+                format!("'{}' is not a class, only a class can be extended", name)
+            }
+            ErrorCode::InheritanceCycle { name } => {
+                format!("'{}' inherits from itself", name)
+            }
+            ErrorCode::MissingOverride { method, parent } => format!(
+                "'{}' is inherited from '{}', write 'override' in front to replace it",
+                method, parent
+            ),
+            ErrorCode::NothingToOverride { method } => {
+                format!("there is no inherited method '{}' to override", method)
+            }
+            ErrorCode::OverrideMismatch { parent, method } => {
+                format!(
+                    "to override it, this method must be {} like in '{}'",
+                    method, parent
+                )
+            }
+            ErrorCode::MissingSuper { class } => format!(
+                "the constructor of '{}' must start with super(...), because it extends another class",
+                class
+            ),
+            ErrorCode::SuperInitMisplaced => {
+                "super(...) is only allowed as the first statement in the constructor of a subclass"
+                    .to_string()
+            }
+            ErrorCode::SuperOutsideSubclass => {
+                "'super' only works in a class that extends another class".to_string()
+            }
+            ErrorCode::ProtectedMember { class, name } => format!(
+                "'{}' is protected in '{}' and can only be used in it and its subclasses",
+                name, class
             ),
             ErrorCode::BoundVarType {
                 name,
