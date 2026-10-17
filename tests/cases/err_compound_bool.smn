@@ -1,0 +1,2 @@
+var b: bool = true;
+b += true;

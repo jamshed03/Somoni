@@ -233,7 +233,9 @@ impl TypeChecker {
                 *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
                 Ok(())
             }
-            Stmt::Assign { target, value, .. } => self.check_assign(target, value),
+            Stmt::Assign {
+                target, op, value, ..
+            } => self.check_assign(target, *op, value),
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
                 Ok(())
@@ -409,8 +411,14 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Checks `target = value;`: the target must exist, must not be const, and the types must match.
-    fn check_assign(&mut self, target: &mut Expr, value: &mut Expr) -> Result<(), SomoniError> {
+    /// Checks `target = value;` or `target += value;`: the target must exist and must not be
+    /// const. The value must fit the target, or `target op value` must have the target's type.
+    fn check_assign(
+        &mut self,
+        target: &mut Expr,
+        op: Option<(BinaryOp, Span)>,
+        value: &mut Expr,
+    ) -> Result<(), SomoniError> {
         let target_type = self.check_expr(target)?;
         let Some((name, name_span)) = target.root_variable() else {
             return Err(SomoniError::internal("assignment to a non-variable"));
@@ -423,7 +431,21 @@ impl TypeChecker {
                 },
             ));
         }
-        self.check_assignable(value, &target_type)
+        let Some((op, op_span)) = op else {
+            return self.check_assignable(value, &target_type);
+        };
+        let value_type = self.check_expr_expecting(value, &target_type)?;
+        let result = binary_type(op, target_type.clone(), value_type, op_span)?;
+        if result != target_type {
+            return Err(SomoniError::at(
+                op_span,
+                ErrorCode::CannotAssign {
+                    found: result,
+                    expected: target_type,
+                },
+            ));
+        }
+        Ok(())
     }
 
     /// Checks that `return` is inside a function and returns the right type.

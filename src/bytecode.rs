@@ -51,6 +51,8 @@ pub enum Op {
     AppendLocal(usize),
     /// Pops a value and the indices of path number `i`, writes the value into that part.
     SetPart(usize),
+    /// Like `SetPart`, but computes `part op value` and writes that (`l[i] += 1`).
+    UpdatePart(usize, BinaryOp),
     /// Pops a string, pushes the list of its characters (for `for`-each over a string).
     Chars,
     /// One round of a `for`-each loop over the list or map in `slot`; the index is in `slot + 1`.
@@ -132,6 +134,19 @@ pub fn disassemble(program: &Program) -> String {
     out
 }
 
+/// Shows a path as its slot and steps, e.g. `2[].1` for `l[i].name` with `l` in slot 2.
+fn show_path(path: &Path) -> String {
+    let steps: String = path
+        .steps
+        .iter()
+        .map(|step| match step {
+            PathStep::Index(_) => "[]".to_string(),
+            PathStep::Field(p) => format!(".{}", p),
+        })
+        .collect();
+    format!("{}{}", path.slot, steps)
+}
+
 /// Shows one instruction, e.g. `Push 5` or `Binary Add`.
 fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
     match op {
@@ -159,17 +174,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
             let both = if *both { " both" } else { "" };
             format!("Next {} {:04}{}", slot, end, both)
         }
-        Op::SetPart(i) => {
-            let path = &chunk.paths[*i];
-            let steps: String = path
-                .steps
-                .iter()
-                .map(|step| match step {
-                    PathStep::Index(_) => "[]".to_string(),
-                    PathStep::Field(p) => format!(".{}", p),
-                })
-                .collect();
-            format!("SetPart {}{}", path.slot, steps)
-        }
+        Op::SetPart(i) => format!("SetPart {}", show_path(&chunk.paths[*i])),
+        Op::UpdatePart(i, op) => format!("UpdatePart {} {:?}", show_path(&chunk.paths[*i]), op),
     }
 }

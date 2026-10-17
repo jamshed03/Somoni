@@ -1,0 +1,3 @@
+Type error [T007]: Line 2: operator not allowed for float
+  2 | f %= 2.0;
+    |   ^^

@@ -66,25 +66,41 @@ impl Compiler {
             }
             Stmt::Assign {
                 target,
+                op,
                 value,
                 span,
             } => {
+                let op = op.map(|(op, _)| op);
                 let ExprKind::Ident { slot, .. } = target.kind else {
                     let mut steps = Vec::new();
                     let slot = self.compile_path(target, &mut steps)?;
                     self.compile_expr(value)?;
                     self.chunk.paths.push(Path { slot, steps });
                     let i = self.chunk.paths.len() - 1;
-                    self.chunk.push(Op::SetPart(i), *span);
+                    let change = match op {
+                        None => Op::SetPart(i),
+                        Some(op) => Op::UpdatePart(i, op),
+                    };
+                    self.chunk.push(change, *span);
                     return Ok(());
                 };
                 let slot = self.slot(slot)?;
-                match value.appended_to(slot) {
-                    Some(rest) => {
+                match (op, value.appended_to(slot)) {
+                    (Some(BinaryOp::Add), _) => {
+                        self.compile_expr(value)?;
+                        self.chunk.push(Op::AppendLocal(slot), *span);
+                    }
+                    (Some(op), _) => {
+                        self.chunk.push(Op::GetLocal(slot), *span);
+                        self.compile_expr(value)?;
+                        self.chunk.push(Op::Binary(op), *span);
+                        self.chunk.push(Op::SetLocal(slot), *span);
+                    }
+                    (None, Some(rest)) => {
                         self.compile_expr(rest)?;
                         self.chunk.push(Op::AppendLocal(slot), value.span);
                     }
-                    None => {
+                    (None, None) => {
                         self.compile_expr(value)?;
                         self.chunk.push(Op::SetLocal(slot), *span);
                     }

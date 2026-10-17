@@ -1,0 +1,3 @@
+Type error [T007]: Line 2: operator not allowed for string
+  2 | s -= "c";
+    |   ^^

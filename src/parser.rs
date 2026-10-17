@@ -381,16 +381,27 @@ impl Parser {
         Ok(assign)
     }
 
-    /// Reads an assignment without `;`, e.g. `x = 5`, `l[i] = 5` or `u.name = "Ali"`.
+    /// Reads an assignment without `;`, e.g. `x = 5`, `l[i] = 5`, `u.name = "Ali"` or `x += 1`.
     fn parse_assignment(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         let target = self.parse_postfix()?;
         if target.root_variable().is_none() {
             return Err(SomoniError::at(target.span, ErrorCode::InvalidAssignTarget));
         }
-        self.expect(Token::Equal, "'='")?;
+        let op = match self.peek() {
+            Token::Equal => None,
+            Token::PlusEqual => Some(BinaryOp::Add),
+            Token::MinusEqual => Some(BinaryOp::Sub),
+            Token::StarEqual => Some(BinaryOp::Mul),
+            Token::SlashEqual => Some(BinaryOp::Div),
+            Token::PercentEqual => Some(BinaryOp::Mod),
+            _ => return Err(self.expected("'='")),
+        };
+        let op = op.map(|op| (op, self.current_span()));
+        self.advance();
         let value = self.parse_expr()?;
         Ok(Stmt::Assign {
             target,
+            op,
             value,
             span: self.since(start),
         })

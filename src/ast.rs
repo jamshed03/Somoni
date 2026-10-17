@@ -167,8 +167,10 @@ pub enum Stmt {
         span: Span,
     },
     /// `target = value;` where the target is a variable, a list element or a field.
+    /// With `op`, it is `target += value;` (or `-=`, ...) with the place of the operator.
     Assign {
         target: Expr,
+        op: Option<(BinaryOp, Span)>,
         value: Expr,
         span: Span,
     },

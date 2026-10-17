@@ -1,0 +1,59 @@
+var x: int = 10;
+x += 5;
+print(x);
+x -= 3;
+print(x);
+x *= 2;
+print(x);
+x /= 5;
+print(x);
+x %= 3;
+print(x);
+
+var f: float = 1.5;
+f *= 2.0;
+print(f);
+var s: string = "a";
+s += "b";
+print(s);
+var l: list<int> = [1];
+l += [2, 3];
+l += [];
+print(l);
+
+// parts of lists, maps and structs
+l[0] += 10;
+print(l);
+var m: map<string, int> = {"a": 1};
+m["a"] += 1;
+print(m);
+struct User {
+    name: string,
+    age: int
+}
+var u: User = User { name: "Ali", age: 30 };
+u.age += 1;
+u.name += "!";
+print(u);
+var groups: map<string, list<int>> = {"a": [1]};
+groups["a"] += [2];
+groups["a"][0] *= 5;
+print(groups);
+
+// as the step of a for loop, and with for-each
+for (var i: int = 0; i < 10; i += 3) {
+    print(i);
+}
+var sum: int = 0;
+for (n: int in [1, 2, 3]) {
+    sum += n;
+}
+print(sum);
+
+// the index is evaluated once
+fn index(): int {
+    print("index");
+    return 1;
+}
+l[index()] *= 2;
+print(l);

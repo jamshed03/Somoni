@@ -54,7 +54,7 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 Version 0.4.0: the core of the language plus lists, structs, optional types and maps, compiled to bytecode and run in a VM:
 
 -   Types `int`, `float`, `bool`, `string`; `var` and `const`; assignment; `print`
--   Operators `+ - * / %`, `== != < > <= >=`, `&& || !` (short-circuit), unary `-`
+-   Operators `+ - * / %`, `== != < > <= >=`, `&& || !` (short-circuit), unary `-`; `+= -= *= /= %=`
 -   Integer overflow and division by zero are runtime errors
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)

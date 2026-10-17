@@ -152,6 +152,17 @@ impl<'p> Vm<'p> {
                     *target = value::binary(BinaryOp::Add, left, rest)?;
                 }
             }
+            Op::UpdatePart(i, op) => {
+                let path = &frame.chunk.paths[*i];
+                let value = self.pop()?;
+                let steps = self.take_path_steps(path);
+                let target = &mut self.stack[frame.base + path.slot];
+                value::change_part(target, steps, false, |place| {
+                    let old = std::mem::replace(place, Value::Void);
+                    *place = value::binary(*op, old, value)?;
+                    Ok(())
+                })?;
+            }
             Op::Chars => {
                 let Value::Str(text) = self.pop()? else {
                     return Err(SomoniError::internal("characters of a non-string"));

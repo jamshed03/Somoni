@@ -54,6 +54,11 @@ pub enum Token {
     OrOr,
     Bang,
     Question,
+    PlusEqual,
+    MinusEqual,
+    StarEqual,
+    SlashEqual,
+    PercentEqual,
 
     /// The end of the input.
     Eof,
