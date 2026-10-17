@@ -23,6 +23,10 @@ pub enum Op {
     Unary(UnaryOp),
     /// Pops the arguments, calls the built-in function, pushes the result.
     CallBuiltin(Builtin, usize),
+    /// Goes on at this instruction.
+    Jump(usize),
+    /// Pops a bool; if it is false, goes on at this instruction.
+    JumpIfFalse(usize),
 }
 
 /// A list of instructions with the constants they use.
@@ -85,5 +89,7 @@ fn show_op(op: &Op, chunk: &Chunk) -> String {
         Op::Binary(op) => format!("Binary {:?}", op),
         Op::Unary(op) => format!("Unary {:?}", op),
         Op::CallBuiltin(builtin, args) => format!("CallBuiltin {} {}", builtin.name(), args),
+        Op::Jump(target) => format!("Jump {:04}", target),
+        Op::JumpIfFalse(target) => format!("JumpIfFalse {:04}", target),
     }
 }

@@ -22,6 +22,15 @@ pub fn compile(stmts: &[Stmt]) -> Result<Program, Stop> {
 #[derive(Default)]
 struct Compiler {
     chunk: Chunk,
+    loops: Vec<LoopJumps>,
+}
+
+/// The jumps of `break` and `continue` in one loop. Their targets are filled in
+/// when the loop is finished, because the end is not known before.
+#[derive(Default)]
+struct LoopJumps {
+    breaks: Vec<usize>,
+    continues: Vec<usize>,
 }
 
 impl Compiler {
@@ -59,14 +68,97 @@ impl Compiler {
                 }
             }
             Stmt::FnDecl(_) | Stmt::StructDecl(_) => {}
-            Stmt::If { .. } => return Err(not_in_vm("if")),
-            Stmt::While { .. } => return Err(not_in_vm("while")),
-            Stmt::For { .. } => return Err(not_in_vm("for")),
-            Stmt::Break { .. } => return Err(not_in_vm("break")),
-            Stmt::Continue { .. } => return Err(not_in_vm("continue")),
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+                span,
+            } => {
+                self.compile_expr(condition)?;
+                let to_else = self.chunk.push(Op::JumpIfFalse(0), condition.span);
+                self.compile_stmt(then_branch)?;
+                match else_branch {
+                    Some(else_branch) => {
+                        let to_end = self.chunk.push(Op::Jump(0), *span);
+                        self.patch_jump(to_else);
+                        self.compile_stmt(else_branch)?;
+                        self.patch_jump(to_end);
+                    }
+                    None => self.patch_jump(to_else),
+                }
+            }
+            Stmt::While {
+                condition, body, ..
+            } => self.compile_loop(condition, body, None)?,
+            Stmt::For {
+                init,
+                condition,
+                step,
+                body,
+                ..
+            } => {
+                self.compile_stmt(init)?;
+                self.compile_loop(condition, body, Some(step))?;
+            }
+            Stmt::Break { span } => {
+                let jump = self.chunk.push(Op::Jump(0), *span);
+                self.current_loop()?.breaks.push(jump);
+            }
+            Stmt::Continue { span } => {
+                let jump = self.chunk.push(Op::Jump(0), *span);
+                self.current_loop()?.continues.push(jump);
+            }
             Stmt::Return { .. } => return Err(not_in_vm("return")),
         }
         Ok(())
+    }
+
+    /// Writes a `while` loop, or the part of a `for` loop after its start.
+    /// `continue` goes to the step (in a for loop) or straight back to the condition.
+    fn compile_loop(
+        &mut self,
+        condition: &Expr,
+        body: &Stmt,
+        step: Option<&Stmt>,
+    ) -> Result<(), Stop> {
+        let start = self.chunk.code.len();
+        self.compile_expr(condition)?;
+        let to_end = self.chunk.push(Op::JumpIfFalse(0), condition.span);
+        self.loops.push(LoopJumps::default());
+        self.compile_stmt(body)?;
+        let jumps = self.loops.pop().unwrap_or_default();
+        let next_round = self.chunk.code.len();
+        if let Some(step) = step {
+            self.compile_stmt(step)?;
+        }
+        self.chunk.push(Op::Jump(start), condition.span);
+        for jump in jumps.continues {
+            self.patch_jump_to(jump, next_round);
+        }
+        self.patch_jump(to_end);
+        for jump in jumps.breaks {
+            self.patch_jump(jump);
+        }
+        Ok(())
+    }
+
+    /// Returns the jumps of the innermost loop.
+    fn current_loop(&mut self) -> Result<&mut LoopJumps, Stop> {
+        self.loops
+            .last_mut()
+            .ok_or_else(|| SomoniError::internal("break or continue outside of a loop").into())
+    }
+
+    /// Lets the jump at position `at` go to the next instruction that will be written.
+    fn patch_jump(&mut self, at: usize) {
+        self.patch_jump_to(at, self.chunk.code.len());
+    }
+
+    /// Lets the jump at position `at` go to `target`.
+    fn patch_jump_to(&mut self, at: usize, target: usize) {
+        if let Some(Op::Jump(to) | Op::JumpIfFalse(to)) = self.chunk.code.get_mut(at) {
+            *to = target;
+        }
     }
 
     /// Writes the instructions of an expression. Afterwards its value is on top of the stack.
@@ -83,9 +175,33 @@ impl Compiler {
                 self.chunk.push(Op::GetLocal(slot), span);
             }
             ExprKind::Binary {
-                op: BinaryOp::And | BinaryOp::Or,
+                left,
+                op: BinaryOp::And,
+                right,
                 ..
-            } => return Err(not_in_vm("&& and ||")),
+            } => {
+                self.compile_expr(left)?;
+                let to_false = self.chunk.push(Op::JumpIfFalse(0), span);
+                self.compile_expr(right)?;
+                let to_end = self.chunk.push(Op::Jump(0), span);
+                self.patch_jump(to_false);
+                self.push_constant(Value::Bool(false), span);
+                self.patch_jump(to_end);
+            }
+            ExprKind::Binary {
+                left,
+                op: BinaryOp::Or,
+                right,
+                ..
+            } => {
+                self.compile_expr(left)?;
+                let to_right = self.chunk.push(Op::JumpIfFalse(0), span);
+                self.push_constant(Value::Bool(true), span);
+                let to_end = self.chunk.push(Op::Jump(0), span);
+                self.patch_jump(to_right);
+                self.compile_expr(right)?;
+                self.patch_jump(to_end);
+            }
             ExprKind::Binary {
                 left, op, right, ..
             } => {

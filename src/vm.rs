@@ -31,15 +31,16 @@ impl Vm {
         self.locals.resize(chunk.locals, Value::Void);
         let mut ip = 0;
         while let Some(op) = chunk.code.get(ip) {
-            ip += 1;
-            self.execute(op, chunk)
-                .map_err(|error| error.with_span_if_missing(Some(chunk.spans[ip - 1])))?;
+            let jump = self
+                .execute(op, chunk)
+                .map_err(|error| error.with_span_if_missing(Some(chunk.spans[ip])))?;
+            ip = jump.unwrap_or(ip + 1);
         }
         Ok(())
     }
 
-    /// Runs one instruction.
-    fn execute(&mut self, op: &Op, chunk: &Chunk) -> Result<(), SomoniError> {
+    /// Runs one instruction. Returns the instruction to go on with if it jumps.
+    fn execute(&mut self, op: &Op, chunk: &Chunk) -> Result<Option<usize>, SomoniError> {
         match op {
             Op::Push(i) => self.stack.push(chunk.constants[*i].clone()),
             Op::GetLocal(slot) => self.stack.push(self.locals[*slot].clone()),
@@ -62,8 +63,14 @@ impl Vm {
                 self.stack.truncate(start);
                 self.stack.push(result);
             }
+            Op::Jump(target) => return Ok(Some(*target)),
+            Op::JumpIfFalse(target) => {
+                if let Value::Bool(false) = self.pop()? {
+                    return Ok(Some(*target));
+                }
+            }
         }
-        Ok(())
+        Ok(None)
     }
 
     /// Takes the top value from the stack.
