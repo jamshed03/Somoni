@@ -782,36 +782,7 @@ impl TypeChecker {
                 right,
             } => {
                 let (l, r) = self.check_operands(*op, left, right)?;
-                let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
-                if l != r && !(is_equality && (fits(&l, &r) || fits(&r, &l))) {
-                    return Err(SomoniError::at(
-                        *op_span,
-                        ErrorCode::OperandTypesDiffer { left: l, right: r },
-                    ));
-                }
-                match (&l, op) {
-                    (Type::Void, _) => Err(SomoniError::at(
-                        *op_span,
-                        ErrorCode::OperatorNotAllowed { found: l.clone() },
-                    )),
-                    (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
-                    (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
-                    (
-                        Type::Int | Type::Float,
-                        BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEq | BinaryOp::GreaterEq,
-                    ) => Ok(Type::Bool),
-                    (
-                        Type::Int | Type::Float,
-                        BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
-                    ) => Ok(l.clone()),
-                    (Type::Str, BinaryOp::Add) => Ok(Type::Str),
-                    (Type::List(_), BinaryOp::Add) => Ok(l.clone()),
-                    (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
-                    _ => Err(SomoniError::at(
-                        *op_span,
-                        ErrorCode::OperatorNotAllowed { found: l.clone() },
-                    )),
-                }
+                binary_type(*op, l, r, *op_span)
             }
             ExprKind::List(elements) => self.check_list(elements, expr.span, None),
             ExprKind::Map(entries) => self.check_map(entries, expr.span, None),
@@ -939,6 +910,41 @@ fn loop_var_types(ty: &Type, count: usize) -> Option<(IterKind, Vec<Type>)> {
         (IterKind::List | IterKind::Str, _) => vec![second],
     };
     Some((kind, types))
+}
+
+/// Returns the type of `l op r`, or an error if the operator does not fit the types.
+/// `op_span` is the place of the operator, for the error.
+fn binary_type(op: BinaryOp, l: Type, r: Type, op_span: Span) -> Result<Type, SomoniError> {
+    let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
+    if l != r && !(is_equality && (fits(&l, &r) || fits(&r, &l))) {
+        return Err(SomoniError::at(
+            op_span,
+            ErrorCode::OperandTypesDiffer { left: l, right: r },
+        ));
+    }
+    match (&l, op) {
+        (Type::Void, _) => Err(SomoniError::at(
+            op_span,
+            ErrorCode::OperatorNotAllowed { found: l },
+        )),
+        (_, BinaryOp::Eq | BinaryOp::NotEq) => Ok(Type::Bool),
+        (Type::Int, BinaryOp::Mod) => Ok(Type::Int),
+        (
+            Type::Int | Type::Float,
+            BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEq | BinaryOp::GreaterEq,
+        ) => Ok(Type::Bool),
+        (
+            Type::Int | Type::Float,
+            BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div,
+        ) => Ok(l),
+        (Type::Str, BinaryOp::Add) => Ok(Type::Str),
+        (Type::List(_), BinaryOp::Add) => Ok(l),
+        (Type::Bool, BinaryOp::And | BinaryOp::Or) => Ok(Type::Bool),
+        _ => Err(SomoniError::at(
+            op_span,
+            ErrorCode::OperatorNotAllowed { found: l },
+        )),
+    }
 }
 
 /// Returns true for `[]`, `{}` and `null`: they need the type of the place where they are used.

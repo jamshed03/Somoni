@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::ast::BinaryOp;
-use crate::bytecode::{Chunk, Op, PathStep, Program};
+use crate::bytecode::{Chunk, Op, Path, PathStep, Program};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::text::Text;
@@ -195,25 +195,12 @@ impl<'p> Vm<'p> {
             Op::SetPart(i) => {
                 let path = &frame.chunk.paths[*i];
                 let value = self.pop()?;
-                let count = path
-                    .steps
-                    .iter()
-                    .filter(|step| matches!(step, PathStep::Index(_)))
-                    .count();
-                let start = self.stack.len() - count;
-                let mut indices = self.stack.drain(start..);
-                let mut steps = Vec::with_capacity(path.steps.len());
-                for step in &path.steps {
-                    steps.push(match step {
-                        PathStep::Index(span) => Step::Index {
-                            index: indices.next().unwrap_or(Value::Void),
-                            span: *span,
-                        },
-                        PathStep::Field(position) => Step::Field(*position),
-                    });
-                }
-                drop(indices);
-                value::set_part(&mut self.stack[frame.base + path.slot], steps, value)?;
+                let steps = self.take_path_steps(path);
+                let target = &mut self.stack[frame.base + path.slot];
+                value::change_part(target, steps, true, |place| {
+                    *place = value;
+                    Ok(())
+                })?;
             }
         }
         Ok(())
@@ -238,6 +225,28 @@ impl<'p> Vm<'p> {
         let callee = Frame { chunk, ip: 0, base };
         self.callers.push(std::mem::replace(frame, callee));
         Ok(())
+    }
+
+    /// Takes the indices of `path` from the stack and returns its steps with them.
+    fn take_path_steps(&mut self, path: &Path) -> Vec<Step> {
+        let count = path
+            .steps
+            .iter()
+            .filter(|step| matches!(step, PathStep::Index(_)))
+            .count();
+        let start = self.stack.len() - count;
+        let mut indices = self.stack.drain(start..);
+        let mut steps = Vec::with_capacity(path.steps.len());
+        for step in &path.steps {
+            steps.push(match step {
+                PathStep::Index(span) => Step::Index {
+                    index: indices.next().unwrap_or(Value::Void),
+                    span: *span,
+                },
+                PathStep::Field(position) => Step::Field(*position),
+            });
+        }
+        steps
     }
 
     /// Takes the top value from the stack.

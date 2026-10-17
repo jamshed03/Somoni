@@ -136,10 +136,16 @@ pub enum Step {
     Field(usize),
 }
 
-/// Writes `value` into the part of `target` that `steps` lead to, e.g. `l[0].x`.
+/// Changes the part of `target` that `steps` lead to, e.g. `l[0].x`, with `change`.
 /// A list, map or struct that another variable also uses is copied first.
-/// Only the last step may add a key to a map: `m["new"] = 1`.
-pub fn set_part(target: &mut Value, steps: Vec<Step>, value: Value) -> Result<(), SomoniError> {
+/// With `may_add_key`, the last step may add a missing key to a map (`m["new"] = 1`);
+/// otherwise a missing key is R006.
+pub fn change_part(
+    target: &mut Value,
+    steps: Vec<Step>,
+    may_add_key: bool,
+    change: impl FnOnce(&mut Value) -> Result<(), SomoniError>,
+) -> Result<(), SomoniError> {
     let mut place = target;
     let count = steps.len();
     for (i, step) in steps.into_iter().enumerate() {
@@ -160,7 +166,7 @@ pub fn set_part(target: &mut Value, steps: Vec<Step>, value: Value) -> Result<()
             (Step::Index { index, span }, Value::Map(map)) => {
                 let key = map_key(&index)?;
                 let map = Rc::make_mut(map);
-                if is_last {
+                if is_last && may_add_key {
                     map.entry(key)
                 } else {
                     map.get_mut(&key)
@@ -174,8 +180,7 @@ pub fn set_part(target: &mut Value, steps: Vec<Step>, value: Value) -> Result<()
             _ => return Err(SomoniError::internal("step does not fit the value")),
         };
     }
-    *place = value;
-    Ok(())
+    change(place)
 }
 
 /// Computes `!value` or `-value`.
