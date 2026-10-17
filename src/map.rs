@@ -54,15 +54,29 @@ impl MapValue {
         self.positions.get(key).map(|&i| &self.entries[i].1)
     }
 
+    /// Returns the value for `key` to change it, if the map has it.
+    pub fn get_mut(&mut self, key: &Key) -> Option<&mut Value> {
+        self.positions.get(key).map(|&i| &mut self.entries[i].1)
+    }
+
+    /// Returns the value for `key` to change it. A missing key is added first, with `void`
+    /// as value until it is overwritten.
+    pub fn entry(&mut self, key: Key) -> &mut Value {
+        let i = match self.positions.get(&key) {
+            Some(&i) => i,
+            None => {
+                let i = self.entries.len();
+                self.positions.insert(key.clone(), i);
+                self.entries.push((key, Value::Void));
+                i
+            }
+        };
+        &mut self.entries[i].1
+    }
+
     /// Adds an entry, or replaces the value if the key is already there.
     pub fn insert(&mut self, key: Key, value: Value) {
-        match self.positions.get(&key) {
-            Some(&i) => self.entries[i].1 = value,
-            None => {
-                self.positions.insert(key.clone(), self.entries.len());
-                self.entries.push((key, value));
-            }
-        }
+        *self.entry(key) = value;
     }
 
     /// Returns all entries in the order they were added.

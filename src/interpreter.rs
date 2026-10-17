@@ -97,7 +97,7 @@ fn write_inner(f: &mut fmt::Formatter, value: &Value) -> fmt::Result {
 
 /// One step from a variable to a part of it: a list index or a field.
 enum Step {
-    Index { index: i64, span: Span },
+    Index { index: Value, span: Span },
     Field(usize),
 }
 
@@ -265,8 +265,9 @@ impl<'a> Interpreter<'a> {
         self.set(slot, v)
     }
 
-    /// Writes a value into a list element or a field, e.g. `l[0].x = 5`.
-    /// A list or struct that another variable also uses is copied first.
+    /// Writes a value into a list element, a map entry or a field, e.g. `l[0].x = 5`.
+    /// A list, map or struct that another variable also uses is copied first.
+    /// Only the last step may add a key to a map: `m["new"] = 1`.
     fn assign_part(&mut self, target: &Expr, value: &Expr) -> Result<(), SomoniError> {
         let mut steps = Vec::new();
         let slot = self.place_steps(target, &mut steps)?;
@@ -274,13 +275,31 @@ impl<'a> Interpreter<'a> {
         let Some(mut place) = slot.and_then(|slot| self.stack.get_mut(self.base + slot)) else {
             return Err(SomoniError::internal("variable without a value"));
         };
-        for step in steps {
+        let count = steps.len();
+        for (i, step) in steps.into_iter().enumerate() {
+            let is_last = i + 1 == count;
             place = match (step, place) {
-                (Step::Index { index, span }, Value::List(items)) => {
+                (
+                    Step::Index {
+                        index: Value::Int(index),
+                        span,
+                    },
+                    Value::List(items),
+                ) => {
                     let items = Rc::make_mut(items);
                     let position = list_position(index, items.len())
                         .map_err(|error| error.with_span_if_missing(Some(span)))?;
                     &mut items[position]
+                }
+                (Step::Index { index, span }, Value::Map(map)) => {
+                    let key = map_key(&index)?;
+                    let map = Rc::make_mut(map);
+                    if is_last {
+                        map.entry(key)
+                    } else {
+                        map.get_mut(&key)
+                            .ok_or_else(|| key_not_found(&key).with_span_if_missing(Some(span)))?
+                    }
                 }
                 (Step::Field(position), Value::Struct(fields)) => Rc::make_mut(fields)
                     .fields
@@ -305,9 +324,7 @@ impl<'a> Interpreter<'a> {
             ExprKind::Ident { slot, .. } => Ok(*slot),
             ExprKind::Index { target, index } => {
                 let slot = self.place_steps(target, steps)?;
-                let Value::Int(index) = self.eval(index)? else {
-                    return Err(SomoniError::internal("index is not an int"));
-                };
+                let index = self.eval(index)?;
                 steps.push(Step::Index {
                     index,
                     span: target_span,

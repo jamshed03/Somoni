@@ -1,0 +1,2 @@
+var m: map<string, int> = {"a": 1};
+m["b"] = "zwei";

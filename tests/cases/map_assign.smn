@@ -1,0 +1,37 @@
+var alter: map<string, int> = {"Ali": 30};
+alter["Sara"] = 25;
+alter["Ali"] = 31;
+print(alter);
+
+// a copy is a map of its own
+var copy: map<string, int> = alter;
+copy["Tom"] = 40;
+print(len(alter));
+print(len(copy));
+
+// nested: a list in a map, a map in a struct
+var groups: map<string, list<string>> = {"a": ["Ali"]};
+groups["a"][0] = "Aziz";
+groups["b"] = [];
+groups["b"] = groups["b"] + ["Sara"];
+print(groups);
+
+struct Team {
+    goals: map<string, int>
+}
+var team: Team = Team { goals: {} };
+team.goals["Ali"] = 1;
+team.goals["Ali"] = team.goals["Ali"] + 1;
+print(team);
+
+// counting words
+var words: list<string> = ["a", "b", "a"];
+var count: map<string, int> = {};
+for (var i: int = 0; i < len(words); i = i + 1) {
+    if (has(count, words[i])) {
+        count[words[i]] = count[words[i]] + 1;
+    } else {
+        count[words[i]] = 1;
+    }
+}
+print(count);

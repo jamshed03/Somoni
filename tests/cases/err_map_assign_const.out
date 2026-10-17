@@ -1,0 +1,3 @@
+Type error [T005]: Line 2: cannot assign to const 'm'
+  2 | m["b"] = 2;
+    | ^
