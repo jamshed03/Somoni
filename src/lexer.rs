@@ -132,6 +132,9 @@ impl Lexer {
             "class" => Token::Class,
             "new" => Token::New,
             "this" => Token::This,
+            "public" => Token::Public,
+            "private" => Token::Private,
+            "protected" => Token::Protected,
             _ => Token::Ident(text),
         }
     }

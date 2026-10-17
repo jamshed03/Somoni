@@ -32,7 +32,7 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
         }
         for class in ast::classes(stmts) {
             functions.push(compile_constructor(class, classes.len())?);
-            for method in &class.methods {
+            for method in class.methods.iter().map(|m| &m.function) {
                 let name = format!("{}.{}", class.layout.name, method.name);
                 functions.push(compile_function(method, name, method.params.len() + 1)?);
             }

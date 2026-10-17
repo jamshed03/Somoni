@@ -26,6 +26,9 @@ pub enum Token {
     Class,
     New,
     This,
+    Public,
+    Private,
+    Protected,
 
     // names and values
     Ident(String),

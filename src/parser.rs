@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use crate::ast::{
     BinaryOp, ClassDecl, ClassField, ClassLayout, Constructor, EnumDecl, Expr, ExprKind, Field,
-    FieldInit, Function, Import, ImportName, MatchArm, Param, Pattern, Stmt, StructDecl, THIS,
-    TypeName, UnaryOp,
+    FieldInit, Function, Import, ImportName, MatchArm, Method, Param, Pattern, Stmt, StructDecl,
+    THIS, TypeName, UnaryOp, Visibility,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -294,8 +294,18 @@ impl Parser {
             if *self.peek() == Token::Eof {
                 return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
             }
+            let visibility = self.parse_visibility()?;
             if matches!(self.peek(), Token::Ident(name) if name == "constructor") {
                 let span = self.current_span();
+                if visibility == Visibility::Private {
+                    return Err(SomoniError::at(
+                        span,
+                        ErrorCode::NotYetSupported {
+                            what: "'private constructor'",
+                            comes_with: "static",
+                        },
+                    ));
+                }
                 if constructor.is_some() {
                     return Err(SomoniError::at(span, ErrorCode::DuplicateConstructor));
                 }
@@ -307,7 +317,11 @@ impl Parser {
             {
                 let name_span = self.current_span();
                 self.advance();
-                methods.push(self.parse_function_rest(false, name, name_span)?);
+                let function = self.parse_function_rest(false, name, name_span)?;
+                methods.push(Method {
+                    visibility,
+                    function,
+                });
                 continue;
             }
             let field = self.parse_field()?;
@@ -318,7 +332,11 @@ impl Parser {
                 None
             };
             self.expect(Token::Semicolon, "';' after the field")?;
-            fields.push(ClassField { field, start });
+            fields.push(ClassField {
+                visibility,
+                field,
+                start,
+            });
         }
         self.advance();
         let layout = ClassLayout {
@@ -333,6 +351,26 @@ impl Parser {
             constructor,
             methods,
         }))
+    }
+
+    /// Reads `public` or `private` in front of a field or method; without it, it is public.
+    fn parse_visibility(&mut self) -> Result<Visibility, SomoniError> {
+        let visibility = match self.peek() {
+            Token::Public => Visibility::Public,
+            Token::Private => Visibility::Private,
+            Token::Protected => {
+                return Err(SomoniError::at(
+                    self.current_span(),
+                    ErrorCode::NotYetSupported {
+                        what: "'protected'",
+                        comes_with: "extends",
+                    },
+                ));
+            }
+            _ => return Ok(Visibility::Public),
+        };
+        self.advance();
+        Ok(visibility)
     }
 
     /// Reads `constructor(a: int) { ... }`. The current token is `constructor`.

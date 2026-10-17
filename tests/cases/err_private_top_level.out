@@ -1,0 +1,3 @@
+Parse error [P002]: Line 1: unexpected token Private
+  1 | private fn f(): void {
+    | ^^^^^^^

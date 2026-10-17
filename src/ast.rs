@@ -393,7 +393,21 @@ pub struct ClassDecl {
     pub fields: Vec<ClassField>,
     pub constructor: Option<Constructor>,
     /// The methods; each gets `this` as a hidden first parameter (slot 0).
-    pub methods: Vec<Function>,
+    pub methods: Vec<Method>,
+}
+
+/// Who may use a field or method of a class: everyone, or only the class itself.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Visibility {
+    Public,
+    Private,
+}
+
+/// A method of a class with its visibility.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Method {
+    pub visibility: Visibility,
+    pub function: Function,
 }
 
 /// `constructor(name: string) { ... }` of a class. The type checker fills in `this_slot`:
@@ -418,9 +432,11 @@ pub struct ClassLayout {
     pub fields: Vec<String>,
 }
 
-/// One field of a class: `name: type;` or with a start value `name: type = start;`.
+/// One field of a class: `name: type;` or with a start value `name: type = start;`,
+/// maybe with `public` or `private` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassField {
+    pub visibility: Visibility,
     pub field: Field,
     pub start: Option<Expr>,
 }

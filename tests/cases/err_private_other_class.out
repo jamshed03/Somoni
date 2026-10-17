@@ -1,0 +1,3 @@
+Type error [T058]: Line 10: 'passwort' is private in 'User' and can only be used inside the class
+  10 |         return x.passwort;
+     |                  ^^^^^^^^

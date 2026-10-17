@@ -1,0 +1,8 @@
+class User {
+    private passwort: string = "geheim";
+
+    private zaehlen(): void {
+    }
+}
+var u: User = new User();
+u.passwort = "neu";

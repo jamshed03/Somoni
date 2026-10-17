@@ -1,0 +1,39 @@
+class User {
+    public name: string;
+    private passwort: string;
+    private versuche: int = 0;
+
+    public constructor(name: string, passwort: string) {
+        this.name = name;
+        this.passwort = passwort;
+    }
+
+    public anmelden(eingabe: string): bool {
+        this.zaehlen();
+        return this.passwort == eingabe;
+    }
+
+    private zaehlen(): void {
+        this.versuche += 1;
+    }
+
+    // private works for other objects of the same class too
+    gleichesPasswort(other: User): bool {
+        return this.passwort == other.passwort;
+    }
+
+    versucheBisher(): int {
+        return this.versuche;
+    }
+}
+
+var u: User = new User("Ali", "geheim");
+print(u.anmelden("falsch"));
+print(u.anmelden("geheim"));
+print(u.versucheBisher());
+print(u.gleichesPasswort(new User("Sara", "geheim")));
+
+// public fields can be changed from outside
+u.name = "Ali B.";
+// print shows private fields too
+print(u);

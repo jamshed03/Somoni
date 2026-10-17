@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::ast::{
     self, BinaryOp, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr, ExprKind,
     Field, FieldInit, Function, Import, IterKind, MatchArm, Param, Pattern, Stmt, StructDecl, THIS,
-    TypeName, UnaryOp,
+    TypeName, UnaryOp, Visibility,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -35,13 +35,14 @@ struct StructInfo {
     fields: Vec<(String, Type)>,
 }
 
-/// The type of each field of a class, the function that builds its objects (`new`)
-/// and its methods by name.
+/// The type of each field of a class, the function that builds its objects (`new`),
+/// its methods by name, and the names of its private fields and methods.
 #[derive(Clone)]
 struct ClassInfo {
     fields: Vec<(String, Type)>,
     constructor: Signature,
     methods: HashMap<String, Signature>,
+    private: HashSet<String>,
 }
 
 /// The functions, structs, enums and classes declared at the top level of a file, by name.
@@ -98,6 +99,8 @@ pub struct TypeChecker {
     exports: HashMap<usize, Exports>,
     structs: HashMap<Decl<StructDecl>, StructInfo>,
     classes: HashMap<Decl<ClassLayout>, ClassInfo>,
+    /// The class whose start values, constructor or methods are being checked.
+    current_class: Option<Decl<ClassLayout>>,
     /// How many functions the files checked so far have; gives each function its number.
     function_count: usize,
     current_return: Option<Type>,
@@ -113,6 +116,7 @@ impl TypeChecker {
             exports: HashMap::new(),
             structs: HashMap::new(),
             classes: HashMap::new(),
+            current_class: None,
             function_count: 0,
             current_return: None,
             next_slot: 0,
@@ -284,6 +288,7 @@ impl TypeChecker {
                     return_type: Type::Class(layout.clone()),
                 },
                 methods: HashMap::new(),
+                private: HashSet::new(),
             };
             self.names
                 .classes
@@ -299,8 +304,22 @@ impl TypeChecker {
         }
         for class in ast::classes(stmts) {
             let fields = self.resolve_fields(class.fields.iter().map(|f| &f.field))?;
+            let private = class
+                .fields
+                .iter()
+                .filter(|f| f.visibility == Visibility::Private)
+                .map(|f| f.field.name.clone())
+                .chain(
+                    class
+                        .methods
+                        .iter()
+                        .filter(|m| m.visibility == Visibility::Private)
+                        .map(|m| m.function.name.clone()),
+                )
+                .collect();
             if let Some(info) = self.classes.get_mut(&Decl(Rc::clone(&class.layout))) {
                 info.fields = fields;
+                info.private = private;
             }
         }
 
@@ -419,7 +438,7 @@ impl TypeChecker {
             let constructor_index = self.function_count;
             self.function_count += 1;
             let mut methods = HashMap::new();
-            for method in &class.methods {
+            for method in class.methods.iter().map(|m| &m.function) {
                 if class.layout.fields.contains(&method.name) || methods.contains_key(&method.name)
                 {
                     return Err(SomoniError::at(
@@ -523,8 +542,21 @@ impl TypeChecker {
 
     /// Checks the start values and the constructor of a class, and that every field gets a value.
     /// Start values see no variables, like the body of a function without parameters.
+    /// Private fields and methods may be used inside, see `check_access`.
     fn check_class(&mut self, class: &mut ClassDecl) -> Result<(), SomoniError> {
         let layout = Decl(Rc::clone(&class.layout));
+        let outer_class = self.current_class.replace(layout.clone());
+        let result = self.check_class_parts(class, layout);
+        self.current_class = outer_class;
+        result
+    }
+
+    /// Checks the parts of a class for `check_class`.
+    fn check_class_parts(
+        &mut self,
+        class: &mut ClassDecl,
+        layout: Decl<ClassLayout>,
+    ) -> Result<(), SomoniError> {
         let info = self.class_info(&layout)?.clone();
         self.in_function(None, |this| {
             for (field, (_, ty)) in class.fields.iter_mut().zip(&info.fields) {
@@ -544,7 +576,7 @@ impl TypeChecker {
                 this.check_stmts(&mut constructor.body)
             })?;
         }
-        for method in &mut class.methods {
+        for method in class.methods.iter_mut().map(|m| &mut m.function) {
             let signature = info
                 .methods
                 .get(&method.name)
@@ -556,6 +588,27 @@ impl TypeChecker {
             .as_ref()
             .map_or(&[][..], |constructor| &constructor.body);
         check_fields_set(class, body)
+    }
+
+    /// Returns T058 if `name` is a private field or method of the class `layout` and the code
+    /// being checked is not inside that class (rule 17 of `Klassen.md`).
+    fn check_access(
+        &self,
+        layout: &Decl<ClassLayout>,
+        name: &str,
+        span: Span,
+    ) -> Result<(), SomoniError> {
+        let private = self.class_info(layout)?.private.contains(name);
+        if private && self.current_class.as_ref() != Some(layout) {
+            return Err(SomoniError::at(
+                span,
+                ErrorCode::PrivateMember {
+                    class: layout.name.clone(),
+                    name: name.to_string(),
+                },
+            ));
+        }
+        Ok(())
     }
 
     /// Returns the field types and the constructor of a class.
@@ -1460,7 +1513,11 @@ impl TypeChecker {
                 let owner = target_type.to_string();
                 let (position, ty) = field_of(fields, &owner, name, *name_span)?;
                 *index = Some(position);
-                Ok(ty.clone())
+                let ty = ty.clone();
+                if let Type::Class(layout) = &target_type {
+                    self.check_access(layout, name, *name_span)?;
+                }
+                Ok(ty)
             }
             ExprKind::Call {
                 name,
@@ -1525,6 +1582,7 @@ impl TypeChecker {
                             },
                         )
                     })?;
+                self.check_access(layout, name, *name_span)?;
                 *target_fn = Some(signature.index);
                 self.check_args(name, &signature.params, args, expr.span)?;
                 Ok(signature.return_type)

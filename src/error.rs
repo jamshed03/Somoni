@@ -47,6 +47,10 @@ pub enum ErrorCode {
     ExportNotTopLevel,
     ClassNotTopLevel,
     DuplicateConstructor,
+    NotYetSupported {
+        what: &'static str,
+        comes_with: &'static str,
+    },
 
     // loader and imports
     CannotReadFile {
@@ -239,6 +243,10 @@ pub enum ErrorCode {
     NoMethods {
         found: Type,
     },
+    PrivateMember {
+        class: String,
+        name: String,
+    },
     ThisBeforeFieldsSet {
         missing: String,
     },
@@ -291,6 +299,7 @@ impl ErrorCode {
             ErrorCode::ExportNotTopLevel => "P010",
             ErrorCode::ClassNotTopLevel => "P011",
             ErrorCode::DuplicateConstructor => "P012",
+            ErrorCode::NotYetSupported { .. } => "P013",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -357,6 +366,7 @@ impl ErrorCode {
             ErrorCode::DuplicateMember { .. } => "T055",
             ErrorCode::UnknownMethod { .. } => "T056",
             ErrorCode::NoMethods { .. } => "T057",
+            ErrorCode::PrivateMember { .. } => "T058",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -388,7 +398,8 @@ impl ErrorCode {
             | ErrorCode::ImportNotFirst
             | ErrorCode::ExportNotTopLevel
             | ErrorCode::ClassNotTopLevel
-            | ErrorCode::DuplicateConstructor => ErrorKind::Parse,
+            | ErrorCode::DuplicateConstructor
+            | ErrorCode::NotYetSupported { .. } => ErrorKind::Parse,
 
             ErrorCode::CannotReadFile { .. }
             | ErrorCode::ImportCycle { .. }
@@ -454,7 +465,8 @@ impl ErrorCode {
             | ErrorCode::ThisBeforeFieldsSet { .. }
             | ErrorCode::DuplicateMember { .. }
             | ErrorCode::UnknownMethod { .. }
-            | ErrorCode::NoMethods { .. } => ErrorKind::Type,
+            | ErrorCode::NoMethods { .. }
+            | ErrorCode::PrivateMember { .. } => ErrorKind::Type,
 
             ErrorCode::Internal { .. }
             | ErrorCode::DivisionByZero
@@ -495,6 +507,10 @@ impl ErrorCode {
                 "classes can only be declared at the top level".to_string()
             }
             ErrorCode::DuplicateConstructor => "a class can only have one constructor".to_string(),
+            ErrorCode::NotYetSupported { what, comes_with } => format!(
+                "{} is not supported yet (it comes together with {})",
+                what, comes_with
+            ),
             ErrorCode::InvalidAssignTarget => {
                 "can only assign to a variable, a list element or a field".to_string()
             }
@@ -678,6 +694,10 @@ impl ErrorCode {
             ErrorCode::NoMethods { found } => format!(
                 "cannot call a method on {} (only objects of classes have methods)",
                 found
+            ),
+            ErrorCode::PrivateMember { class, name } => format!(
+                "'{}' is private in '{}' and can only be used inside the class",
+                name, class
             ),
             ErrorCode::BoundVarType {
                 name,

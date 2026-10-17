@@ -1,0 +1,12 @@
+class User {
+    private passwort: string = "geheim";
+
+    private zaehlen(): void {
+    }
+}
+var u: User = new User();
+class Hacker {
+    lesen(x: User): string {
+        return x.passwort;
+    }
+}
