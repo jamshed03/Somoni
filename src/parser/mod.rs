@@ -181,12 +181,11 @@ impl Parser {
     }
 
     /// Reads one field `x: int` of a struct or class.
+    /// It stays apart from `parse_param` because fields and parameters change for different reasons.
     fn parse_field(&mut self) -> Result<Field, SomoniError> {
-        let Param {
-            name,
-            name_span,
-            type_name,
-        } = self.parse_param("field")?;
+        let (name, name_span) = self.expect_ident("field name")?;
+        self.expect(Token::Colon, "':' after field name")?;
+        let type_name = self.parse_type("field type")?;
         Ok(Field {
             name,
             name_span,
