@@ -1,0 +1,30 @@
+// assigning to a checked variable is allowed; afterwards it has the type of the value
+class Node {
+    wert: int;
+    next: Node?;
+
+    constructor(wert: int, next: Node?) {
+        this.wert = wert;
+        this.next = next;
+    }
+}
+
+var n: Node? = new Node(1, new Node(2, new Node(3, null)));
+var summe: int = 0;
+while (n != null) {
+    summe += n.wert;
+    n = n.next;
+}
+print(summe);
+
+var a: int? = 5;
+if (a != null) {
+    a = null;
+    print(a == null);
+    a = 7;
+    print(a + 1);
+    print(a != null);
+}
+var b: int? = null;
+b = 3;
+print(b + 1);

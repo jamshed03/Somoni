@@ -1,0 +1,7 @@
+var a: int? = 5;
+if (a != null) {
+    if (a > 3) {
+        a = null;
+    }
+    print(a + 1);
+}

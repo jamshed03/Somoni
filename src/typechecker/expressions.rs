@@ -67,7 +67,8 @@ impl TypeChecker {
         self.check_fits(&mut call.args[0], inner, |found| ErrorCode::WrongArgType {
             name: name.clone(),
             found,
-        })
+        })?;
+        Ok(())
     }
 
     /// Checks both sides of an operator.
@@ -79,10 +80,12 @@ impl TypeChecker {
     ) -> Result<(Type, Type), SomoniError> {
         if needs_type_hint(left) {
             let r = self.check_expr(right)?;
+            let r = self.null_compared(op, right, left, r);
             let l = self.check_expr_expecting(left, &r)?;
             return Ok((l, r));
         }
         let l = self.check_expr(left)?;
+        let l = self.null_compared(op, left, right, l);
         let known = match op {
             BinaryOp::And => self.known_narrowed(left, true),
             BinaryOp::Or => self.known_narrowed(left, false),
@@ -90,6 +93,18 @@ impl TypeChecker {
         };
         let r = self.with_narrowed(known, |this| this.check_expr_expecting(right, &l))?;
         Ok((l, r))
+    }
+
+    /// Returns the declared type of a variable compared with `null`, so `a != null` works even where `a` is checked.
+    fn null_compared(&self, op: BinaryOp, expr: &Expr, other: &Expr, ty: Type) -> Type {
+        let is_equality = matches!(op, BinaryOp::Eq | BinaryOp::NotEq);
+        match (&expr.kind, &other.kind) {
+            (ExprKind::Ident { name, .. }, ExprKind::Null) if is_equality => self
+                .scopes
+                .lookup(name)
+                .map_or(ty, |info| info.declared.clone()),
+            _ => ty,
+        }
     }
 
     /// Checks a list literal.

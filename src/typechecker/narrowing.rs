@@ -17,6 +17,7 @@ impl TypeChecker {
             if let Some(info) = self.scopes.lookup(&name) {
                 let narrowed = VarInfo {
                     ty,
+                    declared: info.declared.clone(),
                     mutable: info.mutable,
                     slot: info.slot,
                 };
@@ -26,6 +27,30 @@ impl TypeChecker {
         let result = check(self);
         self.scopes.pop();
         result
+    }
+
+    /// Gives a variable after `name = value` the type of the value for the rest of this block.
+    /// Checks in the blocks around end too, because the assignment may run on only some paths.
+    pub(super) fn narrow_after_assign(&mut self, name: &str, found: Type) {
+        let Some(info) = self.scopes.lookup(name) else {
+            return;
+        };
+        let (slot, declared) = (info.slot, info.declared.clone());
+        self.scopes.update_all(name, |info| {
+            if info.slot == slot {
+                info.ty = info.declared.clone();
+            }
+        });
+        if found != declared {
+            let mutable = self.scopes.lookup(name).is_some_and(|info| info.mutable);
+            let narrowed = VarInfo {
+                ty: found,
+                declared,
+                mutable,
+                slot,
+            };
+            self.scopes.set_innermost(name, narrowed);
+        }
     }
 
     /// Returns the variables with a narrower type when `condition` is `when`, e.g. not null.

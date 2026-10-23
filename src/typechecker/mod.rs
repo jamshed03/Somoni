@@ -23,7 +23,10 @@ mod statements;
 
 /// What the type checker knows about a variable.
 struct VarInfo {
+    /// The type here, which a check like `a != null` may have narrowed.
     ty: Type,
+    /// The type the variable was declared with, which every assignment must fit.
+    declared: Type,
     mutable: bool,
     slot: usize,
 }
@@ -291,7 +294,12 @@ impl TypeChecker {
         mutable: bool,
     ) -> Result<usize, SomoniError> {
         let slot = self.next_slot;
-        let info = VarInfo { ty, mutable, slot };
+        let info = VarInfo {
+            declared: ty.clone(),
+            ty,
+            mutable,
+            slot,
+        };
         if !self.scopes.declare(name, info) {
             return Err(SomoniError::at(
                 name_span,
@@ -305,25 +313,25 @@ impl TypeChecker {
     }
 
     /// Checks that `value` has the type `expected`.
-    fn check_assignable(&mut self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
+    fn check_assignable(&mut self, value: &mut Expr, expected: &Type) -> Result<Type, SomoniError> {
         self.check_fits(value, expected, |found| ErrorCode::CannotAssign {
             found,
             expected: expected.clone(),
         })
     }
 
-    /// Checks `expr` against `expected` and returns the error from `wrong` if its type does not fit.
+    /// Checks `expr` against `expected` and returns its type, or the error from `wrong` if it does not fit.
     fn check_fits(
         &mut self,
         expr: &mut Expr,
         expected: &Type,
         wrong: impl FnOnce(Type) -> ErrorCode,
-    ) -> Result<(), SomoniError> {
+    ) -> Result<Type, SomoniError> {
         let found = self.check_expr_expecting(expr, expected)?;
         if !self.fits(&found, expected) {
             return Err(SomoniError::at(expr.span, wrong(found)));
         }
-        Ok(())
+        Ok(found)
     }
 
     /// Checks the arguments of a call of `name` against the types of its parameters.

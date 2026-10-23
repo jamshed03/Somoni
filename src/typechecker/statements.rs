@@ -153,11 +153,30 @@ impl TypeChecker {
             self.check_not_readonly(field)?;
         }
         match assign.op {
-            None => self.check_assignable(&mut assign.value, &target_type),
+            None => self.check_plain_assign(assign, target_type),
             Some((op, op_span)) => {
                 self.check_compound_assign(op, op_span, &mut assign.value, target_type)
             }
         }
+    }
+
+    /// Checks `target = value`, where a checked variable may get any value of its declared type.
+    fn check_plain_assign(
+        &mut self,
+        assign: &mut Assign,
+        target_type: Type,
+    ) -> Result<(), SomoniError> {
+        let ExprKind::Ident { name, .. } = &assign.target.kind else {
+            self.check_assignable(&mut assign.value, &target_type)?;
+            return Ok(());
+        };
+        let declared = self
+            .scopes
+            .lookup(name)
+            .map_or(target_type, |info| info.declared.clone());
+        let found = self.check_assignable(&mut assign.value, &declared)?;
+        self.narrow_after_assign(name, found);
+        Ok(())
     }
 
     /// Checks the target of an assignment and returns its type, or T005 for an enum variant like `Farbe.Rot`.
@@ -244,10 +263,13 @@ impl TypeChecker {
             return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
         };
         match value {
-            Some(value) => self.check_fits(value, &expected, |found| ErrorCode::ReturnType {
-                found,
-                expected: expected.clone(),
-            }),
+            Some(value) => {
+                self.check_fits(value, &expected, |found| ErrorCode::ReturnType {
+                    found,
+                    expected: expected.clone(),
+                })?;
+                Ok(())
+            }
             None if expected == Type::Void => Ok(()),
             None => Err(SomoniError::at(
                 span,

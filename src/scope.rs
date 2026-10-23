@@ -35,6 +35,22 @@ impl<T> Scopes<T> {
         true
     }
 
+    /// Adds a name to the innermost block, or replaces what the block knows about it.
+    pub fn set_innermost(&mut self, name: &str, value: T) {
+        if let Some(scope) = self.stack.last_mut() {
+            scope.insert(name.to_string(), value);
+        }
+    }
+
+    /// Lets `change` change what every open block knows about `name`.
+    pub fn update_all(&mut self, name: &str, mut change: impl FnMut(&mut T)) {
+        for scope in &mut self.stack {
+            if let Some(value) = scope.get_mut(name) {
+                change(value);
+            }
+        }
+    }
+
     /// Finds a name, starting with the innermost block.
     pub fn lookup(&self, name: &str) -> Option<&T> {
         self.stack.iter().rev().find_map(|scope| scope.get(name))
