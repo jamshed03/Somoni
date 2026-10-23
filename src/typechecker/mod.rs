@@ -17,6 +17,7 @@ mod expressions;
 mod interfaces;
 mod members;
 mod modules;
+mod null_checks;
 mod patterns;
 mod statements;
 
@@ -266,15 +267,22 @@ impl TypeChecker {
 
     /// Checks that `value` has the type `expected`.
     fn check_assignable(&mut self, value: &mut Expr, expected: &Type) -> Result<(), SomoniError> {
-        let found = self.check_expr_expecting(value, expected)?;
+        self.check_fits(value, expected, |found| ErrorCode::CannotAssign {
+            found,
+            expected: expected.clone(),
+        })
+    }
+
+    /// Checks `expr` against `expected` and returns the error from `wrong` if its type does not fit.
+    fn check_fits(
+        &mut self,
+        expr: &mut Expr,
+        expected: &Type,
+        wrong: impl FnOnce(Type) -> ErrorCode,
+    ) -> Result<(), SomoniError> {
+        let found = self.check_expr_expecting(expr, expected)?;
         if !self.fits(&found, expected) {
-            return Err(SomoniError::at(
-                value.span,
-                ErrorCode::CannotAssign {
-                    found,
-                    expected: expected.clone(),
-                },
-            ));
+            return Err(SomoniError::at(expr.span, wrong(found)));
         }
         Ok(())
     }

@@ -1,13 +1,14 @@
-//! Checking statements and function bodies: variables, assignments, loops, `return`, null checks.
+//! Checking statements and function bodies: variables, assignments, loops, `return`.
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Function, IterKind, Param, Stmt, THIS, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, Function, IterKind, MatchArm, Param, Stmt, THIS};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Type;
 
-use super::{Signature, TypeChecker, VarInfo};
+use super::{Signature, TypeChecker};
 
 impl TypeChecker {
+    /// Checks statements one after another.
     pub(super) fn check_stmts(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
         for stmt in stmts {
             self.check_stmt(stmt)?;
@@ -17,7 +18,12 @@ impl TypeChecker {
 
     /// Checks a function.
     fn check_function(&mut self, function: &mut Function) -> Result<(), SomoniError> {
-        let signature = self.names.functions[&function.name].clone();
+        let signature = self
+            .names
+            .functions
+            .get(&function.name)
+            .cloned()
+            .ok_or_else(|| SomoniError::internal("function without signature"))?;
         let name = function.name.clone();
         self.check_body(function, &name, &signature, None)
     }
@@ -51,6 +57,7 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Checks one statement and writes slots and other results into it.
     pub(super) fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl {
@@ -87,22 +94,12 @@ impl TypeChecker {
                 then_branch,
                 else_branch,
                 ..
-            } => {
-                self.check_condition(condition)?;
-                let then_known = self.known_not_null(condition, true);
-                let else_known = self.known_not_null(condition, false);
-                self.with_not_null(then_known, |this| this.check_stmt(then_branch))?;
-                if let Some(else_branch) = else_branch {
-                    self.with_not_null(else_known, |this| this.check_stmt(else_branch))?;
-                }
-                Ok(())
-            }
+            } => self.check_if(condition, then_branch, else_branch.as_deref_mut()),
             Stmt::While {
                 condition, body, ..
             } => {
                 self.check_condition(condition)?;
-                let known = self.known_not_null(condition, true);
-                self.with_not_null(known, |this| this.check_loop_body(body))
+                self.check_loop_body_after(condition, body)
             }
             Stmt::For {
                 init,
@@ -119,23 +116,7 @@ impl TypeChecker {
                 seq_slot,
                 over,
                 ..
-            } => {
-                let ty = self.check_expr(iterable)?;
-                let Some((kind, expected)) = loop_var_types(&ty, vars.len()) else {
-                    return Err(SomoniError::at(
-                        iterable.span,
-                        ErrorCode::NotIterable { found: ty },
-                    ));
-                };
-                *over = Some(kind);
-                let span = iterable.span;
-                self.in_scope(|this| {
-                    *seq_slot = Some(this.declare("#seq", span, ty, false)?);
-                    this.declare("#index", span, Type::Int, true)?;
-                    *slots = this.declare_bound_vars(vars, expected)?;
-                    this.check_loop_body(body)
-                })
-            }
+            } => self.check_for_each(vars, iterable, body, slots, seq_slot, over),
             Stmt::FnDecl(function) => self.check_function(function),
             Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::InterfaceDecl(_) | Stmt::Import(_) => {
                 Ok(())
@@ -147,78 +128,46 @@ impl TypeChecker {
                 arm_of_variant,
                 unwraps,
                 span,
-            } => {
-                let ty = self.check_expr(subject)?;
-                *arm_of_variant = self.check_match(&ty, subject.span, arms, *span)?;
-                *unwraps = matches!(ty, Type::Result(_, _));
-                for arm in arms {
-                    self.check_arm(arm, &ty)?;
-                }
-                Ok(())
-            }
+            } => self.check_match_stmt(subject, arms, arm_of_variant, unwraps, *span),
             Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
         }
     }
 
-    /// Runs `check` while the variables in `known` are known not to be null.
-    pub(super) fn with_not_null<T>(
+    /// Checks `if`, each branch with the variables its condition proves not to be null.
+    fn check_if(
         &mut self,
-        known: Vec<(String, Type)>,
-        check: impl FnOnce(&mut Self) -> T,
-    ) -> T {
-        self.scopes.push();
-        for (name, ty) in known {
-            if let Some(info) = self.scopes.lookup(&name) {
-                let narrowed = VarInfo {
-                    ty,
-                    mutable: info.mutable,
-                    slot: info.slot,
-                };
-                self.scopes.declare(&name, narrowed);
-            }
+        condition: &mut Expr,
+        then_branch: &mut Stmt,
+        else_branch: Option<&mut Stmt>,
+    ) -> Result<(), SomoniError> {
+        self.check_condition(condition)?;
+        let then_known = self.known_not_null(condition, true);
+        let else_known = self.known_not_null(condition, false);
+        self.with_not_null(then_known, |this| this.check_stmt(then_branch))?;
+        if let Some(else_branch) = else_branch {
+            self.with_not_null(else_known, |this| this.check_stmt(else_branch))?;
         }
-        let result = check(self);
-        self.scopes.pop();
-        result
+        Ok(())
     }
 
-    /// Returns the variables that cannot be null when `condition` is `when`.
-    pub(super) fn known_not_null(&self, condition: &Expr, when: bool) -> Vec<(String, Type)> {
-        match &condition.kind {
-            ExprKind::Binary {
-                left, op, right, ..
-            } => match (op, when) {
-                (BinaryOp::NotEq, true) | (BinaryOp::Eq, false) => {
-                    self.null_checked(left, right).into_iter().collect()
-                }
-                (BinaryOp::And, true) | (BinaryOp::Or, false) => {
-                    let mut known = self.known_not_null(left, when);
-                    known.extend(self.known_not_null(right, when));
-                    known
-                }
-                _ => Vec::new(),
-            },
-            ExprKind::Unary {
-                op: UnaryOp::Not,
-                operand,
-            } => self.known_not_null(operand, !when),
-            _ => Vec::new(),
+    /// Checks a `match` statement: the subject, that every variant is covered, and each branch.
+    fn check_match_stmt(
+        &mut self,
+        subject: &mut Expr,
+        arms: &mut [MatchArm],
+        arm_of_variant: &mut Vec<usize>,
+        unwraps: &mut bool,
+        span: Span,
+    ) -> Result<(), SomoniError> {
+        let ty = self.check_expr(subject)?;
+        *arm_of_variant = self.check_match(&ty, subject.span, arms, span)?;
+        *unwraps = matches!(ty, Type::Result(_, _));
+        for arm in arms {
+            self.check_arm(arm, &ty)?;
         }
-    }
-
-    /// Returns the variable and its type without `?` for `a != null`.
-    fn null_checked(&self, left: &Expr, right: &Expr) -> Option<(String, Type)> {
-        let name = match (&left.kind, &right.kind) {
-            (ExprKind::Ident { name, .. }, ExprKind::Null)
-            | (ExprKind::Null, ExprKind::Ident { name, .. }) => name,
-            _ => return None,
-        };
-        let Type::Optional(inner) = &self.scopes.lookup(name)?.ty else {
-            return None;
-        };
-        Some((name.clone(), (**inner).clone()))
+        Ok(())
     }
 
     /// Checks an assignment and returns true if its target lies inside an object.
@@ -282,25 +231,26 @@ impl TypeChecker {
 
     /// Checks that `return` is inside a function and returns the right type.
     fn check_return(&mut self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
-        let Some(expected) = &self.current_return.clone() else {
+        let Some(expected) = self.current_return.clone() else {
             return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
         };
-        let (found, place) = match value {
-            Some(value) => (self.check_expr_expecting(value, expected)?, value.span),
-            None => (Type::Void, span),
-        };
-        if !self.fits(&found, expected) {
-            return Err(SomoniError::at(
-                place,
+        match value {
+            Some(value) => self.check_fits(value, &expected, |found| ErrorCode::ReturnType {
+                found,
+                expected: expected.clone(),
+            }),
+            None if expected == Type::Void => Ok(()),
+            None => Err(SomoniError::at(
+                span,
                 ErrorCode::ReturnType {
-                    found,
-                    expected: expected.clone(),
+                    found: Type::Void,
+                    expected,
                 },
-            ));
+            )),
         }
-        Ok(())
     }
 
+    /// Checks a `for` loop with start, condition and step.
     fn check_for(
         &mut self,
         init: &mut Stmt,
@@ -311,8 +261,34 @@ impl TypeChecker {
         self.check_stmt(init)?;
         self.check_condition(condition)?;
         self.check_stmt(step)?;
-        let known = self.known_not_null(condition, true);
-        self.with_not_null(known, |this| this.check_loop_body(body))
+        self.check_loop_body_after(condition, body)
+    }
+
+    /// Checks a `for`-each loop and gives the list, its index and the loop variables their slots.
+    fn check_for_each(
+        &mut self,
+        vars: &[Param],
+        iterable: &mut Expr,
+        body: &mut Stmt,
+        slots: &mut Vec<usize>,
+        seq_slot: &mut Option<usize>,
+        over: &mut Option<IterKind>,
+    ) -> Result<(), SomoniError> {
+        let ty = self.check_expr(iterable)?;
+        let Some((kind, expected)) = loop_var_types(&ty, vars.len()) else {
+            return Err(SomoniError::at(
+                iterable.span,
+                ErrorCode::NotIterable { found: ty },
+            ));
+        };
+        *over = Some(kind);
+        let span = iterable.span;
+        self.in_scope(|this| {
+            *seq_slot = Some(this.declare("#seq", span, ty, false)?);
+            this.declare("#index", span, Type::Int, true)?;
+            *slots = this.declare_bound_vars(vars, expected)?;
+            this.check_loop_body(body)
+        })
     }
 
     /// Declares the variables of a `for`-each loop or of `ok(n: int)` and returns their slots.
@@ -337,6 +313,16 @@ impl TypeChecker {
             slots.push(self.declare(&var.name, var.name_span, declared, false)?);
         }
         Ok(slots)
+    }
+
+    /// Checks the body of a `while` or `for` loop with the variables its condition proves not to be null.
+    fn check_loop_body_after(
+        &mut self,
+        condition: &Expr,
+        body: &mut Stmt,
+    ) -> Result<(), SomoniError> {
+        let known = self.known_not_null(condition, true);
+        self.with_not_null(known, |this| this.check_loop_body(body))
     }
 
     /// Checks a loop body, where `break` and `continue` are allowed.
