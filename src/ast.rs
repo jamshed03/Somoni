@@ -53,6 +53,7 @@ pub enum ExprKind {
     },
     SuperCall(SuperCall),
     StaticCall(StaticCall),
+    InstanceOf(InstanceOf),
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
         name: String,
@@ -159,6 +160,7 @@ impl Expr {
             ExprKind::SuperInit { args, .. } => first_this(args),
             ExprKind::SuperCall(_) => Some(self.span),
             ExprKind::StaticCall(call) => first_this(&call.args),
+            ExprKind::InstanceOf(test) => test.value.find_this(),
         }
     }
 
@@ -224,6 +226,23 @@ pub enum IterKind {
     List,
     Map,
     Str,
+}
+
+/// `value instanceof Name`, which asks whether an object belongs to a class or interface.
+#[derive(Debug, Clone, PartialEq)]
+pub struct InstanceOf {
+    pub value: Box<Expr>,
+    pub type_name: String,
+    pub type_span: Span,
+    /// Filled in by the type checker: the class or interface by its number.
+    pub target: Option<InstanceTarget>,
+}
+
+/// The class or interface that `instanceof` asks for, by its number in the program.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InstanceTarget {
+    Class(usize),
+    Interface(usize),
 }
 
 /// What a call calls: a built-in function, or a function of the program by its number.
@@ -489,6 +508,8 @@ pub struct ClassPlan {
     pub params: usize,
     /// The `init` function of the parent class, if there is one.
     pub parent_init: Option<usize>,
+    /// The number of the parent class, if there is one.
+    pub parent_class: Option<usize>,
     /// For each method slot: the function the objects of this class run for it.
     pub methods: Vec<usize>,
     /// One vtable for each interface the class implements.

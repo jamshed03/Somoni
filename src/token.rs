@@ -37,6 +37,7 @@ pub enum Token {
     Readonly,
     Static,
     Abstract,
+    Instanceof,
 
     // names and values
     Ident(String),

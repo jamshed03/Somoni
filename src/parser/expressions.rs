@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Call, Expr, ExprKind, FieldInit, MethodCall, New, StaticCall, SuperCall, THIS,
-    UnaryOp,
+    BinaryOp, Call, Expr, ExprKind, FieldInit, InstanceOf, MethodCall, New, StaticCall, SuperCall,
+    THIS, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -44,7 +44,7 @@ impl Parser {
     /// Reads operands of precedence level `level` joined by its operators, e.g. `a + b - c`.
     fn parse_level(&mut self, level: usize) -> Result<Expr, SomoniError> {
         let Some(ops) = PRECEDENCE.get(level) else {
-            return self.parse_unary();
+            return self.parse_instanceof();
         };
         let mut left = self.parse_level(level + 1)?;
         while let Some((_, op)) = ops.iter().find(|(token, _)| token == self.peek()) {
@@ -61,6 +61,24 @@ impl Parser {
             left = Expr { kind, span };
         }
         Ok(left)
+    }
+
+    /// Reads `value instanceof Name`, which binds stronger than every binary operator, or just the value.
+    fn parse_instanceof(&mut self) -> Result<Expr, SomoniError> {
+        let mut expr = self.parse_unary()?;
+        while self.eat(Token::Instanceof) {
+            let start = expr.span;
+            let (type_name, type_span) =
+                self.expect_ident("class or interface name after 'instanceof'")?;
+            let test = InstanceOf {
+                value: Box::new(expr),
+                type_name,
+                type_span,
+                target: None,
+            };
+            expr = self.expr_since(ExprKind::InstanceOf(test), start);
+        }
+        Ok(expr)
     }
 
     /// Reads `!x`, `-x` or an expression without such an operator.

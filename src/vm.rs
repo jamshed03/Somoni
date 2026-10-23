@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, ERR_VARIANT, OK_VARIANT, StructDecl};
+use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
 use crate::builtins::Builtin;
 use crate::bytecode::{Chunk, Op, Path, PathStep, Program, index_slot};
 use crate::error::{ErrorCode, SomoniError};
@@ -149,6 +149,7 @@ impl<'p> Vm<'p> {
                 frame.ip = frame.chunk.tables[*table][variant];
             }
             Op::Chars => self.chars()?,
+            Op::InstanceOf(target) => self.instance_of(*target, program)?,
             Op::Next { slot, end, both } => {
                 if !self.next_round(frame.place(*slot), *both)? {
                     frame.ip = *end;
@@ -332,6 +333,21 @@ impl<'p> Vm<'p> {
             }
             _ => Err(SomoniError::internal("match on a non-enum")),
         }
+    }
+
+    /// Pops a value and pushes whether it is an object of the class or interface `target`.
+    #[inline(never)]
+    fn instance_of(
+        &mut self,
+        target: InstanceTarget,
+        program: &Program,
+    ) -> Result<(), SomoniError> {
+        let is_instance = match self.pop()? {
+            Value::Object(object) => program.is_instance(object.0.borrow().class, target),
+            _ => false,
+        };
+        self.stack.push(Value::Bool(is_instance));
+        Ok(())
     }
 
     /// Pops a string and pushes the list of its characters.

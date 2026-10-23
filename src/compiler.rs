@@ -76,6 +76,7 @@ fn class_code(class: &ClassDecl) -> ClassCode {
     };
     ClassCode {
         layout: Rc::new(layout),
+        parent: class.plan.parent_class,
         method_table: class.plan.methods.clone(),
         vtables: class.plan.vtables.clone(),
     }
@@ -599,6 +600,11 @@ impl Compiler {
             ExprKind::MethodCall(call) => self.compile_method_call(call, span)?,
             ExprKind::SuperInit { args, target } => self.compile_super(*target, args, span)?,
             ExprKind::SuperCall(call) => self.compile_super(call.target, &call.args, span)?,
+            ExprKind::InstanceOf(test) => {
+                self.compile_expr(&test.value)?;
+                let target = filled(test.target, "instanceof target")?;
+                self.chunk.push(Op::InstanceOf(target), span);
+            }
             ExprKind::StaticCall(call) => {
                 self.compile_args(&call.args)?;
                 let target = filled(call.target, "static method")?;

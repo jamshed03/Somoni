@@ -1,0 +1,5 @@
+struct Punkt { x: int }
+class Hund {
+}
+var h: Hund = new Hund();
+print(h instanceof Punkt);

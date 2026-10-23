@@ -1,0 +1,3 @@
+Type error [T079]: Line 4: 'instanceof' needs an object on its left, found 'int'
+  4 | print(n instanceof Hund);
+    |       ^

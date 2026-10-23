@@ -1,0 +1,4 @@
+class Hund {
+}
+var h: Hund = new Hund();
+print(h instanceof Vogel);

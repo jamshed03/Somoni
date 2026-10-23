@@ -1,0 +1,35 @@
+// instanceof asks at runtime whether an object belongs to a class or interface
+interface Form {
+    flaeche(): int;
+}
+
+abstract class Tier {
+}
+
+class Hund extends Tier {
+}
+
+class Dackel extends Hund {
+}
+
+class Katze extends Tier implements Form {
+    flaeche(): int {
+        return 1;
+    }
+}
+
+var tiere: list<Tier> = [new Hund(), new Dackel(), new Katze()];
+for (t: Tier in tiere) {
+    print(t instanceof Hund);
+}
+var d: Dackel = new Dackel();
+print(d instanceof Tier);
+var k: Tier = new Katze();
+print(k instanceof Form);
+var h: Tier = new Hund();
+print(h instanceof Form);
+var leer: Tier? = null;
+print(leer instanceof Tier);
+var f: Form = new Katze();
+print(f instanceof Katze);
+print(h instanceof Hund && !(h instanceof Dackel));

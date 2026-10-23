@@ -324,6 +324,16 @@ pub enum ErrorCode {
         class: String,
         name: String,
     },
+    InstanceofNotObject {
+        found: Type,
+    },
+    InstanceofNever {
+        from: Type,
+        to: Type,
+    },
+    InstanceofNotType {
+        name: String,
+    },
     StaticOnObject {
         class: String,
         name: String,
@@ -472,6 +482,9 @@ impl ErrorCode {
             ErrorCode::AbstractNew { .. } => "T076",
             ErrorCode::AbstractNotOverridden { .. } => "T077",
             ErrorCode::AbstractSuper { .. } => "T078",
+            ErrorCode::InstanceofNotObject { .. } => "T079",
+            ErrorCode::InstanceofNever { .. } => "T080",
+            ErrorCode::InstanceofNotType { .. } => "T081",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -797,6 +810,15 @@ impl ErrorCode {
                 "'{}' is abstract in '{}' and has no body to call with 'super'",
                 name, class
             ),
+            ErrorCode::InstanceofNotObject { found } => {
+                format!("'instanceof' needs an object on its left, found '{}'", found)
+            }
+            ErrorCode::InstanceofNever { from, to } => {
+                format!("a '{}' can never be a '{}'", from, to)
+            }
+            ErrorCode::InstanceofNotType { name } => {
+                format!("'{}' after 'instanceof' is no class or interface", name)
+            }
             ErrorCode::AbstractNew { name } => format!(
                 "'{}' is abstract and has no objects, create one of a subclass",
                 name

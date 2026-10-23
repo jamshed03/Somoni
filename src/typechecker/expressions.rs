@@ -3,8 +3,9 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, CONSTRUCTOR, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit,
-    InterfaceLayout, MethodCall, MethodTarget, New, StaticCall, SuperCall, THIS, UnaryOp,
+    BinaryOp, CONSTRUCTOR, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit, InstanceOf,
+    InstanceTarget, InterfaceLayout, MethodCall, MethodTarget, New, StaticCall, SuperCall, THIS,
+    UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -263,6 +264,7 @@ impl TypeChecker {
             ExprKind::SuperCall(call) => self.check_super_call(call, span),
             ExprKind::New(new) => self.check_new(new, span),
             ExprKind::StaticCall(call) => self.check_static_call(call, span),
+            ExprKind::InstanceOf(test) => self.check_instanceof(test),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -510,6 +512,57 @@ impl TypeChecker {
         call.target = Some(method.signature.index);
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)
+    }
+
+    /// Checks `value instanceof Name`, which is a bool, or returns T079 or T080.
+    fn check_instanceof(&mut self, test: &mut InstanceOf) -> Result<Type, SomoniError> {
+        let found = self.check_expr(&mut test.value)?;
+        let object = match &found {
+            Type::Optional(inner) => (**inner).clone(),
+            other => other.clone(),
+        };
+        if !matches!(object, Type::Class(_) | Type::Interface(_)) {
+            let code = ErrorCode::InstanceofNotObject { found };
+            return Err(SomoniError::at(test.value.span, code));
+        }
+        let (wanted, target) = self.instance_type(&test.type_name, test.type_span)?;
+        if let (Type::Class(from), Type::Class(to)) = (&object, &wanted)
+            && !self.is_subclass(from, to)
+            && !self.is_subclass(to, from)
+        {
+            let code = ErrorCode::InstanceofNever {
+                from: object,
+                to: wanted,
+            };
+            return Err(SomoniError::at(test.type_span, code));
+        }
+        test.target = Some(target);
+        Ok(Type::Bool)
+    }
+
+    /// Returns the class or interface type named after `instanceof` and its number, or T081 for another type.
+    fn instance_type(&self, name: &str, span: Span) -> Result<(Type, InstanceTarget), SomoniError> {
+        if let Some(layout) = self.names.classes.get(name) {
+            let class = self.class_info(layout)?.index;
+            return Ok((Type::Class(layout.clone()), InstanceTarget::Class(class)));
+        }
+        if let Some(layout) = self.names.interfaces.get(name) {
+            let interface = self.interface_info(layout)?.index;
+            return Ok((
+                Type::Interface(layout.clone()),
+                InstanceTarget::Interface(interface),
+            ));
+        }
+        let code = if self.is_type_name(name) {
+            ErrorCode::InstanceofNotType {
+                name: name.to_string(),
+            }
+        } else {
+            ErrorCode::UnknownType {
+                name: name.to_string(),
+            }
+        };
+        Err(SomoniError::at(span, code))
     }
 
     /// Checks `new Name(args)`, or returns T076 for an abstract class.

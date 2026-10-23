@@ -1,0 +1,3 @@
+Type error [T081]: Line 5: 'Punkt' after 'instanceof' is no class or interface
+  5 | print(h instanceof Punkt);
+    |                    ^^^^^

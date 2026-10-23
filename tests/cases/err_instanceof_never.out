@@ -1,0 +1,3 @@
+Type error [T080]: Line 8: a 'Hund' can never be a 'Katze'
+  8 | print(h instanceof Katze);
+    |                    ^^^^^

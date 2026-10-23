@@ -493,6 +493,7 @@ fn class_plan(info: &ClassInfo, parent: Option<&ClassInfo>) -> ClassPlan {
         field_offset: info.first_own_field,
         params: info.constructor.params.len(),
         parent_init: parent.map(|p| p.constructor.index),
+        parent_class: parent.map(|p| p.index),
         methods: info.method_table.clone(),
         vtables: info.vtables.clone(),
     }

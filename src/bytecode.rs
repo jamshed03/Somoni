@@ -1,7 +1,9 @@
 use std::fmt::Write;
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, ClassLayout, InterfaceLayout, StructDecl, UnaryOp, VTable};
+use crate::ast::{
+    BinaryOp, ClassLayout, InstanceTarget, InterfaceLayout, StructDecl, UnaryOp, VTable,
+};
 use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::value::{Quoted, Value};
@@ -69,6 +71,8 @@ pub enum Op {
     Next { slot: usize, end: usize, both: bool },
     /// Pops an enum or result and goes on at its branch in jump table `i`, pushing the value inside a result first.
     Switch(usize),
+    /// Pops a value and pushes whether it is an object of the class or interface; `null` gives false.
+    InstanceOf(InstanceTarget),
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -157,11 +161,41 @@ pub struct Program {
 #[derive(Debug)]
 pub struct ClassCode {
     pub layout: Rc<ClassLayout>,
+    pub parent: Option<usize>,
     pub method_table: Vec<usize>,
     pub vtables: Vec<VTable>,
 }
 
+impl Program {
+    /// Returns true if class number `class` is the class or interface `target`, also through its parent classes.
+    pub fn is_instance(&self, class: usize, target: InstanceTarget) -> bool {
+        match target {
+            InstanceTarget::Class(wanted) => self.is_subclass(class, wanted),
+            InstanceTarget::Interface(interface) => self.classes[class].implements(interface),
+        }
+    }
+
+    /// Returns true if class number `class` is `ancestor` or inherits from it.
+    fn is_subclass(&self, class: usize, ancestor: usize) -> bool {
+        let mut current = Some(class);
+        while let Some(class) = current {
+            if class == ancestor {
+                return true;
+            }
+            current = self.classes[class].parent;
+        }
+        false
+    }
+}
+
 impl ClassCode {
+    /// Returns true if the class implements interface number `interface`, also through its parent classes.
+    pub fn implements(&self, interface: usize) -> bool {
+        self.vtables
+            .iter()
+            .any(|vtable| vtable.interface == interface)
+    }
+
     /// Returns the function this class runs for method `method` of interface `interface`.
     pub fn interface_function(&self, interface: usize, method: usize) -> Option<usize> {
         self.vtables
@@ -258,6 +292,12 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
         Op::Chars => "Chars".to_string(),
         Op::Switch(i) => format!("Switch [{}]", show_table(&chunk.tables[*i])),
+        Op::InstanceOf(InstanceTarget::Class(i)) => {
+            format!("InstanceOf {}", program.classes[*i].layout.name)
+        }
+        Op::InstanceOf(InstanceTarget::Interface(i)) => {
+            format!("InstanceOf {}", program.interfaces[*i].name)
+        }
         Op::Next { slot, end, both } => {
             let both = if *both { " both" } else { "" };
             format!("Next {} {:04}{}", slot, end, both)

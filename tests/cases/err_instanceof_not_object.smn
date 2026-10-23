@@ -1,0 +1,4 @@
+class Hund {
+}
+var n: int = 5;
+print(n instanceof Hund);
