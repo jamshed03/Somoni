@@ -13,20 +13,30 @@ impl TypeChecker {
         check: impl FnOnce(&mut Self) -> T,
     ) -> T {
         self.scopes.push();
-        for (name, ty) in known {
-            if let Some(info) = self.scopes.lookup(&name) {
-                let narrowed = VarInfo {
-                    ty,
-                    declared: info.declared.clone(),
-                    mutable: info.mutable,
-                    slot: info.slot,
-                };
-                self.scopes.declare(&name, narrowed);
-            }
-        }
+        self.narrow_here(known);
         let result = check(self);
         self.scopes.pop();
         result
+    }
+
+    /// Gives the variables in `known` their narrower types for the rest of the current block.
+    pub(super) fn narrow_here(&mut self, known: Vec<(String, Type)>) {
+        for (name, ty) in known {
+            if let Some(narrowed) = self.narrowed_info(&name, ty) {
+                self.scopes.set_innermost(&name, narrowed);
+            }
+        }
+    }
+
+    /// Returns what is known about the variable `name` with the narrower type `ty`, if there is such a variable.
+    fn narrowed_info(&self, name: &str, ty: Type) -> Option<VarInfo> {
+        let info = self.scopes.lookup(name)?;
+        Some(VarInfo {
+            ty,
+            declared: info.declared.clone(),
+            mutable: info.mutable,
+            slot: info.slot,
+        })
     }
 
     /// Gives a variable after `name = value` the type of the value for the rest of this block.
@@ -42,14 +52,7 @@ impl TypeChecker {
             }
         });
         if found != declared {
-            let mutable = self.scopes.lookup(name).is_some_and(|info| info.mutable);
-            let narrowed = VarInfo {
-                ty: found,
-                declared,
-                mutable,
-                slot,
-            };
-            self.scopes.set_innermost(name, narrowed);
+            self.narrow_here(vec![(name.to_string(), found)]);
         }
     }
 

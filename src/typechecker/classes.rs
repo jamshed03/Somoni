@@ -295,6 +295,7 @@ impl TypeChecker {
             let result = self.check_stmt(stmt);
             self.super_init_allowed = false;
             result?;
+            self.narrow_after(stmt);
         }
         Ok(())
     }

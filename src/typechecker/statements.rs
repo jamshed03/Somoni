@@ -15,8 +15,33 @@ impl TypeChecker {
     pub(super) fn check_stmts(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
         for stmt in stmts {
             self.check_stmt(stmt)?;
+            self.narrow_after(stmt);
         }
         Ok(())
+    }
+
+    /// Narrows variables for the rest of the block after an `if` whose one branch always leaves it,
+    /// like `n` after `if (n == null) { return 0; }`.
+    pub(super) fn narrow_after(&mut self, stmt: &Stmt) {
+        let Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+            ..
+        } = stmt
+        else {
+            return;
+        };
+        let then_leaves = stmt_always_ends(then_branch, Exit::ReturnOrJump);
+        let else_leaves = else_branch
+            .as_deref()
+            .is_some_and(|branch| stmt_always_ends(branch, Exit::ReturnOrJump));
+        let known = match (then_leaves, else_leaves) {
+            (true, false) => self.known_narrowed(condition, false),
+            (false, true) => self.known_narrowed(condition, true),
+            (true, true) | (false, false) => return,
+        };
+        self.narrow_here(known);
     }
 
     /// Checks a function.
@@ -48,7 +73,7 @@ impl TypeChecker {
             this.check_stmts(&mut function.body)
         })?;
 
-        if return_type != Type::Void && !always_returns(&function.body) {
+        if return_type != Type::Void && !always_ends(&function.body, Exit::Return) {
             return Err(SomoniError::at(
                 function.return_type.span,
                 ErrorCode::MissingReturn {
@@ -390,23 +415,31 @@ fn loop_var_types(ty: &Type, count: usize) -> Option<(IterKind, Vec<Type>)> {
     Some((kind, types))
 }
 
-/// Returns true if every path through these statements ends with `return`.
-fn always_returns(stmts: &[Stmt]) -> bool {
-    stmts.iter().any(stmt_always_returns)
+/// Returns true if every path through these statements ends with `exit`.
+fn always_ends(stmts: &[Stmt], exit: Exit) -> bool {
+    stmts.iter().any(|stmt| stmt_always_ends(stmt, exit))
 }
 
-/// Returns true if this statement always ends with `return`.
-fn stmt_always_returns(stmt: &Stmt) -> bool {
+/// What leaves a block early: only `return`, or also `break` and `continue`.
+#[derive(Clone, Copy, PartialEq)]
+enum Exit {
+    Return,
+    ReturnOrJump,
+}
+
+/// Returns true if every path through this statement ends with `exit`.
+fn stmt_always_ends(stmt: &Stmt, exit: Exit) -> bool {
     match stmt {
         Stmt::Return { .. } => true,
-        Stmt::Block(stmts) => always_returns(stmts),
+        Stmt::Break { .. } | Stmt::Continue { .. } => exit == Exit::ReturnOrJump,
+        Stmt::Block(stmts) => always_ends(stmts, exit),
         Stmt::If {
             then_branch,
             else_branch,
             ..
         } => match else_branch {
             Some(else_branch) => {
-                stmt_always_returns(then_branch) && stmt_always_returns(else_branch)
+                stmt_always_ends(then_branch, exit) && stmt_always_ends(else_branch, exit)
             }
             None => false,
         },
@@ -414,14 +447,12 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         Stmt::VarDecl { .. }
         | Stmt::Assign(_)
         | Stmt::Expr { .. }
-        | Stmt::Break { .. }
-        | Stmt::Continue { .. }
         | Stmt::FnDecl(_)
         | Stmt::StructDecl(_)
         | Stmt::EnumDecl(_)
         | Stmt::ClassDecl(_)
         | Stmt::InterfaceDecl(_)
         | Stmt::Import(_) => false,
-        Stmt::Match(m) => m.arms.iter().all(|arm| stmt_always_returns(&arm.body)),
+        Stmt::Match(m) => m.arms.iter().all(|arm| stmt_always_ends(&arm.body, exit)),
     }
 }
