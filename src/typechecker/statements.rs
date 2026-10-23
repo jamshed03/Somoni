@@ -1,6 +1,8 @@
 //! Checking statements and function bodies: variables, assignments, loops, `return`.
 
-use crate::ast::{BinaryOp, Expr, ExprKind, Function, IterKind, MatchArm, Param, Stmt, THIS};
+use crate::ast::{
+    Assign, BinaryOp, Expr, ExprKind, ForEach, Function, IterKind, Match, Param, Stmt, THIS,
+};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Type;
@@ -74,16 +76,7 @@ impl TypeChecker {
                 *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
                 Ok(())
             }
-            Stmt::Assign {
-                target,
-                op,
-                value,
-                in_object,
-                ..
-            } => {
-                *in_object = self.check_assign(target, *op, value)?;
-                Ok(())
-            }
+            Stmt::Assign(assign) => self.check_assign(assign),
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
                 Ok(())
@@ -108,27 +101,13 @@ impl TypeChecker {
                 body,
                 ..
             } => self.in_scope(|this| this.check_for(init, condition, step, body)),
-            Stmt::ForEach {
-                vars,
-                iterable,
-                body,
-                slots,
-                seq_slot,
-                over,
-                ..
-            } => self.check_for_each(vars, iterable, body, slots, seq_slot, over),
+            Stmt::ForEach(each) => self.check_for_each(each),
             Stmt::FnDecl(function) => self.check_function(function),
             Stmt::StructDecl(_) | Stmt::EnumDecl(_) | Stmt::InterfaceDecl(_) | Stmt::Import(_) => {
                 Ok(())
             }
             Stmt::ClassDecl(class) => self.check_class(class),
-            Stmt::Match {
-                subject,
-                arms,
-                arm_of_variant,
-                unwraps,
-                span,
-            } => self.check_match_stmt(subject, arms, arm_of_variant, unwraps, *span),
+            Stmt::Match(m) => self.check_match_stmt(m),
             Stmt::Return { value, span } => self.check_return(value.as_mut(), *span),
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
@@ -153,25 +132,25 @@ impl TypeChecker {
     }
 
     /// Checks a `match` statement: the subject, that every variant is covered, and each branch.
-    fn check_match_stmt(
-        &mut self,
-        subject: &mut Expr,
-        arms: &mut [MatchArm],
-        arm_of_variant: &mut Vec<usize>,
-        unwraps: &mut bool,
-        span: Span,
-    ) -> Result<(), SomoniError> {
-        let ty = self.check_expr(subject)?;
-        *arm_of_variant = self.check_match(&ty, subject.span, arms, span)?;
-        *unwraps = matches!(ty, Type::Result(_, _));
-        for arm in arms {
+    fn check_match_stmt(&mut self, m: &mut Match) -> Result<(), SomoniError> {
+        let ty = self.check_expr(&mut m.subject)?;
+        m.arm_of_variant = self.check_match(&ty, m.subject.span, &m.arms, m.span)?;
+        m.unwraps = matches!(ty, Type::Result(_, _));
+        for arm in &mut m.arms {
             self.check_arm(arm, &ty)?;
         }
         Ok(())
     }
 
-    /// Checks an assignment and returns true if its target lies inside an object.
-    fn check_assign(
+    /// Checks an assignment and records whether its target lies inside an object.
+    fn check_assign(&mut self, assign: &mut Assign) -> Result<(), SomoniError> {
+        assign.in_object =
+            self.check_assign_parts(&mut assign.target, assign.op, &mut assign.value)?;
+        Ok(())
+    }
+
+    /// Checks the target and value of an assignment and returns true if the target lies inside an object.
+    fn check_assign_parts(
         &mut self,
         target: &mut Expr,
         op: Option<(BinaryOp, Span)>,
@@ -265,29 +244,18 @@ impl TypeChecker {
     }
 
     /// Checks a `for`-each loop and gives the list, its index and the loop variables their slots.
-    fn check_for_each(
-        &mut self,
-        vars: &[Param],
-        iterable: &mut Expr,
-        body: &mut Stmt,
-        slots: &mut Vec<usize>,
-        seq_slot: &mut Option<usize>,
-        over: &mut Option<IterKind>,
-    ) -> Result<(), SomoniError> {
-        let ty = self.check_expr(iterable)?;
-        let Some((kind, expected)) = loop_var_types(&ty, vars.len()) else {
-            return Err(SomoniError::at(
-                iterable.span,
-                ErrorCode::NotIterable { found: ty },
-            ));
+    fn check_for_each(&mut self, each: &mut ForEach) -> Result<(), SomoniError> {
+        let ty = self.check_expr(&mut each.iterable)?;
+        let span = each.iterable.span;
+        let Some((kind, expected)) = loop_var_types(&ty, each.vars.len()) else {
+            return Err(SomoniError::at(span, ErrorCode::NotIterable { found: ty }));
         };
-        *over = Some(kind);
-        let span = iterable.span;
+        each.over = Some(kind);
         self.in_scope(|this| {
-            *seq_slot = Some(this.declare("#seq", span, ty, false)?);
+            each.seq_slot = Some(this.declare("#seq", span, ty, false)?);
             this.declare("#index", span, Type::Int, true)?;
-            *slots = this.declare_bound_vars(vars, expected)?;
-            this.check_loop_body(body)
+            each.slots = this.declare_bound_vars(&each.vars, expected)?;
+            this.check_loop_body(&mut each.body)
         })
     }
 
@@ -390,9 +358,9 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
             }
             None => false,
         },
-        Stmt::While { .. } | Stmt::For { .. } | Stmt::ForEach { .. } => false,
+        Stmt::While { .. } | Stmt::For { .. } | Stmt::ForEach(_) => false,
         Stmt::VarDecl { .. }
-        | Stmt::Assign { .. }
+        | Stmt::Assign(_)
         | Stmt::Expr { .. }
         | Stmt::Break { .. }
         | Stmt::Continue { .. }
@@ -402,6 +370,6 @@ fn stmt_always_returns(stmt: &Stmt) -> bool {
         | Stmt::ClassDecl(_)
         | Stmt::InterfaceDecl(_)
         | Stmt::Import(_) => false,
-        Stmt::Match { arms, .. } => arms.iter().all(|arm| stmt_always_returns(&arm.body)),
+        Stmt::Match(m) => m.arms.iter().all(|arm| stmt_always_returns(&arm.body)),
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, ClassLayout, InterfaceLayout, StructDecl, UnaryOp};
+use crate::ast::{BinaryOp, ClassLayout, InterfaceLayout, StructDecl, UnaryOp, VTable};
 use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::value::{Quoted, Value};
@@ -124,6 +124,18 @@ impl Chunk {
         self.constants.push(value);
         self.constants.len() - 1
     }
+
+    /// Adds a path of `SetPart` or `UpdatePart` and returns its number.
+    pub fn add_path(&mut self, path: Path) -> usize {
+        self.paths.push(path);
+        self.paths.len() - 1
+    }
+
+    /// Adds an empty jump table of `Switch` and returns its number.
+    pub fn add_table(&mut self) -> usize {
+        self.tables.push(Vec::new());
+        self.tables.len() - 1
+    }
 }
 
 /// A compiled program: the code at the top level and one chunk per function,
@@ -135,13 +147,17 @@ pub struct Program {
     /// The structs of the program, numbered like `ast::structs`, file by file.
     pub structs: Vec<Rc<StructDecl>>,
     /// The classes of the program, numbered like `ast::classes`, file by file.
-    pub classes: Vec<Rc<ClassLayout>>,
-    /// For each class: the function of each method slot.
-    pub method_tables: Vec<Vec<usize>>,
-    /// For each class: the interfaces it implements, each with the function of every method.
-    pub vtables: Vec<Vec<(usize, Vec<usize>)>>,
+    pub classes: Vec<ClassCode>,
     /// The interfaces of the program, numbered like `ast::interfaces`, file by file.
     pub interfaces: Vec<Rc<InterfaceLayout>>,
+}
+
+/// The layout of a class and the functions its objects run for each method.
+#[derive(Debug)]
+pub struct ClassCode {
+    pub layout: Rc<ClassLayout>,
+    pub method_table: Vec<usize>,
+    pub vtables: Vec<VTable>,
 }
 
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
@@ -211,7 +227,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::NewMap => "NewMap".to_string(),
         Op::MapInsert => "MapInsert".to_string(),
         Op::NewStruct(i) => format!("NewStruct {}", program.structs[*i].name),
-        Op::NewObject(i) => format!("NewObject {}", program.classes[*i].name),
+        Op::NewObject(i) => format!("NewObject {}", program.classes[*i].layout.name),
         Op::InitField(p) => format!("InitField {}", p),
         Op::InitLocalField(slot, p) => format!("InitLocalField {} {}", slot, p),
         Op::Index => "Index".to_string(),

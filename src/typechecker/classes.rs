@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{
-    self, ClassDecl, ClassField, ClassLayout, ClassPlan, Expr, ExprKind, Function, Stmt, THIS,
-    Visibility,
+    self, Assign, ClassDecl, ClassField, ClassLayout, ClassPlan, Expr, ExprKind, Function, Stmt,
+    THIS, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -419,12 +419,12 @@ pub(super) fn describe_method(name: &str, visibility: Visibility, signature: &Si
 
 /// Returns the field that `this.field = value;` sets, if `value` does not use `this`.
 fn sets_field(stmt: &Stmt) -> Option<&str> {
-    let Stmt::Assign {
+    let Stmt::Assign(Assign {
         target,
         op: None,
         value,
         ..
-    } = stmt
+    }) = stmt
     else {
         return None;
     };

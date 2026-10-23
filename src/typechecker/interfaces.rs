@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ast::{self, ClassDecl, InterfaceDecl, InterfaceLayout, Stmt, Visibility};
+use crate::ast::{self, ClassDecl, InterfaceDecl, InterfaceLayout, Stmt, VTable, Visibility};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Decl;
@@ -155,7 +155,7 @@ impl TypeChecker {
         interface: &Decl<InterfaceLayout>,
         methods: &HashMap<String, MethodInfo>,
         table: &[usize],
-    ) -> Result<(usize, Vec<usize>), SomoniError> {
+    ) -> Result<VTable, SomoniError> {
         let info = self.interface_info(interface)?;
         let mut functions = Vec::new();
         for (name, _) in &info.methods {
@@ -164,7 +164,10 @@ impl TypeChecker {
                 .ok_or_else(|| SomoniError::internal("interface method missing"))?;
             functions.push(table[method.slot]);
         }
-        Ok((info.index, functions))
+        Ok(VTable {
+            interface: info.index,
+            functions,
+        })
     }
 
     /// Returns what the type checker knows about an interface.

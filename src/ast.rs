@@ -247,16 +247,7 @@ pub enum Stmt {
         expr: Expr,
         span: Span,
     },
-    /// `target = value;` where the target is a variable, a list element or a field.
-    /// With `op`, it is `target += value;` (or `-=`, ...) with the place of the operator.
-    /// The type checker fills in `in_object`: true if the target lies inside an object (`u.age`).
-    Assign {
-        target: Expr,
-        op: Option<(BinaryOp, Span)>,
-        value: Expr,
-        in_object: bool,
-        span: Span,
-    },
+    Assign(Assign),
     Block(Vec<Stmt>),
     If {
         condition: Expr,
@@ -277,18 +268,7 @@ pub enum Stmt {
         body: Box<Stmt>,
         span: Span,
     },
-    /// `for (x: T in iterable) body` or `for (a: T, b: U in iterable) body`.
-    /// The type checker fills in `slots` (one per variable), `seq_slot` (a hidden copy of the
-    /// iterable, the hidden index is the slot after it) and `over`.
-    ForEach {
-        vars: Vec<Param>,
-        iterable: Expr,
-        body: Box<Stmt>,
-        slots: Vec<usize>,
-        seq_slot: Option<usize>,
-        over: Option<IterKind>,
-        span: Span,
-    },
+    ForEach(ForEach),
     Break {
         span: Span,
     },
@@ -301,20 +281,57 @@ pub enum Stmt {
     ClassDecl(ClassDecl),
     InterfaceDecl(InterfaceDecl),
     EnumDecl(Rc<EnumDecl>),
-    /// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
-    /// The type checker fills in `arm_of_variant`: for each variant, the number of its branch,
-    /// and `unwraps`: true for a result, whose branches get the value inside it.
-    Match {
-        subject: Expr,
-        arms: Vec<MatchArm>,
-        arm_of_variant: Vec<usize>,
-        unwraps: bool,
-        span: Span,
-    },
+    Match(Match),
     Return {
         value: Option<Expr>,
         span: Span,
     },
+}
+
+/// `target = value;` or `target += value;`, where the target is a variable, a list element or a field.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Assign {
+    pub target: Expr,
+    /// The operator of `+=`, `-=`, ... and its place.
+    pub op: Option<(BinaryOp, Span)>,
+    pub value: Expr,
+    /// Filled in by the type checker: true if the target lies inside an object (`u.age`).
+    pub in_object: bool,
+    pub span: Span,
+}
+
+/// `for (x: T in iterable) body` or `for (a: T, b: U in iterable) body`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ForEach {
+    pub vars: Vec<Param>,
+    pub iterable: Expr,
+    pub body: Box<Stmt>,
+    /// Filled in by the type checker: the slot of each variable.
+    pub slots: Vec<usize>,
+    /// Filled in by the type checker: the slot of a hidden copy of the iterable.
+    pub seq_slot: Option<usize>,
+    /// Filled in by the type checker: what the loop runs over.
+    pub over: Option<IterKind>,
+    pub span: Span,
+}
+
+impl ForEach {
+    /// Returns true for `for (a: T, b: U in ...)`, which gets the index or key and the value.
+    pub fn binds_both(&self) -> bool {
+        self.vars.len() == 2
+    }
+}
+
+/// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Match {
+    pub subject: Expr,
+    pub arms: Vec<MatchArm>,
+    /// Filled in by the type checker: for each variant, the number of its branch.
+    pub arm_of_variant: Vec<usize>,
+    /// Filled in by the type checker: true for a result, whose branches get the value inside it.
+    pub unwraps: bool,
+    pub span: Span,
 }
 
 impl Stmt {
@@ -324,7 +341,10 @@ impl Stmt {
         match self {
             Stmt::VarDecl { value, .. } => value.find_this(),
             Stmt::Expr { expr, .. } => expr.find_this(),
-            Stmt::Assign { target, value, .. } => target.find_this().or_else(|| value.find_this()),
+            Stmt::Assign(assign) => assign
+                .target
+                .find_this()
+                .or_else(|| assign.value.find_this()),
             Stmt::Block(stmts) => stmts.iter().find_map(Stmt::find_this),
             Stmt::If {
                 condition,
@@ -349,12 +369,11 @@ impl Stmt {
                 .or_else(|| condition.find_this())
                 .or_else(|| step.find_this())
                 .or_else(|| body.find_this()),
-            Stmt::ForEach { iterable, body, .. } => {
-                iterable.find_this().or_else(|| body.find_this())
-            }
-            Stmt::Match { subject, arms, .. } => subject
+            Stmt::ForEach(each) => each.iterable.find_this().or_else(|| each.body.find_this()),
+            Stmt::Match(m) => m
+                .subject
                 .find_this()
-                .or_else(|| arms.iter().find_map(|arm| arm.body.find_this())),
+                .or_else(|| m.arms.iter().find_map(|arm| arm.body.find_this())),
             Stmt::Return { value, .. } => value.as_ref().and_then(Expr::find_this),
             Stmt::Break { .. }
             | Stmt::Continue { .. }
@@ -446,9 +465,22 @@ pub struct ClassPlan {
     pub parent_init: Option<usize>,
     /// For each method slot: the function the objects of this class run for it.
     pub methods: Vec<usize>,
-    /// For each interface it implements: the number of the interface and the function of each
-    /// of its methods, in the order of the interface.
-    pub vtables: Vec<(usize, Vec<usize>)>,
+    /// One vtable for each interface the class implements.
+    pub vtables: Vec<VTable>,
+}
+
+impl ClassPlan {
+    /// Returns the position of an own field among all fields of the class.
+    pub fn own_field(&self, position: usize) -> usize {
+        self.field_offset + position
+    }
+}
+
+/// The functions a class runs for the methods of one interface, in the order of the interface.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VTable {
+    pub interface: usize,
+    pub functions: Vec<usize>,
 }
 
 /// `interface Name { method(params): type; ... }`, `exported` with `export` in front.

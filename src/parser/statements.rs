@@ -1,6 +1,6 @@
 //! Reading statements: blocks, `if`, loops, `match`, variables and assignments.
 
-use crate::ast::{BinaryOp, ExprKind, MatchArm, Pattern, Stmt};
+use crate::ast::{Assign, BinaryOp, ExprKind, ForEach, Match, MatchArm, Pattern, Stmt};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -81,13 +81,13 @@ impl Parser {
             arms.push(MatchArm { pattern, body });
         }
         self.advance();
-        Ok(Stmt::Match {
+        Ok(Stmt::Match(Match {
             subject,
             arms,
             arm_of_variant: Vec::new(),
             unwraps: false,
             span: start,
-        })
+        }))
     }
 
     /// Reads what a branch of `match` stands for: `Farbe.Rot`, `ok(n: int)`, `err(e: string)` or `_`.
@@ -263,7 +263,7 @@ impl Parser {
         let iterable = self.parse_expr()?;
         self.expect(Token::RParen, "')' after the list")?;
         let body = self.expect_block("after for header")?;
-        Ok(Stmt::ForEach {
+        Ok(Stmt::ForEach(ForEach {
             vars,
             iterable,
             body: Box::new(body),
@@ -271,7 +271,7 @@ impl Parser {
             seq_slot: None,
             over: None,
             span: start,
-        })
+        }))
     }
 
     /// Reads an assignment with `;`, e.g. `x = 5;`.
@@ -321,13 +321,13 @@ impl Parser {
         let op = op.map(|op| (op, self.current_span()));
         self.advance();
         let value = self.parse_expr()?;
-        Ok(Stmt::Assign {
+        Ok(Stmt::Assign(Assign {
             target,
             op,
             value,
             in_object: false,
             span: self.since(start),
-        })
+        }))
     }
 
     /// Reads `var name: type = value;` or `const name: type = value;`.

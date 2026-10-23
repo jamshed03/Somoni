@@ -91,7 +91,7 @@ impl<'p> Vm<'p> {
             Op::Call(i, count) => self.call(&program.functions[*i], *count, frame)?,
             Op::CallVirtual { slot, args } => {
                 let class = self.receiver_class(*args)?;
-                let function = program.method_tables[class][*slot];
+                let function = program.classes[class].method_table[*slot];
                 self.call(&program.functions[function], *args, frame)?;
             }
             Op::CallInterface {
@@ -100,10 +100,11 @@ impl<'p> Vm<'p> {
                 args,
             } => {
                 let class = self.receiver_class(*args)?;
-                let function = program.vtables[class]
+                let function = program.classes[class]
+                    .vtables
                     .iter()
-                    .find(|(number, _)| number == interface)
-                    .map(|(_, functions)| functions[*method])
+                    .find(|vtable| vtable.interface == *interface)
+                    .map(|vtable| vtable.functions[*method])
                     .ok_or_else(|| {
                         SomoniError::internal("class does not implement the interface")
                     })?;
@@ -145,7 +146,7 @@ impl<'p> Vm<'p> {
                     .push(Value::Struct(Rc::new(StructValue { decl, fields })));
             }
             Op::NewObject(i) => {
-                let layout = Rc::clone(&program.classes[*i]);
+                let layout = Rc::clone(&program.classes[*i].layout);
                 self.stack.push(Value::Object(Object::new(layout, *i)));
             }
             Op::InitField(position) => {

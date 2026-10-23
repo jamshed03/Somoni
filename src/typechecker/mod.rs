@@ -4,7 +4,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{ClassLayout, EnumDecl, Expr, InterfaceLayout, Param, StructDecl, Visibility};
+use crate::ast::{
+    ClassLayout, EnumDecl, Expr, InterfaceLayout, Param, StructDecl, VTable, Visibility,
+};
 use crate::error::{ErrorCode, SomoniError};
 use crate::loader::SourceFile;
 use crate::scope::Scopes;
@@ -55,7 +57,7 @@ struct ClassInfo {
     index: usize,
     members: HashMap<String, Member>,
     implements: Vec<Decl<InterfaceLayout>>,
-    vtables: Vec<(usize, Vec<usize>)>,
+    vtables: Vec<VTable>,
 }
 
 impl ClassInfo {
