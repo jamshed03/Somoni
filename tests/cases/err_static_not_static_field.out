@@ -1,0 +1,3 @@
+Type error [T074]: Line 4: 'name' is not static in 'User', use it on an object
+  4 | print(User::name);
+    |             ^^^^

@@ -1,0 +1,24 @@
+// static fields belong to the class and are read with Class::name
+enum Farbe { Rot, Gruen }
+struct Punkt { x: int, y: int }
+
+class Uhr {
+    static sekunden: int = 60 * 60;
+    static namen: list<string> = ["Mo", "Di"];
+    static farbe: Farbe = Farbe.Gruen;
+    static ursprung: Punkt = Punkt { x: 0, y: -1 };
+    private static geheim: string = "x";
+    static leer: string? = null;
+
+    static zeigen(): string {
+        return Uhr::geheim + string(Uhr::sekunden);
+    }
+}
+
+print(Uhr::sekunden);
+print(Uhr::namen);
+print(Uhr::farbe);
+print(Uhr::ursprung);
+print(Uhr::zeigen());
+print(Uhr::leer);
+print(Uhr::namen[1]);

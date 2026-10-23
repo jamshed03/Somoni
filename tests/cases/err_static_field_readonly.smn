@@ -1,0 +1,3 @@
+class Kasse {
+    static readonly MAX: int = 100;
+}

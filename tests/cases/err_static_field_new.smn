@@ -1,0 +1,3 @@
+class User {
+    static standard: User? = new User();
+}

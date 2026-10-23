@@ -67,6 +67,7 @@ struct ClassInfo {
     implements: Vec<Decl<InterfaceLayout>>,
     vtables: Vec<VTable>,
     statics: HashMap<String, StaticMethod>,
+    static_fields: HashMap<String, StaticField>,
     constructor_visibility: Visibility,
     is_abstract: bool,
 }
@@ -90,6 +91,7 @@ impl ClassInfo {
             implements: Vec::new(),
             vtables: Vec::new(),
             statics: HashMap::new(),
+            static_fields: HashMap::new(),
             constructor_visibility: Visibility::Public,
             is_abstract: false,
         }
@@ -125,6 +127,14 @@ struct ObjectField {
 struct StaticMethod {
     visibility: Visibility,
     signature: Signature,
+}
+
+/// A static field of a class: who may use it, its type and its global number.
+#[derive(Clone)]
+struct StaticField {
+    visibility: Visibility,
+    ty: Type,
+    global: usize,
 }
 
 /// A method of a class with its slot in the method table.
@@ -211,6 +221,7 @@ pub struct TypeChecker {
     in_constructor: bool,
     super_init_allowed: bool,
     function_count: usize,
+    global_count: usize,
     current_return: Option<Type>,
     next_slot: usize,
 }
@@ -229,6 +240,7 @@ impl TypeChecker {
             in_constructor: false,
             super_init_allowed: false,
             function_count: 0,
+            global_count: 0,
             current_return: None,
             next_slot: 0,
         }

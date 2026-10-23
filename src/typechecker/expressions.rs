@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use crate::ast::{
     BinaryOp, CONSTRUCTOR, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit, InstanceOf,
-    InstanceTarget, InterfaceLayout, MethodCall, MethodTarget, New, StaticCall, SuperCall, THIS,
-    UnaryOp,
+    InstanceTarget, InterfaceLayout, MethodCall, MethodTarget, New, StaticAccess, StaticCall,
+    SuperCall, THIS, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -279,6 +279,7 @@ impl TypeChecker {
             ExprKind::SuperCall(call) => self.check_super_call(call, span),
             ExprKind::New(new) => self.check_new(new, span),
             ExprKind::StaticCall(call) => self.check_static_call(call, span),
+            ExprKind::StaticAccess(access) => self.check_static_access(access),
             ExprKind::InstanceOf(test) => self.check_instanceof(test),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
@@ -354,6 +355,15 @@ impl TypeChecker {
             ));
         };
         let owner = target_type.to_string();
+        if let Type::Class(layout) = &target_type
+            && self.class_info(layout)?.static_fields.contains_key(name)
+        {
+            let code = ErrorCode::StaticFieldOnObject {
+                class: layout.name.clone(),
+                name: name.to_string(),
+            };
+            return Err(SomoniError::at(name_span, code));
+        }
         let (position, ty) = field_of(fields, &owner, name, name_span)?;
         *index = Some(position);
         let ty = ty.clone();
@@ -503,6 +513,25 @@ impl TypeChecker {
         self.check_access(&parent, &call.name, call.name_span)?;
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)
+    }
+
+    /// Checks `Class::name` for a static field, or returns T074 for a field that is not static and T085 for none.
+    fn check_static_access(&mut self, access: &mut StaticAccess) -> Result<Type, SomoniError> {
+        let layout = self.class_named(&access.class_name, access.class_span)?;
+        let info = self.class_info(&layout)?;
+        let Some(field) = info.static_fields.get(&access.name).cloned() else {
+            let class = layout.name.clone();
+            let name = access.name.clone();
+            let code = if info.fields.iter().any(|(field, _)| *field == access.name) {
+                ErrorCode::NotStatic { class, name }
+            } else {
+                ErrorCode::UnknownStaticField { class, name }
+            };
+            return Err(SomoniError::at(access.name_span, code));
+        };
+        self.check_visible(field.visibility, &layout, &access.name, access.name_span)?;
+        access.global = Some(field.global);
+        Ok(field.ty)
     }
 
     /// Checks `Class::name(args)`, or returns T074 for a method that is not static.

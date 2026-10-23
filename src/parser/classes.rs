@@ -16,6 +16,7 @@ use super::Parser;
 #[derive(Default)]
 struct ClassBody {
     fields: Vec<ClassField>,
+    static_fields: Vec<ClassField>,
     constructor: Option<Constructor>,
     methods: Vec<Method>,
 }
@@ -90,6 +91,7 @@ impl Parser {
             layout: Rc::new(layout),
             name_span,
             fields: body.fields,
+            static_fields: body.static_fields,
             constructor: body.constructor,
             methods: body.methods,
             extends,
@@ -143,8 +145,14 @@ impl Parser {
             body.methods.push(self.parse_method(name, &modifiers)?);
             return Ok(());
         }
-        modifiers.forbid_static()?;
         modifiers.forbid_abstract()?;
+        if modifiers.is_static.is_some() {
+            if modifiers.readonly.is_some() {
+                modifiers.forbid_static()?;
+            }
+            body.static_fields.push(self.parse_class_field(&modifiers)?);
+            return Ok(());
+        }
         body.fields.push(self.parse_class_field(&modifiers)?);
         Ok(())
     }

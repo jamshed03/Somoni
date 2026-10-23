@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, Assign, BinaryOp, Call, CallTarget, ClassDecl, ClassLayout, EnumDecl, Expr, ExprKind,
-    FieldInit, ForEach, Function, IterKind, Match, MethodCall, MethodTarget, Pattern, Stmt,
+    self, Assign, BinaryOp, Call, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr,
+    ExprKind, FieldInit, ForEach, Function, IterKind, Match, MethodCall, MethodTarget, Pattern,
+    Stmt,
 };
 use crate::bytecode::{Chunk, ClassCode, Op, Path, PathStep, Program, index_slot};
 use crate::error::SomoniError;
@@ -16,7 +17,8 @@ const THIS_SLOT: usize = 0;
 /// Turns a checked program into bytecode, file by file in `order` like the type checker.
 pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniError> {
     let mut program = Program {
-        main: compile_main(files)?,
+        main: compile_main(files, order)?,
+        globals: global_names(files, order),
         ..Program::default()
     };
     for &number in order {
@@ -25,12 +27,40 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     Ok(program)
 }
 
-/// Compiles the top-level code of the main file.
-fn compile_main(files: &[SourceFile]) -> Result<Chunk, SomoniError> {
+/// Compiles the start values of all static fields and then the top-level code of the main file.
+fn compile_main(files: &[SourceFile], order: &[usize]) -> Result<Chunk, SomoniError> {
     let main = filled(files.first(), "main file")?;
     let mut compiler = Compiler::new("program".to_string(), 0);
+    for (_, field, global) in static_fields(files, order) {
+        let start = filled(field.start.as_ref(), "start value of a static field")?;
+        compiler.compile_expr(start)?;
+        compiler.chunk.push(Op::SetGlobal(global), start.span);
+    }
     compiler.compile_stmts(&main.stmts)?;
     Ok(compiler.chunk)
+}
+
+/// Returns the name `Class::field` of each global by its number, for `--bytecode`.
+fn global_names(files: &[SourceFile], order: &[usize]) -> Vec<String> {
+    let mut names = vec![String::new(); static_fields(files, order).count()];
+    for (class, field, global) in static_fields(files, order) {
+        names[global] = format!("{}::{}", class.layout.name, field.field.name);
+    }
+    names
+}
+
+/// Returns every static field of the program with its class and global number, file by file in `order`.
+fn static_fields<'a>(
+    files: &'a [SourceFile],
+    order: &'a [usize],
+) -> impl Iterator<Item = (&'a ClassDecl, &'a ClassField, usize)> {
+    order
+        .iter()
+        .flat_map(|&number| ast::classes(&files[number].stmts))
+        .flat_map(|class| {
+            let fields = class.static_fields.iter().zip(&class.plan.statics);
+            fields.map(move |(field, &global)| (class, field, global))
+        })
 }
 
 /// Adds the interfaces, functions, classes and structs of one file to the program.
@@ -604,6 +634,10 @@ impl Compiler {
                 self.compile_expr(&test.value)?;
                 let target = filled(test.target, "instanceof target")?;
                 self.chunk.push(Op::InstanceOf(target), span);
+            }
+            ExprKind::StaticAccess(access) => {
+                let global = filled(access.global, "global of a static field")?;
+                self.chunk.push(Op::GetGlobal(global), span);
             }
             ExprKind::StaticCall(call) => {
                 self.compile_args(&call.args)?;

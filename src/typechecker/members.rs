@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use crate::ast::{ClassField, ClassLayout, Method, Visibility};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
-use crate::types::Decl;
+use crate::types::{Decl, Type};
 
 use super::classes::describe_method;
-use super::{ClassInfo, Member, MemberKind, MethodInfo, Signature, StaticMethod};
+use super::{ClassInfo, Member, MemberKind, MethodInfo, Signature, StaticField, StaticMethod};
 
 /// The members, methods and method table of a class while the type checker builds them.
 pub(super) struct ClassMembers {
@@ -17,6 +17,7 @@ pub(super) struct ClassMembers {
     pub(super) methods: HashMap<String, MethodInfo>,
     pub(super) table: Vec<usize>,
     pub(super) statics: HashMap<String, StaticMethod>,
+    pub(super) static_fields: HashMap<String, StaticField>,
 }
 
 impl ClassMembers {
@@ -29,6 +30,7 @@ impl ClassMembers {
                 methods: parent.methods.clone(),
                 table: parent.method_table.clone(),
                 statics: HashMap::new(),
+                static_fields: HashMap::new(),
             },
             None => ClassMembers {
                 layout,
@@ -36,6 +38,7 @@ impl ClassMembers {
                 methods: HashMap::new(),
                 table: Vec::new(),
                 statics: HashMap::new(),
+                static_fields: HashMap::new(),
             },
         }
     }
@@ -106,7 +109,7 @@ impl ClassMembers {
         signature: Signature,
     ) -> Result<(), SomoniError> {
         let name = &method.function.name;
-        if self.members.contains_key(name) || self.statics.contains_key(name) {
+        if self.has_name(name) {
             return Err(self.duplicate(name, method.function.name_span));
         }
         let visibility = method.visibility;
@@ -116,6 +119,33 @@ impl ClassMembers {
         };
         self.statics.insert(name.clone(), method);
         Ok(())
+    }
+
+    /// Adds an own static field with its type and global number; call it after all other members.
+    pub(super) fn add_static_field(
+        &mut self,
+        field: &ClassField,
+        ty: Type,
+        global: usize,
+    ) -> Result<(), SomoniError> {
+        let name = &field.field.name;
+        if self.has_name(name) {
+            return Err(self.duplicate(name, field.field.name_span));
+        }
+        let info = StaticField {
+            visibility: field.visibility,
+            ty,
+            global,
+        };
+        self.static_fields.insert(name.clone(), info);
+        Ok(())
+    }
+
+    /// Returns true if a field, method, static method or static field of this class has the name.
+    fn has_name(&self, name: &str) -> bool {
+        self.members.contains_key(name)
+            || self.statics.contains_key(name)
+            || self.static_fields.contains_key(name)
     }
 
     /// Returns the slot of the inherited method that `method` overrides with the same types.

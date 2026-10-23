@@ -53,6 +53,7 @@ pub enum ExprKind {
     },
     SuperCall(SuperCall),
     StaticCall(StaticCall),
+    StaticAccess(StaticAccess),
     InstanceOf(InstanceOf),
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
@@ -130,6 +131,17 @@ pub struct StaticCall {
     pub target: Option<usize>,
 }
 
+/// `Class::name`, a static field of a class.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticAccess {
+    pub class_name: String,
+    pub class_span: Span,
+    pub name: String,
+    pub name_span: Span,
+    /// Filled in by the type checker: the global number of the field.
+    pub global: Option<usize>,
+}
+
 impl Expr {
     /// Returns the place of the first `this` in the expression, if there is one.
     pub fn find_this(&self) -> Option<Span> {
@@ -160,6 +172,7 @@ impl Expr {
             ExprKind::SuperInit { args, .. } => first_this(args),
             ExprKind::SuperCall(_) => Some(self.span),
             ExprKind::StaticCall(call) => first_this(&call.args),
+            ExprKind::StaticAccess(_) => None,
             ExprKind::InstanceOf(test) => test.value.find_this(),
         }
     }
@@ -486,6 +499,8 @@ pub struct ClassDecl {
     pub layout: Rc<ClassLayout>,
     pub name_span: Span,
     pub fields: Vec<ClassField>,
+    /// The `static` fields, which belong to the class and not to its objects.
+    pub static_fields: Vec<ClassField>,
     pub constructor: Option<Constructor>,
     /// The methods; each gets `this` as a hidden first parameter (slot 0).
     pub methods: Vec<Method>,
@@ -514,6 +529,8 @@ pub struct ClassPlan {
     pub methods: Vec<usize>,
     /// One vtable for each interface the class implements.
     pub vtables: Vec<VTable>,
+    /// The global number of each static field, in the order of `ClassDecl.static_fields`.
+    pub statics: Vec<usize>,
 }
 
 impl ClassPlan {

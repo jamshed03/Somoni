@@ -1,3 +1,3 @@
-Parse error [P016]: Line 2: 'static' is only allowed before a method without 'override'
-  2 |     static anzahl: int = 0;
-    |     ^^^^^^
+Type error [T082]: Line 2: static field 'anzahl' needs a start value
+  2 |     static anzahl: int;
+    |            ^^^^^^

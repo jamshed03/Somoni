@@ -1,0 +1,6 @@
+fn zeit(): int {
+    return 5;
+}
+class Uhr {
+    static jetzt: int = zeit();
+}

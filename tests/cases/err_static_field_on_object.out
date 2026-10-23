@@ -1,0 +1,3 @@
+Type error [T084]: Line 5: 'anzahl' is static, use it as 'User::anzahl'
+  5 | print(u.anzahl);
+    |         ^^^^^^

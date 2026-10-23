@@ -1,0 +1,4 @@
+class User {
+    static anzahl: int = 0;
+}
+print(User::wieviel);

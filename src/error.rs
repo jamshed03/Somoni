@@ -316,6 +316,18 @@ pub enum ErrorCode {
     AbstractNew {
         name: String,
     },
+    StaticWithoutStart {
+        name: String,
+    },
+    StaticStartNotFixed,
+    StaticFieldOnObject {
+        class: String,
+        name: String,
+    },
+    UnknownStaticField {
+        class: String,
+        name: String,
+    },
     AbstractNotOverridden {
         class: String,
         method: String,
@@ -485,6 +497,10 @@ impl ErrorCode {
             ErrorCode::InstanceofNotObject { .. } => "T079",
             ErrorCode::InstanceofNever { .. } => "T080",
             ErrorCode::InstanceofNotType { .. } => "T081",
+            ErrorCode::StaticWithoutStart { .. } => "T082",
+            ErrorCode::StaticStartNotFixed => "T083",
+            ErrorCode::StaticFieldOnObject { .. } => "T084",
+            ErrorCode::UnknownStaticField { .. } => "T085",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -575,7 +591,7 @@ impl ErrorCode {
                 "an abstract method cannot be private, because subclasses must override it".to_string()
             }
             ErrorCode::StaticNotAllowed => {
-                "'static' is only allowed before a method without 'override'".to_string()
+                "'static' is only allowed before methods and fields, not with 'override' or 'readonly'".to_string()
             }
             ErrorCode::ReadonlyNotAllowed => {
                 "'readonly' is only allowed before a field of a class".to_string()
@@ -829,7 +845,7 @@ impl ErrorCode {
             ),
             ErrorCode::NotStatic { class, name } => {
                 format!(
-                    "'{}' is not static in '{}', call it on an object",
+                    "'{}' is not static in '{}', use it on an object",
                     name, class
                 )
             }
@@ -849,6 +865,16 @@ impl ErrorCode {
             }
             ErrorCode::InstanceofNotType { name } => {
                 format!("'{}' after 'instanceof' is no class or interface", name)
+            }
+            ErrorCode::StaticWithoutStart { name } => {
+                format!("static field '{}' needs a start value", name)
+            }
+            ErrorCode::StaticStartNotFixed => "the start value of a static field must be a fixed value (no calls, new, variables or static fields)".to_string(),
+            ErrorCode::StaticFieldOnObject { class, name } => {
+                format!("'{}' is static, use it as '{}::{}'", name, class, name)
+            }
+            ErrorCode::UnknownStaticField { class, name } => {
+                format!("'{}' has no static field '{}'", class, name)
             }
             ErrorCode::AbstractNew { name } => format!(
                 "'{}' is abstract and has no objects, create one of a subclass",

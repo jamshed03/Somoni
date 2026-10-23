@@ -1,0 +1,3 @@
+Type error [T083]: Line 2: the start value of a static field must be a fixed value (no calls, new, variables or static fields)
+  2 |     static standard: User? = new User();
+    |                              ^^^^^^^^^^

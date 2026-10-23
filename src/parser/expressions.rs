@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Call, Expr, ExprKind, FieldInit, InstanceOf, MethodCall, New, StaticCall, SuperCall,
-    THIS, UnaryOp,
+    BinaryOp, Call, Expr, ExprKind, FieldInit, InstanceOf, MethodCall, New, StaticAccess,
+    StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -165,7 +165,7 @@ impl Parser {
                 return self.parse_struct_literal(name, span);
             }
             Token::Ident(name) if *self.peek_next() == Token::ColonColon => {
-                return self.parse_static_call(name, span);
+                return self.parse_static(name, span);
             }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
             Token::This => ExprKind::Ident {
@@ -206,16 +206,21 @@ impl Parser {
         Ok(self.expr_since(ExprKind::Call(call), name_span))
     }
 
-    /// Reads a static call `Class::name(args)` whose class name is the current token.
-    fn parse_static_call(
-        &mut self,
-        class_name: String,
-        class_span: Span,
-    ) -> Result<Expr, SomoniError> {
+    /// Reads a static call `Class::name(args)` or a static field `Class::name` whose class name is the current token.
+    fn parse_static(&mut self, class_name: String, class_span: Span) -> Result<Expr, SomoniError> {
         self.advance();
         self.advance();
-        let (name, name_span) = self.expect_ident("method name after '::'")?;
-        self.expect(Token::LParen, "'(' after the method name")?;
+        let (name, name_span) = self.expect_ident("name after '::'")?;
+        if !self.eat(Token::LParen) {
+            let access = StaticAccess {
+                class_name,
+                class_span,
+                name,
+                name_span,
+                global: None,
+            };
+            return Ok(self.expr_since(ExprKind::StaticAccess(access), class_span));
+        }
         let args = self.parse_args()?;
         let call = StaticCall {
             class_name,

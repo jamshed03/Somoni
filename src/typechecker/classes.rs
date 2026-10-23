@@ -165,6 +165,11 @@ impl TypeChecker {
         for (method, signature) in statics {
             built.add_static(method, signature)?;
         }
+        for field in &class.static_fields {
+            let ty = self.resolve_type(&field.field.type_name, false)?;
+            built.add_static_field(field, ty, self.global_count)?;
+            self.global_count += 1;
+        }
         check_no_abstract_left(class, &built)?;
         let implements = self.all_interfaces(class, &built, parent.as_ref())?;
         let mut vtables = Vec::new();
@@ -180,6 +185,7 @@ impl TypeChecker {
             info.implements = implements;
             info.vtables = vtables;
             info.statics = built.statics;
+            info.static_fields = built.static_fields;
             info.constructor_visibility = class
                 .constructor
                 .as_ref()
@@ -233,6 +239,7 @@ impl TypeChecker {
         check_parent_constructor(class, parent.as_ref())?;
         class.plan = class_plan(&info, parent.as_ref());
         self.check_field_starts(class, &info)?;
+        self.check_static_starts(class, &info)?;
         if let Some(constructor) = &mut class.constructor {
             self.check_constructor(constructor, &layout, &info.constructor, parent.is_some())?;
         }
@@ -255,6 +262,40 @@ impl TypeChecker {
             }
             Ok(())
         })
+    }
+
+    /// Checks the start value of each static field and records their global numbers for the compiler.
+    fn check_static_starts(
+        &mut self,
+        class: &mut ClassDecl,
+        info: &ClassInfo,
+    ) -> Result<(), SomoniError> {
+        let mut statics = Vec::new();
+        for field in &mut class.static_fields {
+            let found = info
+                .static_fields
+                .get(&field.field.name)
+                .ok_or_else(|| SomoniError::internal("static field without info"))?;
+            self.check_static_start(field, &found.ty)?;
+            statics.push(found.global);
+        }
+        class.plan.statics = statics;
+        Ok(())
+    }
+
+    /// Checks that a static field has a start value (T082) that is a fixed value (T083) of its type.
+    fn check_static_start(&mut self, field: &mut ClassField, ty: &Type) -> Result<(), SomoniError> {
+        let Some(start) = &mut field.start else {
+            let code = ErrorCode::StaticWithoutStart {
+                name: field.field.name.clone(),
+            };
+            return Err(SomoniError::at(field.field.name_span, code));
+        };
+        self.in_function(None, |this| this.check_assignable(start, ty))?;
+        if !is_fixed_value(start) {
+            return Err(SomoniError::at(start.span, ErrorCode::StaticStartNotFixed));
+        }
+        Ok(())
     }
 
     /// Checks a constructor, which must start with `super(...)` in a subclass (T069).
@@ -487,6 +528,38 @@ fn check_parent_constructor(
     ))
 }
 
+/// Returns true for a value that is known before the program runs, like `60 * 60` or `["a", "b"]`.
+fn is_fixed_value(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Str(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Null
+        | ExprKind::EnumValue { .. } => true,
+        ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
+        ExprKind::Unary { operand, .. } => is_fixed_value(operand),
+        ExprKind::List(items) => items.iter().all(is_fixed_value),
+        ExprKind::Map(entries) => entries
+            .iter()
+            .all(|(key, value)| is_fixed_value(key) && is_fixed_value(value)),
+        ExprKind::StructLiteral { fields, .. } => {
+            fields.iter().all(|init| is_fixed_value(&init.value))
+        }
+        ExprKind::Ident { .. }
+        | ExprKind::Index { .. }
+        | ExprKind::Field { .. }
+        | ExprKind::Call(_)
+        | ExprKind::New(_)
+        | ExprKind::MethodCall(_)
+        | ExprKind::SuperInit { .. }
+        | ExprKind::SuperCall(_)
+        | ExprKind::StaticCall(_)
+        | ExprKind::StaticAccess(_)
+        | ExprKind::InstanceOf(_) => false,
+    }
+}
+
 /// Returns what the compiler needs to know about a class.
 fn class_plan(info: &ClassInfo, parent: Option<&ClassInfo>) -> ClassPlan {
     ClassPlan {
@@ -497,6 +570,7 @@ fn class_plan(info: &ClassInfo, parent: Option<&ClassInfo>) -> ClassPlan {
         parent_class: parent.map(|p| p.index),
         methods: info.method_table.clone(),
         vtables: info.vtables.clone(),
+        statics: Vec::new(),
     }
 }
 

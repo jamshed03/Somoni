@@ -1,0 +1,4 @@
+class User {
+    private static geheim: int = 1;
+}
+print(User::geheim);

@@ -73,6 +73,10 @@ pub enum Op {
     Switch(usize),
     /// Pops a value and pushes whether it is an object of the class or interface; `null` gives false.
     InstanceOf(InstanceTarget),
+    /// Pushes global number `i`, a static field.
+    GetGlobal(usize),
+    /// Pops a value and stores it in global number `i`.
+    SetGlobal(usize),
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -155,6 +159,8 @@ pub struct Program {
     pub structs: Vec<Rc<StructDecl>>,
     pub classes: Vec<ClassCode>,
     pub interfaces: Vec<Rc<InterfaceLayout>>,
+    /// The name `Class::field` of each global, which is a static field.
+    pub globals: Vec<String>,
 }
 
 /// The layout of a class and the functions its objects run for each method.
@@ -292,6 +298,8 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
         Op::Chars => "Chars".to_string(),
         Op::Switch(i) => format!("Switch [{}]", show_table(&chunk.tables[*i])),
+        Op::GetGlobal(i) => format!("GetGlobal {}", program.globals[*i]),
+        Op::SetGlobal(i) => format!("SetGlobal {}", program.globals[*i]),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

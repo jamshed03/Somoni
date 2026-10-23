@@ -45,6 +45,8 @@ struct LoopEntry {
 struct Vm<'p> {
     stack: Vec<Value>,
     callers: Vec<Frame<'p>>,
+    /// The values of the static fields, by their global number.
+    globals: Vec<Value>,
 }
 
 impl<'p> Vm<'p> {
@@ -56,6 +58,7 @@ impl<'p> Vm<'p> {
             base: 0,
         };
         self.stack.resize(frame.chunk.locals, Value::Void);
+        self.globals = vec![Value::Void; program.globals.len()];
         while let Some(op) = frame.chunk.code.get(frame.ip) {
             let (chunk, at) = (frame.chunk, frame.ip);
             frame.ip += 1;
@@ -75,6 +78,11 @@ impl<'p> Vm<'p> {
         match op {
             Op::Push(i) => self.stack.push(frame.chunk.constants[*i].clone()),
             Op::GetLocal(slot) => self.stack.push(self.stack[frame.place(*slot)].clone()),
+            Op::GetGlobal(i) => self.stack.push(self.globals[*i].clone()),
+            Op::SetGlobal(i) => {
+                let value = self.pop()?;
+                self.globals[*i] = value;
+            }
             Op::SetLocal(slot) => {
                 let value = self.pop()?;
                 self.stack[frame.place(*slot)] = value;

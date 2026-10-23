@@ -1,0 +1,3 @@
+Type error [T058]: Line 4: 'geheim' is private in 'User' and can only be used inside the class
+  4 | print(User::geheim);
+    |             ^^^^^^
