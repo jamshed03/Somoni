@@ -3,10 +3,10 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    EnumDecl, Function, Import, ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod, Stmt,
-    StructDecl,
+    EnumDecl, Field, Function, Import, ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod,
+    Stmt, StructDecl,
 };
-use crate::error::SomoniError;
+use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::Token;
 
@@ -91,13 +91,24 @@ impl Parser {
         self.advance();
         let (name, name_span) = self.expect_ident("struct name")?;
         self.expect(Token::LBrace, "'{' after struct name")?;
-        let fields = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_field)?;
+        let fields = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_struct_field)?;
         Ok(Stmt::StructDecl(Rc::new(StructDecl {
             exported,
             name,
             name_span,
             fields,
         })))
+    }
+
+    /// Reads one field of a struct, or returns P015 for `readonly`, which a struct (a copy) does not need.
+    fn parse_struct_field(&mut self) -> Result<Field, SomoniError> {
+        if *self.peek() == Token::Readonly {
+            return Err(SomoniError::at(
+                self.current_span(),
+                ErrorCode::ReadonlyNotAllowed,
+            ));
+        }
+        self.parse_field()
     }
 
     /// Reads `interface Name { method(a: int): type; ... }`.

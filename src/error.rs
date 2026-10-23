@@ -65,6 +65,7 @@ pub enum ErrorCode {
         what: &'static str,
         comes_with: &'static str,
     },
+    ReadonlyNotAllowed,
 
     // loader and imports
     CannotReadFile {
@@ -305,6 +306,10 @@ pub enum ErrorCode {
         class: String,
         name: String,
     },
+    ReadonlyField {
+        class: String,
+        name: String,
+    },
     ThisBeforeFieldsSet {
         missing: String,
     },
@@ -359,6 +364,7 @@ impl ErrorCode {
             ErrorCode::DuplicateConstructor => "P012",
             ErrorCode::InterfaceNotTopLevel => "P014",
             ErrorCode::NotYetSupported { .. } => "P013",
+            ErrorCode::ReadonlyNotAllowed => "P015",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -440,6 +446,7 @@ impl ErrorCode {
             ErrorCode::SuperInitMisplaced => "T070",
             ErrorCode::SuperOutsideSubclass => "T071",
             ErrorCode::ProtectedMember { .. } => "T072",
+            ErrorCode::ReadonlyField { .. } => "T073",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -498,6 +505,9 @@ impl ErrorCode {
                 "{} is not supported yet (it comes together with {})",
                 what, comes_with
             ),
+            ErrorCode::ReadonlyNotAllowed => {
+                "'readonly' is only allowed before a field of a class".to_string()
+            }
             ErrorCode::InvalidAssignTarget => {
                 "can only assign to a variable, a list element or a field".to_string()
             }
@@ -738,6 +748,10 @@ impl ErrorCode {
             }
             ErrorCode::ProtectedMember { class, name } => format!(
                 "'{}' is protected in '{}' and can only be used in it and its subclasses",
+                name, class
+            ),
+            ErrorCode::ReadonlyField { class, name } => format!(
+                "'{}' is readonly in '{}' and can only be set in its constructor",
                 name, class
             ),
             ErrorCode::BoundVarType {

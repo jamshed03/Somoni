@@ -34,6 +34,7 @@ pub enum Token {
     Extends,
     Super,
     Override,
+    Readonly,
 
     // names and values
     Ident(String),

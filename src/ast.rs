@@ -564,10 +564,11 @@ pub struct ClassLayout {
     pub fields: Vec<String>,
 }
 
-/// One field of a class, `name: type;` or `name: type = start;`, with its visibility.
+/// One field of a class, `name: type;` or `name: type = start;`, with its visibility and `readonly`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassField {
     pub visibility: Visibility,
+    pub readonly: bool,
     pub field: Field,
     pub start: Option<Expr>,
 }

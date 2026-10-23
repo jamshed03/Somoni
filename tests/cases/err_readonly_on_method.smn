@@ -1,0 +1,5 @@
+class Kasse {
+    readonly summe(): int {
+        return 0;
+    }
+}

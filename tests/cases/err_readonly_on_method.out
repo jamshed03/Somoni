@@ -1,0 +1,3 @@
+Parse error [P015]: Line 2: 'readonly' is only allowed before a field of a class
+  2 |     readonly summe(): int {
+    |     ^^^^^^^^

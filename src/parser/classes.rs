@@ -19,6 +19,23 @@ struct ClassBody {
     methods: Vec<Method>,
 }
 
+/// The words in front of a member: its visibility, `readonly` with its place, and `override`.
+struct Modifiers {
+    visibility: Visibility,
+    readonly: Option<Span>,
+    is_override: bool,
+}
+
+impl Modifiers {
+    /// Returns P015 if `readonly` stands in front of a member that is no field.
+    fn forbid_readonly(&self) -> Result<(), SomoniError> {
+        match self.readonly {
+            Some(span) => Err(SomoniError::at(span, ErrorCode::ReadonlyNotAllowed)),
+            None => Ok(()),
+        }
+    }
+}
+
 impl Parser {
     /// Reads `class Name extends Parent implements A, B { ... }`.
     pub(super) fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
@@ -71,35 +88,43 @@ impl Parser {
 
     /// Reads one field, the constructor or one method of a class into `body`.
     fn parse_class_member(&mut self, body: &mut ClassBody) -> Result<(), SomoniError> {
-        let visibility = self.parse_visibility()?;
-        let is_override = self.eat(Token::Override);
+        let modifiers = self.parse_modifiers()?;
         if self.at_word("constructor") {
-            return self.parse_class_constructor(visibility, body);
+            modifiers.forbid_readonly()?;
+            return self.parse_class_constructor(modifiers.visibility, body);
         }
         if let Token::Ident(name) = self.peek().clone()
             && *self.peek_next() == Token::LParen
         {
-            let method = self.parse_method(name, visibility, is_override)?;
-            body.methods.push(method);
+            modifiers.forbid_readonly()?;
+            body.methods.push(self.parse_method(name, &modifiers)?);
             return Ok(());
         }
-        body.fields.push(self.parse_class_field(visibility)?);
+        body.fields.push(self.parse_class_field(&modifiers)?);
         Ok(())
     }
 
+    /// Reads the visibility, `readonly` and `override` in front of a member, in this order.
+    fn parse_modifiers(&mut self) -> Result<Modifiers, SomoniError> {
+        let visibility = self.parse_visibility()?;
+        let readonly_span = self.current_span();
+        let readonly = self.eat(Token::Readonly).then_some(readonly_span);
+        let is_override = self.eat(Token::Override);
+        Ok(Modifiers {
+            visibility,
+            readonly,
+            is_override,
+        })
+    }
+
     /// Reads a method `name(a: int): type { ... }` whose name is the current token.
-    fn parse_method(
-        &mut self,
-        name: String,
-        visibility: Visibility,
-        is_override: bool,
-    ) -> Result<Method, SomoniError> {
+    fn parse_method(&mut self, name: String, modifiers: &Modifiers) -> Result<Method, SomoniError> {
         let name_span = self.current_span();
         self.advance();
         let function = self.parse_function_rest(false, name, name_span)?;
         Ok(Method {
-            visibility,
-            is_override,
+            visibility: modifiers.visibility,
+            is_override: modifiers.is_override,
             function,
         })
     }
@@ -128,7 +153,7 @@ impl Parser {
     }
 
     /// Reads `name: type;` or `name: type = start;` of a class.
-    fn parse_class_field(&mut self, visibility: Visibility) -> Result<ClassField, SomoniError> {
+    fn parse_class_field(&mut self, modifiers: &Modifiers) -> Result<ClassField, SomoniError> {
         let field = self.parse_field()?;
         let start = if self.eat(Token::Equal) {
             Some(self.parse_expr()?)
@@ -137,7 +162,8 @@ impl Parser {
         };
         self.expect(Token::Semicolon, "';' after the field")?;
         Ok(ClassField {
-            visibility,
+            visibility: modifiers.visibility,
+            readonly: modifiers.readonly.is_some(),
             field,
             start,
         })
