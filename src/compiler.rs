@@ -22,44 +22,53 @@ pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniE
     for stmt in &main.stmts {
         compiler.compile_stmt(stmt)?;
     }
-    let mut functions = Vec::new();
-    let mut structs = Vec::new();
-    let mut classes = Vec::new();
-    let mut method_tables = Vec::new();
-    let mut vtables = Vec::new();
-    let mut interfaces = Vec::new();
-    for &number in order {
-        let stmts = &files[number].stmts;
-        interfaces.extend(ast::interfaces(stmts).map(|decl| Rc::clone(&decl.layout)));
-        for function in ast::functions(stmts) {
-            let name = format!("fn {}", function.name);
-            functions.push(compile_function(function, name, function.params.len())?);
-        }
-        for class in ast::classes(stmts) {
-            functions.push(compile_init(class)?);
-            for method in class.methods.iter().map(|m| &m.function) {
-                let name = format!("{}.{}", class.layout.name, method.name);
-                functions.push(compile_function(method, name, method.params.len() + 1)?);
-            }
-            let layout = ClassLayout {
-                name: class.layout.name.clone(),
-                fields: class.plan.fields.clone(),
-            };
-            classes.push(Rc::new(layout));
-            method_tables.push(class.plan.methods.clone());
-            vtables.push(class.plan.vtables.clone());
-        }
-        structs.extend(ast::structs(stmts).cloned());
-    }
-    Ok(Program {
+    let mut program = Program {
         main: compiler.chunk,
-        functions,
-        structs,
-        classes,
-        method_tables,
-        vtables,
-        interfaces,
-    })
+        functions: Vec::new(),
+        structs: Vec::new(),
+        classes: Vec::new(),
+        method_tables: Vec::new(),
+        vtables: Vec::new(),
+        interfaces: Vec::new(),
+    };
+    for &number in order {
+        add_file(&mut program, &files[number].stmts)?;
+    }
+    Ok(program)
+}
+
+/// Adds the interfaces, functions, classes and structs of one file to the program.
+fn add_file(program: &mut Program, stmts: &[Stmt]) -> Result<(), SomoniError> {
+    let interfaces = ast::interfaces(stmts).map(|decl| Rc::clone(&decl.layout));
+    program.interfaces.extend(interfaces);
+    for function in ast::functions(stmts) {
+        let name = format!("fn {}", function.name);
+        let chunk = compile_function(function, name, function.params.len())?;
+        program.functions.push(chunk);
+    }
+    for class in ast::classes(stmts) {
+        add_class(program, class)?;
+    }
+    program.structs.extend(ast::structs(stmts).cloned());
+    Ok(())
+}
+
+/// Adds the `init`, the methods, the layout and the tables of one class to the program.
+fn add_class(program: &mut Program, class: &ClassDecl) -> Result<(), SomoniError> {
+    program.functions.push(compile_init(class)?);
+    for method in class.methods.iter().map(|m| &m.function) {
+        let name = format!("{}.{}", class.layout.name, method.name);
+        let chunk = compile_function(method, name, method.params.len() + 1)?;
+        program.functions.push(chunk);
+    }
+    let layout = ClassLayout {
+        name: class.layout.name.clone(),
+        fields: class.plan.fields.clone(),
+    };
+    program.classes.push(Rc::new(layout));
+    program.method_tables.push(class.plan.methods.clone());
+    program.vtables.push(class.plan.vtables.clone());
+    Ok(())
 }
 
 /// Writes the function `init Name`: with the new object in `this` (slot 0) and the arguments

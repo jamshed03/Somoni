@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::ast::{self, Field, Function, Param, Stmt, StructDecl, TypeName};
+use crate::ast::{self, EnumDecl, Field, Function, Param, Stmt, StructDecl, TypeName};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -15,17 +15,7 @@ impl TypeChecker {
     pub(super) fn declare_enums(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::enums(stmts) {
             self.check_new_type_name(&decl.name, decl.name_span)?;
-            if decl.variants.is_empty() {
-                return Err(SomoniError::at(decl.name_span, ErrorCode::EmptyEnum));
-            }
-            for (i, (name, span)) in decl.variants.iter().enumerate() {
-                if decl.variants[..i].iter().any(|(other, _)| other == name) {
-                    return Err(SomoniError::at(
-                        *span,
-                        ErrorCode::DuplicateVariant { name: name.clone() },
-                    ));
-                }
-            }
+            check_variants(decl)?;
             self.names
                 .enums
                 .insert(decl.name.clone(), Decl(Rc::clone(decl)));
@@ -331,6 +321,22 @@ impl TypeChecker {
         }
         Ok(ty)
     }
+}
+
+/// Returns T048 if an enum has no variants, T047 if it has a variant twice.
+fn check_variants(decl: &EnumDecl) -> Result<(), SomoniError> {
+    if decl.variants.is_empty() {
+        return Err(SomoniError::at(decl.name_span, ErrorCode::EmptyEnum));
+    }
+    for (i, (name, span)) in decl.variants.iter().enumerate() {
+        if decl.variants[..i].iter().any(|(other, _)| other == name) {
+            return Err(SomoniError::at(
+                *span,
+                ErrorCode::DuplicateVariant { name: name.clone() },
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Checks that a type may be the key of a map.

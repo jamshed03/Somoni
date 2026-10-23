@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ast::{self, ClassDecl, InterfaceLayout, Stmt, Visibility};
+use crate::ast::{self, ClassDecl, InterfaceDecl, InterfaceLayout, Stmt, Visibility};
 use crate::error::{ErrorCode, SomoniError};
+use crate::span::Span;
 use crate::types::Decl;
 
 use super::classes::describe_method;
@@ -15,26 +16,34 @@ impl TypeChecker {
     /// Collects the method signatures of all interfaces of a file.
     pub(super) fn declare_interface_methods(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::interfaces(stmts) {
-            let mut methods: Vec<(String, Signature)> = Vec::new();
-            for (position, method) in decl.methods.iter().enumerate() {
-                if methods.iter().any(|(name, _)| *name == method.name) {
-                    return Err(SomoniError::at(
-                        method.name_span,
-                        ErrorCode::DuplicateMember {
-                            class: decl.layout.name.clone(),
-                            name: method.name.clone(),
-                        },
-                    ));
-                }
-                let signature =
-                    self.signature_from(position, &method.params, &method.return_type)?;
-                methods.push((method.name.clone(), signature));
-            }
+            let methods = self.interface_methods(decl)?;
             if let Some(info) = self.interfaces.get_mut(&Decl(Rc::clone(&decl.layout))) {
                 info.methods = methods;
             }
         }
         Ok(())
+    }
+
+    /// Returns the name and signature of each method of an interface, in declaration order.
+    fn interface_methods(
+        &self,
+        decl: &InterfaceDecl,
+    ) -> Result<Vec<(String, Signature)>, SomoniError> {
+        let mut methods: Vec<(String, Signature)> = Vec::new();
+        for (position, method) in decl.methods.iter().enumerate() {
+            if methods.iter().any(|(name, _)| *name == method.name) {
+                return Err(SomoniError::at(
+                    method.name_span,
+                    ErrorCode::DuplicateMember {
+                        class: decl.layout.name.clone(),
+                        name: method.name.clone(),
+                    },
+                ));
+            }
+            let signature = self.signature_from(position, &method.params, &method.return_type)?;
+            methods.push((method.name.clone(), signature));
+        }
+        Ok(methods)
     }
 
     /// Checks that a class has every method of the interfaces it implements.
@@ -46,56 +55,82 @@ impl TypeChecker {
     ) -> Result<Vec<Decl<InterfaceLayout>>, SomoniError> {
         let mut implements = Vec::new();
         for (name, span) in &class.implements {
-            let Some(interface) = self.names.interfaces.get(name).cloned() else {
-                let code = if self.is_type_name(name) {
-                    ErrorCode::NotAnInterface { name: name.clone() }
-                } else {
-                    ErrorCode::UnknownType { name: name.clone() }
-                };
-                return Err(SomoniError::at(*span, code));
-            };
-            for (method_name, wanted) in &self.interface_info(&interface)?.methods {
-                let (Some(found), Some(member)) =
-                    (methods.get(method_name), members.get(method_name))
-                else {
-                    return Err(SomoniError::at(
-                        *span,
-                        ErrorCode::MissingInterfaceMethod {
-                            interface: interface.name.clone(),
-                            method: method_name.clone(),
-                        },
-                    ));
-                };
-                let place = class
-                    .methods
-                    .iter()
-                    .find(|m| m.function.name == *method_name)
-                    .map_or(*span, |m| m.function.name_span);
-                if member.visibility != Visibility::Public {
-                    return Err(SomoniError::at(
-                        place,
-                        ErrorCode::PrivateInterfaceMethod {
-                            interface: interface.name.clone(),
-                            method: method_name.clone(),
-                        },
-                    ));
-                }
-                let found = &found.signature;
-                if found.params != wanted.params || found.return_type != wanted.return_type {
-                    return Err(SomoniError::at(
-                        place,
-                        ErrorCode::InterfaceMethodType {
-                            interface: interface.name.clone(),
-                            method: describe_method(method_name, Visibility::Public, wanted)
-                                .trim_start_matches("public ")
-                                .to_string(),
-                        },
-                    ));
-                }
-            }
+            let interface = self.interface_named(name, *span)?;
+            self.check_interface_methods(class, &interface, *span, methods, members)?;
             implements.push(interface);
         }
         Ok(implements)
+    }
+
+    /// Returns the interface with this name: T062 if it is another type, T001 if there is none.
+    fn interface_named(
+        &self,
+        name: &str,
+        span: Span,
+    ) -> Result<Decl<InterfaceLayout>, SomoniError> {
+        if let Some(layout) = self.names.interfaces.get(name) {
+            return Ok(layout.clone());
+        }
+        let code = if self.is_type_name(name) {
+            ErrorCode::NotAnInterface {
+                name: name.to_string(),
+            }
+        } else {
+            ErrorCode::UnknownType {
+                name: name.to_string(),
+            }
+        };
+        Err(SomoniError::at(span, code))
+    }
+
+    /// Checks that a class has every method of one interface, public and with the same types.
+    fn check_interface_methods(
+        &self,
+        class: &ClassDecl,
+        interface: &Decl<InterfaceLayout>,
+        span: Span,
+        methods: &HashMap<String, MethodInfo>,
+        members: &HashMap<String, Member>,
+    ) -> Result<(), SomoniError> {
+        for (method_name, wanted) in &self.interface_info(interface)?.methods {
+            let (Some(found), Some(member)) = (methods.get(method_name), members.get(method_name))
+            else {
+                return Err(SomoniError::at(
+                    span,
+                    ErrorCode::MissingInterfaceMethod {
+                        interface: interface.name.clone(),
+                        method: method_name.clone(),
+                    },
+                ));
+            };
+            let place = class
+                .methods
+                .iter()
+                .find(|m| m.function.name == *method_name)
+                .map_or(span, |m| m.function.name_span);
+            if member.visibility != Visibility::Public {
+                return Err(SomoniError::at(
+                    place,
+                    ErrorCode::PrivateInterfaceMethod {
+                        interface: interface.name.clone(),
+                        method: method_name.clone(),
+                    },
+                ));
+            }
+            let found = &found.signature;
+            if found.params != wanted.params || found.return_type != wanted.return_type {
+                return Err(SomoniError::at(
+                    place,
+                    ErrorCode::InterfaceMethodType {
+                        interface: interface.name.clone(),
+                        method: describe_method(method_name, Visibility::Public, wanted)
+                            .trim_start_matches("public ")
+                            .to_string(),
+                    },
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Returns the interfaces of a class: those of its parent class and those after `implements`.

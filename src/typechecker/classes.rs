@@ -35,23 +35,29 @@ impl TypeChecker {
             }
         }
         for class in ast::classes(stmts) {
-            let layout = Decl(Rc::clone(&class.layout));
-            let mut current = self.parent_of(&layout);
-            for _ in 0..self.classes.len() {
-                let Some(ancestor) = current else {
-                    break;
-                };
-                if ancestor == layout {
-                    let span = class.extends.as_ref().map_or(class.name_span, |(_, s)| *s);
-                    return Err(SomoniError::at(
-                        span,
-                        ErrorCode::InheritanceCycle {
-                            name: layout.name.clone(),
-                        },
-                    ));
-                }
-                current = self.parent_of(&ancestor);
+            self.check_no_inheritance_cycle(class)?;
+        }
+        Ok(())
+    }
+
+    /// Returns an error if a class inherits from itself, also over several steps.
+    fn check_no_inheritance_cycle(&self, class: &ClassDecl) -> Result<(), SomoniError> {
+        let layout = Decl(Rc::clone(&class.layout));
+        let mut current = self.parent_of(&layout);
+        for _ in 0..self.classes.len() {
+            let Some(ancestor) = current else {
+                break;
+            };
+            if ancestor == layout {
+                let span = class.extends.as_ref().map_or(class.name_span, |(_, s)| *s);
+                return Err(SomoniError::at(
+                    span,
+                    ErrorCode::InheritanceCycle {
+                        name: layout.name.clone(),
+                    },
+                ));
             }
+            current = self.parent_of(&ancestor);
         }
         Ok(())
     }

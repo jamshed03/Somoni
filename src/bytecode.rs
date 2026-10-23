@@ -148,19 +148,24 @@ pub struct Program {
 pub fn disassemble(program: &Program) -> String {
     let mut out = String::new();
     for chunk in std::iter::once(&program.main).chain(&program.functions) {
-        let _ = writeln!(out, "== {} ({} locals) ==", chunk.name, chunk.locals);
-        let mut last_line = 0;
-        for (i, (op, span)) in chunk.code.iter().zip(&chunk.spans).enumerate() {
-            let line = if span.line == last_line {
-                "    ".to_string()
-            } else {
-                format!("{:>4}", span.line)
-            };
-            last_line = span.line;
-            let _ = writeln!(out, "{:04}  {}  {}", i, line, show_op(op, chunk, program));
-        }
+        disassemble_chunk(&mut out, chunk, program);
     }
     out
+}
+
+/// Writes the instructions of one chunk as text, the line number only where it changes.
+fn disassemble_chunk(out: &mut String, chunk: &Chunk, program: &Program) {
+    let _ = writeln!(out, "== {} ({} locals) ==", chunk.name, chunk.locals);
+    let mut last_line = 0;
+    for (i, (op, span)) in chunk.code.iter().zip(&chunk.spans).enumerate() {
+        let line = if span.line == last_line {
+            "    ".to_string()
+        } else {
+            format!("{:>4}", span.line)
+        };
+        last_line = span.line;
+        let _ = writeln!(out, "{:04}  {}  {}", i, line, show_op(op, chunk, program));
+    }
 }
 
 /// Shows a path as its slot and steps, e.g. `2[].1` for `l[i].name` with `l` in slot 2.
