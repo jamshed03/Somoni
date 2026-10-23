@@ -1,7 +1,6 @@
-//! The parser: turns the tokens of the lexer into a tree of statements and expressions.
-//! Its parts are spread over the files of this folder; here are the basics they share.
+//! The parser, which turns the tokens of the lexer into a tree; its parts are spread over this folder.
 
-use crate::ast::{Field, Param, Stmt, TypeName};
+use crate::ast::{Expr, ExprKind, Field, Param, Stmt, TypeName};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
@@ -18,8 +17,41 @@ pub struct Parser {
 }
 
 impl Parser {
+    /// Starts at the first token.
     pub fn new(tokens: Vec<SpannedToken>) -> Parser {
         Parser { tokens, pos: 0 }
+    }
+
+    /// Reads a whole file, which may hold only declarations if it is `imported` (M003).
+    pub fn parse_program(&mut self, imported: bool) -> Result<Vec<Stmt>, SomoniError> {
+        let mut stmts = Vec::new();
+        let mut only_imports = true;
+        while *self.peek() != Token::Eof {
+            if imported && !starts_declaration(self.peek()) {
+                return Err(SomoniError::at(
+                    self.current_span(),
+                    ErrorCode::OnlyDeclarations,
+                ));
+            }
+            let stmt = self.parse_top_level(only_imports)?;
+            only_imports &= matches!(stmt, Stmt::Import(_));
+            stmts.push(stmt);
+        }
+        Ok(stmts)
+    }
+
+    /// Reads one statement at the top level, where declarations are allowed and `import` only before all others.
+    fn parse_top_level(&mut self, only_imports: bool) -> Result<Stmt, SomoniError> {
+        match self.peek() {
+            Token::Import if only_imports => self.parse_import(),
+            Token::Export => self.parse_export(),
+            Token::Fn => self.parse_fn(false),
+            Token::Struct => self.parse_struct(false),
+            Token::Enum => self.parse_enum(false),
+            Token::Class => self.parse_class(false),
+            Token::Interface => self.parse_interface(false),
+            _ => self.parse_stmt(),
+        }
     }
 
     /// Returns the current token.
@@ -48,6 +80,14 @@ impl Parser {
         start.to(self.last_span())
     }
 
+    /// Returns an expression of `kind` from `start` to the token that was read last.
+    fn expr_since(&self, kind: ExprKind, start: Span) -> Expr {
+        Expr {
+            kind,
+            span: self.since(start),
+        }
+    }
+
     /// The error "expected ...", placed right after the token that was read last.
     fn expected(&self, what: impl Into<String>) -> SomoniError {
         SomoniError::at(
@@ -56,50 +96,11 @@ impl Parser {
         )
     }
 
-    /// Goes to the next token. It stays at the end of the input (Eof).
+    /// Goes to the next token, but stays at the end of the input (Eof).
     fn advance(&mut self) {
         if self.pos < self.tokens.len() - 1 {
             self.pos += 1;
         }
-    }
-
-    /// Reads a whole file. `fn`, `struct`, `enum` and `export` are only allowed here,
-    /// at the top level, and `import` only before all other statements.
-    /// An `imported` file may contain nothing else (M003).
-    pub fn parse_program(&mut self, imported: bool) -> Result<Vec<Stmt>, SomoniError> {
-        let mut stmts = Vec::new();
-        let mut only_imports = true;
-        while *self.peek() != Token::Eof {
-            let is_declaration = matches!(
-                self.peek(),
-                Token::Import
-                    | Token::Export
-                    | Token::Fn
-                    | Token::Struct
-                    | Token::Enum
-                    | Token::Class
-                    | Token::Interface
-            );
-            if imported && !is_declaration {
-                return Err(SomoniError::at(
-                    self.current_span(),
-                    ErrorCode::OnlyDeclarations,
-                ));
-            }
-            let stmt = match self.peek() {
-                Token::Import if only_imports => self.parse_import()?,
-                Token::Export => self.parse_export()?,
-                Token::Fn => self.parse_fn(false)?,
-                Token::Struct => self.parse_struct(false)?,
-                Token::Enum => self.parse_enum(false)?,
-                Token::Class => self.parse_class(false)?,
-                Token::Interface => self.parse_interface(false)?,
-                _ => self.parse_stmt()?,
-            };
-            only_imports &= matches!(stmt, Stmt::Import(_));
-            stmts.push(stmt);
-        }
-        Ok(stmts)
     }
 
     /// Reads the token `expected`, or returns the error "expected `what`".
@@ -156,8 +157,7 @@ impl Parser {
         }
     }
 
-    /// Reads `a: int`, a parameter or the variable of a `for`-each loop.
-    /// `what` names it in error messages.
+    /// Reads `a: int`, where `what` names it in error messages, e.g. `parameter`.
     fn parse_param(&mut self, what: &str) -> Result<Param, SomoniError> {
         let (name, name_span) = self.expect_ident(&format!("{} name", what))?;
         self.expect(Token::Colon, &format!("':' after {} name", what))?;
@@ -169,11 +169,24 @@ impl Parser {
         })
     }
 
-    /// Reads one field `x: int` of a struct declaration.
+    /// Reads the parameters of a function, method or constructor up to `)`, after the `(`.
+    fn parse_params(&mut self) -> Result<Vec<Param>, SomoniError> {
+        self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))
+    }
+
+    /// Reads `: type` after the parameters of a function or method.
+    fn parse_return_type(&mut self) -> Result<TypeName, SomoniError> {
+        self.expect(Token::Colon, "':' and a return type after ')'")?;
+        self.parse_type("return type")
+    }
+
+    /// Reads one field `x: int` of a struct or class.
     fn parse_field(&mut self) -> Result<Field, SomoniError> {
-        let (name, name_span) = self.expect_ident("field name")?;
-        self.expect(Token::Colon, "':' after field name")?;
-        let type_name = self.parse_type("field type")?;
+        let Param {
+            name,
+            name_span,
+            type_name,
+        } = self.parse_param("field")?;
         Ok(Field {
             name,
             name_span,
@@ -181,8 +194,7 @@ impl Parser {
         })
     }
 
-    /// Reads items separated by `,` up to the token `close`, e.g. the arguments `a, b)`.
-    /// The opening bracket is already read.
+    /// Reads items separated by `,` up to `close`, after the opening bracket, e.g. the arguments `a, b)`.
     fn parse_comma_list<T>(
         &mut self,
         close: Token,
@@ -195,12 +207,27 @@ impl Parser {
         }
         loop {
             items.push(parse_item(self)?);
-            if *self.peek() != Token::Comma {
+            if !self.eat(Token::Comma) {
                 break;
             }
-            self.advance();
         }
         self.expect(close, close_text)?;
+        Ok(items)
+    }
+
+    /// Reads items up to the `}` of the block opened at `open`, or returns P003 if it is not closed.
+    fn parse_until_brace<T>(
+        &mut self,
+        open: Span,
+        mut parse_item: impl FnMut(&mut Self) -> Result<T, SomoniError>,
+    ) -> Result<Vec<T>, SomoniError> {
+        let mut items = Vec::new();
+        while !self.eat(Token::RBrace) {
+            if *self.peek() == Token::Eof {
+                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
+            }
+            items.push(parse_item(self)?);
+        }
         Ok(items)
     }
 
@@ -219,4 +246,18 @@ impl Parser {
             span: self.since(start),
         })
     }
+}
+
+/// Returns true for the tokens that start a declaration, the only statements an imported file may have.
+fn starts_declaration(token: &Token) -> bool {
+    matches!(
+        token,
+        Token::Import
+            | Token::Export
+            | Token::Fn
+            | Token::Struct
+            | Token::Enum
+            | Token::Class
+            | Token::Interface
+    )
 }

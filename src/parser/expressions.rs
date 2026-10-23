@@ -1,4 +1,4 @@
-//! Reading expressions; each `parse_*` level is one level of operator precedence.
+//! Reading expressions, from the weakest operator `||` down to single values.
 
 use std::rc::Rc;
 
@@ -12,102 +12,54 @@ use crate::token::Token;
 
 use super::Parser;
 
+/// The binary operators by precedence level, from the weakest (`||`) to the strongest (`*`).
+const PRECEDENCE: &[&[(Token, BinaryOp)]] = &[
+    &[(Token::OrOr, BinaryOp::Or)],
+    &[(Token::AndAnd, BinaryOp::And)],
+    &[
+        (Token::EqualEqual, BinaryOp::Eq),
+        (Token::BangEqual, BinaryOp::NotEq),
+    ],
+    &[
+        (Token::Less, BinaryOp::Less),
+        (Token::Greater, BinaryOp::Greater),
+        (Token::LessEqual, BinaryOp::LessEq),
+        (Token::GreaterEqual, BinaryOp::GreaterEq),
+    ],
+    &[(Token::Plus, BinaryOp::Add), (Token::Minus, BinaryOp::Sub)],
+    &[
+        (Token::Star, BinaryOp::Mul),
+        (Token::Slash, BinaryOp::Div),
+        (Token::Percent, BinaryOp::Mod),
+    ],
+];
+
 impl Parser {
-    /// Reads a call `name(a, b)`. The current token is the name.
-    pub(super) fn parse_call(
-        &mut self,
-        name: String,
-        name_span: Span,
-    ) -> Result<Expr, SomoniError> {
-        self.advance();
-        self.advance();
-        let args = self.parse_args()?;
-        Ok(Expr {
-            kind: ExprKind::Call(Call {
-                name,
-                name_span,
-                args,
-                target: None,
-            }),
-            span: self.since(name_span),
-        })
+    /// Reads an expression.
+    pub fn parse_expr(&mut self) -> Result<Expr, SomoniError> {
+        self.parse_level(0)
     }
 
-    /// Reads operands with operators of one level, e.g. `a + b - c`.
-    /// `next` reads an operand, `ops` are the operators of this level.
-    fn parse_binary(
-        &mut self,
-        next: fn(&mut Self) -> Result<Expr, SomoniError>,
-        ops: &[(Token, BinaryOp)],
-    ) -> Result<Expr, SomoniError> {
-        let mut left = next(self)?;
-
+    /// Reads operands of precedence level `level` joined by its operators, e.g. `a + b - c`.
+    fn parse_level(&mut self, level: usize) -> Result<Expr, SomoniError> {
+        let Some(ops) = PRECEDENCE.get(level) else {
+            return self.parse_unary();
+        };
+        let mut left = self.parse_level(level + 1)?;
         while let Some((_, op)) = ops.iter().find(|(token, _)| token == self.peek()) {
             let op_span = self.current_span();
             self.advance();
-            let right = next(self)?;
+            let right = self.parse_level(level + 1)?;
             let span = left.span.to(right.span);
-            left = Expr {
-                kind: ExprKind::Binary {
-                    left: Box::new(left),
-                    op: *op,
-                    op_span,
-                    right: Box::new(right),
-                },
-                span,
+            let kind = ExprKind::Binary {
+                left: Box::new(left),
+                op: *op,
+                op_span,
+                right: Box::new(right),
             };
+            left = Expr { kind, span };
         }
-
         Ok(left)
-    }
-
-    /// Reads an expression. Each `parse_*` below is one level of operator precedence.
-    pub fn parse_expr(&mut self) -> Result<Expr, SomoniError> {
-        self.parse_binary(Self::parse_and, &[(Token::OrOr, BinaryOp::Or)])
-    }
-
-    fn parse_and(&mut self) -> Result<Expr, SomoniError> {
-        self.parse_binary(Self::parse_equality, &[(Token::AndAnd, BinaryOp::And)])
-    }
-
-    fn parse_equality(&mut self) -> Result<Expr, SomoniError> {
-        self.parse_binary(
-            Self::parse_comparison,
-            &[
-                (Token::EqualEqual, BinaryOp::Eq),
-                (Token::BangEqual, BinaryOp::NotEq),
-            ],
-        )
-    }
-
-    fn parse_comparison(&mut self) -> Result<Expr, SomoniError> {
-        self.parse_binary(
-            Self::parse_additive,
-            &[
-                (Token::Less, BinaryOp::Less),
-                (Token::Greater, BinaryOp::Greater),
-                (Token::LessEqual, BinaryOp::LessEq),
-                (Token::GreaterEqual, BinaryOp::GreaterEq),
-            ],
-        )
-    }
-
-    fn parse_additive(&mut self) -> Result<Expr, SomoniError> {
-        self.parse_binary(
-            Self::parse_term,
-            &[(Token::Plus, BinaryOp::Add), (Token::Minus, BinaryOp::Sub)],
-        )
-    }
-
-    fn parse_term(&mut self) -> Result<Expr, SomoniError> {
-        self.parse_binary(
-            Self::parse_unary,
-            &[
-                (Token::Star, BinaryOp::Mul),
-                (Token::Slash, BinaryOp::Div),
-                (Token::Percent, BinaryOp::Mod),
-            ],
-        )
     }
 
     /// Reads `!x`, `-x` or an expression without such an operator.
@@ -130,73 +82,125 @@ impl Parser {
         })
     }
 
-    /// Reads an expression followed by any number of `[index]` and `.field`, e.g. `l[0].x`.
+    /// Reads an expression followed by any number of `[index]`, `.field` and `.method(args)`, e.g. `l[0].x`.
     pub(super) fn parse_postfix(&mut self) -> Result<Expr, SomoniError> {
         let mut expr = self.parse_primary()?;
         loop {
             let start = expr.span;
             let kind = match self.peek() {
-                Token::LBracket => {
-                    self.advance();
-                    let index = self.parse_expr()?;
-                    self.expect(Token::RBracket, "']'")?;
-                    ExprKind::Index {
-                        target: Box::new(expr),
-                        index: Box::new(index),
-                    }
-                }
-                Token::Dot => {
-                    self.advance();
-                    let (name, name_span) = self.expect_ident("field name after '.'")?;
-                    if self.eat(Token::LParen) {
-                        let args = self.parse_args()?;
-                        ExprKind::MethodCall(MethodCall {
-                            target: Box::new(expr),
-                            name,
-                            name_span,
-                            args,
-                            call: None,
-                        })
-                    } else {
-                        ExprKind::Field {
-                            target: Box::new(expr),
-                            name,
-                            name_span,
-                            index: None,
-                        }
-                    }
-                }
+                Token::LBracket => self.parse_index(expr)?,
+                Token::Dot => self.parse_member(expr)?,
                 _ => return Ok(expr),
             };
-            expr = Expr {
-                kind,
-                span: start.to(self.last_span()),
-            };
+            expr = self.expr_since(kind, start);
         }
     }
 
-    /// Reads a struct literal `Point { x: 1, y: 2 }`. The current token is the name.
+    /// Reads `[index]` after `target`.
+    fn parse_index(&mut self, target: Expr) -> Result<ExprKind, SomoniError> {
+        self.advance();
+        let index = self.parse_expr()?;
+        self.expect(Token::RBracket, "']'")?;
+        Ok(ExprKind::Index {
+            target: Box::new(target),
+            index: Box::new(index),
+        })
+    }
+
+    /// Reads `.field` or `.method(args)` after `target`.
+    fn parse_member(&mut self, target: Expr) -> Result<ExprKind, SomoniError> {
+        self.advance();
+        let (name, name_span) = self.expect_ident("field name after '.'")?;
+        if !self.eat(Token::LParen) {
+            return Ok(ExprKind::Field {
+                target: Box::new(target),
+                name,
+                name_span,
+                index: None,
+            });
+        }
+        let args = self.parse_args()?;
+        Ok(ExprKind::MethodCall(MethodCall {
+            target: Box::new(target),
+            name,
+            name_span,
+            args,
+            call: None,
+        }))
+    }
+
+    /// Reads a value, a name, a call, a literal, `new`, `super` or `( ... )`.
+    fn parse_primary(&mut self) -> Result<Expr, SomoniError> {
+        let span = self.current_span();
+        let kind = match self.peek().clone() {
+            Token::Int(n) => ExprKind::Int(n),
+            Token::Float(f) => ExprKind::Float(f),
+            Token::Str(s) => ExprKind::Str(Rc::new(Text::new(s))),
+            Token::True => ExprKind::Bool(true),
+            Token::False => ExprKind::Bool(false),
+            Token::Null => ExprKind::Null,
+            Token::Ident(name) if *self.peek_next() == Token::LParen => {
+                return self.parse_call(name, span);
+            }
+            Token::Ident(name) if *self.peek_next() == Token::LBrace => {
+                return self.parse_struct_literal(name, span);
+            }
+            Token::Ident(name) => ExprKind::Ident { name, slot: None },
+            Token::This => ExprKind::Ident {
+                name: THIS.to_string(),
+                slot: None,
+            },
+            Token::New => return self.parse_new(span),
+            Token::Super => return self.parse_super(span),
+            Token::LBracket => return self.parse_list(span),
+            Token::LBrace => return self.parse_map(span),
+            Token::LParen => return self.parse_parens(span),
+            other => {
+                return Err(SomoniError::at(
+                    span,
+                    ErrorCode::UnexpectedToken { found: other },
+                ));
+            }
+        };
+        self.advance();
+        Ok(Expr { kind, span })
+    }
+
+    /// Reads a call `name(a, b)` whose name is the current token.
+    pub(super) fn parse_call(
+        &mut self,
+        name: String,
+        name_span: Span,
+    ) -> Result<Expr, SomoniError> {
+        self.advance();
+        self.advance();
+        let args = self.parse_args()?;
+        let call = Call {
+            name,
+            name_span,
+            args,
+            target: None,
+        };
+        Ok(self.expr_since(ExprKind::Call(call), name_span))
+    }
+
+    /// Reads the arguments of a call up to `)`, after the `(`.
+    fn parse_args(&mut self) -> Result<Vec<Expr>, SomoniError> {
+        self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)
+    }
+
+    /// Reads a struct literal `Point { x: 1, y: 2 }` whose name is the current token.
     fn parse_struct_literal(&mut self, name: String, name_span: Span) -> Result<Expr, SomoniError> {
         self.advance();
         self.advance();
         let fields = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_field_init)?;
-        Ok(Expr {
-            kind: ExprKind::StructLiteral {
-                name,
-                name_span,
-                fields,
-                index: None,
-            },
-            span: self.since(name_span),
-        })
-    }
-
-    /// Reads one `key: value` in a map literal.
-    fn parse_map_entry(&mut self) -> Result<(Expr, Expr), SomoniError> {
-        let key = self.parse_expr()?;
-        self.expect(Token::Colon, "':' after map key")?;
-        let value = self.parse_expr()?;
-        Ok((key, value))
+        let kind = ExprKind::StructLiteral {
+            name,
+            name_span,
+            fields,
+            index: None,
+        };
+        Ok(self.expr_since(kind, name_span))
     }
 
     /// Reads one `x: 1` in a struct literal.
@@ -212,113 +216,75 @@ impl Parser {
         })
     }
 
-    /// Reads the arguments of a call up to `)`; the `(` is already read.
-    fn parse_args(&mut self) -> Result<Vec<Expr>, SomoniError> {
-        self.parse_comma_list(Token::RParen, "')'", Self::parse_expr)
+    /// Reads a list literal `[a, b, c]`.
+    fn parse_list(&mut self, start: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        let elements = self.parse_comma_list(Token::RBracket, "']'", Self::parse_expr)?;
+        Ok(self.expr_since(ExprKind::List(elements), start))
+    }
+
+    /// Reads a map literal `{key: value, ...}`.
+    fn parse_map(&mut self, start: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        let entries = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_map_entry)?;
+        Ok(self.expr_since(ExprKind::Map(entries), start))
+    }
+
+    /// Reads one `key: value` in a map literal.
+    fn parse_map_entry(&mut self) -> Result<(Expr, Expr), SomoniError> {
+        let key = self.parse_expr()?;
+        self.expect(Token::Colon, "':' after map key")?;
+        let value = self.parse_expr()?;
+        Ok((key, value))
+    }
+
+    /// Reads `( expr )`, whose place then includes the brackets.
+    fn parse_parens(&mut self, start: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        let inner = self.parse_expr()?;
+        self.expect(Token::RParen, "')'")?;
+        Ok(self.expr_since(inner.kind, start))
     }
 
     /// Reads `new Name(args)`.
-    fn parse_new(&mut self, span: Span) -> Result<Expr, SomoniError> {
+    fn parse_new(&mut self, start: Span) -> Result<Expr, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("class name after 'new'")?;
         self.expect(Token::LParen, "'(' after the class name")?;
         let args = self.parse_args()?;
-        let kind = ExprKind::New(New {
+        let new = New {
             name,
             name_span,
             args,
             class: None,
             target: None,
-        });
-        Ok(Expr {
-            kind,
-            span: span.to(self.last_span()),
-        })
+        };
+        Ok(self.expr_since(ExprKind::New(new), start))
     }
 
     /// Reads `super(args)` or `super.name(args)`.
-    fn parse_super(&mut self, span: Span) -> Result<Expr, SomoniError> {
+    fn parse_super(&mut self, start: Span) -> Result<Expr, SomoniError> {
         self.advance();
         let kind = if self.eat(Token::LParen) {
             let args = self.parse_args()?;
             ExprKind::SuperInit { args, target: None }
         } else {
-            self.expect(Token::Dot, "'(' or '.' after 'super'")?;
-            let (name, name_span) = self.expect_ident("method name after 'super.'")?;
-            self.expect(Token::LParen, "'(' after the method name")?;
-            let args = self.parse_args()?;
-            ExprKind::SuperCall(SuperCall {
-                name,
-                name_span,
-                args,
-                target: None,
-            })
+            ExprKind::SuperCall(self.parse_super_call()?)
         };
-        Ok(Expr {
-            kind,
-            span: span.to(self.last_span()),
-        })
+        Ok(self.expr_since(kind, start))
     }
 
-    /// Reads a value, a name, a call, a struct literal, a list literal or `( ... )`.
-    fn parse_primary(&mut self) -> Result<Expr, SomoniError> {
-        let span = self.current_span();
-        let kind = match self.peek().clone() {
-            Token::Int(n) => ExprKind::Int(n),
-            Token::Float(f) => ExprKind::Float(f),
-            Token::Str(s) => ExprKind::Str(Rc::new(Text::new(s))),
-            Token::True => ExprKind::Bool(true),
-            Token::False => ExprKind::Bool(false),
-            Token::Null => ExprKind::Null,
-            Token::New => return self.parse_new(span),
-            Token::Ident(name) if *self.peek_next() == Token::LParen => {
-                return self.parse_call(name, span);
-            }
-            Token::Ident(name) if *self.peek_next() == Token::LBrace => {
-                return self.parse_struct_literal(name, span);
-            }
-            Token::Ident(name) => ExprKind::Ident { name, slot: None },
-            Token::Super => return self.parse_super(span),
-            Token::This => ExprKind::Ident {
-                name: THIS.to_string(),
-                slot: None,
-            },
-            Token::LBracket => {
-                self.advance();
-                let elements = self.parse_comma_list(Token::RBracket, "']'", Self::parse_expr)?;
-                return Ok(Expr {
-                    kind: ExprKind::List(elements),
-                    span: span.to(self.last_span()),
-                });
-            }
-            Token::LBrace => {
-                self.advance();
-                let entries = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_map_entry)?;
-                return Ok(Expr {
-                    kind: ExprKind::Map(entries),
-                    span: span.to(self.last_span()),
-                });
-            }
-            Token::LParen => {
-                self.advance();
-                let inner = self.parse_expr()?;
-                if *self.peek() != Token::RParen {
-                    return Err(self.expected("')'"));
-                }
-                self.advance();
-                return Ok(Expr {
-                    kind: inner.kind,
-                    span: span.to(self.last_span()),
-                });
-            }
-            other => {
-                return Err(SomoniError::at(
-                    span,
-                    ErrorCode::UnexpectedToken { found: other },
-                ));
-            }
-        };
-        self.advance();
-        Ok(Expr { kind, span })
+    /// Reads the rest of `super.name(args)` after `super`.
+    fn parse_super_call(&mut self) -> Result<SuperCall, SomoniError> {
+        self.expect(Token::Dot, "'(' or '.' after 'super'")?;
+        let (name, name_span) = self.expect_ident("method name after 'super.'")?;
+        self.expect(Token::LParen, "'(' after the method name")?;
+        let args = self.parse_args()?;
+        Ok(SuperCall {
+            name,
+            name_span,
+            args,
+            target: None,
+        })
     }
 }

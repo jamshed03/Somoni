@@ -279,41 +279,31 @@ impl TypeChecker {
         written: &TypeName,
         allow_void: bool,
     ) -> Result<Type, SomoniError> {
-        let simple = if allow_void {
-            Type::from_return_name(&written.name)
+        let simple = self.simple_type(&written.name, allow_void);
+        check_type_args(written, simple.is_some())?;
+        match simple {
+            Some(ty) => Ok(ty),
+            None => self.resolve_generic(written),
+        }
+    }
+
+    /// Returns the type of a name without type arguments: a built-in type or a declared struct, class, interface or enum.
+    fn simple_type(&self, name: &str, allow_void: bool) -> Option<Type> {
+        let builtin = if allow_void {
+            Type::from_return_name(name)
         } else {
-            Type::from_name(&written.name)
+            Type::from_name(name)
         };
-        let simple = simple.or_else(|| self.names.type_named(&written.name));
-        let expected_args = match (Type::arg_count(&written.name), &simple) {
-            (Some(count), _) => count,
-            (None, Some(_)) => 0,
-            (None, None) => {
-                return Err(SomoniError::at(
-                    written.span,
-                    ErrorCode::UnknownType {
-                        name: written.name.clone(),
-                    },
-                ));
-            }
-        };
-        if written.args.len() != expected_args {
-            return Err(SomoniError::at(
-                written.span,
-                ErrorCode::TypeArguments {
-                    name: written.name.clone(),
-                    expected: expected_args,
-                    found: written.args.len(),
-                },
-            ));
-        }
-        if let Some(ty) = simple {
-            return Ok(ty);
-        }
-        let mut args = Vec::new();
-        for arg in &written.args {
-            args.push(self.resolve_type(arg, false)?);
-        }
+        builtin.or_else(|| self.names.type_named(name))
+    }
+
+    /// Turns `list<T>`, `map<K, V>` or `result<T, E>` into a type, or returns T034 for a map key type that is not allowed.
+    fn resolve_generic(&self, written: &TypeName) -> Result<Type, SomoniError> {
+        let args = written
+            .args
+            .iter()
+            .map(|arg| self.resolve_type(arg, false))
+            .collect::<Result<Vec<_>, _>>()?;
         let ty = Type::with_args(&written.name, args)
             .ok_or_else(|| SomoniError::internal("type arguments do not fit"))?;
         if let Type::Map(key, _) = &ty {
@@ -321,6 +311,33 @@ impl TypeChecker {
         }
         Ok(ty)
     }
+}
+
+/// Returns T001 for an unknown type name, or T023 if a type has the wrong number of type arguments.
+fn check_type_args(written: &TypeName, is_simple: bool) -> Result<(), SomoniError> {
+    let expected = match (Type::arg_count(&written.name), is_simple) {
+        (Some(count), _) => count,
+        (None, true) => 0,
+        (None, false) => {
+            return Err(SomoniError::at(
+                written.span,
+                ErrorCode::UnknownType {
+                    name: written.name.clone(),
+                },
+            ));
+        }
+    };
+    if written.args.len() != expected {
+        return Err(SomoniError::at(
+            written.span,
+            ErrorCode::TypeArguments {
+                name: written.name.clone(),
+                expected,
+                found: written.args.len(),
+            },
+        ));
+    }
+    Ok(())
 }
 
 /// Returns T048 if an enum has no variants, T047 if it has a variant twice.

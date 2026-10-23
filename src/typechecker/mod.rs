@@ -1,6 +1,4 @@
-//! The type checker: checks the types of a program before it runs and writes into the tree what
-//! the compiler needs (slots, call targets, field positions, class plans).
-//! The parts of `TypeChecker` are spread over the files of this folder, one task per file.
+//! The type checker, which checks the types before the program runs and writes into the tree what the compiler needs.
 
 use std::collections::{HashMap, HashSet};
 
@@ -36,6 +34,13 @@ struct Signature {
     index: usize,
     params: Vec<Type>,
     return_type: Type,
+}
+
+impl Signature {
+    /// Returns true if both signatures have the same parameter types and return type.
+    fn same_types(&self, other: &Signature) -> bool {
+        self.params == other.params && self.return_type == other.return_type
+    }
 }
 
 /// The number and the fields of a struct.

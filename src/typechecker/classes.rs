@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{
-    self, Assign, ClassDecl, ClassField, ClassLayout, ClassPlan, Expr, ExprKind, Function, Stmt,
-    THIS, Visibility,
+    self, Assign, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Expr, ExprKind,
+    Function, Stmt, THIS, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -160,7 +160,7 @@ impl TypeChecker {
         let implements = self.all_interfaces(class, &built, parent.as_ref())?;
         let mut vtables = Vec::new();
         for interface in &implements {
-            vtables.push(self.vtable(interface, &built.methods, &built.table)?);
+            vtables.push(self.vtable(interface, &built)?);
         }
         if let Some(info) = self.classes.get_mut(&layout) {
             info.constructor.index = init;
@@ -214,14 +214,21 @@ impl TypeChecker {
     ) -> Result<(), SomoniError> {
         let info = self.class_info(&layout)?.clone();
         let parent = self.parent_info(&info)?;
-        class.plan = ClassPlan {
-            fields: info.fields.iter().map(|(name, _)| name.clone()).collect(),
-            field_offset: info.first_own_field,
-            params: info.constructor.params.len(),
-            parent_init: parent.as_ref().map(|p| p.constructor.index),
-            methods: info.method_table.clone(),
-            vtables: info.vtables.clone(),
-        };
+        class.plan = class_plan(&info, parent.as_ref());
+        self.check_field_starts(class, &info)?;
+        if let Some(constructor) = &mut class.constructor {
+            self.check_constructor(constructor, &layout, &info.constructor, parent.is_some())?;
+        }
+        self.check_methods(class, &layout, &info)?;
+        check_fields_set(class)
+    }
+
+    /// Checks the start values of the own fields of a class.
+    fn check_field_starts(
+        &mut self,
+        class: &mut ClassDecl,
+        info: &ClassInfo,
+    ) -> Result<(), SomoniError> {
         let own_fields = &info.fields[info.first_own_field..];
         self.in_function(None, |this| {
             for (field, (_, ty)) in class.fields.iter_mut().zip(own_fields) {
@@ -229,45 +236,65 @@ impl TypeChecker {
                     this.check_assignable(start, ty)?;
                 }
             }
-            Ok::<(), SomoniError>(())
-        })?;
-        if let Some(constructor) = &mut class.constructor {
-            let params = &info.constructor.params;
-            let has_parent = parent.is_some();
-            if has_parent && !starts_with_super(&constructor.body) {
-                return Err(SomoniError::at(
-                    constructor.span,
-                    ErrorCode::MissingSuper {
-                        class: layout.name.clone(),
-                    },
-                ));
-            }
-            self.in_function(Some(Type::Void), |this| {
-                let this_type = Type::Class(layout.clone());
-                this.declare(THIS, constructor.span, this_type, false)?;
-                this.declare_params(&constructor.params, params)?;
-                for (i, stmt) in constructor.body.iter_mut().enumerate() {
-                    this.super_init_allowed = has_parent && i == 0;
-                    let result = this.check_stmt(stmt);
-                    this.super_init_allowed = false;
-                    result?;
-                }
-                Ok::<(), SomoniError>(())
-            })?;
+            Ok(())
+        })
+    }
+
+    /// Checks a constructor, which must start with `super(...)` in a subclass (T069).
+    fn check_constructor(
+        &mut self,
+        constructor: &mut Constructor,
+        layout: &Decl<ClassLayout>,
+        signature: &Signature,
+        has_parent: bool,
+    ) -> Result<(), SomoniError> {
+        if has_parent && !starts_with_super(&constructor.body) {
+            return Err(SomoniError::at(
+                constructor.span,
+                ErrorCode::MissingSuper {
+                    class: layout.name.clone(),
+                },
+            ));
         }
+        self.in_function(Some(Type::Void), |this| {
+            let this_type = Type::Class(layout.clone());
+            this.declare(THIS, constructor.span, this_type, false)?;
+            this.declare_params(&constructor.params, &signature.params)?;
+            this.check_constructor_body(&mut constructor.body, has_parent)
+        })
+    }
+
+    /// Checks the statements of a constructor, where only the first may be `super(...)` in a subclass.
+    fn check_constructor_body(
+        &mut self,
+        body: &mut [Stmt],
+        has_parent: bool,
+    ) -> Result<(), SomoniError> {
+        for (i, stmt) in body.iter_mut().enumerate() {
+            self.super_init_allowed = has_parent && i == 0;
+            let result = self.check_stmt(stmt);
+            self.super_init_allowed = false;
+            result?;
+        }
+        Ok(())
+    }
+
+    /// Checks every method of a class with its signature.
+    fn check_methods(
+        &mut self,
+        class: &mut ClassDecl,
+        layout: &Decl<ClassLayout>,
+        info: &ClassInfo,
+    ) -> Result<(), SomoniError> {
         for method in class.methods.iter_mut().map(|m| &mut m.function) {
             let signature = info
                 .methods
                 .get(&method.name)
                 .map(|m| &m.signature)
                 .ok_or_else(|| SomoniError::internal("method without signature"))?;
-            self.check_method(method, &layout, signature)?;
+            self.check_method(method, layout, signature)?;
         }
-        let body = class
-            .constructor
-            .as_ref()
-            .map_or(&[][..], |constructor| &constructor.body);
-        check_fields_set(class, body)
+        Ok(())
     }
 
     /// Returns an error if `name` is private or protected and not visible here.
@@ -352,8 +379,21 @@ impl TypeChecker {
     }
 }
 
-/// Checks that the constructor sets every field without a start value before using `this`.
-fn check_fields_set(class: &ClassDecl, body: &[Stmt]) -> Result<(), SomoniError> {
+/// Returns what the compiler needs to know about a class.
+fn class_plan(info: &ClassInfo, parent: Option<&ClassInfo>) -> ClassPlan {
+    ClassPlan {
+        fields: info.fields.iter().map(|(name, _)| name.clone()).collect(),
+        field_offset: info.first_own_field,
+        params: info.constructor.params.len(),
+        parent_init: parent.map(|p| p.constructor.index),
+        methods: info.method_table.clone(),
+        vtables: info.vtables.clone(),
+    }
+}
+
+/// Returns T054 if the constructor uses `this` before it set every field without a start value, or T050 for a field it never sets.
+fn check_fields_set(class: &ClassDecl) -> Result<(), SomoniError> {
+    let body = class.constructor.as_ref().map_or(&[][..], |c| &c.body);
     let mut missing: Vec<&ClassField> = class.fields.iter().filter(|f| f.start.is_none()).collect();
     for stmt in body {
         if missing.is_empty() {
@@ -362,15 +402,10 @@ fn check_fields_set(class: &ClassDecl, body: &[Stmt]) -> Result<(), SomoniError>
         if let Some(name) = sets_field(stmt) {
             missing.retain(|field| field.field.name != name);
         } else if let Some(span) = stmt.find_this() {
-            let names: Vec<String> = missing
-                .iter()
-                .map(|field| format!("'{}'", field.field.name))
-                .collect();
+            let missing = quoted_names(&missing);
             return Err(SomoniError::at(
                 span,
-                ErrorCode::ThisBeforeFieldsSet {
-                    missing: names.join(", "),
-                },
+                ErrorCode::ThisBeforeFieldsSet { missing },
             ));
         }
     }
@@ -384,6 +419,15 @@ fn check_fields_set(class: &ClassDecl, body: &[Stmt]) -> Result<(), SomoniError>
         )),
         None => Ok(()),
     }
+}
+
+/// Returns the names of fields in quotes for a message, e.g. `'a', 'b'`.
+fn quoted_names(fields: &[&ClassField]) -> String {
+    let names: Vec<String> = fields
+        .iter()
+        .map(|field| format!("'{}'", field.field.name))
+        .collect();
+    names.join(", ")
 }
 
 /// Returns true if the first statement is `super(...)`.
@@ -400,21 +444,19 @@ fn starts_with_super(body: &[Stmt]) -> bool {
     )
 }
 
-/// Describes a method for a message, e.g. `public laut(): string`.
+/// Describes a method with its visibility for a message, e.g. `public laut(): string`.
 pub(super) fn describe_method(name: &str, visibility: Visibility, signature: &Signature) -> String {
-    let visibility = match visibility {
-        Visibility::Public => "public",
-        Visibility::Protected => "protected",
-        Visibility::Private => "private",
-    };
-    let params: Vec<String> = signature.params.iter().map(Type::to_string).collect();
     format!(
-        "{} {}({}): {}",
-        visibility,
-        name,
-        params.join(", "),
-        signature.return_type
+        "{} {}",
+        visibility.keyword(),
+        describe_signature(name, signature)
     )
+}
+
+/// Describes a method for a message, e.g. `laut(): string`.
+pub(super) fn describe_signature(name: &str, signature: &Signature) -> String {
+    let params: Vec<String> = signature.params.iter().map(Type::to_string).collect();
+    format!("{}({}): {}", name, params.join(", "), signature.return_type)
 }
 
 /// Returns the field that `this.field = value;` sets, if `value` does not use `this`.

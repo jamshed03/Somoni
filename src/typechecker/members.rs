@@ -1,5 +1,4 @@
-//! The members of a class: inherited ones first, then own fields and methods, with the rules
-//! for `override`.
+//! The members of a class, inherited ones first, with the rules for `override`.
 
 use std::collections::HashMap;
 
@@ -107,9 +106,7 @@ impl ClassMembers {
                 },
             ));
         }
-        let same_types = old.signature.params == signature.params
-            && old.signature.return_type == signature.return_type;
-        if !same_types || inherited.visibility != method.visibility {
+        if !old.signature.same_types(signature) || inherited.visibility != method.visibility {
             return Err(SomoniError::at(
                 span,
                 ErrorCode::OverrideMismatch {

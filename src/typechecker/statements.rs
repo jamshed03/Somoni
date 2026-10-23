@@ -7,6 +7,7 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Type;
 
+use super::patterns::check_match;
 use super::{Signature, TypeChecker};
 
 impl TypeChecker {
@@ -134,7 +135,7 @@ impl TypeChecker {
     /// Checks a `match` statement: the subject, that every variant is covered, and each branch.
     fn check_match_stmt(&mut self, m: &mut Match) -> Result<(), SomoniError> {
         let ty = self.check_expr(&mut m.subject)?;
-        m.arm_of_variant = self.check_match(&ty, m.subject.span, &m.arms, m.span)?;
+        m.arm_of_variant = check_match(&ty, m.subject.span, &m.arms, m.span)?;
         m.unwraps = matches!(ty, Type::Result(_, _));
         for arm in &mut m.arms {
             self.check_arm(arm, &ty)?;
@@ -144,18 +145,19 @@ impl TypeChecker {
 
     /// Checks an assignment and records whether its target lies inside an object.
     fn check_assign(&mut self, assign: &mut Assign) -> Result<(), SomoniError> {
-        assign.in_object =
-            self.check_assign_parts(&mut assign.target, assign.op, &mut assign.value)?;
-        Ok(())
+        let target_type = self.check_assign_target(&mut assign.target)?;
+        assign.in_object = self.target_in_object(&mut assign.target)?;
+        self.check_target_mutable(&assign.target, assign.in_object)?;
+        match assign.op {
+            None => self.check_assignable(&mut assign.value, &target_type),
+            Some((op, op_span)) => {
+                self.check_compound_assign(op, op_span, &mut assign.value, target_type)
+            }
+        }
     }
 
-    /// Checks the target and value of an assignment and returns true if the target lies inside an object.
-    fn check_assign_parts(
-        &mut self,
-        target: &mut Expr,
-        op: Option<(BinaryOp, Span)>,
-        value: &mut Expr,
-    ) -> Result<bool, SomoniError> {
+    /// Checks the target of an assignment and returns its type, or T005 for an enum variant like `Farbe.Rot`.
+    fn check_assign_target(&mut self, target: &mut Expr) -> Result<Type, SomoniError> {
         if let Some((decl, variant)) = self.enum_variant(target)? {
             return Err(SomoniError::at(
                 target.span,
@@ -164,8 +166,11 @@ impl TypeChecker {
                 },
             ));
         }
-        let target_type = self.check_expr(target)?;
-        let in_object = self.target_in_object(target)?;
+        self.check_expr(target)
+    }
+
+    /// Returns T005 if the variable of a target outside an object is `const`.
+    fn check_target_mutable(&self, target: &Expr, in_object: bool) -> Result<(), SomoniError> {
         let Some((name, name_span)) = target.root_variable() else {
             return Err(SomoniError::internal("assignment to a non-variable"));
         };
@@ -177,10 +182,17 @@ impl TypeChecker {
                 },
             ));
         }
-        let Some((op, op_span)) = op else {
-            self.check_assignable(value, &target_type)?;
-            return Ok(in_object);
-        };
+        Ok(())
+    }
+
+    /// Checks `target op= value`, whose result must have the type of the target.
+    fn check_compound_assign(
+        &mut self,
+        op: BinaryOp,
+        op_span: Span,
+        value: &mut Expr,
+        target_type: Type,
+    ) -> Result<(), SomoniError> {
         let value_type = self.check_expr_expecting(value, &target_type)?;
         let result = self.binary_type(op, target_type.clone(), value_type, op_span)?;
         if result != target_type {
@@ -192,7 +204,7 @@ impl TypeChecker {
                 },
             ));
         }
-        Ok(in_object)
+        Ok(())
     }
 
     /// Returns true if an assignment changes an object, which `const` does not protect.

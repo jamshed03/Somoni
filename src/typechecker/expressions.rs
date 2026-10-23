@@ -168,7 +168,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Checks a struct literal.
+    /// Checks a struct literal, or returns T051 for a class written like a struct.
     fn check_struct_literal(
         &mut self,
         name: &str,
@@ -185,11 +185,23 @@ impl TypeChecker {
             ));
         }
         let decl = self.struct_named(name, name_span)?;
-        let info = &self.struct_info(&decl)?.clone();
+        let info = self.struct_info(&decl)?.clone();
         *index = Some(info.index);
-        let mut given = vec![false; info.fields.len()];
+        let given = self.check_field_inits(name, fields, &info.fields)?;
+        check_no_missing_field(name, name_span, &info.fields, &given)?;
+        Ok(Type::Struct(decl))
+    }
+
+    /// Checks each `field: value` of a literal of struct `name` and returns which fields it gives, or T026 for a field twice.
+    fn check_field_inits(
+        &mut self,
+        name: &str,
+        fields: &mut [FieldInit],
+        declared: &[(String, Type)],
+    ) -> Result<Vec<bool>, SomoniError> {
+        let mut given = vec![false; declared.len()];
         for init in fields {
-            let (position, ty) = field_of(&info.fields, name, &init.name, init.name_span)?;
+            let (position, ty) = field_of(declared, name, &init.name, init.name_span)?;
             if given[position] {
                 return Err(SomoniError::at(
                     init.name_span,
@@ -202,17 +214,7 @@ impl TypeChecker {
             init.index = Some(position);
             self.check_assignable(&mut init.value, ty)?;
         }
-        let missing = info.fields.iter().zip(&given).find(|(_, given)| !**given);
-        if let Some(((field, _), _)) = missing {
-            return Err(SomoniError::at(
-                name_span,
-                ErrorCode::MissingField {
-                    struct_name: name.to_string(),
-                    name: field.clone(),
-                },
-            ));
-        }
-        Ok(Type::Struct(decl))
+        Ok(given)
     }
 
     /// Returns the type of an expression.
@@ -542,6 +544,26 @@ impl TypeChecker {
             )),
         }
     }
+}
+
+/// Returns T028 for the first field of struct `name` that a literal at `span` does not give.
+fn check_no_missing_field(
+    name: &str,
+    span: Span,
+    declared: &[(String, Type)],
+    given: &[bool],
+) -> Result<(), SomoniError> {
+    let missing = declared.iter().zip(given).find(|(_, given)| !**given);
+    if let Some(((field, _), _)) = missing {
+        return Err(SomoniError::at(
+            span,
+            ErrorCode::MissingField {
+                struct_name: name.to_string(),
+                name: field.clone(),
+            },
+        ));
+    }
+    Ok(())
 }
 
 /// Returns the error T056 for a method that the class or interface `owner` does not have.

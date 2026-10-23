@@ -24,16 +24,8 @@ impl Parser {
     pub(super) fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("class name")?;
-        let extends = if self.eat(Token::Extends) {
-            Some(self.expect_ident("class name after 'extends'")?)
-        } else {
-            None
-        };
-        let implements = if self.eat(Token::Implements) {
-            self.parse_names("interface name after 'implements'")?
-        } else {
-            Vec::new()
-        };
+        let extends = self.parse_extends()?;
+        let implements = self.parse_implements()?;
         let body = self.parse_class_body()?;
         let layout = ClassLayout {
             name,
@@ -52,17 +44,28 @@ impl Parser {
         }))
     }
 
+    /// Reads `extends Parent` after the class name, if it is there.
+    fn parse_extends(&mut self) -> Result<Option<(String, Span)>, SomoniError> {
+        if !self.eat(Token::Extends) {
+            return Ok(None);
+        }
+        Ok(Some(self.expect_ident("class name after 'extends'")?))
+    }
+
+    /// Reads `implements A, B` after the class name, if it is there.
+    fn parse_implements(&mut self) -> Result<Vec<(String, Span)>, SomoniError> {
+        if !self.eat(Token::Implements) {
+            return Ok(Vec::new());
+        }
+        self.parse_names("interface name after 'implements'")
+    }
+
     /// Reads the `{ ... }` of a class.
     fn parse_class_body(&mut self) -> Result<ClassBody, SomoniError> {
         let open = self.current_span();
         self.expect(Token::LBrace, "'{' after class name")?;
         let mut body = ClassBody::default();
-        while !self.eat(Token::RBrace) {
-            if *self.peek() == Token::Eof {
-                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
-            }
-            self.parse_class_member(&mut body)?;
-        }
+        self.parse_until_brace(open, |this| this.parse_class_member(&mut body))?;
         Ok(body)
     }
 
@@ -76,18 +79,29 @@ impl Parser {
         if let Token::Ident(name) = self.peek().clone()
             && *self.peek_next() == Token::LParen
         {
-            let name_span = self.current_span();
-            self.advance();
-            let function = self.parse_function_rest(false, name, name_span)?;
-            body.methods.push(Method {
-                visibility,
-                is_override,
-                function,
-            });
+            let method = self.parse_method(name, visibility, is_override)?;
+            body.methods.push(method);
             return Ok(());
         }
         body.fields.push(self.parse_class_field(visibility)?);
         Ok(())
+    }
+
+    /// Reads a method `name(a: int): type { ... }` whose name is the current token.
+    fn parse_method(
+        &mut self,
+        name: String,
+        visibility: Visibility,
+        is_override: bool,
+    ) -> Result<Method, SomoniError> {
+        let name_span = self.current_span();
+        self.advance();
+        let function = self.parse_function_rest(false, name, name_span)?;
+        Ok(Method {
+            visibility,
+            is_override,
+            function,
+        })
     }
 
     /// Reads the constructor of a class, which must be public and the only one.
@@ -129,8 +143,7 @@ impl Parser {
         })
     }
 
-    /// Reads `public`, `protected` or `private` in front of a field or method; without it,
-    /// it is public.
+    /// Reads `public`, `protected` or `private` in front of a field or method, public without it.
     fn parse_visibility(&mut self) -> Result<Visibility, SomoniError> {
         let visibility = match self.peek() {
             Token::Public => Visibility::Public,
@@ -142,12 +155,11 @@ impl Parser {
         Ok(visibility)
     }
 
-    /// Reads `constructor(a: int) { ... }`. The current token is `constructor`.
+    /// Reads `constructor(a: int) { ... }` whose `constructor` is the current token.
     fn parse_constructor(&mut self, span: Span) -> Result<Constructor, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'constructor'")?;
-        let params =
-            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
+        let params = self.parse_params()?;
         let body = self.expect_block_stmts("after the constructor parameters")?;
         Ok(Constructor { params, body, span })
     }

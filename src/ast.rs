@@ -527,6 +527,17 @@ pub enum Visibility {
     Private,
 }
 
+impl Visibility {
+    /// Returns the keyword of the visibility, e.g. `public`.
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Visibility::Public => "public",
+            Visibility::Protected => "protected",
+            Visibility::Private => "private",
+        }
+    }
+}
+
 /// A method of a class with its visibility; `is_override` with `override` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Method {

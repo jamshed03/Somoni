@@ -10,67 +10,6 @@ use crate::types::Type;
 use super::TypeChecker;
 
 impl TypeChecker {
-    /// Checks that a `match` covers every variant and returns the branch of each.
-    pub(super) fn check_match(
-        &self,
-        ty: &Type,
-        subject_span: Span,
-        arms: &[MatchArm],
-        span: Span,
-    ) -> Result<Vec<usize>, SomoniError> {
-        let Some(variants) = variant_names(ty) else {
-            return Err(SomoniError::at(
-                subject_span,
-                ErrorCode::MatchNotEnum { found: ty.clone() },
-            ));
-        };
-        let mut branch_of: Vec<Option<usize>> = vec![None; variants.len()];
-        let mut rest: Option<(usize, Span)> = None;
-        for (i, arm) in arms.iter().enumerate() {
-            if let Some((_, rest_span)) = rest {
-                return Err(SomoniError::at(rest_span, ErrorCode::RestNotLast));
-            }
-            let (variant, pattern_span) = match &arm.pattern {
-                Pattern::Rest(rest_span) => {
-                    rest = Some((i, *rest_span));
-                    continue;
-                }
-                pattern => pattern_variant(ty, pattern)?,
-            };
-            if branch_of[variant].is_some() {
-                return Err(SomoniError::at(
-                    pattern_span,
-                    ErrorCode::DuplicateBranch {
-                        name: variants[variant].clone(),
-                    },
-                ));
-            }
-            branch_of[variant] = Some(i);
-        }
-        let missing: Vec<String> = variants
-            .into_iter()
-            .zip(&branch_of)
-            .filter(|(_, branch)| branch.is_none())
-            .map(|(name, _)| name)
-            .collect();
-        match rest {
-            Some((_, rest_span)) if missing.is_empty() => {
-                Err(SomoniError::at(rest_span, ErrorCode::RestUnreachable))
-            }
-            Some((rest_branch, _)) => Ok(branch_of
-                .into_iter()
-                .map(|branch| branch.unwrap_or(rest_branch))
-                .collect()),
-            None if !missing.is_empty() => Err(SomoniError::at(
-                span,
-                ErrorCode::MissingBranch {
-                    missing: missing.join(", "),
-                },
-            )),
-            None => Ok(branch_of.into_iter().flatten().collect()),
-        }
-    }
-
     /// Checks one branch of a `match`.
     pub(super) fn check_arm(
         &mut self,
@@ -122,6 +61,102 @@ impl TypeChecker {
         };
         let variant = variant_of(decl, name, *name_span)?;
         Ok(Some((Rc::clone(&decl.0), variant)))
+    }
+}
+
+/// The `_` branch of a `match`: its number and its place.
+struct RestArm {
+    arm: usize,
+    span: Span,
+}
+
+/// The branch of each variant in a `match`, and the `_` branch if there is one.
+struct Branches {
+    of_variant: Vec<Option<usize>>,
+    rest: Option<RestArm>,
+}
+
+/// Returns the branch of each variant of a `match` over `ty`, or T041 if `ty` is no enum or result.
+pub(super) fn check_match(
+    ty: &Type,
+    subject_span: Span,
+    arms: &[MatchArm],
+    span: Span,
+) -> Result<Vec<usize>, SomoniError> {
+    let Some(variants) = variant_names(ty) else {
+        return Err(SomoniError::at(
+            subject_span,
+            ErrorCode::MatchNotEnum { found: ty.clone() },
+        ));
+    };
+    let branches = find_branches(ty, &variants, arms)?;
+    let missing: Vec<String> = variants
+        .into_iter()
+        .zip(&branches.of_variant)
+        .filter(|(_, branch)| branch.is_none())
+        .map(|(name, _)| name)
+        .collect();
+    complete_branches(branches, &missing, span)
+}
+
+/// Finds the branch of each variant, or returns T044 for a branch after `_` and T043 for a variant twice.
+fn find_branches(
+    ty: &Type,
+    variants: &[String],
+    arms: &[MatchArm],
+) -> Result<Branches, SomoniError> {
+    let mut branches = Branches {
+        of_variant: vec![None; variants.len()],
+        rest: None,
+    };
+    for (i, arm) in arms.iter().enumerate() {
+        if let Some(rest) = &branches.rest {
+            return Err(SomoniError::at(rest.span, ErrorCode::RestNotLast));
+        }
+        let (variant, pattern_span) = match &arm.pattern {
+            Pattern::Rest(span) => {
+                branches.rest = Some(RestArm {
+                    arm: i,
+                    span: *span,
+                });
+                continue;
+            }
+            pattern => pattern_variant(ty, pattern)?,
+        };
+        if branches.of_variant[variant].is_some() {
+            let name = variants[variant].clone();
+            return Err(SomoniError::at(
+                pattern_span,
+                ErrorCode::DuplicateBranch { name },
+            ));
+        }
+        branches.of_variant[variant] = Some(i);
+    }
+    Ok(branches)
+}
+
+/// Gives the `missing` variants the `_` branch, or returns T046 without one and T045 for a `_` that nothing reaches.
+fn complete_branches(
+    branches: Branches,
+    missing: &[String],
+    span: Span,
+) -> Result<Vec<usize>, SomoniError> {
+    match branches.rest {
+        Some(rest) if missing.is_empty() => {
+            Err(SomoniError::at(rest.span, ErrorCode::RestUnreachable))
+        }
+        Some(rest) => Ok(branches
+            .of_variant
+            .into_iter()
+            .map(|branch| branch.unwrap_or(rest.arm))
+            .collect()),
+        None if !missing.is_empty() => Err(SomoniError::at(
+            span,
+            ErrorCode::MissingBranch {
+                missing: missing.join(", "),
+            },
+        )),
+        None => Ok(branches.of_variant.into_iter().flatten().collect()),
     }
 }
 

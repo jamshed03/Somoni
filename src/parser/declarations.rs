@@ -6,7 +6,7 @@ use crate::ast::{
     EnumDecl, Function, Import, ImportName, InterfaceDecl, InterfaceLayout, InterfaceMethod, Stmt,
     StructDecl,
 };
-use crate::error::{ErrorCode, SomoniError};
+use crate::error::SomoniError;
 use crate::span::Span;
 use crate::token::Token;
 
@@ -18,10 +18,7 @@ impl Parser {
         let start = self.current_span();
         self.advance();
         self.expect(Token::LBrace, "'{' after 'import'")?;
-        let names = self.parse_comma_list(Token::RBrace, "'}'", |this| {
-            let (name, span) = this.expect_ident("name to import")?;
-            Ok(ImportName { name, span })
-        })?;
+        let names = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_import_name)?;
         self.expect_word("from", "'from' after '}'")?;
         let path_span = self.current_span();
         let Token::Str(path) = self.peek().clone() else {
@@ -39,7 +36,13 @@ impl Parser {
         }))
     }
 
-    /// Reads `export` and the `fn`, `struct` or `enum` after it.
+    /// Reads one name in the `{ ... }` of an import.
+    fn parse_import_name(&mut self) -> Result<ImportName, SomoniError> {
+        let (name, span) = self.expect_ident("name to import")?;
+        Ok(ImportName { name, span })
+    }
+
+    /// Reads `export` and the declaration after it.
     pub(super) fn parse_export(&mut self) -> Result<Stmt, SomoniError> {
         self.advance();
         match self.peek() {
@@ -70,10 +73,8 @@ impl Parser {
         name_span: Span,
     ) -> Result<Function, SomoniError> {
         self.expect(Token::LParen, "'(' after function name")?;
-        let params =
-            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
-        self.expect(Token::Colon, "':' and a return type after ')'")?;
-        let return_type = self.parse_type("return type")?;
+        let params = self.parse_params()?;
+        let return_type = self.parse_return_type()?;
         let body = self.expect_block_stmts("after function header")?;
         Ok(Function {
             exported,
@@ -105,29 +106,7 @@ impl Parser {
         let (name, name_span) = self.expect_ident("interface name")?;
         let open = self.current_span();
         self.expect(Token::LBrace, "'{' after interface name")?;
-        let mut methods = Vec::new();
-        while *self.peek() != Token::RBrace {
-            if *self.peek() == Token::Eof {
-                return Err(SomoniError::at(open, ErrorCode::BlockNotClosed));
-            }
-            let (method, method_span) = self.expect_ident("method name")?;
-            self.expect(Token::LParen, "'(' after method name")?;
-            let params =
-                self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("parameter"))?;
-            self.expect(Token::Colon, "':' and a return type after ')'")?;
-            let return_type = self.parse_type("return type")?;
-            self.expect(
-                Token::Semicolon,
-                "';' after the method (an interface has no bodies)",
-            )?;
-            methods.push(InterfaceMethod {
-                name: method,
-                name_span: method_span,
-                params,
-                return_type,
-            });
-        }
-        self.advance();
+        let methods = self.parse_until_brace(open, Self::parse_interface_method)?;
         let layout = InterfaceLayout {
             name,
             methods: methods.iter().map(|m| m.name.clone()).collect(),
@@ -138,6 +117,24 @@ impl Parser {
             name_span,
             methods,
         }))
+    }
+
+    /// Reads one method `name(a: int): type;` of an interface, which has no body.
+    fn parse_interface_method(&mut self) -> Result<InterfaceMethod, SomoniError> {
+        let (name, name_span) = self.expect_ident("method name")?;
+        self.expect(Token::LParen, "'(' after method name")?;
+        let params = self.parse_params()?;
+        let return_type = self.parse_return_type()?;
+        self.expect(
+            Token::Semicolon,
+            "';' after the method (an interface has no bodies)",
+        )?;
+        Ok(InterfaceMethod {
+            name,
+            name_span,
+            params,
+            return_type,
+        })
     }
 
     /// Reads `enum Farbe { Rot, Gruen, Blau }`.
