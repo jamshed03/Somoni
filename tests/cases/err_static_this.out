@@ -1,0 +1,3 @@
+Type error [T053]: Line 5: 'this' only exists in the constructor and the non-static methods of a class
+  5 |         return this.name;
+    |                ^^^^

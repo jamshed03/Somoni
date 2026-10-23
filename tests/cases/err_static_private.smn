@@ -1,0 +1,6 @@
+class Mathe {
+    private static geheim(): int {
+        return 42;
+    }
+}
+print(Mathe::geheim());

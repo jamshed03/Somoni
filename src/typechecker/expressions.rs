@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit, InterfaceLayout,
-    MethodCall, MethodTarget, New, SuperCall, THIS, UnaryOp,
+    BinaryOp, CONSTRUCTOR, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit,
+    InterfaceLayout, MethodCall, MethodTarget, New, StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -262,6 +262,7 @@ impl TypeChecker {
             ExprKind::SuperInit { args, target } => self.check_super_init(args, target, span),
             ExprKind::SuperCall(call) => self.check_super_call(call, span),
             ExprKind::New(new) => self.check_new(new, span),
+            ExprKind::StaticCall(call) => self.check_static_call(call, span),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -426,19 +427,24 @@ impl TypeChecker {
         Ok(signature.return_type)
     }
 
-    /// Checks a method call on an object of a class, which may only use methods it can see.
+    /// Checks a method call on an object of a class, or returns T075 for a static method.
     fn check_class_method_call(
         &mut self,
         layout: &Decl<ClassLayout>,
         call: &mut MethodCall,
         span: Span,
     ) -> Result<Type, SomoniError> {
-        let method = self
-            .class_info(layout)?
-            .methods
-            .get(&call.name)
-            .cloned()
-            .ok_or_else(|| unknown_method(&layout.name, &call.name, call.name_span))?;
+        let info = self.class_info(layout)?;
+        let Some(method) = info.methods.get(&call.name).cloned() else {
+            if !info.statics.contains_key(&call.name) {
+                return Err(unknown_method(&layout.name, &call.name, call.name_span));
+            }
+            let code = ErrorCode::StaticOnObject {
+                class: layout.name.clone(),
+                name: call.name.clone(),
+            };
+            return Err(SomoniError::at(call.name_span, code));
+        };
         self.check_access(layout, &call.name, call.name_span)?;
         call.call = Some(MethodTarget::Virtual { slot: method.slot });
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
@@ -475,10 +481,40 @@ impl TypeChecker {
         Ok(method.signature.return_type)
     }
 
+    /// Checks `Class::name(args)`, or returns T074 for a method that is not static.
+    fn check_static_call(
+        &mut self,
+        call: &mut StaticCall,
+        span: Span,
+    ) -> Result<Type, SomoniError> {
+        let layout = self.class_named(&call.class_name, call.class_span)?;
+        let info = self.class_info(&layout)?;
+        let Some(method) = info.statics.get(&call.name).cloned() else {
+            if !info.methods.contains_key(&call.name) {
+                return Err(unknown_method(&layout.name, &call.name, call.name_span));
+            }
+            let code = ErrorCode::NotStatic {
+                class: layout.name.clone(),
+                name: call.name.clone(),
+            };
+            return Err(SomoniError::at(call.name_span, code));
+        };
+        self.check_visible(method.visibility, &layout, &call.name, call.name_span)?;
+        call.target = Some(method.signature.index);
+        self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
+        Ok(method.signature.return_type)
+    }
+
     /// Checks `new Name(args)`.
     fn check_new(&mut self, new: &mut New, span: Span) -> Result<Type, SomoniError> {
         let layout = self.class_named(&new.name, new.name_span)?;
         let info = self.class_info(&layout)?;
+        self.check_visible(
+            info.constructor_visibility,
+            &layout,
+            CONSTRUCTOR,
+            new.name_span,
+        )?;
         let constructor = info.constructor.clone();
         new.class = Some(info.index);
         new.target = Some(constructor.index);

@@ -63,6 +63,8 @@ struct ClassInfo {
     members: HashMap<String, Member>,
     implements: Vec<Decl<InterfaceLayout>>,
     vtables: Vec<VTable>,
+    statics: HashMap<String, StaticMethod>,
+    constructor_visibility: Visibility,
 }
 
 impl ClassInfo {
@@ -83,6 +85,8 @@ impl ClassInfo {
             members: HashMap::new(),
             implements: Vec::new(),
             vtables: Vec::new(),
+            statics: HashMap::new(),
+            constructor_visibility: Visibility::Public,
         }
     }
 }
@@ -109,6 +113,13 @@ struct ObjectField {
     span: Span,
     /// True if the object is `this`, as in `this.x = 1`.
     through_this: bool,
+}
+
+/// A static method of a class: who may call it and its signature.
+#[derive(Clone)]
+struct StaticMethod {
+    visibility: Visibility,
+    signature: Signature,
 }
 
 /// A method of a class with its slot in the method table.

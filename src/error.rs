@@ -61,11 +61,8 @@ pub enum ErrorCode {
     ClassNotTopLevel,
     DuplicateConstructor,
     InterfaceNotTopLevel,
-    NotYetSupported {
-        what: &'static str,
-        comes_with: &'static str,
-    },
     ReadonlyNotAllowed,
+    StaticNotAllowed,
 
     // loader and imports
     CannotReadFile {
@@ -310,6 +307,14 @@ pub enum ErrorCode {
         class: String,
         name: String,
     },
+    NotStatic {
+        class: String,
+        name: String,
+    },
+    StaticOnObject {
+        class: String,
+        name: String,
+    },
     ThisBeforeFieldsSet {
         missing: String,
     },
@@ -363,8 +368,8 @@ impl ErrorCode {
             ErrorCode::ClassNotTopLevel => "P011",
             ErrorCode::DuplicateConstructor => "P012",
             ErrorCode::InterfaceNotTopLevel => "P014",
-            ErrorCode::NotYetSupported { .. } => "P013",
             ErrorCode::ReadonlyNotAllowed => "P015",
+            ErrorCode::StaticNotAllowed => "P016",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -447,6 +452,8 @@ impl ErrorCode {
             ErrorCode::SuperOutsideSubclass => "T071",
             ErrorCode::ProtectedMember { .. } => "T072",
             ErrorCode::ReadonlyField { .. } => "T073",
+            ErrorCode::NotStatic { .. } => "T074",
+            ErrorCode::StaticOnObject { .. } => "T075",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -501,10 +508,9 @@ impl ErrorCode {
             ErrorCode::InterfaceNotTopLevel => {
                 "interfaces can only be declared at the top level".to_string()
             }
-            ErrorCode::NotYetSupported { what, comes_with } => format!(
-                "{} is not supported yet (it comes together with {})",
-                what, comes_with
-            ),
+            ErrorCode::StaticNotAllowed => {
+                "'static' is only allowed before a method without 'override'".to_string()
+            }
             ErrorCode::ReadonlyNotAllowed => {
                 "'readonly' is only allowed before a field of a class".to_string()
             }
@@ -677,7 +683,8 @@ impl ErrorCode {
                 name, name
             ),
             ErrorCode::ThisOutsideClass => {
-                "'this' only exists in the constructor and the methods of a class".to_string()
+                "'this' only exists in the constructor and the non-static methods of a class"
+                    .to_string()
             }
             ErrorCode::ThisBeforeFieldsSet { missing } => format!(
                 "'this' is used before every field has a value (still missing: {})",
@@ -753,6 +760,16 @@ impl ErrorCode {
             ErrorCode::ReadonlyField { class, name } => format!(
                 "'{}' is readonly in '{}' and can only be set in its constructor",
                 name, class
+            ),
+            ErrorCode::NotStatic { class, name } => {
+                format!(
+                    "'{}' is not static in '{}', call it on an object",
+                    name, class
+                )
+            }
+            ErrorCode::StaticOnObject { class, name } => format!(
+                "'{}' is static, call it as '{}::{}(...)'",
+                name, class, name
             ),
             ErrorCode::BoundVarType {
                 name,

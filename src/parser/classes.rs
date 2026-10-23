@@ -3,7 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Method, Stmt, Visibility,
+    CONSTRUCTOR, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Method, Stmt,
+    Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -19,9 +20,10 @@ struct ClassBody {
     methods: Vec<Method>,
 }
 
-/// The words in front of a member: its visibility, `readonly` with its place, and `override`.
+/// The words in front of a member: its visibility, `static` and `readonly` with their places, and `override`.
 struct Modifiers {
     visibility: Visibility,
+    is_static: Option<Span>,
     readonly: Option<Span>,
     is_override: bool,
 }
@@ -29,10 +31,20 @@ struct Modifiers {
 impl Modifiers {
     /// Returns P015 if `readonly` stands in front of a member that is no field.
     fn forbid_readonly(&self) -> Result<(), SomoniError> {
-        match self.readonly {
-            Some(span) => Err(SomoniError::at(span, ErrorCode::ReadonlyNotAllowed)),
-            None => Ok(()),
-        }
+        forbid(self.readonly, ErrorCode::ReadonlyNotAllowed)
+    }
+
+    /// Returns P016 if `static` stands in front of a member that is no method, or together with `override`.
+    fn forbid_static(&self) -> Result<(), SomoniError> {
+        forbid(self.is_static, ErrorCode::StaticNotAllowed)
+    }
+}
+
+/// Returns the error `code` at the place of a word in front of a member, if the word is there.
+fn forbid(word: Option<Span>, code: ErrorCode) -> Result<(), SomoniError> {
+    match word {
+        Some(span) => Err(SomoniError::at(span, code)),
+        None => Ok(()),
     }
 }
 
@@ -89,32 +101,44 @@ impl Parser {
     /// Reads one field, the constructor or one method of a class into `body`.
     fn parse_class_member(&mut self, body: &mut ClassBody) -> Result<(), SomoniError> {
         let modifiers = self.parse_modifiers()?;
-        if self.at_word("constructor") {
+        if self.at_word(CONSTRUCTOR) {
+            modifiers.forbid_static()?;
             modifiers.forbid_readonly()?;
             return self.parse_class_constructor(modifiers.visibility, body);
         }
         if let Token::Ident(name) = self.peek().clone()
             && *self.peek_next() == Token::LParen
         {
+            if modifiers.is_override {
+                modifiers.forbid_static()?;
+            }
             modifiers.forbid_readonly()?;
             body.methods.push(self.parse_method(name, &modifiers)?);
             return Ok(());
         }
+        modifiers.forbid_static()?;
         body.fields.push(self.parse_class_field(&modifiers)?);
         Ok(())
     }
 
-    /// Reads the visibility, `readonly` and `override` in front of a member, in this order.
+    /// Reads the visibility, `static`, `readonly` and `override` in front of a member, in this order.
     fn parse_modifiers(&mut self) -> Result<Modifiers, SomoniError> {
         let visibility = self.parse_visibility()?;
-        let readonly_span = self.current_span();
-        let readonly = self.eat(Token::Readonly).then_some(readonly_span);
+        let is_static = self.eat_word_at(Token::Static);
+        let readonly = self.eat_word_at(Token::Readonly);
         let is_override = self.eat(Token::Override);
         Ok(Modifiers {
             visibility,
+            is_static,
             readonly,
             is_override,
         })
+    }
+
+    /// Reads `token` if it comes next and returns its place, or None if it is not there.
+    fn eat_word_at(&mut self, token: Token) -> Option<Span> {
+        let span = self.current_span();
+        self.eat(token).then_some(span)
     }
 
     /// Reads a method `name(a: int): type { ... }` whose name is the current token.
@@ -124,31 +148,23 @@ impl Parser {
         let function = self.parse_function_rest(false, name, name_span)?;
         Ok(Method {
             visibility: modifiers.visibility,
+            is_static: modifiers.is_static.is_some(),
             is_override: modifiers.is_override,
             function,
         })
     }
 
-    /// Reads the constructor of a class, which must be public and the only one.
+    /// Reads the constructor of a class, which must be the only one.
     fn parse_class_constructor(
         &mut self,
         visibility: Visibility,
         body: &mut ClassBody,
     ) -> Result<(), SomoniError> {
         let span = self.current_span();
-        if visibility != Visibility::Public {
-            return Err(SomoniError::at(
-                span,
-                ErrorCode::NotYetSupported {
-                    what: "'private constructor'",
-                    comes_with: "static",
-                },
-            ));
-        }
         if body.constructor.is_some() {
             return Err(SomoniError::at(span, ErrorCode::DuplicateConstructor));
         }
-        body.constructor = Some(self.parse_constructor(span)?);
+        body.constructor = Some(self.parse_constructor(visibility, span)?);
         Ok(())
     }
 
@@ -182,11 +198,20 @@ impl Parser {
     }
 
     /// Reads `constructor(a: int) { ... }` whose `constructor` is the current token.
-    fn parse_constructor(&mut self, span: Span) -> Result<Constructor, SomoniError> {
+    fn parse_constructor(
+        &mut self,
+        visibility: Visibility,
+        span: Span,
+    ) -> Result<Constructor, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'constructor'")?;
         let params = self.parse_params()?;
         let body = self.expect_block_stmts("after the constructor parameters")?;
-        Ok(Constructor { params, body, span })
+        Ok(Constructor {
+            visibility,
+            params,
+            body,
+            span,
+        })
     }
 }

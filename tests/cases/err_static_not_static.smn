@@ -1,0 +1,6 @@
+class User {
+    greet(): string {
+        return "Hallo";
+    }
+}
+print(User::greet());

@@ -1,0 +1,64 @@
+// static methods with Class::name(), private and protected constructors
+class Zaehler {
+    wert: int;
+
+    private constructor(start: int) {
+        this.wert = start;
+    }
+
+    static neu(): Zaehler {
+        return new Zaehler(0);
+    }
+
+    static ab(start: int): Zaehler {
+        return Zaehler::pruefen(start);
+    }
+
+    private static pruefen(start: int): Zaehler {
+        if (start < 0) {
+            return new Zaehler(0);
+        }
+        return new Zaehler(start);
+    }
+
+    erhoehen(): void {
+        this.wert += 1;
+    }
+
+    kopie(): Zaehler {
+        return Zaehler::ab(this.wert);
+    }
+}
+
+class Mathe {
+    static quadrat(x: int): int {
+        return x * x;
+    }
+}
+
+class Tier {
+    name: string;
+
+    protected constructor(name: string) {
+        this.name = name;
+    }
+}
+
+class Hund extends Tier {
+    constructor() {
+        super("Bello");
+    }
+
+    static welpe(): Hund {
+        return new Hund();
+    }
+}
+
+var z: Zaehler = Zaehler::neu();
+z.erhoehen();
+print(z.wert);
+print(Zaehler::ab(-5).wert);
+print(Zaehler::ab(7).kopie().wert);
+print(Mathe::quadrat(4));
+Mathe::quadrat(2);
+print(Hund::welpe().name);

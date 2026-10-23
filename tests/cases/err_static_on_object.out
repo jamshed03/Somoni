@@ -1,0 +1,3 @@
+Type error [T075]: Line 7: 'quadrat' is static, call it as 'Mathe::quadrat(...)'
+  7 | print(m.quadrat(2));
+    |         ^^^^^^^

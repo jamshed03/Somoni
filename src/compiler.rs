@@ -52,10 +52,17 @@ fn add_file(program: &mut Program, stmts: &[Stmt]) -> Result<(), SomoniError> {
 /// Adds the `init`, the methods and the class code of one class to the program.
 fn add_class(program: &mut Program, class: &ClassDecl) -> Result<(), SomoniError> {
     program.functions.push(compile_init(class)?);
-    for method in class.methods.iter().map(|m| &m.function) {
-        let name = format!("{}.{}", class.layout.name, method.name);
-        let chunk = compile_function(method, name, with_this(method.params.len()))?;
-        program.functions.push(chunk);
+    for method in &class.methods {
+        let function = &method.function;
+        let name = format!("{}.{}", class.layout.name, function.name);
+        let params = if method.is_static {
+            function.params.len()
+        } else {
+            with_this(function.params.len())
+        };
+        program
+            .functions
+            .push(compile_function(function, name, params)?);
     }
     program.classes.push(class_code(class));
     Ok(())
@@ -592,6 +599,11 @@ impl Compiler {
             ExprKind::MethodCall(call) => self.compile_method_call(call, span)?,
             ExprKind::SuperInit { args, target } => self.compile_super(*target, args, span)?,
             ExprKind::SuperCall(call) => self.compile_super(call.target, &call.args, span)?,
+            ExprKind::StaticCall(call) => {
+                self.compile_args(&call.args)?;
+                let target = filled(call.target, "static method")?;
+                self.chunk.push(Op::Call(target, call.args.len()), span);
+            }
             ExprKind::New(new) => {
                 let class = filled(new.class, "class of new")?;
                 self.chunk.push(Op::NewObject(class), span);

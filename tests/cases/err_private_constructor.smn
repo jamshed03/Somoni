@@ -2,3 +2,4 @@ class A {
     private constructor() {
     }
 }
+var a: A = new A();

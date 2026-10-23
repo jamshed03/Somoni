@@ -52,6 +52,7 @@ pub enum ExprKind {
         target: Option<usize>,
     },
     SuperCall(SuperCall),
+    StaticCall(StaticCall),
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
         name: String,
@@ -116,6 +117,18 @@ pub struct SuperCall {
     pub target: Option<usize>,
 }
 
+/// `Class::name(args)`, a call of a static method, which has no `this`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StaticCall {
+    pub class_name: String,
+    pub class_span: Span,
+    pub name: String,
+    pub name_span: Span,
+    pub args: Vec<Expr>,
+    /// Filled in by the type checker: the function of the method.
+    pub target: Option<usize>,
+}
+
 impl Expr {
     /// Returns the place of the first `this` in the expression, if there is one.
     pub fn find_this(&self) -> Option<Span> {
@@ -145,6 +158,7 @@ impl Expr {
             }
             ExprKind::SuperInit { args, .. } => first_this(args),
             ExprKind::SuperCall(_) => Some(self.span),
+            ExprKind::StaticCall(call) => first_this(&call.args),
         }
     }
 
@@ -538,10 +552,11 @@ impl Visibility {
     }
 }
 
-/// A method of a class with its visibility; `is_override` with `override` in front.
+/// A method of a class with its visibility, `static` (without `this`) or `override` in front.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Method {
     pub visibility: Visibility,
+    pub is_static: bool,
     pub is_override: bool,
     pub function: Function,
 }
@@ -549,6 +564,7 @@ pub struct Method {
 /// `constructor(name: string) { ... }` of a class, with `this` in slot 0 before the parameters.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Constructor {
+    pub visibility: Visibility,
     pub params: Vec<Param>,
     pub body: Vec<Stmt>,
     pub span: Span,
@@ -556,6 +572,9 @@ pub struct Constructor {
 
 /// The name of the variable that holds the object in a constructor or method, a keyword no other variable can have.
 pub const THIS: &str = "this";
+
+/// The word that starts the constructor of a class, which is no keyword (like `from` in an import).
+pub const CONSTRUCTOR: &str = "constructor";
 
 /// The name of a class and of its fields in order, which is the identity of the class (see `types::Decl`).
 #[derive(Debug, Clone, PartialEq)]

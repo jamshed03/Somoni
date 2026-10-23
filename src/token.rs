@@ -35,6 +35,7 @@ pub enum Token {
     Super,
     Override,
     Readonly,
+    Static,
 
     // names and values
     Ident(String),
@@ -44,6 +45,7 @@ pub enum Token {
 
     // symbols
     Colon,
+    ColonColon,
     Comma,
     Dot,
     Equal,

@@ -1,0 +1,3 @@
+Parse error [P016]: Line 2: 'static' is only allowed before a method without 'override'
+  2 |     static constructor() {
+    |     ^^^^^^

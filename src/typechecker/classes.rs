@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{
-    self, Assign, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Expr, ExprKind,
-    Function, Stmt, THIS, Visibility,
+    self, Assign, CONSTRUCTOR, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Expr,
+    ExprKind, Method, Stmt, THIS, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -153,9 +153,17 @@ impl TypeChecker {
         for field in &class.fields {
             built.add_field(field)?;
         }
+        let mut statics = Vec::new();
         for (method, &function) in class.methods.iter().zip(functions) {
             let signature = self.signature_of(&method.function, function)?;
-            built.add_method(method, signature)?;
+            if method.is_static {
+                statics.push((method, signature));
+            } else {
+                built.add_method(method, signature)?;
+            }
+        }
+        for (method, signature) in statics {
+            built.add_static(method, signature)?;
         }
         let implements = self.all_interfaces(class, &built, parent.as_ref())?;
         let mut vtables = Vec::new();
@@ -170,6 +178,11 @@ impl TypeChecker {
             info.members = built.members;
             info.implements = implements;
             info.vtables = vtables;
+            info.statics = built.statics;
+            info.constructor_visibility = class
+                .constructor
+                .as_ref()
+                .map_or(Visibility::Public, |c| c.visibility);
         }
         Ok(())
     }
@@ -186,15 +199,16 @@ impl TypeChecker {
         self.resolve_params(&constructor.params)
     }
 
-    /// Checks a method like a function, with `this` in slot 0.
+    /// Checks a method like a function, with `this` in slot 0 unless it is static.
     fn check_method(
         &mut self,
-        method: &mut Function,
+        method: &mut Method,
         layout: &Decl<ClassLayout>,
         signature: &Signature,
     ) -> Result<(), SomoniError> {
-        let name = format!("{}.{}", layout.name, method.name);
-        self.check_body(method, &name, signature, Some(Type::Class(layout.clone())))
+        let name = format!("{}.{}", layout.name, method.function.name);
+        let this_type = (!method.is_static).then(|| Type::Class(layout.clone()));
+        self.check_body(&mut method.function, &name, signature, this_type)
     }
 
     /// Checks a class with access to its private members.
@@ -214,6 +228,7 @@ impl TypeChecker {
     ) -> Result<(), SomoniError> {
         let info = self.class_info(&layout)?.clone();
         let parent = self.parent_info(&info)?;
+        check_parent_constructor(class, parent.as_ref())?;
         class.plan = class_plan(&info, parent.as_ref());
         self.check_field_starts(class, &info)?;
         if let Some(constructor) = &mut class.constructor {
@@ -289,12 +304,8 @@ impl TypeChecker {
         layout: &Decl<ClassLayout>,
         info: &ClassInfo,
     ) -> Result<(), SomoniError> {
-        for method in class.methods.iter_mut().map(|m| &mut m.function) {
-            let signature = info
-                .methods
-                .get(&method.name)
-                .map(|m| &m.signature)
-                .ok_or_else(|| SomoniError::internal("method without signature"))?;
+        for method in &mut class.methods {
+            let signature = method_signature(info, method)?;
             self.check_method(method, layout, signature)?;
         }
         Ok(())
@@ -310,23 +321,32 @@ impl TypeChecker {
         let Some(member) = self.class_info(layout)?.members.get(name) else {
             return Ok(());
         };
+        self.check_visible(member.visibility, &member.owner, name, span)
+    }
+
+    /// Returns T058 or T072 if something called `name` of class `owner` with this visibility is not visible here.
+    pub(super) fn check_visible(
+        &self,
+        visibility: Visibility,
+        owner: &Decl<ClassLayout>,
+        name: &str,
+        span: Span,
+    ) -> Result<(), SomoniError> {
         let inside = |allowed: &dyn Fn(&Decl<ClassLayout>) -> bool| {
             self.current_class.as_ref().is_some_and(allowed)
         };
-        let code = match member.visibility {
+        let code = match visibility {
             Visibility::Public => return Ok(()),
-            Visibility::Private if inside(&|current| *current == member.owner) => return Ok(()),
-            Visibility::Protected
-                if inside(&|current| self.is_subclass(current, &member.owner)) =>
-            {
+            Visibility::Private if inside(&|current| current == owner) => return Ok(()),
+            Visibility::Protected if inside(&|current| self.is_subclass(current, owner)) => {
                 return Ok(());
             }
             Visibility::Private => ErrorCode::PrivateMember {
-                class: member.owner.name.clone(),
+                class: owner.name.clone(),
                 name: name.to_string(),
             },
             Visibility::Protected => ErrorCode::ProtectedMember {
-                class: member.owner.name.clone(),
+                class: owner.name.clone(),
                 name: name.to_string(),
             },
         };
@@ -402,6 +422,40 @@ impl TypeChecker {
         };
         Err(SomoniError::at(span, code))
     }
+}
+
+/// Returns the signature of a method, from the static or the other methods of the class.
+fn method_signature<'a>(
+    info: &'a ClassInfo,
+    method: &Method,
+) -> Result<&'a Signature, SomoniError> {
+    let name = &method.function.name;
+    let signature = if method.is_static {
+        info.statics.get(name).map(|m| &m.signature)
+    } else {
+        info.methods.get(name).map(|m| &m.signature)
+    };
+    signature.ok_or_else(|| SomoniError::internal("method without signature"))
+}
+
+/// Returns T058 if a class extends a class whose constructor is private.
+fn check_parent_constructor(
+    class: &ClassDecl,
+    parent: Option<&ClassInfo>,
+) -> Result<(), SomoniError> {
+    let (Some(parent), Some((name, span))) = (parent, &class.extends) else {
+        return Ok(());
+    };
+    if parent.constructor_visibility != Visibility::Private {
+        return Ok(());
+    }
+    Err(SomoniError::at(
+        *span,
+        ErrorCode::PrivateMember {
+            class: name.clone(),
+            name: CONSTRUCTOR.to_string(),
+        },
+    ))
 }
 
 /// Returns what the compiler needs to know about a class.

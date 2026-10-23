@@ -1,0 +1,8 @@
+class Tier {
+    static erzeugen(): Tier {
+        return new Tier();
+    }
+}
+class Hund extends Tier {
+}
+var h: Tier = Hund::erzeugen();

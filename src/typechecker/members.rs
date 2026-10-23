@@ -8,7 +8,7 @@ use crate::span::Span;
 use crate::types::Decl;
 
 use super::classes::describe_method;
-use super::{ClassInfo, Member, MemberKind, MethodInfo, Signature};
+use super::{ClassInfo, Member, MemberKind, MethodInfo, Signature, StaticMethod};
 
 /// The members, methods and method table of a class while the type checker builds them.
 pub(super) struct ClassMembers {
@@ -16,6 +16,7 @@ pub(super) struct ClassMembers {
     pub(super) members: HashMap<String, Member>,
     pub(super) methods: HashMap<String, MethodInfo>,
     pub(super) table: Vec<usize>,
+    pub(super) statics: HashMap<String, StaticMethod>,
 }
 
 impl ClassMembers {
@@ -27,12 +28,14 @@ impl ClassMembers {
                 members: parent.members.clone(),
                 methods: parent.methods.clone(),
                 table: parent.method_table.clone(),
+                statics: HashMap::new(),
             },
             None => ClassMembers {
                 layout,
                 members: HashMap::new(),
                 methods: HashMap::new(),
                 table: Vec::new(),
+                statics: HashMap::new(),
             },
         }
     }
@@ -87,6 +90,25 @@ impl ClassMembers {
         self.methods
             .insert(name.clone(), MethodInfo { slot, signature });
         self.add_member(name, method.visibility, MemberKind::Method);
+        Ok(())
+    }
+
+    /// Adds an own static method, whose name no field or other method may have; call it after all other members.
+    pub(super) fn add_static(
+        &mut self,
+        method: &Method,
+        signature: Signature,
+    ) -> Result<(), SomoniError> {
+        let name = &method.function.name;
+        if self.members.contains_key(name) || self.statics.contains_key(name) {
+            return Err(self.duplicate(name, method.function.name_span));
+        }
+        let visibility = method.visibility;
+        let method = StaticMethod {
+            visibility,
+            signature,
+        };
+        self.statics.insert(name.clone(), method);
         Ok(())
     }
 

@@ -1,0 +1,9 @@
+class User {
+    greet(): string {
+        return "Hallo";
+    }
+
+    static greet(): string {
+        return "Hi";
+    }
+}

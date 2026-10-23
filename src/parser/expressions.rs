@@ -3,7 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Call, Expr, ExprKind, FieldInit, MethodCall, New, SuperCall, THIS, UnaryOp,
+    BinaryOp, Call, Expr, ExprKind, FieldInit, MethodCall, New, StaticCall, SuperCall, THIS,
+    UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -145,6 +146,9 @@ impl Parser {
             Token::Ident(name) if *self.peek_next() == Token::LBrace => {
                 return self.parse_struct_literal(name, span);
             }
+            Token::Ident(name) if *self.peek_next() == Token::ColonColon => {
+                return self.parse_static_call(name, span);
+            }
             Token::Ident(name) => ExprKind::Ident { name, slot: None },
             Token::This => ExprKind::Ident {
                 name: THIS.to_string(),
@@ -182,6 +186,28 @@ impl Parser {
             target: None,
         };
         Ok(self.expr_since(ExprKind::Call(call), name_span))
+    }
+
+    /// Reads a static call `Class::name(args)` whose class name is the current token.
+    fn parse_static_call(
+        &mut self,
+        class_name: String,
+        class_span: Span,
+    ) -> Result<Expr, SomoniError> {
+        self.advance();
+        self.advance();
+        let (name, name_span) = self.expect_ident("method name after '::'")?;
+        self.expect(Token::LParen, "'(' after the method name")?;
+        let args = self.parse_args()?;
+        let call = StaticCall {
+            class_name,
+            class_span,
+            name,
+            name_span,
+            args,
+            target: None,
+        };
+        Ok(self.expr_since(ExprKind::StaticCall(call), class_span))
     }
 
     /// Reads the arguments of a call up to `)`, after the `(`.

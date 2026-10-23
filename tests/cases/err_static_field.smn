@@ -1,0 +1,3 @@
+class Zaehler {
+    static anzahl: int = 0;
+}

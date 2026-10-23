@@ -1,0 +1,3 @@
+Type error [T055]: Line 6: 'greet' is already a field or method of 'User'
+  6 |     static greet(): string {
+    |            ^^^^^

@@ -358,11 +358,12 @@ fn compound_op(token: &Token) -> Option<BinaryOp> {
     }
 }
 
-/// Returns true for a method call, `new` or `super` call, which may stand alone as a statement.
+/// Returns true for a method call, a static call, `new` or `super`, which may stand alone as a statement.
 fn stands_alone(expr: &Expr) -> bool {
     matches!(
         expr.kind,
         ExprKind::MethodCall(_)
+            | ExprKind::StaticCall(_)
             | ExprKind::New(_)
             | ExprKind::SuperInit { .. }
             | ExprKind::SuperCall(_)

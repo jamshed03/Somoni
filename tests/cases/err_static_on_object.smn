@@ -1,0 +1,7 @@
+class Mathe {
+    static quadrat(x: int): int {
+        return x * x;
+    }
+}
+var m: Mathe = new Mathe();
+print(m.quadrat(2));

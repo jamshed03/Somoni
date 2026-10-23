@@ -1,0 +1,3 @@
+Type error [T056]: Line 8: 'Hund' has no method 'erzeugen'
+  8 | var h: Tier = Hund::erzeugen();
+    |                     ^^^^^^^^
