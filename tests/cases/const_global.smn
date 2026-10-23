@@ -1,0 +1,34 @@
+// constants at the top level are visible in functions, methods and start values of fields
+const MAX: int = 100;
+const NAMEN: list<string> = ["Ali", "Bea"];
+
+fn pruefe(x: int): bool {
+    return x < MAX;
+}
+
+fn zweiter(): string {
+    return NAMEN[1];
+}
+
+class Kasse {
+    grenze: int = MAX;
+
+    voll(n: int): bool {
+        return n >= this.grenze + ZUSCHLAG;
+    }
+}
+
+const ZUSCHLAG: int = 5;
+
+fn verdeckt(MAX: int): int {
+    return MAX;
+}
+
+print(pruefe(5));
+print(pruefe(200));
+print(zweiter());
+var k: Kasse = new Kasse();
+print(k.voll(104));
+print(k.voll(105));
+print(verdeckt(7));
+print(MAX);

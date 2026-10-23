@@ -152,10 +152,18 @@ struct InterfaceInfo {
     methods: Vec<(String, Signature)>,
 }
 
+/// A `const` of the top level that functions can read: its type and its global number.
+#[derive(Clone)]
+struct Constant {
+    ty: Type,
+    global: usize,
+}
+
 /// The names a file can use: its own declarations and its imports.
 #[derive(Default)]
 struct Names {
     functions: HashMap<String, Signature>,
+    constants: HashMap<String, Constant>,
     structs: HashMap<String, Decl<StructDecl>>,
     enums: HashMap<String, Decl<EnumDecl>>,
     classes: HashMap<String, Decl<ClassLayout>>,
@@ -222,6 +230,8 @@ pub struct TypeChecker {
     super_init_allowed: bool,
     function_count: usize,
     global_count: usize,
+    /// True while the top-level code of a file is checked, where a `const` exists only after its line.
+    in_main: bool,
     current_return: Option<Type>,
     next_slot: usize,
 }
@@ -241,6 +251,7 @@ impl TypeChecker {
             super_init_allowed: false,
             function_count: 0,
             global_count: 0,
+            in_main: false,
             current_return: None,
             next_slot: 0,
         }
@@ -256,7 +267,11 @@ impl TypeChecker {
             self.declare_structs(stmts)?;
             self.declare_functions(stmts)?;
             self.declare_class_functions(stmts)?;
-            self.check_stmts(stmts)?;
+            self.declare_constants(stmts)?;
+            self.in_main = true;
+            let result = self.check_stmts(stmts);
+            self.in_main = false;
+            result?;
             let exports = self.exports_of(stmts);
             self.exports_by_file.insert(number, exports);
         }
@@ -272,10 +287,12 @@ impl TypeChecker {
         let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
         let outer_return = std::mem::replace(&mut self.current_return, return_type);
         let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);
+        let outer_main = std::mem::replace(&mut self.in_main, false);
         let result = check(self);
         self.scopes = outer_scopes;
         self.current_return = outer_return;
         self.next_slot = outer_next_slot;
+        self.in_main = outer_main;
         result
     }
 

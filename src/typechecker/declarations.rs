@@ -8,7 +8,7 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::{Decl, Type};
 
-use super::{ClassInfo, InterfaceInfo, Signature, StructInfo, TypeChecker};
+use super::{ClassInfo, Constant, InterfaceInfo, Signature, StructInfo, TypeChecker};
 
 impl TypeChecker {
     /// Collects all enums of a file.
@@ -19,6 +19,31 @@ impl TypeChecker {
             self.names
                 .enums
                 .insert(decl.name.clone(), Decl(Rc::clone(decl)));
+        }
+        Ok(())
+    }
+
+    /// Gives every `const` at the top level a global number, so functions can read it.
+    pub(super) fn declare_constants(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
+        for stmt in stmts {
+            let Stmt::VarDecl {
+                name,
+                type_name,
+                mutable: false,
+                global,
+                ..
+            } = stmt
+            else {
+                continue;
+            };
+            let ty = self.resolve_type(type_name, false)?;
+            *global = Some(self.global_count);
+            let constant = Constant {
+                ty,
+                global: self.global_count,
+            };
+            self.names.constants.insert(name.clone(), constant);
+            self.global_count += 1;
         }
         Ok(())
     }

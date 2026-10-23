@@ -1,0 +1,4 @@
+const NAMEN: list<string> = ["a"];
+fn aendern(): void {
+    NAMEN[0] = "b";
+}

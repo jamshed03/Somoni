@@ -1,0 +1,2 @@
+print(MAX);
+const MAX: int = 1;

@@ -13,7 +13,7 @@ use crate::span::Span;
 use crate::types::{Decl, Type};
 
 use super::declarations::check_key_type;
-use super::{TypeChecker, check_arg_count, field_of, wrong_arg_type};
+use super::{Constant, TypeChecker, check_arg_count, field_of, wrong_arg_type};
 
 impl TypeChecker {
     /// Checks an expression whose type is expected, so `[]`, `null` and `ok(...)` get it.
@@ -240,10 +240,23 @@ impl TypeChecker {
             expr.kind = ExprKind::EnumValue { decl, variant };
             return Ok(ty);
         }
+        if let Some((name, constant)) = self.global_constant(expr) {
+            expr.kind = ExprKind::Constant {
+                name,
+                global: constant.global,
+            };
+            return Ok(constant.ty);
+        }
         let span = expr.span;
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
             ExprKind::EnumValue { decl, .. } => Ok(Type::Enum(Decl(Rc::clone(decl)))),
+            ExprKind::Constant { name, .. } => self
+                .names
+                .constants
+                .get(name)
+                .map(|constant| constant.ty.clone())
+                .ok_or_else(|| SomoniError::internal("constant without type")),
             ExprKind::Float(_) => Ok(Type::Float),
             ExprKind::Bool(_) => Ok(Type::Bool),
             ExprKind::Str(_) => Ok(Type::Str),
@@ -283,6 +296,18 @@ impl TypeChecker {
             ExprKind::InstanceOf(test) => self.check_instanceof(test),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
+    }
+
+    /// Returns the `const` of the top level that a name outside the top-level code means, if no variable has the name.
+    fn global_constant(&self, expr: &Expr) -> Option<(String, Constant)> {
+        let ExprKind::Ident { name, .. } = &expr.kind else {
+            return None;
+        };
+        if self.in_main || self.scopes.lookup(name).is_some() {
+            return None;
+        }
+        let constant = self.names.constants.get(name)?;
+        Some((name.clone(), constant.clone()))
     }
 
     /// Checks a variable and gives it its slot.

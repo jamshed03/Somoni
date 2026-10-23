@@ -83,6 +83,7 @@ impl<'p> Vm<'p> {
                 let value = self.pop()?;
                 self.globals[*i] = value;
             }
+            Op::GetConst(i) => self.get_const(*i, program)?,
             Op::SetLocal(slot) => {
                 let value = self.pop()?;
                 self.stack[frame.place(*slot)] = value;
@@ -346,6 +347,16 @@ impl<'p> Vm<'p> {
         }
     }
 
+    /// Pushes constant number `i`, or returns R008 if its line has not run yet.
+    #[inline(never)]
+    fn get_const(&mut self, i: usize, program: &Program) -> Result<(), SomoniError> {
+        if matches!(self.globals[i], Value::Void) {
+            return Err(const_before_value(i, program));
+        }
+        self.stack.push(self.globals[i].clone());
+        Ok(())
+    }
+
     /// Pops a value and pushes whether it is an object of the class or interface `target`.
     #[inline(never)]
     fn instance_of(
@@ -413,6 +424,13 @@ impl<'p> Vm<'p> {
             .pop()
             .ok_or_else(|| SomoniError::internal("the stack is empty"))
     }
+}
+
+/// Returns the error R008 for constant number `i`, which is still `void` because its line has not run yet.
+#[inline(never)]
+fn const_before_value(i: usize, program: &Program) -> SomoniError {
+    let name = program.globals[i].clone();
+    ErrorCode::ConstBeforeValue { name }.into()
 }
 
 /// Returns a new value of a struct whose fields are not set yet.

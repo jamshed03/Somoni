@@ -40,13 +40,35 @@ fn compile_main(files: &[SourceFile], order: &[usize]) -> Result<Chunk, SomoniEr
     Ok(compiler.chunk)
 }
 
-/// Returns the name `Class::field` of each global by its number, for `--bytecode`.
+/// Returns the name of each global by its number, `Class::field` or the name of a constant.
 fn global_names(files: &[SourceFile], order: &[usize]) -> Vec<String> {
-    let mut names = vec![String::new(); static_fields(files, order).count()];
+    let count = static_fields(files, order).count() + constants(files, order).count();
+    let mut names = vec![String::new(); count];
     for (class, field, global) in static_fields(files, order) {
         names[global] = format!("{}::{}", class.layout.name, field.field.name);
     }
+    for (name, global) in constants(files, order) {
+        names[global] = name.clone();
+    }
     names
+}
+
+/// Returns every `const` at the top level of the program with its global number, file by file in `order`.
+fn constants<'a>(
+    files: &'a [SourceFile],
+    order: &'a [usize],
+) -> impl Iterator<Item = (&'a String, usize)> {
+    order
+        .iter()
+        .flat_map(|&number| &files[number].stmts)
+        .filter_map(|stmt| match stmt {
+            Stmt::VarDecl {
+                name,
+                global: Some(global),
+                ..
+            } => Some((name, *global)),
+            _ => None,
+        })
 }
 
 /// Returns every static field of the program with its class and global number, file by file in `order`.
@@ -240,9 +262,17 @@ impl Compiler {
     fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl {
-                value, slot, span, ..
+                value,
+                slot,
+                global,
+                span,
+                ..
             } => {
                 self.compile_expr(value)?;
+                if let Some(global) = global {
+                    self.chunk.push(Op::SetGlobal(*global), *span);
+                    self.chunk.push(Op::GetGlobal(*global), *span);
+                }
                 let slot = self.use_slot(filled(*slot, "variable slot")?);
                 self.chunk.push(Op::SetLocal(slot), *span);
             }
@@ -396,6 +426,7 @@ impl Compiler {
                 let global = filled(access.global, "global of a static field")?;
                 Ok(PathRoot::Global(global))
             }
+            ExprKind::Constant { global, .. } => Ok(PathRoot::Global(*global)),
             ExprKind::Index {
                 target: inner,
                 index,
@@ -668,6 +699,9 @@ impl Compiler {
             ExprKind::StaticAccess(access) => {
                 let global = filled(access.global, "global of a static field")?;
                 self.chunk.push(Op::GetGlobal(global), span);
+            }
+            ExprKind::Constant { global, .. } => {
+                self.chunk.push(Op::GetConst(*global), span);
             }
             ExprKind::StaticCall(call) => {
                 self.compile_args(&call.args)?;

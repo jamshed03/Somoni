@@ -1,0 +1,3 @@
+Runtime error [R008]: Line 2: 'SPAETER' is used before its line has run
+  2 |     return SPAETER;
+    |            ^^^^^^^

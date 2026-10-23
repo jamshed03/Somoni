@@ -375,6 +375,9 @@ pub enum ErrorCode {
     KeyNotFound {
         key: String,
     },
+    ConstBeforeValue {
+        name: String,
+    },
     DuplicateKey {
         key: String,
     },
@@ -509,6 +512,7 @@ impl ErrorCode {
             ErrorCode::IndexOutOfRange { .. } => "R005",
             ErrorCode::KeyNotFound { .. } => "R006",
             ErrorCode::DuplicateKey { .. } => "R007",
+            ErrorCode::ConstBeforeValue { .. } => "R008",
         }
     }
 
@@ -875,6 +879,9 @@ impl ErrorCode {
             }
             ErrorCode::UnknownStaticField { class, name } => {
                 format!("'{}' has no static field '{}'", class, name)
+            }
+            ErrorCode::ConstBeforeValue { name } => {
+                format!("'{}' is used before its line has run", name)
             }
             ErrorCode::AbstractNew { name } => format!(
                 "'{}' is abstract and has no objects, create one of a subclass",

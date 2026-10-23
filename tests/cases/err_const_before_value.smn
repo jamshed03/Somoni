@@ -1,0 +1,5 @@
+fn zeigen(): int {
+    return SPAETER;
+}
+print(zeigen());
+const SPAETER: int = 1;

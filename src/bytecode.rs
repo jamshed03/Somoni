@@ -77,6 +77,8 @@ pub enum Op {
     GetGlobal(usize),
     /// Pops a value and stores it in global number `i`.
     SetGlobal(usize),
+    /// Pushes global number `i`, a constant, or returns R008 if its line has not run yet.
+    GetConst(usize),
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -166,7 +168,7 @@ pub struct Program {
     pub structs: Vec<Rc<StructDecl>>,
     pub classes: Vec<ClassCode>,
     pub interfaces: Vec<Rc<InterfaceLayout>>,
-    /// The name `Class::field` of each global, which is a static field.
+    /// The name of each global: `Class::field` for a static field, or the name of a constant.
     pub globals: Vec<String>,
 }
 
@@ -311,6 +313,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::Switch(i) => format!("Switch [{}]", show_table(&chunk.tables[*i])),
         Op::GetGlobal(i) => format!("GetGlobal {}", program.globals[*i]),
         Op::SetGlobal(i) => format!("SetGlobal {}", program.globals[*i]),
+        Op::GetConst(i) => format!("GetConst {}", program.globals[*i]),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

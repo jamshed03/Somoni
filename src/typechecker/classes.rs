@@ -537,6 +537,7 @@ fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::Bool(_)
         | ExprKind::Null
         | ExprKind::EnumValue { .. } => true,
+        ExprKind::Constant { .. } => false,
         ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
         ExprKind::Unary { operand, .. } => is_fixed_value(operand),
         ExprKind::List(items) => items.iter().all(is_fixed_value),

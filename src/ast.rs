@@ -67,6 +67,11 @@ pub enum ExprKind {
         decl: Rc<EnumDecl>,
         variant: usize,
     },
+    /// A `const` of the top level read in a function, which the type checker makes from a name.
+    Constant {
+        name: String,
+        global: usize,
+    },
     /// `target.name`; `index` is the position of the field in the struct.
     Field {
         target: Box<Expr>,
@@ -147,6 +152,7 @@ impl Expr {
     pub fn find_this(&self) -> Option<Span> {
         match &self.kind {
             ExprKind::Ident { name, .. } => (name == THIS).then_some(self.span),
+            ExprKind::Constant { .. } => None,
             ExprKind::Int(_)
             | ExprKind::Float(_)
             | ExprKind::Str(_)
@@ -201,7 +207,9 @@ impl Expr {
     /// Returns where an assignment target starts, e.g. `l` in `l[0].x`, if it can be assigned to.
     pub fn assign_root(&self) -> Option<AssignRoot<'_>> {
         match &self.kind {
-            ExprKind::Ident { name, .. } => Some(AssignRoot::Variable(name, self.span)),
+            ExprKind::Ident { name, .. } | ExprKind::Constant { name, .. } => {
+                Some(AssignRoot::Variable(name, self.span))
+            }
             ExprKind::StaticAccess(_) => Some(AssignRoot::Static),
             ExprKind::Index { target, .. } | ExprKind::Field { target, .. } => target.assign_root(),
             _ => None,
@@ -209,7 +217,7 @@ impl Expr {
     }
 }
 
-/// Where an assignment target starts: a variable with its place, or a static field like `User::namen`.
+/// Where an assignment target starts: a variable or constant with its place, or a static field like `User::namen`.
 pub enum AssignRoot<'a> {
     Variable(&'a str, Span),
     Static,
@@ -304,6 +312,8 @@ pub enum Stmt {
         value: Expr,
         mutable: bool,
         slot: Option<usize>,
+        /// Filled in by the type checker for a `const` at the top level: its global number for functions.
+        global: Option<usize>,
         span: Span,
     },
     /// A call as a statement, e.g. `print(x);`

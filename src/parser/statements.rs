@@ -327,6 +327,7 @@ impl Parser {
             value,
             mutable,
             slot: None,
+            global: None,
             span,
         })
     }
