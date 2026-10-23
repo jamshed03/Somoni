@@ -1,0 +1,5 @@
+class Node {
+    wert: int = 1;
+}
+var n: Node? = new Node();
+print(n.wert);

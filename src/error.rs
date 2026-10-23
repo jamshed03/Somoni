@@ -507,8 +507,39 @@ impl ErrorCode {
         }
     }
 
-    /// Returns the message, in lowercase, e.g. `unknown variable 'y'`.
+    /// Returns the message, in lowercase, e.g. `unknown variable 'y'`, with a tip for a value with `?` that is not checked.
     pub fn message(&self) -> String {
+        let message = self.base_message();
+        if self.unchecked_optional() {
+            return format!(
+                "{}; check it with '!= null' first, a field after copying it into a variable",
+                message
+            );
+        }
+        message
+    }
+
+    /// Returns true if the error comes from using a value with `?` before checking it for `null`.
+    fn unchecked_optional(&self) -> bool {
+        match self {
+            ErrorCode::OperandTypesDiffer { left, right } => {
+                is_optional_of(left, right) || is_optional_of(right, left)
+            }
+            ErrorCode::CannotAssign { found, expected } => is_optional_of(found, expected),
+            ErrorCode::OperatorNotAllowed { found }
+            | ErrorCode::NotNeedsBool { found }
+            | ErrorCode::NegNeedsNumber { found }
+            | ErrorCode::ConditionNotBool { found }
+            | ErrorCode::NotIndexable { found }
+            | ErrorCode::NoFields { found }
+            | ErrorCode::NotIterable { found }
+            | ErrorCode::NoMethods { found } => matches!(found, Type::Optional(_)),
+            _ => false,
+        }
+    }
+
+    /// Returns the message without a tip.
+    fn base_message(&self) -> String {
         match self {
             ErrorCode::UnexpectedCharacter { found } => format!("unexpected character '{}'", found),
             ErrorCode::UnterminatedString => "unterminated string".to_string(),
@@ -857,6 +888,11 @@ impl ErrorCode {
             }
         }
     }
+}
+
+/// Returns true if `optional` is `inner` with `?`, like `int?` for `int`.
+fn is_optional_of(optional: &Type, inner: &Type) -> bool {
+    matches!(optional, Type::Optional(ty) if **ty == *inner)
 }
 
 /// An error with its place in the source (None if the place is not known yet).

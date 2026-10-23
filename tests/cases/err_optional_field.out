@@ -1,0 +1,3 @@
+Type error [T029]: Line 5: cannot use '.' on Node?; check it with '!= null' first, a field after copying it into a variable
+  5 | print(n.wert);
+    |       ^

@@ -1,0 +1,3 @@
+Type error [T057]: Line 6: cannot call a method on Node? (only objects of classes have methods); check it with '!= null' first, a field after copying it into a variable
+  6 | n.zeigen();
+    | ^

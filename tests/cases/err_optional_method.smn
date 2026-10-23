@@ -1,0 +1,6 @@
+class Node {
+    zeigen(): void {
+    }
+}
+var n: Node? = new Node();
+n.zeigen();
