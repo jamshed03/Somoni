@@ -1,6 +1,8 @@
 //! Reading statements: blocks, `if`, loops, `match`, variables and assignments.
 
-use crate::ast::{Assign, BinaryOp, Expr, ExprKind, ForEach, Match, MatchArm, Pattern, Stmt};
+use crate::ast::{
+    Assign, BinaryOp, Expr, ExprKind, ForEach, Match, MatchArm, Pattern, Stmt, VarDecl,
+};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -320,7 +322,7 @@ impl Parser {
         let value = self.parse_expr()?;
         let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::VarDecl {
+        Ok(Stmt::VarDecl(VarDecl {
             name,
             name_span,
             type_name,
@@ -329,7 +331,7 @@ impl Parser {
             slot: None,
             global: None,
             span,
-        })
+        }))
     }
 }
 

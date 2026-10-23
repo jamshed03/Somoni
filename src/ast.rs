@@ -304,18 +304,7 @@ pub enum UnaryOp {
 /// The kinds of statements. `span` is the place error messages point to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    /// `var name: type = value;` or `const ...`
-    VarDecl {
-        name: String,
-        name_span: Span,
-        type_name: TypeName,
-        value: Expr,
-        mutable: bool,
-        slot: Option<usize>,
-        /// Filled in by the type checker for a `const` at the top level: its global number for functions.
-        global: Option<usize>,
-        span: Span,
-    },
+    VarDecl(VarDecl),
     /// A call as a statement, e.g. `print(x);`
     Expr {
         expr: Expr,
@@ -360,6 +349,21 @@ pub enum Stmt {
         value: Option<Expr>,
         span: Span,
     },
+}
+
+/// `var name: type = value;` or `const name: type = value;`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VarDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub type_name: TypeName,
+    pub value: Expr,
+    pub mutable: bool,
+    /// Filled in by the type checker: the slot of the variable.
+    pub slot: Option<usize>,
+    /// Filled in by the type checker for a `const` at the top level: its global number for functions.
+    pub global: Option<usize>,
+    pub span: Span,
 }
 
 /// `target = value;` or `target += value;`, where the target is a variable, a list element or a field.
@@ -412,7 +416,7 @@ impl Stmt {
     /// Returns the place of the first `this` in the statement, not counting declarations inside it.
     pub fn find_this(&self) -> Option<Span> {
         match self {
-            Stmt::VarDecl { value, .. } => value.find_this(),
+            Stmt::VarDecl(decl) => decl.value.find_this(),
             Stmt::Expr { expr, .. } => expr.find_this(),
             Stmt::Assign(assign) => assign
                 .target

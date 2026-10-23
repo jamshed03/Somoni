@@ -26,23 +26,19 @@ impl TypeChecker {
     /// Gives every `const` at the top level a global number, so functions can read it.
     pub(super) fn declare_constants(&mut self, stmts: &mut [Stmt]) -> Result<(), SomoniError> {
         for stmt in stmts {
-            let Stmt::VarDecl {
-                name,
-                type_name,
-                mutable: false,
-                global,
-                ..
-            } = stmt
-            else {
+            let Stmt::VarDecl(decl) = stmt else {
                 continue;
             };
-            let ty = self.resolve_type(type_name, false)?;
-            *global = Some(self.global_count);
+            if decl.mutable {
+                continue;
+            }
+            let ty = self.resolve_type(&decl.type_name, false)?;
+            decl.global = Some(self.global_count);
             let constant = Constant {
                 ty,
                 global: self.global_count,
             };
-            self.names.constants.insert(name.clone(), constant);
+            self.names.constants.insert(decl.name.clone(), constant);
             self.global_count += 1;
         }
         Ok(())

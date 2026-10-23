@@ -2,7 +2,7 @@
 
 use crate::ast::{
     Assign, AssignRoot, BinaryOp, Expr, ExprKind, ForEach, Function, IterKind, Match, Param, Stmt,
-    THIS,
+    THIS, VarDecl,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -89,20 +89,7 @@ impl TypeChecker {
     /// Checks one statement and writes slots and other results into it.
     pub(super) fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
         match stmt {
-            Stmt::VarDecl {
-                name,
-                name_span,
-                type_name,
-                value,
-                mutable,
-                slot,
-                ..
-            } => {
-                let declared = self.resolve_type(type_name, false)?;
-                self.check_assignable(value, &declared)?;
-                *slot = Some(self.declare(name, *name_span, declared, *mutable)?);
-                Ok(())
-            }
+            Stmt::VarDecl(decl) => self.check_var_decl(decl),
             Stmt::Assign(assign) => self.check_assign(assign),
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
@@ -139,6 +126,15 @@ impl TypeChecker {
             Stmt::Break { span } => self.check_inside_loop("break", *span),
             Stmt::Continue { span } => self.check_inside_loop("continue", *span),
         }
+    }
+
+    /// Checks `var` or `const` and gives the variable its slot.
+    fn check_var_decl(&mut self, decl: &mut VarDecl) -> Result<(), SomoniError> {
+        let declared = self.resolve_type(&decl.type_name, false)?;
+        self.check_assignable(&mut decl.value, &declared)?;
+        let slot = self.declare(&decl.name, decl.name_span, declared, decl.mutable)?;
+        decl.slot = Some(slot);
+        Ok(())
     }
 
     /// Checks `if`, each branch with the variables its condition proves not to be null.
@@ -447,7 +443,7 @@ fn stmt_always_ends(stmt: &Stmt, exit: Exit) -> bool {
             None => false,
         },
         Stmt::While { .. } | Stmt::For { .. } | Stmt::ForEach(_) => false,
-        Stmt::VarDecl { .. }
+        Stmt::VarDecl(_)
         | Stmt::Assign(_)
         | Stmt::Expr { .. }
         | Stmt::FnDecl(_)

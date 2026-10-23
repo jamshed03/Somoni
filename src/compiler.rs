@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::ast::{
     self, Assign, BinaryOp, Call, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr,
     ExprKind, FieldInit, ForEach, Function, IterKind, Match, MethodCall, MethodTarget, Pattern,
-    Stmt,
+    Stmt, VarDecl,
 };
 use crate::bytecode::{Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::SomoniError;
@@ -62,11 +62,7 @@ fn constants<'a>(
         .iter()
         .flat_map(|&number| &files[number].stmts)
         .filter_map(|stmt| match stmt {
-            Stmt::VarDecl {
-                name,
-                global: Some(global),
-                ..
-            } => Some((name, *global)),
+            Stmt::VarDecl(decl) => decl.global.map(|global| (&decl.name, global)),
             _ => None,
         })
 }
@@ -261,21 +257,7 @@ impl Compiler {
     /// Writes a statement, leaving the stack as before.
     fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), SomoniError> {
         match stmt {
-            Stmt::VarDecl {
-                value,
-                slot,
-                global,
-                span,
-                ..
-            } => {
-                self.compile_expr(value)?;
-                if let Some(global) = global {
-                    self.chunk.push(Op::SetGlobal(*global), *span);
-                    self.chunk.push(Op::GetGlobal(*global), *span);
-                }
-                let slot = self.use_slot(filled(*slot, "variable slot")?);
-                self.chunk.push(Op::SetLocal(slot), *span);
-            }
+            Stmt::VarDecl(decl) => self.compile_var_decl(decl)?,
             Stmt::Assign(assign) => self.compile_assign(assign)?,
             Stmt::Expr { expr, span } => {
                 self.compile_expr(expr)?;
@@ -319,6 +301,18 @@ impl Compiler {
             }
             Stmt::Return { value, span } => self.compile_return(value.as_ref(), *span)?,
         }
+        Ok(())
+    }
+
+    /// Writes `var` or `const`, which also stores a constant of the top level in its global for functions.
+    fn compile_var_decl(&mut self, decl: &VarDecl) -> Result<(), SomoniError> {
+        self.compile_expr(&decl.value)?;
+        if let Some(global) = decl.global {
+            self.chunk.push(Op::SetGlobal(global), decl.span);
+            self.chunk.push(Op::GetGlobal(global), decl.span);
+        }
+        let slot = self.use_slot(filled(decl.slot, "variable slot")?);
+        self.chunk.push(Op::SetLocal(slot), decl.span);
         Ok(())
     }
 
