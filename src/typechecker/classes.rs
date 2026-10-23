@@ -183,6 +183,7 @@ impl TypeChecker {
                 .constructor
                 .as_ref()
                 .map_or(Visibility::Public, |c| c.visibility);
+            info.is_abstract = class.is_abstract;
         }
         Ok(())
     }

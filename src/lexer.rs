@@ -36,6 +36,7 @@ const KEYWORDS: &[(&str, Token)] = &[
     ("override", Token::Override),
     ("readonly", Token::Readonly),
     ("static", Token::Static),
+    ("abstract", Token::Abstract),
 ];
 
 /// The symbols of Somoni, the two-character ones first so `+=` is found before `+`.

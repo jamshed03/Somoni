@@ -338,7 +338,7 @@ fn misplaced(token: Token) -> ErrorCode {
         Token::Fn => ErrorCode::FnNotTopLevel,
         Token::Struct => ErrorCode::StructNotTopLevel,
         Token::Enum => ErrorCode::EnumNotTopLevel,
-        Token::Class => ErrorCode::ClassNotTopLevel,
+        Token::Class | Token::Abstract => ErrorCode::ClassNotTopLevel,
         Token::Interface => ErrorCode::InterfaceNotTopLevel,
         Token::Import => ErrorCode::ImportNotFirst,
         Token::Export => ErrorCode::ExportNotTopLevel,

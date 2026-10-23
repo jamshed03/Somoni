@@ -463,6 +463,7 @@ pub struct StructDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassDecl {
     pub exported: bool,
+    pub is_abstract: bool,
     pub layout: Rc<ClassLayout>,
     pub name_span: Span,
     pub fields: Vec<ClassField>,

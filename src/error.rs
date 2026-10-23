@@ -311,6 +311,9 @@ pub enum ErrorCode {
         class: String,
         name: String,
     },
+    AbstractNew {
+        name: String,
+    },
     StaticOnObject {
         class: String,
         name: String,
@@ -454,6 +457,7 @@ impl ErrorCode {
             ErrorCode::ReadonlyField { .. } => "T073",
             ErrorCode::NotStatic { .. } => "T074",
             ErrorCode::StaticOnObject { .. } => "T075",
+            ErrorCode::AbstractNew { .. } => "T076",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -767,6 +771,10 @@ impl ErrorCode {
                     name, class
                 )
             }
+            ErrorCode::AbstractNew { name } => format!(
+                "'{}' is abstract and has no objects, create one of a subclass",
+                name
+            ),
             ErrorCode::StaticOnObject { class, name } => format!(
                 "'{}' is static, call it as '{}::{}(...)'",
                 name, class, name

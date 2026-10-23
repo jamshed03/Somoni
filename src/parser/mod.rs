@@ -48,7 +48,7 @@ impl Parser {
             Token::Fn => self.parse_fn(false),
             Token::Struct => self.parse_struct(false),
             Token::Enum => self.parse_enum(false),
-            Token::Class => self.parse_class(false),
+            Token::Class | Token::Abstract => self.parse_class(false),
             Token::Interface => self.parse_interface(false),
             _ => self.parse_stmt(),
         }
@@ -257,6 +257,7 @@ fn starts_declaration(token: &Token) -> bool {
             | Token::Struct
             | Token::Enum
             | Token::Class
+            | Token::Abstract
             | Token::Interface
     )
 }

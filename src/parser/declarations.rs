@@ -49,11 +49,11 @@ impl Parser {
             Token::Fn => self.parse_fn(true),
             Token::Struct => self.parse_struct(true),
             Token::Enum => self.parse_enum(true),
-            Token::Class => self.parse_class(true),
+            Token::Class | Token::Abstract => self.parse_class(true),
             Token::Interface => self.parse_interface(true),
-            _ => {
-                Err(self.expected("'fn', 'struct', 'enum', 'class' or 'interface' after 'export'"))
-            }
+            _ => Err(self.expected(
+                "'fn', 'struct', 'enum', 'class', 'abstract class' or 'interface' after 'export'",
+            )),
         }
     }
 

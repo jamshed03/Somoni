@@ -505,10 +505,16 @@ impl TypeChecker {
         Ok(method.signature.return_type)
     }
 
-    /// Checks `new Name(args)`.
+    /// Checks `new Name(args)`, or returns T076 for an abstract class.
     fn check_new(&mut self, new: &mut New, span: Span) -> Result<Type, SomoniError> {
         let layout = self.class_named(&new.name, new.name_span)?;
         let info = self.class_info(&layout)?;
+        if info.is_abstract {
+            let code = ErrorCode::AbstractNew {
+                name: layout.name.clone(),
+            };
+            return Err(SomoniError::at(new.name_span, code));
+        }
         self.check_visible(
             info.constructor_visibility,
             &layout,

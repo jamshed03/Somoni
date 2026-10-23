@@ -1,0 +1,29 @@
+// an abstract class has no objects of its own, only its subclasses do
+abstract class Form {
+    name: string;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+
+    beschreibung(): string {
+        return "Form " + this.name;
+    }
+
+    static einheit(): string {
+        return "cm";
+    }
+}
+
+class Quadrat extends Form {
+    seite: int;
+
+    constructor(seite: int) {
+        super("Quadrat");
+        this.seite = seite;
+    }
+}
+
+var f: Form = new Quadrat(3);
+print(f.beschreibung());
+print(Form::einheit());

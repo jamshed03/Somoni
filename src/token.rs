@@ -36,6 +36,7 @@ pub enum Token {
     Override,
     Readonly,
     Static,
+    Abstract,
 
     // names and values
     Ident(String),

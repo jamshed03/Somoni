@@ -65,6 +65,7 @@ struct ClassInfo {
     vtables: Vec<VTable>,
     statics: HashMap<String, StaticMethod>,
     constructor_visibility: Visibility,
+    is_abstract: bool,
 }
 
 impl ClassInfo {
@@ -87,6 +88,7 @@ impl ClassInfo {
             vtables: Vec::new(),
             statics: HashMap::new(),
             constructor_visibility: Visibility::Public,
+            is_abstract: false,
         }
     }
 }

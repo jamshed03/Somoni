@@ -1,0 +1,5 @@
+abstract class Form {
+    static erzeugen(): Form {
+        return new Form();
+    }
+}

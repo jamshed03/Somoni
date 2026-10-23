@@ -51,7 +51,8 @@ fn forbid(word: Option<Span>, code: ErrorCode) -> Result<(), SomoniError> {
 impl Parser {
     /// Reads `class Name extends Parent implements A, B { ... }`.
     pub(super) fn parse_class(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
-        self.advance();
+        let is_abstract = self.eat(Token::Abstract);
+        self.expect(Token::Class, "'class' after 'abstract'")?;
         let (name, name_span) = self.expect_ident("class name")?;
         let extends = self.parse_extends()?;
         let implements = self.parse_implements()?;
@@ -62,6 +63,7 @@ impl Parser {
         };
         Ok(Stmt::ClassDecl(ClassDecl {
             exported,
+            is_abstract,
             layout: Rc::new(layout),
             name_span,
             fields: body.fields,
