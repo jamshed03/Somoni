@@ -1,0 +1,59 @@
+// where instanceof is true, the variable has the narrower type
+interface Form {
+    flaeche(): int;
+}
+
+abstract class Tier {
+    abstract laut(): string;
+}
+
+class Hund extends Tier {
+    override laut(): string {
+        return "Wuff";
+    }
+
+    bellen(): string {
+        return "Wuff wuff";
+    }
+}
+
+class Katze extends Tier implements Form {
+    override laut(): string {
+        return "Miau";
+    }
+
+    flaeche(): int {
+        return 2;
+    }
+}
+
+fn beschreiben(t: Tier?): string {
+    if (t instanceof Hund) {
+        return t.bellen();
+    }
+    if (t instanceof Form) {
+        return "Fläche " + string(t.flaeche());
+    }
+    if (t != null) {
+        return t.laut();
+    }
+    return "nichts";
+}
+
+print(beschreiben(new Hund()));
+print(beschreiben(new Katze()));
+print(beschreiben(null));
+var tiere: list<Tier> = [new Hund(), new Katze()];
+for (t: Tier in tiere) {
+    if (!(t instanceof Hund)) {
+        print("kein Hund: " + t.laut());
+    } else {
+        print(t.bellen());
+    }
+}
+var h: Tier = new Hund();
+print(h instanceof Hund && h.bellen() == "Wuff wuff");
+var k: Katze = new Katze();
+if (k instanceof Form) {
+    print(k.laut());
+}

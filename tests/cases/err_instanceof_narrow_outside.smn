@@ -1,0 +1,12 @@
+abstract class Tier {
+}
+class Hund extends Tier {
+    bellen(): string {
+        return "Wuff";
+    }
+}
+var t: Tier = new Hund();
+if (t instanceof Hund) {
+    print(t.bellen());
+}
+print(t.bellen());

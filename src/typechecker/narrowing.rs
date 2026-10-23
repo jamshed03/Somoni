@@ -1,6 +1,6 @@
-//! Narrowing: which variables have a narrower type after a condition, like `a != null`.
+//! Narrowing: which variables have a narrower type after a condition, like `a != null` or `a instanceof Hund`.
 
-use crate::ast::{BinaryOp, Expr, ExprKind, UnaryOp};
+use crate::ast::{BinaryOp, Expr, ExprKind, InstanceOf, UnaryOp};
 use crate::types::Type;
 
 use super::{TypeChecker, VarInfo};
@@ -48,6 +48,7 @@ impl TypeChecker {
                 op: UnaryOp::Not,
                 operand,
             } => self.known_narrowed(operand, !when),
+            ExprKind::InstanceOf(test) if when => self.instance_checked(test).into_iter().collect(),
             _ => Vec::new(),
         }
     }
@@ -63,5 +64,23 @@ impl TypeChecker {
             return None;
         };
         Some((name.clone(), (**inner).clone()))
+    }
+
+    /// Returns the variable and its type for `a instanceof Name`, which is `Name` unless the variable is already narrower.
+    fn instance_checked(&self, test: &InstanceOf) -> Option<(String, Type)> {
+        let ExprKind::Ident { name, .. } = &test.value.kind else {
+            return None;
+        };
+        let current = match &self.scopes.lookup(name)?.ty {
+            Type::Optional(inner) => (**inner).clone(),
+            other => other.clone(),
+        };
+        let wanted = self.names.type_named(&test.type_name)?;
+        let narrowed = if self.fits(&current, &wanted) {
+            current
+        } else {
+            wanted
+        };
+        Some((name.clone(), narrowed))
     }
 }
