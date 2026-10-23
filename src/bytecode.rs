@@ -82,7 +82,7 @@ pub enum Op {
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
 #[derive(Debug)]
 pub struct Path {
-    pub slot: usize,
+    pub root: PathRoot,
     pub steps: Vec<PathStep>,
     /// True if the way goes through an object, see `value::Way`.
     pub in_object: bool,
@@ -101,6 +101,13 @@ impl Path {
 /// Returns the slot of the hidden index of a `for`-each loop, right after its sequence in `seq`.
 pub fn index_slot(seq: usize) -> usize {
     seq + 1
+}
+
+/// Where a path starts: a local variable by its slot, or a global (a static field) by its number.
+#[derive(Debug, Clone, Copy)]
+pub enum PathRoot {
+    Local(usize),
+    Global(usize),
 }
 
 /// One step of a path: an index, whose value is on the stack, or a field.
@@ -241,7 +248,7 @@ fn show_line(line: usize, last_line: usize) -> String {
 }
 
 /// Shows a path as its slot and steps, e.g. `2[].1` for `l[i].name` with `l` in slot 2.
-fn show_path(path: &Path) -> String {
+fn show_path(path: &Path, program: &Program) -> String {
     let steps: String = path
         .steps
         .iter()
@@ -250,7 +257,11 @@ fn show_path(path: &Path) -> String {
             PathStep::Field(p) => format!(".{}", p),
         })
         .collect();
-    format!("{}{}", path.slot, steps)
+    let root = match path.root {
+        PathRoot::Local(slot) => slot.to_string(),
+        PathRoot::Global(global) => program.globals[global].clone(),
+    };
+    format!("{}{}", root, steps)
 }
 
 /// Shows the targets of a jump table, e.g. `0004, 0009`.
@@ -310,7 +321,10 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
             let both = if *both { " both" } else { "" };
             format!("Next {} {:04}{}", slot, end, both)
         }
-        Op::SetPart(i) => format!("SetPart {}", show_path(&chunk.paths[*i])),
-        Op::UpdatePart(i, op) => format!("UpdatePart {} {:?}", show_path(&chunk.paths[*i]), op),
+        Op::SetPart(i) => format!("SetPart {}", show_path(&chunk.paths[*i], program)),
+        Op::UpdatePart(i, op) => {
+            let path = show_path(&chunk.paths[*i], program);
+            format!("UpdatePart {} {:?}", path, op)
+        }
     }
 }

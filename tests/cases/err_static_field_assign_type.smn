@@ -1,0 +1,4 @@
+class Zaehler {
+    static anzahl: int = 0;
+}
+Zaehler::anzahl = "viele";

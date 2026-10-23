@@ -5,7 +5,7 @@ use crate::ast::{
     ExprKind, FieldInit, ForEach, Function, IterKind, Match, MethodCall, MethodTarget, Pattern,
     Stmt,
 };
-use crate::bytecode::{Chunk, ClassCode, Op, Path, PathStep, Program, index_slot};
+use crate::bytecode::{Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::SomoniError;
 use crate::loader::SourceFile;
 use crate::span::Span;
@@ -300,8 +300,31 @@ impl Compiler {
                 let slot = filled(*slot, "variable slot")?;
                 self.compile_set_local(slot, op, &assign.value, assign.span)
             }
+            ExprKind::StaticAccess(access) => {
+                let global = filled(access.global, "global of a static field")?;
+                self.compile_set_global(global, op, &assign.value, assign.span)
+            }
             _ => self.compile_set_part(assign, op),
         }
+    }
+
+    /// Writes an assignment to a static field, `Class::name = value` or `Class::name += value`.
+    fn compile_set_global(
+        &mut self,
+        global: usize,
+        op: Option<BinaryOp>,
+        value: &Expr,
+        span: Span,
+    ) -> Result<(), SomoniError> {
+        if op.is_some() {
+            self.chunk.push(Op::GetGlobal(global), span);
+        }
+        self.compile_expr(value)?;
+        if let Some(op) = op {
+            self.chunk.push(Op::Binary(op), span);
+        }
+        self.chunk.push(Op::SetGlobal(global), span);
+        Ok(())
     }
 
     /// Writes an assignment to a local variable, appending in place where possible.
@@ -343,10 +366,10 @@ impl Compiler {
         op: Option<BinaryOp>,
     ) -> Result<(), SomoniError> {
         let mut steps = Vec::new();
-        let slot = self.compile_path(&assign.target, &mut steps)?;
+        let root = self.compile_path(&assign.target, &mut steps)?;
         self.compile_expr(&assign.value)?;
         let path = self.chunk.add_path(Path {
-            slot,
+            root,
             steps,
             in_object: assign.in_object,
         });
@@ -363,26 +386,33 @@ impl Compiler {
         &mut self,
         target: &Expr,
         steps: &mut Vec<PathStep>,
-    ) -> Result<usize, SomoniError> {
+    ) -> Result<PathRoot, SomoniError> {
         match &target.kind {
-            ExprKind::Ident { slot, .. } => Ok(self.use_slot(filled(*slot, "variable slot")?)),
+            ExprKind::Ident { slot, .. } => {
+                let slot = self.use_slot(filled(*slot, "variable slot")?);
+                Ok(PathRoot::Local(slot))
+            }
+            ExprKind::StaticAccess(access) => {
+                let global = filled(access.global, "global of a static field")?;
+                Ok(PathRoot::Global(global))
+            }
             ExprKind::Index {
                 target: inner,
                 index,
             } => {
-                let slot = self.compile_path(inner, steps)?;
+                let root = self.compile_path(inner, steps)?;
                 self.compile_expr(index)?;
                 steps.push(PathStep::Index(target.span));
-                Ok(slot)
+                Ok(root)
             }
             ExprKind::Field {
                 target: inner,
                 index,
                 ..
             } => {
-                let slot = self.compile_path(inner, steps)?;
+                let root = self.compile_path(inner, steps)?;
                 steps.push(PathStep::Field(filled(*index, "field position")?));
-                Ok(slot)
+                Ok(root)
             }
             _ => Err(SomoniError::internal("assignment to a non-variable")),
         }

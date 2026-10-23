@@ -1,7 +1,8 @@
 //! Checking statements and function bodies: variables, assignments, loops, `return`.
 
 use crate::ast::{
-    Assign, BinaryOp, Expr, ExprKind, ForEach, Function, IterKind, Match, Param, Stmt, THIS,
+    Assign, AssignRoot, BinaryOp, Expr, ExprKind, ForEach, Function, IterKind, Match, Param, Stmt,
+    THIS,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -219,8 +220,10 @@ impl TypeChecker {
 
     /// Returns T005 if the variable of a target outside an object is `const`.
     fn check_target_mutable(&self, target: &Expr, in_object: bool) -> Result<(), SomoniError> {
-        let Some((name, name_span)) = target.root_variable() else {
-            return Err(SomoniError::internal("assignment to a non-variable"));
+        let (name, name_span) = match target.assign_root() {
+            Some(AssignRoot::Variable(name, span)) => (name, span),
+            Some(AssignRoot::Static) => return Ok(()),
+            None => return Err(SomoniError::internal("assignment to a non-variable")),
         };
         if !in_object && !self.scopes.lookup(name).is_some_and(|info| info.mutable) {
             return Err(SomoniError::at(

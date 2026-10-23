@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
 use crate::builtins::Builtin;
-use crate::bytecode::{Chunk, Op, Path, PathStep, Program, index_slot};
+use crate::bytecode::{Chunk, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::text::Text;
@@ -301,7 +301,10 @@ impl<'p> Vm<'p> {
         let path = &frame.chunk.paths[i];
         let value = self.pop()?;
         let way = self.take_way(path);
-        let target = &mut self.stack[frame.place(path.slot)];
+        let target = match path.root {
+            PathRoot::Local(slot) => &mut self.stack[frame.place(slot)],
+            PathRoot::Global(global) => &mut self.globals[global],
+        };
         value::change_part(target, way, may_add_key, |place| change(place, value))
     }
 

@@ -198,16 +198,21 @@ impl Expr {
         (left_slot == slot).then_some(right)
     }
 
-    /// Returns the variable at the start of an assignment target, e.g. `l` in `l[0].x`, if there is one.
-    pub fn root_variable(&self) -> Option<(&str, Span)> {
+    /// Returns where an assignment target starts, e.g. `l` in `l[0].x`, if it can be assigned to.
+    pub fn assign_root(&self) -> Option<AssignRoot<'_>> {
         match &self.kind {
-            ExprKind::Ident { name, .. } => Some((name, self.span)),
-            ExprKind::Index { target, .. } | ExprKind::Field { target, .. } => {
-                target.root_variable()
-            }
+            ExprKind::Ident { name, .. } => Some(AssignRoot::Variable(name, self.span)),
+            ExprKind::StaticAccess(_) => Some(AssignRoot::Static),
+            ExprKind::Index { target, .. } | ExprKind::Field { target, .. } => target.assign_root(),
             _ => None,
         }
     }
+}
+
+/// Where an assignment target starts: a variable with its place, or a static field like `User::namen`.
+pub enum AssignRoot<'a> {
+    Variable(&'a str, Span),
+    Static,
 }
 
 /// Returns the place of the first `this` in these expressions, if there is one.

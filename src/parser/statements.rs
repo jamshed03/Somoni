@@ -292,7 +292,7 @@ impl Parser {
 
     /// Reads `= value` or `+= value` after `target`, or returns P007 if the target is no variable or part of one.
     fn finish_assignment(&mut self, target: Expr, start: Span) -> Result<Stmt, SomoniError> {
-        if target.root_variable().is_none() {
+        if target.assign_root().is_none() {
             return Err(SomoniError::at(target.span, ErrorCode::InvalidAssignTarget));
         }
         let op = compound_op(self.peek()).map(|op| (op, self.current_span()));
