@@ -84,11 +84,11 @@ impl TypeChecker {
         }
         let l = self.check_expr(left)?;
         let known = match op {
-            BinaryOp::And => self.known_not_null(left, true),
-            BinaryOp::Or => self.known_not_null(left, false),
+            BinaryOp::And => self.known_narrowed(left, true),
+            BinaryOp::Or => self.known_narrowed(left, false),
             _ => Vec::new(),
         };
-        let r = self.with_not_null(known, |this| this.check_expr_expecting(right, &l))?;
+        let r = self.with_narrowed(known, |this| this.check_expr_expecting(right, &l))?;
         Ok((l, r))
     }
 

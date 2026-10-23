@@ -17,7 +17,7 @@ mod expressions;
 mod interfaces;
 mod members;
 mod modules;
-mod null_checks;
+mod narrowing;
 mod patterns;
 mod statements;
 

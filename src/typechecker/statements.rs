@@ -123,11 +123,11 @@ impl TypeChecker {
         else_branch: Option<&mut Stmt>,
     ) -> Result<(), SomoniError> {
         self.check_condition(condition)?;
-        let then_known = self.known_not_null(condition, true);
-        let else_known = self.known_not_null(condition, false);
-        self.with_not_null(then_known, |this| this.check_stmt(then_branch))?;
+        let then_known = self.known_narrowed(condition, true);
+        let else_known = self.known_narrowed(condition, false);
+        self.with_narrowed(then_known, |this| this.check_stmt(then_branch))?;
         if let Some(else_branch) = else_branch {
-            self.with_not_null(else_known, |this| this.check_stmt(else_branch))?;
+            self.with_narrowed(else_known, |this| this.check_stmt(else_branch))?;
         }
         Ok(())
     }
@@ -319,8 +319,8 @@ impl TypeChecker {
         condition: &Expr,
         body: &mut Stmt,
     ) -> Result<(), SomoniError> {
-        let known = self.known_not_null(condition, true);
-        self.with_not_null(known, |this| this.check_loop_body(body))
+        let known = self.known_narrowed(condition, true);
+        self.with_narrowed(known, |this| this.check_loop_body(body))
     }
 
     /// Checks a loop body, where `break` and `continue` are allowed.

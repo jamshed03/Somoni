@@ -1,4 +1,4 @@
-//! Null checks: which variables cannot be null after a condition like `a != null`.
+//! Narrowing: which variables have a narrower type after a condition, like `a != null`.
 
 use crate::ast::{BinaryOp, Expr, ExprKind, UnaryOp};
 use crate::types::Type;
@@ -6,8 +6,8 @@ use crate::types::Type;
 use super::{TypeChecker, VarInfo};
 
 impl TypeChecker {
-    /// Runs `check` while the variables in `known` are known not to be null.
-    pub(super) fn with_not_null<T>(
+    /// Runs `check` while the variables in `known` have their narrower types.
+    pub(super) fn with_narrowed<T>(
         &mut self,
         known: Vec<(String, Type)>,
         check: impl FnOnce(&mut Self) -> T,
@@ -28,8 +28,8 @@ impl TypeChecker {
         result
     }
 
-    /// Returns the variables that cannot be null when `condition` is `when`.
-    pub(super) fn known_not_null(&self, condition: &Expr, when: bool) -> Vec<(String, Type)> {
+    /// Returns the variables with a narrower type when `condition` is `when`, e.g. not null.
+    pub(super) fn known_narrowed(&self, condition: &Expr, when: bool) -> Vec<(String, Type)> {
         match &condition.kind {
             ExprKind::Binary {
                 left, op, right, ..
@@ -38,8 +38,8 @@ impl TypeChecker {
                     self.null_checked(left, right).into_iter().collect()
                 }
                 (BinaryOp::And, true) | (BinaryOp::Or, false) => {
-                    let mut known = self.known_not_null(left, when);
-                    known.extend(self.known_not_null(right, when));
+                    let mut known = self.known_narrowed(left, when);
+                    known.extend(self.known_narrowed(right, when));
                     known
                 }
                 _ => Vec::new(),
@@ -47,7 +47,7 @@ impl TypeChecker {
             ExprKind::Unary {
                 op: UnaryOp::Not,
                 operand,
-            } => self.known_not_null(operand, !when),
+            } => self.known_narrowed(operand, !when),
             _ => Vec::new(),
         }
     }
