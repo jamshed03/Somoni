@@ -8,7 +8,7 @@ use crate::span::Span;
 use crate::types::Type;
 
 use super::patterns::check_match;
-use super::{Signature, TypeChecker};
+use super::{ObjectField, Signature, TypeChecker};
 
 impl TypeChecker {
     /// Checks statements one after another.
@@ -146,8 +146,12 @@ impl TypeChecker {
     /// Checks an assignment and records whether its target lies inside an object.
     fn check_assign(&mut self, assign: &mut Assign) -> Result<(), SomoniError> {
         let target_type = self.check_assign_target(&mut assign.target)?;
-        assign.in_object = self.target_in_object(&mut assign.target)?;
+        let field = self.object_field(&mut assign.target)?;
+        assign.in_object = field.is_some();
         self.check_target_mutable(&assign.target, assign.in_object)?;
+        if let Some(field) = &field {
+            self.check_not_readonly(field)?;
+        }
         match assign.op {
             None => self.check_assignable(&mut assign.value, &target_type),
             Some((op, op_span)) => {
@@ -207,17 +211,31 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns true if an assignment changes an object, which `const` does not protect.
-    fn target_in_object(&mut self, target: &mut Expr) -> Result<bool, SomoniError> {
-        let (ExprKind::Field { target: inner, .. } | ExprKind::Index { target: inner, .. }) =
-            &mut target.kind
-        else {
-            return Ok(false);
-        };
-        if let Type::Class(_) = self.check_expr(inner)? {
-            return Ok(true);
+    /// Returns the field of an object that an assignment to `target` changes, if the way goes through an object.
+    /// It is the field right after the last object, because `const` and `readonly` do not protect what lies behind an object.
+    fn object_field(&mut self, target: &mut Expr) -> Result<Option<ObjectField>, SomoniError> {
+        match &mut target.kind {
+            ExprKind::Field {
+                target: inner,
+                name,
+                name_span,
+                ..
+            } => {
+                let Type::Class(layout) = self.check_expr(inner)? else {
+                    return self.object_field(inner);
+                };
+                let through_this =
+                    matches!(&inner.kind, ExprKind::Ident { name, .. } if name == THIS);
+                Ok(Some(ObjectField {
+                    layout,
+                    name: name.clone(),
+                    span: *name_span,
+                    through_this,
+                }))
+            }
+            ExprKind::Index { target: inner, .. } => self.object_field(inner),
+            _ => Ok(None),
         }
-        self.target_in_object(inner)
     }
 
     /// Checks that `return` is inside a function and returns the right type.

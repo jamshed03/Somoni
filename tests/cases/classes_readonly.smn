@@ -1,0 +1,51 @@
+// readonly fields: set in the constructor of their class, read everywhere,
+// objects behind them stay changeable
+class Konto {
+    stand: int = 0;
+}
+
+class Kasse {
+    readonly preise: list<int>;
+    readonly max: int = 10;
+    private readonly name: string = "Kasse";
+    readonly konto: Konto;
+    readonly alle: list<Konto>;
+
+    constructor(p: list<int>) {
+        this.preise = p;
+        this.max = 20;
+        this.konto = new Konto();
+        this.alle = [new Konto()];
+        this.preise[0] = 5;
+    }
+
+    summe(): int {
+        return this.preise[0] + this.preise[1] + this.max;
+    }
+
+    titel(): string {
+        return this.name;
+    }
+}
+
+class Laden extends Kasse {
+    constructor() {
+        super([1, 1]);
+    }
+
+    doppelt(): int {
+        return this.max * 2;
+    }
+}
+
+var k: Kasse = new Kasse([1, 2]);
+print(k.preise);
+print(k.max);
+print(k.summe());
+print(k.titel());
+k.konto.stand = 7;
+print(k.konto.stand);
+k.alle[0].stand = 3;
+print(k.alle[0].stand);
+const l: Laden = new Laden();
+print(l.doppelt());

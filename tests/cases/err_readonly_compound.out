@@ -1,0 +1,3 @@
+Type error [T073]: Line 5: 'max' is readonly in 'Kasse' and can only be set in its constructor
+  5 | k.max += 1;
+    |   ^^^

@@ -1,0 +1,6 @@
+struct Punkt { x: int, y: int }
+class Figur {
+    readonly pos: Punkt = Punkt { x: 0, y: 0 };
+}
+var f: Figur = new Figur();
+f.pos.x = 1;

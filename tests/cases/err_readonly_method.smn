@@ -1,0 +1,7 @@
+class Kasse {
+    readonly preise: list<int> = [];
+
+    leeren(): void {
+        this.preise = [];
+    }
+}

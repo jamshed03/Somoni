@@ -1,0 +1,13 @@
+class Kasse {
+    readonly preise: list<int>;
+
+    constructor(p: list<int>) {
+        this.preise = p;
+    }
+}
+class Laden extends Kasse {
+    constructor() {
+        super([1]);
+        this.preise = [2];
+    }
+}

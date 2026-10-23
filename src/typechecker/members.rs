@@ -8,7 +8,7 @@ use crate::span::Span;
 use crate::types::Decl;
 
 use super::classes::describe_method;
-use super::{ClassInfo, Member, MethodInfo, Signature};
+use super::{ClassInfo, Member, MemberKind, MethodInfo, Signature};
 
 /// The members, methods and method table of a class while the type checker builds them.
 pub(super) struct ClassMembers {
@@ -43,7 +43,13 @@ impl ClassMembers {
         if self.members.contains_key(name) {
             return Err(self.duplicate(name, field.field.name_span));
         }
-        self.add_member(name, field.visibility, false);
+        self.add_member(
+            name,
+            field.visibility,
+            MemberKind::Field {
+                readonly: field.readonly,
+            },
+        );
         Ok(())
     }
 
@@ -57,7 +63,7 @@ impl ClassMembers {
         let span = method.function.name_span;
         let slot = match self.members.get(name) {
             Some(member)
-                if member.is_method
+                if member.kind == MemberKind::Method
                     && member.visibility != Visibility::Private
                     && member.owner != self.layout =>
             {
@@ -80,7 +86,7 @@ impl ClassMembers {
         self.table[slot] = signature.index;
         self.methods
             .insert(name.clone(), MethodInfo { slot, signature });
-        self.add_member(name, method.visibility, true);
+        self.add_member(name, method.visibility, MemberKind::Method);
         Ok(())
     }
 
@@ -119,11 +125,11 @@ impl ClassMembers {
     }
 
     /// Records a field or method name of this class.
-    fn add_member(&mut self, name: &str, visibility: Visibility, is_method: bool) {
+    fn add_member(&mut self, name: &str, visibility: Visibility, kind: MemberKind) {
         let member = Member {
             visibility,
             owner: self.layout.clone(),
-            is_method,
+            kind,
         };
         self.members.insert(name.to_string(), member);
     }

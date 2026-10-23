@@ -1,0 +1,5 @@
+class Kasse {
+    readonly preise: list<int> = [1, 2];
+}
+var k: Kasse = new Kasse();
+k.preise[0] = 3;

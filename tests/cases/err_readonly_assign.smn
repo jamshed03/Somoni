@@ -1,0 +1,5 @@
+class Kasse {
+    readonly max: int = 10;
+}
+var k: Kasse = new Kasse();
+k.max = 20;

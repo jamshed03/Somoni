@@ -1,0 +1,9 @@
+class Kasse {
+    readonly max: int = 10;
+
+    constructor(other: Kasse?) {
+        if (other != null) {
+            other.max = 5;
+        }
+    }
+}

@@ -12,7 +12,7 @@ use crate::span::Span;
 use crate::types::{Decl, Type};
 
 use super::members::ClassMembers;
-use super::{ClassInfo, Signature, TypeChecker};
+use super::{ClassInfo, MemberKind, ObjectField, Signature, TypeChecker};
 
 impl TypeChecker {
     /// Finds the parent class of every class of a file and rejects cycles.
@@ -256,12 +256,15 @@ impl TypeChecker {
                 },
             ));
         }
-        self.in_function(Some(Type::Void), |this| {
+        self.in_constructor = true;
+        let result = self.in_function(Some(Type::Void), |this| {
             let this_type = Type::Class(layout.clone());
             this.declare(THIS, constructor.span, this_type, false)?;
             this.declare_params(&constructor.params, &signature.params)?;
             this.check_constructor_body(&mut constructor.body, has_parent)
-        })
+        });
+        self.in_constructor = false;
+        result
     }
 
     /// Checks the statements of a constructor, where only the first may be `super(...)` in a subclass.
@@ -328,6 +331,28 @@ impl TypeChecker {
             },
         };
         Err(SomoniError::at(span, code))
+    }
+
+    /// Returns T073 if `field` is readonly, unless the constructor of its own class sets it through `this`.
+    pub(super) fn check_not_readonly(&self, field: &ObjectField) -> Result<(), SomoniError> {
+        let Some(member) = self.class_info(&field.layout)?.members.get(&field.name) else {
+            return Ok(());
+        };
+        if member.kind != (MemberKind::Field { readonly: true }) {
+            return Ok(());
+        }
+        let in_own_constructor =
+            self.in_constructor && self.current_class.as_ref() == Some(&member.owner);
+        if field.through_this && in_own_constructor {
+            return Ok(());
+        }
+        Err(SomoniError::at(
+            field.span,
+            ErrorCode::ReadonlyField {
+                class: member.owner.name.clone(),
+                name: field.name.clone(),
+            },
+        ))
     }
 
     /// Returns the info of the parent class, if there is one.

@@ -87,12 +87,28 @@ impl ClassInfo {
     }
 }
 
-/// Who may use a field or method, and which class declares it.
+/// Who may use a field or method, which class declares it, and what it is.
 #[derive(Clone)]
 struct Member {
     visibility: Visibility,
     owner: Decl<ClassLayout>,
-    is_method: bool,
+    kind: MemberKind,
+}
+
+/// What a member of a class is: a field, maybe `readonly`, or a method.
+#[derive(Clone, Copy, PartialEq)]
+enum MemberKind {
+    Field { readonly: bool },
+    Method,
+}
+
+/// The field of an object that an assignment changes, e.g. `x` in `l[0].x = 1`.
+struct ObjectField {
+    layout: Decl<ClassLayout>,
+    name: String,
+    span: Span,
+    /// True if the object is `this`, as in `this.x = 1`.
+    through_this: bool,
 }
 
 /// A method of a class with its slot in the method table.
@@ -175,6 +191,7 @@ pub struct TypeChecker {
     classes: HashMap<Decl<ClassLayout>, ClassInfo>,
     interfaces: HashMap<Decl<InterfaceLayout>, InterfaceInfo>,
     current_class: Option<Decl<ClassLayout>>,
+    in_constructor: bool,
     super_init_allowed: bool,
     function_count: usize,
     current_return: Option<Type>,
@@ -192,6 +209,7 @@ impl TypeChecker {
             classes: HashMap::new(),
             interfaces: HashMap::new(),
             current_class: None,
+            in_constructor: false,
             super_init_allowed: false,
             function_count: 0,
             current_return: None,
