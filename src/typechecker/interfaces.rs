@@ -1,16 +1,42 @@
-//! Interfaces: checking `implements` and building the vtables.
+//! Interfaces: their methods, checking `implements` and building the vtables.
 
 use std::collections::HashMap;
+use std::rc::Rc;
 
-use crate::ast::{ClassDecl, InterfaceLayout, Visibility};
+use crate::ast::{self, ClassDecl, InterfaceLayout, Stmt, Visibility};
 use crate::error::{ErrorCode, SomoniError};
 use crate::types::Decl;
 
 use super::classes::describe_method;
 use super::members::ClassMembers;
-use super::{ClassInfo, InterfaceInfo, Member, MethodInfo, TypeChecker};
+use super::{ClassInfo, InterfaceInfo, Member, MethodInfo, Signature, TypeChecker};
 
 impl TypeChecker {
+    /// Collects the method signatures of all interfaces of a file.
+    pub(super) fn declare_interface_methods(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        for decl in ast::interfaces(stmts) {
+            let mut methods: Vec<(String, Signature)> = Vec::new();
+            for (position, method) in decl.methods.iter().enumerate() {
+                if methods.iter().any(|(name, _)| *name == method.name) {
+                    return Err(SomoniError::at(
+                        method.name_span,
+                        ErrorCode::DuplicateMember {
+                            class: decl.layout.name.clone(),
+                            name: method.name.clone(),
+                        },
+                    ));
+                }
+                let signature =
+                    self.signature_from(position, &method.params, &method.return_type)?;
+                methods.push((method.name.clone(), signature));
+            }
+            if let Some(info) = self.interfaces.get_mut(&Decl(Rc::clone(&decl.layout))) {
+                info.methods = methods;
+            }
+        }
+        Ok(())
+    }
+
     /// Checks that a class has every method of the interfaces it implements.
     pub(super) fn check_implements(
         &self,

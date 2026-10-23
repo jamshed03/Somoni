@@ -1,9 +1,8 @@
 //! Collecting the declarations of a file (enums, structs, functions) and turning written types into types.
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ast::{self, Field, Function, Stmt, StructDecl, TypeName};
+use crate::ast::{self, Field, Function, Param, Stmt, StructDecl, TypeName};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -15,14 +14,7 @@ impl TypeChecker {
     /// Collects all enums of a file.
     pub(super) fn declare_enums(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::enums(stmts) {
-            if self.is_type_name(&decl.name) {
-                return Err(SomoniError::at(
-                    decl.name_span,
-                    ErrorCode::DuplicateType {
-                        name: decl.name.clone(),
-                    },
-                ));
-            }
+            self.check_new_type_name(&decl.name, decl.name_span)?;
             if decl.variants.is_empty() {
                 return Err(SomoniError::at(decl.name_span, ErrorCode::EmptyEnum));
             }
@@ -43,11 +35,7 @@ impl TypeChecker {
 
     /// Returns true if `name` is already a type.
     pub(super) fn is_type_name(&self, name: &str) -> bool {
-        Type::is_builtin_name(name)
-            || self.names.structs.contains_key(name)
-            || self.names.enums.contains_key(name)
-            || self.names.classes.contains_key(name)
-            || self.names.interfaces.contains_key(name)
+        Type::is_builtin_name(name) || self.names.type_named(name).is_some()
     }
 
     /// Returns T025 if `name` is already a type.
@@ -65,6 +53,18 @@ impl TypeChecker {
 
     /// Collects all structs, classes and interfaces of a file: names first, then their types.
     pub(super) fn declare_structs(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
+        self.declare_type_names(stmts)?;
+        self.declare_interface_methods(stmts)?;
+        self.declare_struct_fields(stmts)?;
+        self.resolve_parents(stmts)?;
+        for class in self.parents_first(stmts) {
+            self.declare_class_fields(class)?;
+        }
+        self.check_no_type_contains_itself(stmts)
+    }
+
+    /// Registers the names of all structs, classes and interfaces of a file, still without fields and methods.
+    fn declare_type_names(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::structs(stmts) {
             self.check_new_type_name(&decl.name, decl.name_span)?;
             let info = StructInfo {
@@ -78,28 +78,12 @@ impl TypeChecker {
         for class in ast::classes(stmts) {
             self.check_new_type_name(&class.layout.name, class.name_span)?;
             let layout = Decl(Rc::clone(&class.layout));
-            let info = ClassInfo {
-                fields: Vec::new(),
-                first_own_field: 0,
-                parent: None,
-                constructor: Signature {
-                    index: 0,
-                    params: Vec::new(),
-                    return_type: Type::Class(layout.clone()),
-                },
-                methods: HashMap::new(),
-                method_table: Vec::new(),
-                index: self.classes.len(),
-                members: HashMap::new(),
-                implements: Vec::new(),
-                vtables: Vec::new(),
-            };
+            let info = ClassInfo::new(layout.clone(), self.classes.len());
             self.names
                 .classes
                 .insert(layout.name.clone(), layout.clone());
             self.classes.insert(layout, info);
         }
-
         for decl in ast::interfaces(stmts) {
             self.check_new_type_name(&decl.layout.name, decl.name_span)?;
             let layout = Decl(Rc::clone(&decl.layout));
@@ -112,46 +96,22 @@ impl TypeChecker {
                 .insert(layout.name.clone(), layout.clone());
             self.interfaces.insert(layout, info);
         }
+        Ok(())
+    }
 
-        for decl in ast::interfaces(stmts) {
-            let mut methods: Vec<(String, Signature)> = Vec::new();
-            for (position, method) in decl.methods.iter().enumerate() {
-                if methods.iter().any(|(name, _)| *name == method.name) {
-                    return Err(SomoniError::at(
-                        method.name_span,
-                        ErrorCode::DuplicateMember {
-                            class: decl.layout.name.clone(),
-                            name: method.name.clone(),
-                        },
-                    ));
-                }
-                let mut params = Vec::new();
-                for param in &method.params {
-                    params.push(self.resolve_type(&param.type_name, false)?);
-                }
-                let signature = Signature {
-                    index: position,
-                    params,
-                    return_type: self.resolve_type(&method.return_type, true)?,
-                };
-                methods.push((method.name.clone(), signature));
-            }
-            if let Some(info) = self.interfaces.get_mut(&Decl(Rc::clone(&decl.layout))) {
-                info.methods = methods;
-            }
-        }
-
+    /// Collects the fields of all structs of a file.
+    fn declare_struct_fields(&mut self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::structs(stmts) {
             let fields = self.resolve_fields(&decl.fields)?;
             if let Some(info) = self.structs.get_mut(&Decl(Rc::clone(decl))) {
                 info.fields = fields;
             }
         }
-        self.resolve_parents(stmts)?;
-        for class in self.parents_first(stmts) {
-            self.declare_class_fields(class)?;
-        }
+        Ok(())
+    }
 
+    /// Returns T030 if a struct or class of a file contains itself.
+    fn check_no_type_contains_itself(&self, stmts: &[Stmt]) -> Result<(), SomoniError> {
         for decl in ast::structs(stmts) {
             let ty = Type::Struct(Decl(Rc::clone(decl)));
             self.check_not_contains_itself(&ty, &decl.fields)?;
@@ -259,15 +219,29 @@ impl TypeChecker {
         function: &Function,
         index: usize,
     ) -> Result<Signature, SomoniError> {
-        let mut params = Vec::new();
-        for param in &function.params {
-            params.push(self.resolve_type(&param.type_name, false)?);
-        }
+        self.signature_from(index, &function.params, &function.return_type)
+    }
+
+    /// Returns the signature with this number, parameters and return type.
+    pub(super) fn signature_from(
+        &self,
+        index: usize,
+        params: &[Param],
+        return_type: &TypeName,
+    ) -> Result<Signature, SomoniError> {
         Ok(Signature {
             index,
-            params,
-            return_type: self.resolve_type(&function.return_type, true)?,
+            params: self.resolve_params(params)?,
+            return_type: self.resolve_type(return_type, true)?,
         })
+    }
+
+    /// Returns the types of the parameters.
+    pub(super) fn resolve_params(&self, params: &[Param]) -> Result<Vec<Type>, SomoniError> {
+        params
+            .iter()
+            .map(|param| self.resolve_type(&param.type_name, false))
+            .collect()
     }
 
     /// Returns the struct with this name, or T001 if there is none.
@@ -320,17 +294,7 @@ impl TypeChecker {
         } else {
             Type::from_name(&written.name)
         };
-        let simple = simple.or_else(|| {
-            if let Some(decl) = self.names.structs.get(&written.name) {
-                Some(Type::Struct(decl.clone()))
-            } else if let Some(layout) = self.names.classes.get(&written.name) {
-                Some(Type::Class(layout.clone()))
-            } else if let Some(layout) = self.names.interfaces.get(&written.name) {
-                Some(Type::Interface(layout.clone()))
-            } else {
-                self.names.enums.get(&written.name).cloned().map(Type::Enum)
-            }
-        });
+        let simple = simple.or_else(|| self.names.type_named(&written.name));
         let expected_args = match (Type::arg_count(&written.name), &simple) {
             (Some(count), _) => count,
             (None, Some(_)) => 0,

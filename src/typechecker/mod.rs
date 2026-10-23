@@ -57,6 +57,28 @@ struct ClassInfo {
     vtables: Vec<(usize, Vec<usize>)>,
 }
 
+impl ClassInfo {
+    /// Returns the info of a class whose fields and methods are not collected yet.
+    fn new(layout: Decl<ClassLayout>, index: usize) -> ClassInfo {
+        ClassInfo {
+            fields: Vec::new(),
+            first_own_field: 0,
+            parent: None,
+            constructor: Signature {
+                index: 0,
+                params: Vec::new(),
+                return_type: Type::Class(layout),
+            },
+            methods: HashMap::new(),
+            method_table: Vec::new(),
+            index,
+            members: HashMap::new(),
+            implements: Vec::new(),
+            vtables: Vec::new(),
+        }
+    }
+}
+
 /// Who may use a field or method, and which class declares it.
 #[derive(Clone)]
 struct Member {
@@ -92,11 +114,20 @@ struct Names {
 impl Names {
     /// Returns true if anything has this name.
     fn contains(&self, name: &str) -> bool {
-        self.functions.contains_key(name)
-            || self.structs.contains_key(name)
-            || self.enums.contains_key(name)
-            || self.classes.contains_key(name)
-            || self.interfaces.contains_key(name)
+        self.functions.contains_key(name) || self.type_named(name).is_some()
+    }
+
+    /// Returns the struct, class, interface or enum type with this name.
+    fn type_named(&self, name: &str) -> Option<Type> {
+        if let Some(decl) = self.structs.get(name) {
+            Some(Type::Struct(decl.clone()))
+        } else if let Some(layout) = self.classes.get(name) {
+            Some(Type::Class(layout.clone()))
+        } else if let Some(layout) = self.interfaces.get(name) {
+            Some(Type::Interface(layout.clone()))
+        } else {
+            self.enums.get(name).cloned().map(Type::Enum)
+        }
     }
 
     /// Copies everything called `name` from `from`.

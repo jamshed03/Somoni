@@ -177,11 +177,7 @@ impl TypeChecker {
         let Some(constructor) = &class.constructor else {
             return Ok(parent.map_or(Vec::new(), |p| p.constructor.params.clone()));
         };
-        let mut params = Vec::new();
-        for param in &constructor.params {
-            params.push(self.resolve_type(&param.type_name, false)?);
-        }
-        Ok(params)
+        self.resolve_params(&constructor.params)
     }
 
     /// Checks a method like a function, with `this` in slot 0.
