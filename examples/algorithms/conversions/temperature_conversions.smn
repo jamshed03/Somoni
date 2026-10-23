@@ -1,0 +1,40 @@
+// Temperature conversions between Celsius, Fahrenheit and Kelvin. Source: TheAlgorithms/PHP Conversions/TemperatureConversions.php
+
+import { round_to } from "../lib/math.smn";
+
+// Converts Celsius to Fahrenheit.
+fn celsius_to_fahrenheit(celsius: float): float {
+    return round_to(celsius * 9.0 / 5.0 + 32.0, 2);
+}
+
+// Converts Fahrenheit to Celsius.
+fn fahrenheit_to_celsius(fahrenheit: float): float {
+    return round_to((fahrenheit - 32.0) * 5.0 / 9.0, 2);
+}
+
+// Converts Celsius to Kelvin.
+fn celsius_to_kelvin(celsius: float): float {
+    return round_to(celsius + 273.15, 2);
+}
+
+// Converts Kelvin to Celsius.
+fn kelvin_to_celsius(kelvin: float): float {
+    return round_to(kelvin - 273.15, 2);
+}
+
+// Converts Kelvin to Fahrenheit.
+fn kelvin_to_fahrenheit(kelvin: float): float {
+    return round_to((kelvin - 273.15) * 9.0 / 5.0 + 32.0, 2);
+}
+
+// Converts Fahrenheit to Kelvin.
+fn fahrenheit_to_kelvin(fahrenheit: float): float {
+    return round_to((fahrenheit - 32.0) * 5.0 / 9.0 + 273.15, 2);
+}
+
+print(celsius_to_fahrenheit(100.0));
+print(fahrenheit_to_celsius(98.6));
+print(celsius_to_kelvin(-40.0));
+print(kelvin_to_celsius(0.0));
+print(kelvin_to_fahrenheit(300.0));
+print(fahrenheit_to_kelvin(32.0));

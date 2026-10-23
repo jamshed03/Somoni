@@ -1,0 +1,13 @@
+// Decimal to binary: divides by 2 and collects the remainders. Source: TheAlgorithms/PHP Conversions/DecimalToBinary.php
+
+// Returns the binary string of a non-negative number.
+fn decimal_to_binary(number: int): string {
+    if (number < 2) {
+        return string(number);
+    }
+    return decimal_to_binary(number / 2) + string(number % 2);
+}
+
+print(decimal_to_binary(0));
+print(decimal_to_binary(5));
+print(decimal_to_binary(255));

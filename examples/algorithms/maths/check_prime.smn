@@ -1,0 +1,18 @@
+// Check prime: a prime has no divisor between 2 and its square root. Source: TheAlgorithms/PHP Maths/CheckPrime.php
+
+// Returns true if the number is a prime.
+fn is_prime(number: int): bool {
+    if (number < 2) {
+        return false;
+    }
+    for (var d: int = 2; d * d <= number; d += 1) {
+        if (number % d == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+for (n: int in [0, 1, 2, 3, 4, 17, 21, 97, 7919]) {
+    print(string(n) + ": " + string(is_prime(n)));
+}

@@ -1,0 +1,29 @@
+// Interpolation search: guesses the position from the values, good for evenly spread sorted lists. Source: TheAlgorithms/PHP Searches/InterpolationSearch.php
+
+// Returns the index of the target in the sorted list, or -1 if it is missing.
+fn interpolation_search(items: list<int>, target: int): int {
+    var low: int = 0;
+    var high: int = len(items) - 1;
+    while (low <= high && target >= items[low] && target <= items[high]) {
+        if (items[high] == items[low]) {
+            if (items[low] == target) {
+                return low;
+            }
+            return -1;
+        }
+        const position: int = low + (target - items[low]) * (high - low) / (items[high] - items[low]);
+        if (items[position] == target) {
+            return position;
+        } else if (items[position] < target) {
+            low = position + 1;
+        } else {
+            high = position - 1;
+        }
+    }
+    return -1;
+}
+
+const sorted: list<int> = [10, 12, 13, 16, 18, 19, 20, 21, 22, 23, 24, 33, 35, 42, 47];
+for (target: int in [18, 10, 47, 34]) {
+    print(string(target) + ": " + string(interpolation_search(sorted, target)));
+}

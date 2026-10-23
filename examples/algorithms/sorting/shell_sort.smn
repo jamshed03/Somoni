@@ -1,0 +1,35 @@
+// Shell sort: insertion sort over elements that are gap apart, with a gap that gets smaller. Source: TheAlgorithms/PHP Sorting/ShellSort.php
+
+// Returns the list with the element at index moved back in steps of gap until it is in order.
+fn gapped_insert(input: list<int>, index: int, gap: int): list<int> {
+    var items: list<int> = input;
+    const value: int = items[index];
+    var j: int = index;
+    while (j >= gap && items[j - gap] > value) {
+        items[j] = items[j - gap];
+        j -= gap;
+    }
+    items[j] = value;
+    return items;
+}
+
+// Returns the list after one insertion pass with the given gap.
+fn gapped_pass(input: list<int>, gap: int): list<int> {
+    var items: list<int> = input;
+    for (var i: int = gap; i < len(items); i += 1) {
+        items = gapped_insert(items, i, gap);
+    }
+    return items;
+}
+
+// Returns a sorted copy of the list, halving the gap each time.
+fn shell_sort(input: list<int>): list<int> {
+    var items: list<int> = input;
+    for (var gap: int = len(items) / 2; gap > 0; gap /= 2) {
+        items = gapped_pass(items, gap);
+    }
+    return items;
+}
+
+print(shell_sort([12, 34, 54, 2, 3, -7, 0]));
+print(shell_sort([]));

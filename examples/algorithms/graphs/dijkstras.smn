@@ -1,0 +1,55 @@
+// Dijkstra: shortest paths from one start when all edge weights are non-negative. Source: TheAlgorithms/PHP Graphs/Dijkstras.php
+
+import { GraphEdge } from "graph_edge.smn";
+
+// Returns the unvisited node with the smallest known distance, or null if none is reachable.
+fn closest_unvisited(distances: map<string, int>, visited: map<string, bool>): string? {
+    var best: string? = null;
+    var best_distance: int = 0;
+    for (node: string, distance: int in distances) {
+        if (!has(visited, node) && (best == null || distance < best_distance)) {
+            best = node;
+            best_distance = distance;
+        }
+    }
+    return best;
+}
+
+// Returns the distances after relaxing all edges that leave the node.
+fn relax_from(input: map<string, int>, edges: list<GraphEdge>, node: string): map<string, int> {
+    var distances: map<string, int> = input;
+    for (edge: GraphEdge in edges) {
+        if (edge.start == node) {
+            const candidate: int = distances[node] + edge.weight;
+            if (!has(distances, edge.end) || candidate < distances[edge.end]) {
+                distances[edge.end] = candidate;
+            }
+        }
+    }
+    return distances;
+}
+
+// Returns the shortest distance from start to every reachable node.
+fn dijkstra(vertices: list<string>, edges: list<GraphEdge>, start: string): map<string, int> {
+    var distances: map<string, int> = {start: 0};
+    var visited: map<string, bool> = {};
+    for (var i: int = 0; i < len(vertices); i += 1) {
+        const node: string? = closest_unvisited(distances, visited);
+        if (node != null) {
+            visited[node] = true;
+            distances = relax_from(distances, edges, node);
+        }
+    }
+    return distances;
+}
+
+const vertices: list<string> = ["A", "B", "C", "D", "E"];
+const edges: list<GraphEdge> = [
+    GraphEdge { start: "A", end: "B", weight: 4 },
+    GraphEdge { start: "A", end: "C", weight: 2 },
+    GraphEdge { start: "B", end: "C", weight: 5 },
+    GraphEdge { start: "B", end: "D", weight: 10 },
+    GraphEdge { start: "C", end: "E", weight: 3 },
+    GraphEdge { start: "E", end: "D", weight: 4 }
+];
+print(dijkstra(vertices, edges, "A"));

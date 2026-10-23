@@ -1,0 +1,22 @@
+// Reverse string: the characters in the opposite order. Source: TheAlgorithms/PHP Strings/ReverseString.php
+
+import { chars, join } from "../lib/text.smn";
+
+// Returns the text backwards by swapping characters from both ends.
+fn reverse_string(text: string): string {
+    var letters: list<string> = chars(text);
+    var left: int = 0;
+    var right: int = len(letters) - 1;
+    while (left < right) {
+        const tmp: string = letters[left];
+        letters[left] = letters[right];
+        letters[right] = tmp;
+        left += 1;
+        right -= 1;
+    }
+    return join(letters, "");
+}
+
+print(reverse_string("Hello World"));
+print(reverse_string("Somoni"));
+print(reverse_string(""));

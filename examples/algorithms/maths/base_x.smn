@@ -1,0 +1,16 @@
+// Base X: writes a number in any base from 2 to 36. Source: TheAlgorithms/PHP Maths/BaseX.php
+
+import { digit_char } from "../lib/text.smn";
+
+// Returns the non-negative number written in the given base, e.g. 255 in base 16 -> "ff".
+fn base_x(number: int, base: int): string {
+    if (number < base) {
+        return digit_char(number);
+    }
+    return base_x(number / base, base) + digit_char(number % base);
+}
+
+print(base_x(10, 2));
+print(base_x(255, 16));
+print(base_x(8, 8));
+print(base_x(35, 36));

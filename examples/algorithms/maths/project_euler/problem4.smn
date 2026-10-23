@@ -1,0 +1,33 @@
+// Project Euler 4: largest palindrome that is a product of two 3-digit numbers. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem4.php
+
+import { reverse } from "../../lib/text.smn";
+
+// Returns true if the number reads the same backwards.
+fn is_palindrome(number: int): bool {
+    return string(number) == reverse(string(number));
+}
+
+// Returns the largest palindrome a * b with b from a to 999, or 0 if there is none.
+fn best_for(a: int): int {
+    var best: int = 0;
+    for (var b: int = a; b <= 999; b += 1) {
+        if (a * b > best && is_palindrome(a * b)) {
+            best = a * b;
+        }
+    }
+    return best;
+}
+
+// Returns the largest palindrome product of two 3-digit numbers.
+fn problem4(): int {
+    var best: int = 0;
+    for (var a: int = 100; a <= 999; a += 1) {
+        const candidate: int = best_for(a);
+        if (candidate > best) {
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+print(problem4());

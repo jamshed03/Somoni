@@ -1,0 +1,82 @@
+// Array keys sort: sorts records by several keys, the next key decides on a tie. Source: TheAlgorithms/PHP Sorting/ArrayKeysSort.php
+// Somoni version: records are map<string, int>, because strings have no < yet and there are no callbacks like usort.
+
+// The direction of the sort.
+enum Order {
+    Asc,
+    Desc
+}
+
+// Returns -1, 0 or 1 for a before b, equal, or a after b, comparing the keys one after another.
+fn compare(a: map<string, int>, b: map<string, int>, keys: list<string>): int {
+    for (key: string in keys) {
+        if (a[key] < b[key]) {
+            return -1;
+        }
+        if (a[key] > b[key]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Returns true if record a belongs behind record b in the given order.
+fn comes_after(a: map<string, int>, b: map<string, int>, keys: list<string>, order: Order): bool {
+    const result: int = compare(a, b, keys);
+    match (order) {
+        Order.Asc => {
+            return result > 0;
+        }
+        Order.Desc => {
+            return result < 0;
+        }
+    }
+}
+
+// Returns the records with the one at index moved left to its place (one insertion sort step).
+fn insert_left(input: list<map<string, int>>, index: int, keys: list<string>, order: Order): list<map<string, int>> {
+    var items: list<map<string, int>> = input;
+    const value: map<string, int> = items[index];
+    var j: int = index - 1;
+    while (j >= 0 && comes_after(items[j], value, keys, order)) {
+        items[j + 1] = items[j];
+        j -= 1;
+    }
+    items[j + 1] = value;
+    return items;
+}
+
+// Returns the first of the keys that the record does not have, or null.
+fn missing_key(record: map<string, int>, keys: list<string>): string? {
+    for (key: string in keys) {
+        if (!has(record, key)) {
+            return key;
+        }
+    }
+    return null;
+}
+
+// Returns a sorted copy of the records; records with equal keys keep their order.
+fn array_keys_sort(collection: list<map<string, int>>, keys: list<string>, order: Order): result<list<map<string, int>>, string> {
+    for (record: map<string, int> in collection) {
+        const missing: string? = missing_key(record, keys);
+        if (missing != null) {
+            return err("the key '" + missing + "' does not exist in the collection");
+        }
+    }
+    var items: list<map<string, int>> = collection;
+    for (var i: int = 1; i < len(items); i += 1) {
+        items = insert_left(items, i, keys, order);
+    }
+    return ok(items);
+}
+
+const people: list<map<string, int>> = [
+    {"id": 1, "age": 30, "score": 70},
+    {"id": 2, "age": 25, "score": 90},
+    {"id": 3, "age": 30, "score": 85},
+    {"id": 4, "age": 25, "score": 60}
+];
+print(array_keys_sort(people, ["age"], Order.Asc));
+print(array_keys_sort(people, ["age", "score"], Order.Desc));
+print(array_keys_sort(people, ["height"], Order.Asc));

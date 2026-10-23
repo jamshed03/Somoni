@@ -1,0 +1,72 @@
+// Queue: first in, first out. Source: TheAlgorithms/PHP DataStructures/Queue.php
+
+// A queue of numbers; new values go to the end, values leave at the front.
+class Queue {
+    private items: list<int> = [];
+
+    // Adds a value at the end.
+    enqueue(value: int): void {
+        this.items += [value];
+    }
+
+    // Removes and returns the first value, or null if the queue is empty.
+    dequeue(): int? {
+        if (len(this.items) == 0) {
+            return null;
+        }
+        const first: int = this.items[0];
+        var rest: list<int> = [];
+        for (var i: int = 1; i < len(this.items); i += 1) {
+            rest += [this.items[i]];
+        }
+        this.items = rest;
+        return first;
+    }
+
+    // Returns the first value without removing it, or null if the queue is empty.
+    peek(): int? {
+        if (len(this.items) == 0) {
+            return null;
+        }
+        return this.items[0];
+    }
+
+    // Returns true if the queue has no values.
+    is_empty(): bool {
+        return len(this.items) == 0;
+    }
+
+    // Returns the number of values.
+    size(): int {
+        return len(this.items);
+    }
+
+    // Removes all values.
+    clear(): void {
+        this.items = [];
+    }
+
+    // Returns all values joined with the delimiter.
+    to_string(delimiter: string): string {
+        var result: string = "";
+        for (i: int, item: int in this.items) {
+            if (i > 0) {
+                result += delimiter;
+            }
+            result += string(item);
+        }
+        return result;
+    }
+}
+
+const queue: Queue = new Queue();
+queue.enqueue(1);
+queue.enqueue(2);
+queue.enqueue(3);
+print(queue.to_string(", "));
+print(queue.dequeue());
+print(queue.peek());
+print(queue.size());
+queue.clear();
+print(queue.is_empty());
+print(queue.dequeue());

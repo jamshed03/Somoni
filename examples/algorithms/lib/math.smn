@@ -1,0 +1,149 @@
+// Math helpers that Somoni does not have built in (no abs, min, max, sqrt, round).
+
+// Returns the value without its sign, e.g. -5 -> 5.
+export fn abs(x: int): int {
+    if (x < 0) {
+        return -x;
+    }
+    return x;
+}
+
+// Returns the float value without its sign, e.g. -2.5 -> 2.5.
+export fn abs_float(x: float): float {
+    if (x < 0.0) {
+        return -x;
+    }
+    return x;
+}
+
+// Returns the smaller of two numbers.
+export fn min(a: int, b: int): int {
+    if (a < b) {
+        return a;
+    }
+    return b;
+}
+
+// Returns the larger of two numbers.
+export fn max(a: int, b: int): int {
+    if (a > b) {
+        return a;
+    }
+    return b;
+}
+
+// Returns the integer square root, the largest r with r * r <= n (binary search).
+export fn isqrt(n: int): int {
+    var low: int = 0;
+    var high: int = n;
+    if (high > 3037000499) {
+        high = 3037000499;
+    }
+    while (low < high) {
+        const mid: int = (low + high + 1) / 2;
+        if (mid * mid <= n) {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low;
+}
+
+// Rounds a float to the given number of decimal places, like round in PHP.
+export fn round_to(x: float, places: int): float {
+    var factor: float = 1.0;
+    for (var i: int = 0; i < places; i += 1) {
+        factor *= 10.0;
+    }
+    if (x < 0.0) {
+        return -float(int(-x * factor + 0.5)) / factor;
+    }
+    return float(int(x * factor + 0.5)) / factor;
+}
+
+// Returns e to the power of x: halves x until it is small, uses the Taylor series, then squares back.
+export fn exp(x: float): float {
+    var y: float = x;
+    var halvings: int = 0;
+    while (abs_float(y) > 0.5) {
+        y /= 2.0;
+        halvings += 1;
+    }
+    var term: float = 1.0;
+    var total: float = 1.0;
+    for (var n: int = 1; n < 20; n += 1) {
+        term *= y / float(n);
+        total += term;
+    }
+    for (var i: int = 0; i < halvings; i += 1) {
+        total *= total;
+    }
+    return total;
+}
+
+// Returns the natural logarithm of a positive x: scales x near 1 by powers of 2, then uses the atanh series.
+export fn ln(x: float): float {
+    const ln2: float = 0.6931471805599453;
+    var y: float = x;
+    var power: int = 0;
+    while (y > 2.0) {
+        y /= 2.0;
+        power += 1;
+    }
+    while (y < 0.5 && y > 0.0) {
+        y *= 2.0;
+        power -= 1;
+    }
+    const t: float = (y - 1.0) / (y + 1.0);
+    var term: float = t;
+    var total: float = 0.0;
+    for (var n: int = 1; n < 60; n += 2) {
+        total += term / float(n);
+        term *= t * t;
+    }
+    return 2.0 * total + float(power) * ln2;
+}
+
+// Returns the sum of all numbers in the list, like array_sum in PHP.
+export fn sum(numbers: list<int>): int {
+    var total: int = 0;
+    for (n: int in numbers) {
+        total += n;
+    }
+    return total;
+}
+
+// Returns the sorted list with the value put in at the right place.
+fn insert_sorted(sorted_items: list<int>, value: int): list<int> {
+    var result: list<int> = [];
+    var placed: bool = false;
+    for (item: int in sorted_items) {
+        if (!placed && value < item) {
+            result += [value];
+            placed = true;
+        }
+        result += [item];
+    }
+    if (!placed) {
+        result += [value];
+    }
+    return result;
+}
+
+// Returns a sorted copy of the list, like sort in PHP.
+export fn sorted(numbers: list<int>): list<int> {
+    var result: list<int> = [];
+    for (n: int in numbers) {
+        result = insert_sorted(result, n);
+    }
+    return result;
+}
+
+// Returns the digits of a non-negative number, e.g. 153 -> [1, 5, 3].
+export fn digits(n: int): list<int> {
+    if (n < 10) {
+        return [n];
+    }
+    return digits(n / 10) + [n % 10];
+}

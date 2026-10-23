@@ -1,0 +1,26 @@
+// Check palindrome with a message: compares the text with its reverse. Source: TheAlgorithms/PHP Strings/CheckPalindrome2.php
+
+import { lower, reverse, trim } from "../lib/text.smn";
+
+// Returns a sentence that says if the text is a palindrome, or an error for an empty text.
+fn check_palindrome_string(text: string): result<string, string> {
+    const cleaned: string = lower(trim(text));
+    if (cleaned == "") {
+        return err("you are given an empty string, please give a non-empty string value");
+    }
+    if (cleaned != reverse(cleaned)) {
+        return ok(cleaned + " - not a palindrome string.");
+    }
+    return ok(cleaned + " - a palindrome string.");
+}
+
+for (text: string in ["Madam", "Somoni", "   "]) {
+    match (check_palindrome_string(text)) {
+        ok(message: string) => {
+            print(message);
+        }
+        err(e: string) => {
+            print("error: " + e);
+        }
+    }
+}

@@ -1,0 +1,39 @@
+// Mode: the values that appear most often. Source: TheAlgorithms/PHP Maths/Mode.php
+
+// Returns how often every value appears, in the order of first appearance.
+fn count_values(numbers: list<int>): map<int, int> {
+    var counts: map<int, int> = {};
+    for (n: int in numbers) {
+        if (has(counts, n)) {
+            counts[n] += 1;
+        } else {
+            counts[n] = 1;
+        }
+    }
+    return counts;
+}
+
+// Returns all values with the highest count, or an error for an empty list.
+fn mode(numbers: list<int>): result<list<int>, string> {
+    if (len(numbers) == 0) {
+        return err("please pass values to find the mode");
+    }
+    const counts: map<int, int> = count_values(numbers);
+    var highest: int = 0;
+    for (value: int, count: int in counts) {
+        if (count > highest) {
+            highest = count;
+        }
+    }
+    var result: list<int> = [];
+    for (value: int, count: int in counts) {
+        if (count == highest) {
+            result += [value];
+        }
+    }
+    return ok(result);
+}
+
+print(mode([1, 2, 3, 4, 5, 2, 3, 2]));
+print(mode([1, 2, 1, 2, 3]));
+print(mode([]));

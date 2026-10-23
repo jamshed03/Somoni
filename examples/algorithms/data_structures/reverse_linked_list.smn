@@ -1,0 +1,44 @@
+// Reverse linked list: turns every next link around. Source: TheAlgorithms/PHP DataStructures/ReverseLinkedList/ReverseLinkedList.php
+
+// One item of a singly linked list.
+class LinkedListItem {
+    value: int;
+    next: LinkedListItem? = null;
+
+    constructor(value: int) {
+        this.value = value;
+    }
+}
+
+// Reverses the chain from item on, puts previous behind it, and returns the new first item.
+fn reverse(item: LinkedListItem?, previous: LinkedListItem?): LinkedListItem? {
+    if (item != null) {
+        const next: LinkedListItem? = item.next;
+        item.next = previous;
+        return reverse(next, item);
+    }
+    return previous;
+}
+
+// Returns the values from the item to the end.
+fn values(item: LinkedListItem?): list<int> {
+    if (item != null) {
+        return [item.value] + values(item.next);
+    }
+    return [];
+}
+
+// Returns a linked list with the values in the same order.
+fn from_list(items: list<int>): LinkedListItem? {
+    var head: LinkedListItem? = null;
+    for (var i: int = len(items) - 1; i >= 0; i -= 1) {
+        const item: LinkedListItem = new LinkedListItem(items[i]);
+        item.next = head;
+        head = item;
+    }
+    return head;
+}
+
+const head: LinkedListItem? = from_list([1, 2, 3, 4, 5]);
+print(values(head));
+print(values(reverse(head, null)));

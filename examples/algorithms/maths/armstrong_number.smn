@@ -1,0 +1,26 @@
+// Armstrong number: the sum of its digits, each to the power of the digit count, is the number itself (153 = 1³ + 5³ + 3³). Source: TheAlgorithms/PHP Maths/ArmstrongNumber.php
+
+import { digits } from "../lib/math.smn";
+
+// Returns base to the power of exponent.
+fn power(base: int, exponent: int): int {
+    var result: int = 1;
+    for (var i: int = 0; i < exponent; i += 1) {
+        result *= base;
+    }
+    return result;
+}
+
+// Returns true if the number is an Armstrong number.
+fn is_armstrong(number: int): bool {
+    const parts: list<int> = digits(number);
+    var total: int = 0;
+    for (d: int in parts) {
+        total += power(d, len(parts));
+    }
+    return total == number;
+}
+
+for (n: int in [153, 370, 371, 407, 100, 9474, 9475]) {
+    print(string(n) + ": " + string(is_armstrong(n)));
+}

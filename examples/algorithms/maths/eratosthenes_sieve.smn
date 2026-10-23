@@ -1,0 +1,39 @@
+// Sieve of Eratosthenes: crosses out all multiples of every prime. Source: TheAlgorithms/PHP Maths/EratosthenesSieve.php
+
+// Holds one flag per number; the list lives in the object, so crossing out changes it in place without a copy.
+class Sieve {
+    flags: list<bool> = [];
+
+    constructor(limit: int) {
+        for (var i: int = 0; i <= limit; i += 1) {
+            this.flags += [i >= 2];
+        }
+    }
+
+    // Crosses out all multiples of the prime, starting at prime * prime.
+    cross_out(prime: int): void {
+        for (var m: int = prime * prime; m < len(this.flags); m += prime) {
+            this.flags[m] = false;
+        }
+    }
+
+    // Returns true if the number is still a prime.
+    is_prime(n: int): bool {
+        return this.flags[n];
+    }
+}
+
+// Returns all primes up to the limit.
+fn sieve(limit: int): list<int> {
+    const numbers: Sieve = new Sieve(limit);
+    var primes: list<int> = [];
+    for (var i: int = 2; i <= limit; i += 1) {
+        if (numbers.is_prime(i)) {
+            primes += [i];
+            numbers.cross_out(i);
+        }
+    }
+    return primes;
+}
+
+print(sieve(50));

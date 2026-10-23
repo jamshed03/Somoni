@@ -1,0 +1,16 @@
+// Reverse words: the words in the opposite order. Source: TheAlgorithms/PHP Strings/ReverseWords.php
+
+import { join, split, trim } from "../lib/text.smn";
+
+// Returns the words of the trimmed text in reverse order.
+fn reverse_words(text: string): string {
+    const words: list<string> = split(trim(text), " ");
+    var reversed: list<string> = [];
+    for (var i: int = len(words) - 1; i >= 0; i -= 1) {
+        reversed += [words[i]];
+    }
+    return join(reversed, " ");
+}
+
+print(reverse_words("Hello World"));
+print(reverse_words("  Somoni is a strongly typed language "));

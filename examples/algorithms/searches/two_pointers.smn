@@ -1,0 +1,27 @@
+// Two pointers: counts pairs with a given sum by moving one pointer from each end of the sorted list. Source: TheAlgorithms/PHP Searches/TwoPointers.php
+
+import { sorted } from "../lib/math.smn";
+
+// Returns how many pairs in the list add up to the target.
+fn two_pointers(numbers: list<int>, target: int): int {
+    const items: list<int> = sorted(numbers);
+    var left: int = 0;
+    var right: int = len(items) - 1;
+    var pairs: int = 0;
+    while (left < right) {
+        const total: int = items[left] + items[right];
+        if (total < target) {
+            left += 1;
+        } else if (total > target) {
+            right -= 1;
+        } else {
+            pairs += 1;
+            left += 1;
+        }
+    }
+    return pairs;
+}
+
+print(two_pointers([1, 2, 3, 4, 5, 6, 7, 8, 9], 10));
+print(two_pointers([3, 5, 6], 6));
+print(two_pointers([], 3));

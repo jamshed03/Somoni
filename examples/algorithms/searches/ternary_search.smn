@@ -1,0 +1,29 @@
+// Ternary search: splits the sorted list into three parts instead of two. Source: TheAlgorithms/PHP Searches/TernarySearch.php
+
+// Returns the index of the target between low and high, or -1 if it is missing.
+fn ternary_search(items: list<int>, target: int, low: int, high: int): int {
+    if (low > high) {
+        return -1;
+    }
+    const third: int = (high - low) / 3;
+    const mid1: int = low + third;
+    const mid2: int = high - third;
+    if (items[mid1] == target) {
+        return mid1;
+    }
+    if (items[mid2] == target) {
+        return mid2;
+    }
+    if (target < items[mid1]) {
+        return ternary_search(items, target, low, mid1 - 1);
+    }
+    if (target > items[mid2]) {
+        return ternary_search(items, target, mid2 + 1, high);
+    }
+    return ternary_search(items, target, mid1 + 1, mid2 - 1);
+}
+
+const sorted: list<int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+for (target: int in [1, 5, 8, 10, 11]) {
+    print(string(target) + ": " + string(ternary_search(sorted, target, 0, len(sorted) - 1)));
+}

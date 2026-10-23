@@ -1,0 +1,29 @@
+// Octal to decimal and back: base 8 uses the digits 0 to 7. Source: TheAlgorithms/PHP Conversions/OctalToDecimal.php
+
+import { digit_value } from "../lib/text.smn";
+
+// Returns the decimal value of an octal string, or an error for other characters.
+fn octal_to_decimal(octal: string): result<int, string> {
+    var value: int = 0;
+    for (c: string in octal) {
+        const digit: int = digit_value(c);
+        if (digit < 0 || digit > 7) {
+            return err("'" + octal + "' is not an octal number");
+        }
+        value = value * 8 + digit;
+    }
+    return ok(value);
+}
+
+// Returns the octal string of a non-negative number.
+fn decimal_to_octal(number: int): string {
+    if (number < 8) {
+        return string(number);
+    }
+    return decimal_to_octal(number / 8) + string(number % 8);
+}
+
+print(octal_to_decimal("17"));
+print(octal_to_decimal("777"));
+print(octal_to_decimal("89"));
+print(decimal_to_octal(511));

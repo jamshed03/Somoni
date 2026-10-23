@@ -1,0 +1,37 @@
+// Bubble sort that stops early when a pass swaps nothing. Source: TheAlgorithms/PHP Sorting/BubbleSort2.php
+
+// The list after one pass and whether the pass swapped anything.
+struct Pass {
+    items: list<int>,
+    swapped: bool
+}
+
+// Returns the result of one pass over the first n elements.
+fn bubble_pass(input: list<int>, n: int): Pass {
+    var items: list<int> = input;
+    var swapped: bool = false;
+    for (var i: int = 1; i < n; i += 1) {
+        if (items[i - 1] > items[i]) {
+            const tmp: int = items[i - 1];
+            items[i - 1] = items[i];
+            items[i] = tmp;
+            swapped = true;
+        }
+    }
+    return Pass { items: items, swapped: swapped };
+}
+
+// Returns a sorted copy of the list; an already sorted list needs only one pass.
+fn bubble_sort(input: list<int>): list<int> {
+    var pass: Pass = Pass { items: input, swapped: true };
+    var n: int = len(input);
+    while (pass.swapped && n > 1) {
+        pass = bubble_pass(pass.items, n);
+        n -= 1;
+    }
+    return pass.items;
+}
+
+print(bubble_sort([5, 3, 8, 1, 9, 2, 7]));
+print(bubble_sort([1, 2, 3, 4, 5]));
+print(bubble_sort([]));

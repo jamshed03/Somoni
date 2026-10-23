@@ -1,0 +1,21 @@
+// Perfect number: the sum of its divisors (without itself) is the number (6 = 1 + 2 + 3). Source: TheAlgorithms/PHP Maths/PerfectNumber.php
+
+// Returns the sum of all divisors of the number that are smaller than the number.
+fn divisor_sum(number: int): int {
+    var total: int = 0;
+    for (var d: int = 1; d < number; d += 1) {
+        if (number % d == 0) {
+            total += d;
+        }
+    }
+    return total;
+}
+
+// Returns true if the number is a perfect number.
+fn is_perfect(number: int): bool {
+    return number > 1 && divisor_sum(number) == number;
+}
+
+for (n: int in [1, 6, 12, 28, 496, 8128, 100]) {
+    print(string(n) + ": " + string(is_perfect(n)));
+}

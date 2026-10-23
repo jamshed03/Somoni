@@ -1,0 +1,16 @@
+// Greatest common divisor with the Euclidean algorithm. Source: TheAlgorithms/PHP Maths/GreatestCommonDivisor.php
+
+import { abs } from "../lib/math.smn";
+
+// Returns the largest number that divides both a and b.
+fn gcd(a: int, b: int): int {
+    if (b == 0) {
+        return abs(a);
+    }
+    return gcd(b, a % b);
+}
+
+print(gcd(48, 18));
+print(gcd(17, 5));
+print(gcd(-12, 8));
+print(gcd(0, 9));

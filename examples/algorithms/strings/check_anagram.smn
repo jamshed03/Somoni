@@ -1,0 +1,25 @@
+// Check anagram: two words are anagrams if they use the same letters equally often (listen, silent). Source: TheAlgorithms/PHP Strings/CheckAnagram.php
+
+import { lower } from "../lib/text.smn";
+
+// Returns how often every character appears in the text.
+fn count_chars(text: string): map<string, int> {
+    var counts: map<string, int> = {};
+    for (c: string in text) {
+        if (has(counts, c)) {
+            counts[c] += 1;
+        } else {
+            counts[c] = 1;
+        }
+    }
+    return counts;
+}
+
+// Returns true if both strings contain the same characters equally often, ignoring upper and lower case.
+fn is_anagram(original: string, test: string): bool {
+    return count_chars(lower(original)) == count_chars(lower(test));
+}
+
+print(is_anagram("listen", "silent"));
+print(is_anagram("Dormitory", "DirtyRoom"));
+print(is_anagram("hello", "world"));

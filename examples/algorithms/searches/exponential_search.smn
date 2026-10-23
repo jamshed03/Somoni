@@ -1,0 +1,39 @@
+// Exponential search: doubles the range until it passes the target, then searches binary in it. Source: TheAlgorithms/PHP Searches/ExponentialSearch.php
+
+import { min } from "../lib/math.smn";
+
+// Returns the index of the target between low and high, or -1.
+fn binary_search(items: list<int>, target: int, low: int, high: int): int {
+    if (low > high) {
+        return -1;
+    }
+    const mid: int = low + (high - low) / 2;
+    if (items[mid] == target) {
+        return mid;
+    }
+    if (items[mid] < target) {
+        return binary_search(items, target, mid + 1, high);
+    }
+    return binary_search(items, target, low, mid - 1);
+}
+
+// Returns the index of the target in the sorted list, or -1 if it is missing.
+fn exponential_search(items: list<int>, target: int): int {
+    const n: int = len(items);
+    if (n == 0) {
+        return -1;
+    }
+    if (items[0] == target) {
+        return 0;
+    }
+    var bound: int = 1;
+    while (bound < n && items[bound] <= target) {
+        bound *= 2;
+    }
+    return binary_search(items, target, bound / 2, min(bound, n - 1));
+}
+
+const sorted: list<int> = [2, 3, 4, 10, 40, 50, 60, 70, 80, 90, 100];
+for (target: int in [2, 10, 90, 100, 5]) {
+    print(string(target) + ": " + string(exponential_search(sorted, target)));
+}

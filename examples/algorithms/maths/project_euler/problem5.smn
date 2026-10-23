@@ -1,0 +1,25 @@
+// Project Euler 5: smallest number that is divisible by all numbers from 1 to 20. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem5.php
+
+// Returns the greatest common divisor of a and b.
+fn gcd(a: int, b: int): int {
+    if (b == 0) {
+        return a;
+    }
+    return gcd(b, a % b);
+}
+
+// Returns the least common multiple of a and b.
+fn lcm(a: int, b: int): int {
+    return a / gcd(a, b) * b;
+}
+
+// Returns the smallest number divisible by every number from 1 to the limit.
+fn problem5(limit: int): int {
+    var result: int = 1;
+    for (var n: int = 2; n <= limit; n += 1) {
+        result = lcm(result, n);
+    }
+    return result;
+}
+
+print(problem5(20));

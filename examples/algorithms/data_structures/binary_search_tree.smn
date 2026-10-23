@@ -1,0 +1,241 @@
+// Binary search tree: smaller keys go left, larger keys go right. Source: TheAlgorithms/PHP DataStructures/BinarySearchTree/BSTree.php
+
+// One node with a key, a value and two children.
+class BSTNode {
+    key: int;
+    value: string;
+    left: BSTNode? = null;
+    right: BSTNode? = null;
+
+    constructor(key: int, value: string) {
+        this.key = key;
+        this.value = value;
+    }
+}
+
+// Returns the tree with the key added below the node; the key must not be in the tree yet.
+fn insert_node(node: BSTNode?, key: int, value: string): BSTNode {
+    if (node != null) {
+        if (key < node.key) {
+            node.left = insert_node(node.left, key, value);
+        } else {
+            node.right = insert_node(node.right, key, value);
+        }
+        return node;
+    }
+    return new BSTNode(key, value);
+}
+
+// Returns the node with the key below the node, or null.
+fn search_node(node: BSTNode?, key: int): BSTNode? {
+    if (node != null && node.key != key) {
+        if (key < node.key) {
+            return search_node(node.left, key);
+        }
+        return search_node(node.right, key);
+    }
+    return node;
+}
+
+// Returns the node with the smallest key below the node.
+fn min_node(node: BSTNode): BSTNode {
+    const left: BSTNode? = node.left;
+    if (left != null) {
+        return min_node(left);
+    }
+    return node;
+}
+
+// Returns the tree below the node without the key.
+fn remove_node(node: BSTNode?, key: int): BSTNode? {
+    if (node != null) {
+        if (key < node.key) {
+            node.left = remove_node(node.left, key);
+        } else if (key > node.key) {
+            node.right = remove_node(node.right, key);
+        } else {
+            return remove_found(node);
+        }
+    }
+    return node;
+}
+
+// Returns what takes the place of a removed node: its only child, or the smallest node of its right side.
+fn remove_found(node: BSTNode): BSTNode? {
+    const left: BSTNode? = node.left;
+    const right: BSTNode? = node.right;
+    if (left != null && right != null) {
+        const successor: BSTNode = min_node(right);
+        node.key = successor.key;
+        node.value = successor.value;
+        node.right = remove_node(right, successor.key);
+        return node;
+    }
+    if (left != null) {
+        return left;
+    }
+    return right;
+}
+
+// Returns the number of levels below and including the node (0 for an empty tree).
+fn height(node: BSTNode?): int {
+    if (node != null) {
+        const left: int = height(node.left);
+        const right: int = height(node.right);
+        if (left > right) {
+            return left + 1;
+        }
+        return right + 1;
+    }
+    return 0;
+}
+
+// Returns the keys in order left, node, right (sorted).
+fn in_order(node: BSTNode?): list<int> {
+    if (node != null) {
+        return in_order(node.left) + [node.key] + in_order(node.right);
+    }
+    return [];
+}
+
+// Returns the keys in order node, left, right.
+fn pre_order(node: BSTNode?): list<int> {
+    if (node != null) {
+        return [node.key] + pre_order(node.left) + pre_order(node.right);
+    }
+    return [];
+}
+
+// Returns the keys in order left, right, node.
+fn post_order(node: BSTNode?): list<int> {
+    if (node != null) {
+        return post_order(node.left) + post_order(node.right) + [node.key];
+    }
+    return [];
+}
+
+// Returns the children of the node that exist, left first.
+fn children(node: BSTNode): list<BSTNode> {
+    var result: list<BSTNode> = [];
+    const left: BSTNode? = node.left;
+    const right: BSTNode? = node.right;
+    if (left != null) {
+        result += [left];
+    }
+    if (right != null) {
+        result += [right];
+    }
+    return result;
+}
+
+// Returns the keys level by level, from left to right.
+fn breadth_first(root: BSTNode?): list<int> {
+    var queue: list<BSTNode> = [];
+    if (root != null) {
+        queue = [root];
+    }
+    var result: list<int> = [];
+    for (var head: int = 0; head < len(queue); head += 1) {
+        result += [queue[head].key];
+        queue += children(queue[head]);
+    }
+    return result;
+}
+
+// A binary search tree that remembers its root and its size.
+class BSTree {
+    private root: BSTNode? = null;
+    private count: int = 0;
+
+    // Adds the key with its value, or returns an error if the key is already there.
+    insert(key: int, value: string): result<int, string> {
+        if (search_node(this.root, key) != null) {
+            return err("duplicate key " + string(key));
+        }
+        this.root = insert_node(this.root, key, value);
+        this.count += 1;
+        return ok(key);
+    }
+
+    // Removes the key; returns false if it was not there.
+    remove(key: int): bool {
+        if (search_node(this.root, key) == null) {
+            return false;
+        }
+        this.root = remove_node(this.root, key);
+        this.count -= 1;
+        return true;
+    }
+
+    // Returns the value of the key, or null.
+    search(key: int): string? {
+        const node: BSTNode? = search_node(this.root, key);
+        if (node != null) {
+            return node.value;
+        }
+        return null;
+    }
+
+    // Returns the smallest key, or null for an empty tree.
+    min_key(): int? {
+        const root: BSTNode? = this.root;
+        if (root != null) {
+            return min_node(root).key;
+        }
+        return null;
+    }
+
+    // Returns the number of keys.
+    size(): int {
+        return this.count;
+    }
+
+    // Returns true if the tree has no keys.
+    is_empty(): bool {
+        return this.count == 0;
+    }
+
+    // Returns the number of levels.
+    height(): int {
+        return height(this.root);
+    }
+
+    // Returns the keys sorted.
+    in_order(): list<int> {
+        return in_order(this.root);
+    }
+
+    // Returns the keys root first.
+    pre_order(): list<int> {
+        return pre_order(this.root);
+    }
+
+    // Returns the keys root last.
+    post_order(): list<int> {
+        return post_order(this.root);
+    }
+
+    // Returns the keys level by level.
+    breadth_first(): list<int> {
+        return breadth_first(this.root);
+    }
+}
+
+const tree: BSTree = new BSTree();
+for (key: int in [200, 150, 250, 100, 170, 220, 300]) {
+    tree.insert(key, "value " + string(key));
+}
+print(tree.insert(150, "again"));
+print(tree.in_order());
+print(tree.pre_order());
+print(tree.post_order());
+print(tree.breadth_first());
+print(tree.search(170));
+print(tree.search(999));
+print(tree.min_key());
+print(tree.height());
+tree.remove(150);
+tree.remove(200);
+print(tree.in_order());
+print(tree.breadth_first());
+print(tree.size());

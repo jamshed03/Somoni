@@ -1,0 +1,100 @@
+// Stack: last in, first out. Source: TheAlgorithms/PHP DataStructures/Stack.php
+
+import { sorted } from "../lib/math.smn";
+
+// A stack of numbers; the top is the end of the list.
+class Stack {
+    private items: list<int> = [];
+
+    // Puts a value on top.
+    push(value: int): void {
+        this.items += [value];
+    }
+
+    // Removes and returns the top value, or null if the stack is empty.
+    pop(): int? {
+        const n: int = len(this.items);
+        if (n == 0) {
+            return null;
+        }
+        const top: int = this.items[n - 1];
+        var rest: list<int> = [];
+        for (var i: int = 0; i < n - 1; i += 1) {
+            rest += [this.items[i]];
+        }
+        this.items = rest;
+        return top;
+    }
+
+    // Returns the top value without removing it, or null if the stack is empty.
+    peek(): int? {
+        if (len(this.items) == 0) {
+            return null;
+        }
+        return this.items[len(this.items) - 1];
+    }
+
+    // Returns true if the stack has no values.
+    is_empty(): bool {
+        return len(this.items) == 0;
+    }
+
+    // Returns the number of values.
+    length(): int {
+        return len(this.items);
+    }
+
+    // Removes all values.
+    clear(): void {
+        this.items = [];
+    }
+
+    // Returns the position of the value from the bottom, or -1 if it is missing.
+    search(value: int): int {
+        for (i: int, item: int in this.items) {
+            if (item == value) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // Turns the stack upside down.
+    reverse(): void {
+        var reversed: list<int> = [];
+        for (item: int in this.items) {
+            reversed = [item] + reversed;
+        }
+        this.items = reversed;
+    }
+
+    // Sorts the values, the largest ends up on top.
+    sort(): void {
+        this.items = sorted(this.items);
+    }
+
+    // Returns the values from bottom to top.
+    to_list(): list<int> {
+        return this.items;
+    }
+}
+
+const stack: Stack = new Stack();
+stack.push(3);
+stack.push(1);
+stack.push(2);
+print(stack.to_list());
+print(stack.peek());
+print(stack.pop());
+print(stack.to_list());
+print(stack.search(3));
+stack.push(9);
+stack.push(5);
+stack.sort();
+print(stack.to_list());
+stack.reverse();
+print(stack.to_list());
+print(stack.length());
+stack.clear();
+print(stack.is_empty());
+print(stack.pop());

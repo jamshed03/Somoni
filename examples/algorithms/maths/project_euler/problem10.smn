@@ -1,0 +1,39 @@
+// Project Euler 10: sum of all primes below two million. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem10.php
+
+// Holds one flag per number; the list lives in the object, so crossing out changes it in place without a copy.
+class Sieve {
+    flags: list<bool> = [];
+
+    constructor(limit: int) {
+        for (var i: int = 0; i <= limit; i += 1) {
+            this.flags += [i >= 2];
+        }
+    }
+
+    // Crosses out all multiples of the prime, starting at prime * prime.
+    cross_out(prime: int): void {
+        for (var m: int = prime * prime; m < len(this.flags); m += prime) {
+            this.flags[m] = false;
+        }
+    }
+
+    // Returns true if the number is still a prime.
+    is_prime(n: int): bool {
+        return this.flags[n];
+    }
+}
+
+// Returns the sum of all primes up to the limit.
+fn problem10(limit: int): int {
+    const numbers: Sieve = new Sieve(limit);
+    var total: int = 0;
+    for (var i: int = 2; i <= limit; i += 1) {
+        if (numbers.is_prime(i)) {
+            total += i;
+            numbers.cross_out(i);
+        }
+    }
+    return total;
+}
+
+print(problem10(2000000));

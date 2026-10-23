@@ -1,0 +1,37 @@
+// Radix sort: sorts non-negative numbers digit by digit, from the last digit to the first. Source: TheAlgorithms/PHP Sorting/RadixSort.php
+
+// Returns ten empty buckets, one for every digit.
+fn empty_buckets(): list<list<int>> {
+    return [[], [], [], [], [], [], [], [], [], []];
+}
+
+// Returns the numbers ordered by the digit at the given place (1, 10, 100, ...), keeping the order of equal digits.
+fn sort_by_digit(items: list<int>, place: int): list<int> {
+    var buckets: list<list<int>> = empty_buckets();
+    for (n: int in items) {
+        buckets[n / place % 10] += [n];
+    }
+    var result: list<int> = [];
+    for (bucket: list<int> in buckets) {
+        result += bucket;
+    }
+    return result;
+}
+
+// Returns a sorted copy of the list of non-negative numbers.
+fn radix_sort(input: list<int>): list<int> {
+    var highest: int = 0;
+    for (n: int in input) {
+        if (n > highest) {
+            highest = n;
+        }
+    }
+    var items: list<int> = input;
+    for (var place: int = 1; highest / place > 0; place *= 10) {
+        items = sort_by_digit(items, place);
+    }
+    return items;
+}
+
+print(radix_sort([170, 45, 75, 90, 802, 24, 2, 66]));
+print(radix_sort([]));

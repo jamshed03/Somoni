@@ -1,0 +1,27 @@
+// Selection sort: finds the smallest remaining value and puts it at the front. Source: TheAlgorithms/PHP Sorting/SelectionSort.php
+
+// Returns the index of the smallest value from start to the end.
+fn index_of_min(items: list<int>, start: int): int {
+    var best: int = start;
+    for (var i: int = start + 1; i < len(items); i += 1) {
+        if (items[i] < items[best]) {
+            best = i;
+        }
+    }
+    return best;
+}
+
+// Returns a sorted copy of the list.
+fn selection_sort(input: list<int>): list<int> {
+    var items: list<int> = input;
+    for (var i: int = 0; i < len(items) - 1; i += 1) {
+        const smallest: int = index_of_min(items, i);
+        const tmp: int = items[i];
+        items[i] = items[smallest];
+        items[smallest] = tmp;
+    }
+    return items;
+}
+
+print(selection_sort([64, 25, 12, 22, 11]));
+print(selection_sort([]));

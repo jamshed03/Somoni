@@ -1,0 +1,118 @@
+// Trie: a tree of characters, every path from the root spells a word prefix. Source: TheAlgorithms/PHP DataStructures/Trie/Trie.php
+
+import { chars } from "../lib/text.smn";
+
+// One node of the trie: one child per next character, and a mark if a word ends here.
+class TrieNode {
+    children: map<string, TrieNode> = {};
+    is_end: bool = false;
+}
+
+// Returns all words below the node, each starting with the prefix.
+fn collect_words(node: TrieNode, prefix: string): list<string> {
+    var words: list<string> = [];
+    if (node.is_end) {
+        words += [prefix];
+    }
+    for (c: string, child: TrieNode in node.children) {
+        words += collect_words(child, prefix + c);
+    }
+    return words;
+}
+
+// Returns the map without the key, because Somoni maps have no remove yet.
+fn without_key(children: map<string, TrieNode>, key: string): map<string, TrieNode> {
+    var result: map<string, TrieNode> = {};
+    for (c: string, child: TrieNode in children) {
+        if (c != key) {
+            result[c] = child;
+        }
+    }
+    return result;
+}
+
+// Removes the word from index on below the node; returns true if the node itself is no longer needed.
+fn delete_from(node: TrieNode, letters: list<string>, index: int): bool {
+    if (index == len(letters)) {
+        node.is_end = false;
+        return len(node.children) == 0;
+    }
+    const c: string = letters[index];
+    if (delete_from(node.children[c], letters, index + 1)) {
+        node.children = without_key(node.children, c);
+    }
+    return !node.is_end && len(node.children) == 0;
+}
+
+// A trie of words.
+class Trie {
+    private root: TrieNode = new TrieNode();
+
+    // Adds the word.
+    insert(word: string): void {
+        var node: TrieNode = this.root;
+        for (c: string in word) {
+            if (!has(node.children, c)) {
+                node.children[c] = new TrieNode();
+            }
+            node = node.children[c];
+        }
+        node.is_end = true;
+    }
+
+    // Returns the node at the end of the prefix, or null if no word starts with it.
+    private find(prefix: string): TrieNode? {
+        var node: TrieNode = this.root;
+        for (c: string in prefix) {
+            if (!has(node.children, c)) {
+                return null;
+            }
+            node = node.children[c];
+        }
+        return node;
+    }
+
+    // Returns true if the word was added before.
+    search(word: string): bool {
+        const node: TrieNode? = this.find(word);
+        return node != null && node.is_end;
+    }
+
+    // Returns all words that start with the prefix.
+    starts_with(prefix: string): list<string> {
+        const node: TrieNode? = this.find(prefix);
+        if (node != null) {
+            return collect_words(node, prefix);
+        }
+        return [];
+    }
+
+    // Removes the word; returns false if it was not in the trie.
+    delete(word: string): bool {
+        if (!this.search(word)) {
+            return false;
+        }
+        delete_from(this.root, chars(word), 0);
+        return true;
+    }
+
+    // Returns all words.
+    get_words(): list<string> {
+        return collect_words(this.root, "");
+    }
+}
+
+const trie: Trie = new Trie();
+for (word: string in ["car", "cart", "care", "cat", "dog", "do"]) {
+    trie.insert(word);
+}
+print(trie.search("car"));
+print(trie.search("ca"));
+print(trie.starts_with("car"));
+print(trie.starts_with("d"));
+print(trie.starts_with("x"));
+print(trie.delete("car"));
+print(trie.delete("bus"));
+print(trie.search("car"));
+print(trie.search("cart"));
+print(trie.get_words());

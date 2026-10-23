@@ -1,0 +1,46 @@
+// Heap sort: builds a max heap, then moves the largest value to the end again and again. Source: TheAlgorithms/PHP Sorting/HeapSort.php
+
+// Returns the list with the two positions swapped.
+fn swap(input: list<int>, a: int, b: int): list<int> {
+    var items: list<int> = input;
+    const tmp: int = items[a];
+    items[a] = items[b];
+    items[b] = tmp;
+    return items;
+}
+
+// Returns the list with the value at root moved down until both children are smaller, looking only at the first size elements.
+fn sift_down(input: list<int>, root: int, size: int): list<int> {
+    var items: list<int> = input;
+    var parent: int = root;
+    while (parent * 2 + 1 < size) {
+        var child: int = parent * 2 + 1;
+        if (child + 1 < size && items[child + 1] > items[child]) {
+            child += 1;
+        }
+        if (items[parent] >= items[child]) {
+            return items;
+        }
+        items = swap(items, parent, child);
+        parent = child;
+    }
+    return items;
+}
+
+// Returns a sorted copy of the list.
+fn heap_sort(input: list<int>): list<int> {
+    var items: list<int> = input;
+    const n: int = len(items);
+    for (var i: int = n / 2 - 1; i >= 0; i -= 1) {
+        items = sift_down(items, i, n);
+    }
+    for (var end: int = n - 1; end > 0; end -= 1) {
+        items = swap(items, 0, end);
+        items = sift_down(items, 0, end);
+    }
+    return items;
+}
+
+print(heap_sort([12, 11, 13, 5, 6, 7]));
+print(heap_sort([3, -1, 0, 3, 2]));
+print(heap_sort([]));

@@ -1,0 +1,16 @@
+// Perfect square: a number that is an integer times itself (16 = 4 * 4). Source: TheAlgorithms/PHP Maths/PerfectSquare.php
+
+import { isqrt } from "../lib/math.smn";
+
+// Returns true if the number is a perfect square.
+fn is_perfect_square(number: int): bool {
+    if (number < 0) {
+        return false;
+    }
+    const root: int = isqrt(number);
+    return root * root == number;
+}
+
+for (n: int in [0, 1, 2, 16, 26, 144, 1000000, -4]) {
+    print(string(n) + ": " + string(is_perfect_square(n)));
+}

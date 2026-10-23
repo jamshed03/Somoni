@@ -1,0 +1,69 @@
+// Disjoint set (union-find): groups elements into sets that can be merged quickly. Source: TheAlgorithms/PHP DataStructures/DisjointSets/DisjointSet.php
+
+// One element; a node without parent is the representative of its set.
+class DisjointSetNode {
+    data: int;
+    parent: DisjointSetNode? = null;
+    rank: int = 0;
+
+    constructor(data: int) {
+        this.data = data;
+    }
+}
+
+// Returns the representative of the set and links every node on the way directly to it (path compression).
+fn find_set(node: DisjointSetNode): DisjointSetNode {
+    const parent: DisjointSetNode? = node.parent;
+    if (parent != null) {
+        const root: DisjointSetNode = find_set(parent);
+        node.parent = root;
+        return root;
+    }
+    return node;
+}
+
+// Merges the sets of both nodes; the lower tree is hung below the higher one (union by rank).
+fn union_set(a: DisjointSetNode, b: DisjointSetNode): void {
+    const root_a: DisjointSetNode = find_set(a);
+    const root_b: DisjointSetNode = find_set(b);
+    if (root_a == root_b) {
+        return;
+    }
+    if (root_a.rank < root_b.rank) {
+        root_a.parent = root_b;
+    } else if (root_a.rank > root_b.rank) {
+        root_b.parent = root_a;
+    } else {
+        root_b.parent = root_a;
+        root_a.rank += 1;
+    }
+}
+
+// Returns a node for every number from 0 to count - 1.
+fn make_nodes(count: int): list<DisjointSetNode> {
+    var nodes: list<DisjointSetNode> = [];
+    for (var i: int = 0; i < count; i += 1) {
+        nodes += [new DisjointSetNode(i)];
+    }
+    return nodes;
+}
+
+// Returns true if both nodes are in the same set.
+fn same_set(a: DisjointSetNode, b: DisjointSetNode): bool {
+    return find_set(a) == find_set(b);
+}
+
+const nodes: list<DisjointSetNode> = make_nodes(8);
+union_set(nodes[0], nodes[1]);
+union_set(nodes[1], nodes[2]);
+union_set(nodes[3], nodes[4]);
+union_set(nodes[5], nodes[6]);
+union_set(nodes[6], nodes[7]);
+union_set(nodes[2], nodes[7]);
+print(same_set(nodes[0], nodes[2]));
+print(same_set(nodes[0], nodes[7]));
+print(same_set(nodes[3], nodes[4]));
+print(same_set(nodes[0], nodes[3]));
+for (node: DisjointSetNode in nodes) {
+    print(string(node.data) + " -> " + string(find_set(node).data));
+}

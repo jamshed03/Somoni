@@ -1,0 +1,16 @@
+// Linear search: checks every element from the start. Source: TheAlgorithms/PHP Searches/LinearSearch.php
+
+// Returns the index of the first element equal to the target, or -1 if it is missing.
+fn linear_search(items: list<int>, target: int): int {
+    for (i: int, item: int in items) {
+        if (item == target) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+const numbers: list<int> = [5, 7, 8, 11, 12, 15, 17, 18, 20];
+for (target: int in [15, 5, 20, 1]) {
+    print(string(target) + ": " + string(linear_search(numbers, target)));
+}

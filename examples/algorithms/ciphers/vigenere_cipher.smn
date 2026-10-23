@@ -1,0 +1,36 @@
+// Vigenère cipher: every letter is moved by the matching letter of a repeating key. Source: TheAlgorithms/PHP Ciphers/VignereCipher.php
+
+import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
+
+// Returns the letter moved by shift places, keeping upper or lower case.
+fn shift_letter(c: string, shift: int): string {
+    const letters: list<string> = chars(lowercase_letters());
+    const position: int = index_of(letters, lower_char(c));
+    const moved: string = letters[((position + shift) % 26 + 26) % 26];
+    if (is_upper(c)) {
+        return upper_char(moved);
+    }
+    return moved;
+}
+
+// Moves every letter by the key; direction is 1 to encrypt and -1 to decrypt.
+fn vigenere(text: string, key: string, direction: int): string {
+    const letters: list<string> = chars(lowercase_letters());
+    const key_chars: list<string> = chars(key);
+    var result: string = "";
+    var key_index: int = 0;
+    for (c: string in text) {
+        if (index_of(letters, lower_char(c)) < 0) {
+            result += c;
+        } else {
+            const shift: int = index_of(letters, lower_char(key_chars[key_index % len(key_chars)]));
+            result += shift_letter(c, shift * direction);
+            key_index += 1;
+        }
+    }
+    return result;
+}
+
+const secret: string = vigenere("Hello World", "KEY", 1);
+print(secret);
+print(vigenere(secret, "KEY", -1));

@@ -1,0 +1,41 @@
+// Levenshtein distance: the fewest inserts, deletes and replacements to turn one text into another. Source: TheAlgorithms/PHP Strings/Distance.php
+
+import { chars } from "../lib/text.smn";
+import { min } from "../lib/math.smn";
+
+// Returns the numbers 0 to n.
+fn first_row(n: int): list<int> {
+    var row: list<int> = [];
+    for (var i: int = 0; i <= n; i += 1) {
+        row += [i];
+    }
+    return row;
+}
+
+// Returns the next row of the distance table for one character of the second text.
+fn next_row(previous: list<int>, first: list<string>, c: string): list<int> {
+    var row: list<int> = [previous[0] + 1];
+    for (j: int, letter: string in first) {
+        var replace: int = previous[j] + 1;
+        if (letter == c) {
+            replace = previous[j];
+        }
+        row += [min(min(previous[j + 1] + 1, row[j] + 1), replace)];
+    }
+    return row;
+}
+
+// Returns the edit distance between the two texts.
+fn find_distance(a: string, b: string): int {
+    const first: list<string> = chars(a);
+    var row: list<int> = first_row(len(first));
+    for (c: string in b) {
+        row = next_row(row, first, c);
+    }
+    return row[len(first)];
+}
+
+print(find_distance("kitten", "sitting"));
+print(find_distance("flaw", "lawn"));
+print(find_distance("", "abc"));
+print(find_distance("same", "same"));

@@ -1,0 +1,41 @@
+// Fibonacci search: splits the sorted list at Fibonacci numbers instead of the middle. Source: TheAlgorithms/PHP Searches/FibonacciSearch.php
+
+import { min } from "../lib/math.smn";
+
+// Returns the index of the target in the sorted list, or -1 if it is missing.
+fn fibonacci_search(items: list<int>, target: int): int {
+    const n: int = len(items);
+    var fib2: int = 0;
+    var fib1: int = 1;
+    var fib: int = 1;
+    while (fib < n) {
+        fib2 = fib1;
+        fib1 = fib;
+        fib = fib1 + fib2;
+    }
+    var offset: int = -1;
+    while (fib > 1) {
+        const i: int = min(offset + fib2, n - 1);
+        if (items[i] < target) {
+            fib = fib1;
+            fib1 = fib2;
+            fib2 = fib - fib1;
+            offset = i;
+        } else if (items[i] > target) {
+            fib = fib2;
+            fib1 = fib1 - fib2;
+            fib2 = fib - fib1;
+        } else {
+            return i;
+        }
+    }
+    if (fib1 == 1 && offset + 1 < n && items[offset + 1] == target) {
+        return offset + 1;
+    }
+    return -1;
+}
+
+const sorted: list<int> = [10, 22, 35, 40, 45, 50, 80, 82, 85, 90, 100];
+for (target: int in [10, 45, 85, 100, 33]) {
+    print(string(target) + ": " + string(fibonacci_search(sorted, target)));
+}

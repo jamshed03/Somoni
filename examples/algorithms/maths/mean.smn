@@ -1,0 +1,15 @@
+// Mean: the sum of all numbers divided by how many there are. Source: TheAlgorithms/PHP Maths/Mean.php
+
+import { sum } from "../lib/math.smn";
+
+// Returns the average of the numbers, or an error for an empty list.
+fn mean(numbers: list<int>): result<float, string> {
+    if (len(numbers) == 0) {
+        return err("please pass values to calculate the mean");
+    }
+    return ok(float(sum(numbers)) / float(len(numbers)));
+}
+
+print(mean([2, 3, 4]));
+print(mean([1, 2, 3, 4]));
+print(mean([]));

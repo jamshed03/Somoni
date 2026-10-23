@@ -1,0 +1,21 @@
+// Check palindrome number: the number reads the same backwards (121). Source: TheAlgorithms/PHP Maths/CheckPalindrome.php
+
+// Returns the digits of the number in reverse order as a number, e.g. 123 -> 321.
+fn reverse_number(number: int): int {
+    var rest: int = number;
+    var reversed: int = 0;
+    while (rest > 0) {
+        reversed = reversed * 10 + rest % 10;
+        rest /= 10;
+    }
+    return reversed;
+}
+
+// Returns true if the non-negative number is a palindrome.
+fn is_palindrome_number(number: int): bool {
+    return number == reverse_number(number);
+}
+
+for (n: int in [121, 12321, 123, 7, 10]) {
+    print(string(n) + ": " + string(is_palindrome_number(n)));
+}

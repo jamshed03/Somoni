@@ -1,0 +1,40 @@
+// Caesar cipher: moves every letter a fixed number of places. Source: TheAlgorithms/PHP Ciphers/CaesarCipher.php
+
+import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
+
+// Returns one character moved by shift places in the alphabet, other characters stay the same.
+fn shift_char(c: string, shift: int): string {
+    const letters: list<string> = chars(lowercase_letters());
+    const position: int = index_of(letters, lower_char(c));
+    if (position < 0) {
+        return c;
+    }
+    const moved: string = letters[((position + shift) % 26 + 26) % 26];
+    if (is_upper(c)) {
+        return upper_char(moved);
+    }
+    return moved;
+}
+
+// Moves every letter of the text by shift places.
+fn shift_text(text: string, shift: int): string {
+    var result: string = "";
+    for (c: string in text) {
+        result += shift_char(c, shift);
+    }
+    return result;
+}
+
+// Encrypts the text with the key.
+fn encrypt(text: string, key: int): string {
+    return shift_text(text, key);
+}
+
+// Decrypts the text with the key.
+fn decrypt(text: string, key: int): string {
+    return shift_text(text, -key);
+}
+
+const secret: string = encrypt("Hello World", 3);
+print(secret);
+print(decrypt(secret, 3));

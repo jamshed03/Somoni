@@ -1,0 +1,43 @@
+// Bellman-Ford: shortest paths from one start, also with negative edge weights. Source: TheAlgorithms/PHP Graphs/BellmanFord.php
+
+import { GraphEdge } from "graph_edge.smn";
+
+// Returns the distances after relaxing every edge once; unreachable nodes are missing from the map.
+fn relax_all(input: map<string, int>, edges: list<GraphEdge>): map<string, int> {
+    var distances: map<string, int> = input;
+    for (edge: GraphEdge in edges) {
+        if (has(distances, edge.start)) {
+            const candidate: int = distances[edge.start] + edge.weight;
+            if (!has(distances, edge.end) || candidate < distances[edge.end]) {
+                distances[edge.end] = candidate;
+            }
+        }
+    }
+    return distances;
+}
+
+// Returns the shortest distance from start to every reachable node, or an error for a negative cycle.
+fn bellman_ford(vertices: list<string>, edges: list<GraphEdge>, start: string): result<map<string, int>, string> {
+    var distances: map<string, int> = {start: 0};
+    for (var i: int = 1; i < len(vertices); i += 1) {
+        distances = relax_all(distances, edges);
+    }
+    if (relax_all(distances, edges) != distances) {
+        return err("the graph has a negative cycle");
+    }
+    return ok(distances);
+}
+
+const vertices: list<string> = ["S", "A", "B", "C", "D", "E"];
+const edges: list<GraphEdge> = [
+    GraphEdge { start: "S", end: "A", weight: 10 },
+    GraphEdge { start: "S", end: "E", weight: 8 },
+    GraphEdge { start: "E", end: "D", weight: 1 },
+    GraphEdge { start: "D", end: "A", weight: -4 },
+    GraphEdge { start: "D", end: "C", weight: -1 },
+    GraphEdge { start: "A", end: "C", weight: 2 },
+    GraphEdge { start: "C", end: "B", weight: -2 },
+    GraphEdge { start: "B", end: "A", weight: 1 }
+];
+print(bellman_ford(vertices, edges, "S"));
+print(bellman_ford(["X", "Y"], [GraphEdge { start: "X", end: "Y", weight: -1 }, GraphEdge { start: "Y", end: "X", weight: -1 }], "X"));

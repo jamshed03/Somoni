@@ -1,0 +1,39 @@
+// Binary search: halves a sorted list until the value is found, with a loop and with recursion. Source: TheAlgorithms/PHP Searches/BinarySearch.php
+
+// Returns the index of the target in the sorted list, or -1 if it is missing.
+fn binary_search(items: list<int>, target: int): int {
+    var low: int = 0;
+    var high: int = len(items) - 1;
+    while (low <= high) {
+        const mid: int = low + (high - low) / 2;
+        if (items[mid] == target) {
+            return mid;
+        } else if (items[mid] < target) {
+            low = mid + 1;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return -1;
+}
+
+// Returns the index of the target between low and high, or -1, by calling itself on one half.
+fn binary_search_recursive(items: list<int>, target: int, low: int, high: int): int {
+    if (low > high) {
+        return -1;
+    }
+    const mid: int = low + (high - low) / 2;
+    if (items[mid] == target) {
+        return mid;
+    }
+    if (items[mid] < target) {
+        return binary_search_recursive(items, target, mid + 1, high);
+    }
+    return binary_search_recursive(items, target, low, mid - 1);
+}
+
+const sorted: list<int> = [5, 10, 15, 20, 25, 30, 35, 40];
+for (target: int in [5, 25, 40, 12]) {
+    print(string(target) + ": " + string(binary_search(sorted, target)) + " / "
+        + string(binary_search_recursive(sorted, target, 0, len(sorted) - 1)));
+}

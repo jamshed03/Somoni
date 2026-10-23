@@ -1,0 +1,20 @@
+// Median: the middle value of the sorted numbers. Source: TheAlgorithms/PHP Maths/Median.php
+
+import { sorted } from "../lib/math.smn";
+
+// Returns the median, the average of the two middle values for an even count, or an error for an empty list.
+fn median(numbers: list<int>): result<float, string> {
+    const n: int = len(numbers);
+    if (n == 0) {
+        return err("please pass values to find the median");
+    }
+    const items: list<int> = sorted(numbers);
+    if (n % 2 == 1) {
+        return ok(float(items[n / 2]));
+    }
+    return ok(float(items[n / 2 - 1] + items[n / 2]) / 2.0);
+}
+
+print(median([1, 2, 3, 4, 5]));
+print(median([5, 2, 9, 1]));
+print(median([]));

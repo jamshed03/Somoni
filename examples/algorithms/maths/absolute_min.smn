@@ -1,0 +1,21 @@
+// Absolute min: the number closest to 0. Source: TheAlgorithms/PHP Maths/AbsoluteMin.php
+
+import { abs } from "../lib/math.smn";
+
+// Returns the number whose absolute value is the smallest, or null for an empty list.
+fn absolute_min(numbers: list<int>): int? {
+    if (len(numbers) == 0) {
+        return null;
+    }
+    var best: int = numbers[0];
+    for (n: int in numbers) {
+        if (abs(n) < abs(best)) {
+            best = n;
+        }
+    }
+    return best;
+}
+
+print(absolute_min([12, -9, 4, 7]));
+print(absolute_min([-3, 8, 5]));
+print(absolute_min([]));

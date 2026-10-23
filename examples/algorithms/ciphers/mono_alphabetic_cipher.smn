@@ -1,0 +1,41 @@
+// Mono-alphabetic cipher: every letter of the alphabet has a fixed partner in the key. Source: TheAlgorithms/PHP Ciphers/MonoAlphabeticCipher.php
+
+import { chars, index_of, is_digit, is_upper, lower_char, upper_char } from "../lib/text.smn";
+
+// Returns the partner of one character in the key, keeps spaces and drops digits.
+fn substitute(c: string, from: list<string>, to: list<string>): string {
+    if (is_digit(c)) {
+        return "";
+    }
+    const position: int = index_of(from, lower_char(c));
+    if (position < 0) {
+        return c;
+    }
+    if (is_upper(c)) {
+        return upper_char(to[position]);
+    }
+    return to[position];
+}
+
+// Replaces every letter of the text from the alphabet with its partner in the key, or null if the lengths differ.
+fn mono_alphabetic(key: string, alphabet: string, text: string): string? {
+    if (len(key) != len(alphabet)) {
+        return null;
+    }
+    const from: list<string> = chars(alphabet);
+    const to: list<string> = chars(key);
+    var result: string = "";
+    for (c: string in text) {
+        result += substitute(c, from, to);
+    }
+    return result;
+}
+
+const alphabet: string = "abcdefghijklmnopqrstuvwxyz";
+const key: string = "yhkqgvxfoluapwmtzecjdbsnri";
+const secret: string? = mono_alphabetic(key, alphabet, "I love 1 GitHub");
+print(secret);
+if (secret != null) {
+    print(mono_alphabetic(alphabet, key, secret));
+}
+print(mono_alphabetic("abc", alphabet, "test"));

@@ -1,0 +1,56 @@
+// Singly linked list: every node knows only the next one. Source: TheAlgorithms/PHP DataStructures/SinglyLinkedList.php
+
+// One node of the list; the first node is the list.
+class SinglyLinkedList {
+    data: int;
+    next: SinglyLinkedList? = null;
+
+    constructor(data: int) {
+        this.data = data;
+    }
+
+    // Adds a value at the end of the list.
+    append(data: int): void {
+        const next: SinglyLinkedList? = this.next;
+        if (next == null) {
+            this.next = new SinglyLinkedList(data);
+        } else {
+            next.append(data);
+        }
+    }
+
+    // Removes the first node with the value and returns the new head (null if the list became empty).
+    delete(data: int): SinglyLinkedList? {
+        if (this.data == data) {
+            return this.next;
+        }
+        const next: SinglyLinkedList? = this.next;
+        if (next != null) {
+            this.next = next.delete(data);
+        }
+        return this;
+    }
+
+    // Returns the values from this node to the end.
+    to_list(): list<int> {
+        const next: SinglyLinkedList? = this.next;
+        if (next != null) {
+            return [this.data] + next.to_list();
+        }
+        return [this.data];
+    }
+}
+
+const list: SinglyLinkedList = new SinglyLinkedList(1);
+list.append(2);
+list.append(3);
+list.append(4);
+print(list.to_list());
+const without_three: SinglyLinkedList? = list.delete(3);
+if (without_three != null) {
+    print(without_three.to_list());
+    const without_one: SinglyLinkedList? = without_three.delete(1);
+    if (without_one != null) {
+        print(without_one.to_list());
+    }
+}

@@ -1,0 +1,25 @@
+// Project Euler 9: the Pythagorean triplet a² + b² = c² with a + b + c = 1000. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem9.php
+
+// Returns a * b * c for the triplet with the given a, or 0 if there is none.
+fn product_for(a: int, total: int): int {
+    for (var b: int = a + 1; b < total - a - b; b += 1) {
+        const c: int = total - a - b;
+        if (a * a + b * b == c * c) {
+            return a * b * c;
+        }
+    }
+    return 0;
+}
+
+// Returns a * b * c of the Pythagorean triplet whose sum is total.
+fn problem9(total: int): int {
+    for (var a: int = 1; a < total / 3; a += 1) {
+        const product: int = product_for(a, total);
+        if (product > 0) {
+            return product;
+        }
+    }
+    return 0;
+}
+
+print(problem9(1000));

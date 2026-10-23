@@ -1,0 +1,20 @@
+// Hexadecimal to decimal: reads 0-9 and a-f as a number in base 16. Source: TheAlgorithms/PHP Conversions/HexadecimalToDecimal.php
+
+import { digit_value } from "../lib/text.smn";
+
+// Returns the decimal value of a hexadecimal string, or an error for other characters.
+fn hex_to_decimal(hex: string): result<int, string> {
+    var value: int = 0;
+    for (c: string in hex) {
+        const digit: int = digit_value(c);
+        if (digit < 0 || digit > 15) {
+            return err("'" + hex + "' is not a hexadecimal number");
+        }
+        value = value * 16 + digit;
+    }
+    return ok(value);
+}
+
+print(hex_to_decimal("FF"));
+print(hex_to_decimal("1a2b"));
+print(hex_to_decimal("XYZ"));

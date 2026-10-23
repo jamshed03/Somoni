@@ -1,0 +1,29 @@
+// Jump search: jumps ahead in blocks of √n, then walks back through one block. Source: TheAlgorithms/PHP Searches/JumpSearch.php
+
+import { isqrt, min } from "../lib/math.smn";
+
+// Returns the index of the target in the sorted list, or -1 if it is missing.
+fn jump_search(items: list<int>, target: int): int {
+    const n: int = len(items);
+    if (n == 0) {
+        return -1;
+    }
+    const step: int = isqrt(n);
+    var block_start: int = 0;
+    var block_end: int = step;
+    while (block_end < n && items[block_end - 1] < target) {
+        block_start = block_end;
+        block_end += step;
+    }
+    for (var i: int = block_start; i < min(block_end, n); i += 1) {
+        if (items[i] == target) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+const sorted: list<int> = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
+for (target: int in [55, 0, 610, 4]) {
+    print(string(target) + ": " + string(jump_search(sorted, target)));
+}

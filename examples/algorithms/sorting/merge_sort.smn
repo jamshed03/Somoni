@@ -1,0 +1,39 @@
+// Merge sort: splits the list in halves, sorts them and merges them back together. Source: TheAlgorithms/PHP Sorting/MergeSort.php
+
+// Returns the elements from start (inclusive) to end (exclusive).
+fn slice(items: list<int>, start: int, end: int): list<int> {
+    var result: list<int> = [];
+    for (var i: int = start; i < end; i += 1) {
+        result += [items[i]];
+    }
+    return result;
+}
+
+// Returns one sorted list from two sorted lists.
+fn merge(left: list<int>, right: list<int>): list<int> {
+    var result: list<int> = [];
+    var i: int = 0;
+    var j: int = 0;
+    while (i < len(left) && j < len(right)) {
+        if (left[i] <= right[j]) {
+            result += [left[i]];
+            i += 1;
+        } else {
+            result += [right[j]];
+            j += 1;
+        }
+    }
+    return result + slice(left, i, len(left)) + slice(right, j, len(right));
+}
+
+// Returns a sorted copy of the list.
+fn merge_sort(items: list<int>): list<int> {
+    if (len(items) <= 1) {
+        return items;
+    }
+    const middle: int = len(items) / 2;
+    return merge(merge_sort(slice(items, 0, middle)), merge_sort(slice(items, middle, len(items))));
+}
+
+print(merge_sort([38, 27, 43, 3, 9, 82, 10]));
+print(merge_sort([]));

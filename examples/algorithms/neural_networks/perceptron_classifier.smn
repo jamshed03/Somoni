@@ -1,0 +1,177 @@
+// Perceptron classifier: one neuron with a sigmoid learns the rule "x0 is 1 and x1 is 0" with gradient descent. Source: TheAlgorithms/PHP NeuralNetworks/PerceptronClassifier/NeuralNetworkPerceptronClassifier.php
+
+import { exp, ln } from "../lib/math.smn";
+
+// The learned weights (one per input) and the bias.
+struct Model {
+    weights: list<float>,
+    bias: float
+}
+
+// The inputs of every sample and the expected answer (0 or 1).
+struct TrainingSet {
+    samples: list<list<float>>,
+    labels: list<float>
+}
+
+// A small pseudo random generator, so every run gives the same numbers (PHP uses random_int).
+class Random {
+    private seed: int;
+
+    constructor(seed: int) {
+        this.seed = seed;
+    }
+
+    // Returns the next number from 0 to 2147483647.
+    next(): int {
+        this.seed = (this.seed * 1103515245 + 12345) % 2147483648;
+        return this.seed;
+    }
+
+    // Returns 0 or 1.
+    next_bit(): int {
+        return this.next() / 65536 % 2;
+    }
+
+    // Returns a float from 0 to 1.
+    next_float(): float {
+        return float(this.next()) / 2147483648.0;
+    }
+}
+
+// Returns 50 random samples with two inputs; the label is 1 only for x0 = 1 and x1 = 0.
+fn generate_training_set(random: Random): TrainingSet {
+    var samples: list<list<float>> = [];
+    var labels: list<float> = [];
+    for (var j: int = 0; j < 50; j += 1) {
+        const x0: int = random.next_bit();
+        const x1: int = random.next_bit();
+        samples += [[float(x0), float(x1)]];
+        if (x0 == 1 && x1 == 0) {
+            labels += [1.0];
+        } else {
+            labels += [0.0];
+        }
+    }
+    return TrainingSet { samples: samples, labels: labels };
+}
+
+// Returns small random weights and a bias of 0.
+fn init_params(inputs: int, random: Random): Model {
+    var weights: list<float> = [];
+    for (var i: int = 0; i < inputs; i += 1) {
+        weights += [random.next_float()];
+    }
+    return Model { weights: weights, bias: 0.0 };
+}
+
+// Returns a value between 0 and 1: 1 / (1 + e^-z).
+fn sigmoid(z: float): float {
+    return 1.0 / (1.0 + exp(-z));
+}
+
+// Returns the output of the neuron for one sample.
+fn activate(model: Model, sample: list<float>): float {
+    var sum: float = model.bias;
+    for (i: int, w: float in model.weights) {
+        sum += w * sample[i];
+    }
+    return sigmoid(sum);
+}
+
+// Returns the output of the neuron for every sample (forward propagation).
+fn forward(model: Model, samples: list<list<float>>): list<float> {
+    var outputs: list<float> = [];
+    for (sample: list<float> in samples) {
+        outputs += [activate(model, sample)];
+    }
+    return outputs;
+}
+
+// Returns the value kept away from 0 and 1, so the logarithm stays finite.
+fn clamp(a: float): float {
+    if (a < 0.000000000001) {
+        return 0.000000000001;
+    }
+    if (a > 0.999999999999) {
+        return 0.999999999999;
+    }
+    return a;
+}
+
+// Returns the average cross-entropy cost: small when the outputs are close to the labels.
+fn compute_cost(outputs: list<float>, labels: list<float>): float {
+    var cost: float = 0.0;
+    for (i: int, y: float in labels) {
+        const a: float = clamp(outputs[i]);
+        cost -= y * ln(a) + (1.0 - y) * ln(1.0 - a);
+    }
+    return cost / float(len(labels));
+}
+
+// Returns the gradient list with error times sample added to it.
+fn add_scaled(gradient: list<float>, sample: list<float>, error: float): list<float> {
+    var result: list<float> = gradient;
+    for (i: int, x: float in sample) {
+        result[i] += error * x;
+    }
+    return result;
+}
+
+// Returns the averaged gradients of weights and bias (backward propagation), stored like a model.
+fn backward(outputs: list<float>, set: TrainingSet): Model {
+    var weights: list<float> = [0.0, 0.0];
+    var bias: float = 0.0;
+    for (j: int, sample: list<float> in set.samples) {
+        const error: float = outputs[j] - set.labels[j];
+        weights = add_scaled(weights, sample, error);
+        bias += error;
+    }
+    const m: float = float(len(set.labels));
+    var averaged: list<float> = [];
+    for (w: float in weights) {
+        averaged += [w / m];
+    }
+    return Model { weights: averaged, bias: bias / m };
+}
+
+// Returns the model moved one step against the gradient.
+fn update_params(model: Model, gradient: Model, learning_rate: float): Model {
+    var weights: list<float> = [];
+    for (i: int, w: float in model.weights) {
+        weights += [w - learning_rate * gradient.weights[i]];
+    }
+    return Model { weights: weights, bias: model.bias - learning_rate * gradient.bias };
+}
+
+// Trains the model and prints the cost every 100 iterations.
+fn train_model(set: TrainingSet, iterations: int, learning_rate: float, random: Random): Model {
+    var model: Model = init_params(2, random);
+    for (var i: int = 0; i < iterations; i += 1) {
+        const outputs: list<float> = forward(model, set.samples);
+        if (i % 100 == 0) {
+            print("Iteration " + string(i) + " - Cost: " + string(compute_cost(outputs, set.labels)));
+        }
+        model = update_params(model, backward(outputs, set), learning_rate);
+    }
+    return model;
+}
+
+// Returns 1 for every sample where the neuron says more than 0.5, otherwise 0.
+fn predict(model: Model, samples: list<list<float>>): list<int> {
+    var result: list<int> = [];
+    for (a: float in forward(model, samples)) {
+        if (a > 0.5) {
+            result += [1];
+        } else {
+            result += [0];
+        }
+    }
+    return result;
+}
+
+const random: Random = new Random(42);
+const training: TrainingSet = generate_training_set(random);
+const model: Model = train_model(training, 1000, 0.1, random);
+print(model);
+print(predict(model, [[1.0, 0.0], [1.0, 1.0], [0.0, 0.0], [0.0, 1.0]]));

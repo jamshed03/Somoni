@@ -1,0 +1,36 @@
+// Max character: the character that appears most often. Source: TheAlgorithms/PHP Strings/MaxCharacter.php
+
+import { lower } from "../lib/text.smn";
+
+// Returns how often every character appears in the text.
+fn count_chars(text: string): map<string, int> {
+    var counts: map<string, int> = {};
+    for (c: string in text) {
+        if (has(counts, c)) {
+            counts[c] += 1;
+        } else {
+            counts[c] = 1;
+        }
+    }
+    return counts;
+}
+
+// Returns the most frequent character, ignoring case, or an error for an empty text.
+fn max_character(text: string): result<string, string> {
+    if (text == "") {
+        return err("please pass a non-empty string value");
+    }
+    var best: string = "";
+    var best_count: int = 0;
+    for (c: string, count: int in count_chars(lower(text))) {
+        if (count > best_count) {
+            best = c;
+            best_count = count;
+        }
+    }
+    return ok(best);
+}
+
+print(max_character("Hello World"));
+print(max_character("Mississippi"));
+print(max_character(""));

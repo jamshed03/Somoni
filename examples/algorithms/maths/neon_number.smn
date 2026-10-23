@@ -1,0 +1,12 @@
+// Neon number: the digits of its square add up to the number itself (9 * 9 = 81, 8 + 1 = 9). Source: TheAlgorithms/PHP Maths/NeonNumber.php
+
+import { digits, sum } from "../lib/math.smn";
+
+// Returns true if the number is a neon number.
+fn is_neon(number: int): bool {
+    return sum(digits(number * number)) == number;
+}
+
+for (n: int in [0, 1, 9, 10, 12]) {
+    print(string(n) + ": " + string(is_neon(n)));
+}

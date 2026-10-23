@@ -1,0 +1,40 @@
+// Count sentences: counts the endings ".", "!" and "?" that close a sentence. Source: TheAlgorithms/PHP Strings/CountSentences.php
+
+import { chars, index_of, is_digit, is_letter, trim } from "../lib/text.smn";
+
+// Returns true if the character ends a sentence.
+fn is_end_mark(c: string): bool {
+    return index_of(chars(".!?"), c) >= 0;
+}
+
+// Returns true if the mark at the index closes a sentence: a word before it and no word right after it.
+fn closes_sentence(letters: list<string>, index: int): bool {
+    if (index == 0 || !is_end_mark(letters[index])) {
+        return false;
+    }
+    const before: string = letters[index - 1];
+    if (before == " " || is_end_mark(before)) {
+        return false;
+    }
+    if (index + 1 == len(letters)) {
+        return true;
+    }
+    const after: string = letters[index + 1];
+    return !is_letter(after) && !is_digit(after);
+}
+
+// Returns how many sentences the text has.
+fn count_sentences(text: string): int {
+    const letters: list<string> = chars(trim(text));
+    var count: int = 0;
+    for (var i: int = 0; i < len(letters); i += 1) {
+        if (closes_sentence(letters, i)) {
+            count += 1;
+        }
+    }
+    return count;
+}
+
+print(count_sentences("Hi! Hello world. How are you? I am fine..."));
+print(count_sentences("Version 1.5 is out."));
+print(count_sentences(""));

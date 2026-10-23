@@ -1,0 +1,34 @@
+// Compare binary trees: two trees are equal if they have the same shape and the same values. Source: TheAlgorithms/PHP DataStructures/CompareBinaryTree/CompareBinaryTree.php
+
+// One node of a binary tree.
+class BinaryTreeNode {
+    value: int;
+    left: BinaryTreeNode? = null;
+    right: BinaryTreeNode? = null;
+
+    constructor(value: int, left: BinaryTreeNode?, right: BinaryTreeNode?) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+// Returns true if both trees are empty, or have the same value and equal subtrees.
+fn are_trees_equal(a: BinaryTreeNode?, b: BinaryTreeNode?): bool {
+    if (a != null && b != null) {
+        return a.value == b.value && are_trees_equal(a.left, b.left) && are_trees_equal(a.right, b.right);
+    }
+    return a == null && b == null;
+}
+
+// Returns a node without children.
+fn leaf(value: int): BinaryTreeNode {
+    return new BinaryTreeNode(value, null, null);
+}
+
+const first: BinaryTreeNode = new BinaryTreeNode(1, new BinaryTreeNode(2, leaf(4), null), leaf(3));
+const same: BinaryTreeNode = new BinaryTreeNode(1, new BinaryTreeNode(2, leaf(4), null), leaf(3));
+const other: BinaryTreeNode = new BinaryTreeNode(1, new BinaryTreeNode(2, null, leaf(4)), leaf(3));
+print(are_trees_equal(first, same));
+print(are_trees_equal(first, other));
+print(are_trees_equal(null, null));

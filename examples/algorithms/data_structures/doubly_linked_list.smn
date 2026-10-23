@@ -1,0 +1,184 @@
+// Doubly linked list: every node knows the next and the previous one. Source: TheAlgorithms/PHP DataStructures/DoublyLinkedList.php
+
+// One node with links in both directions.
+class Node {
+    data: int;
+    next: Node? = null;
+    prev: Node? = null;
+
+    constructor(data: int) {
+        this.data = data;
+    }
+}
+
+// Returns the values from the node to the end, following next.
+fn values_forward(node: Node?): list<int> {
+    if (node != null) {
+        return [node.data] + values_forward(node.next);
+    }
+    return [];
+}
+
+// Returns the values from the node to the start, following prev.
+fn values_backward(node: Node?): list<int> {
+    if (node != null) {
+        return [node.data] + values_backward(node.prev);
+    }
+    return [];
+}
+
+// Returns the node that is steps nodes after the given one, or null.
+fn node_at(node: Node?, steps: int): Node? {
+    if (node != null && steps > 0) {
+        return node_at(node.next, steps - 1);
+    }
+    return node;
+}
+
+// Returns the first node from here on with the value, or null.
+fn find_node(node: Node?, data: int): Node? {
+    if (node != null && node.data != data) {
+        return find_node(node.next, data);
+    }
+    return node;
+}
+
+// Swaps next and prev of the node and of all nodes after it.
+fn swap_links(node: Node?): void {
+    if (node != null) {
+        const next: Node? = node.next;
+        node.next = node.prev;
+        node.prev = next;
+        swap_links(next);
+    }
+}
+
+// A list of numbers with a head and a tail, so both ends can be reached quickly.
+class DoublyLinkedList {
+    private head: Node? = null;
+    private tail: Node? = null;
+    private size: int = 0;
+
+    // Adds a value at the end.
+    append(data: int): void {
+        const node: Node = new Node(data);
+        const tail: Node? = this.tail;
+        if (tail == null) {
+            this.head = node;
+        } else {
+            tail.next = node;
+            node.prev = tail;
+        }
+        this.tail = node;
+        this.size += 1;
+    }
+
+    // Puts a value at the position (0 is the front); a position past the end appends.
+    insert(data: int, position: int): void {
+        const after: Node? = node_at(this.head, position);
+        if (after == null) {
+            this.append(data);
+        } else {
+            this.insert_before(after, data);
+        }
+    }
+
+    // Links a new node with the value in front of the given node.
+    private insert_before(after: Node, data: int): void {
+        const node: Node = new Node(data);
+        const before: Node? = after.prev;
+        node.next = after;
+        node.prev = before;
+        after.prev = node;
+        if (before == null) {
+            this.head = node;
+        } else {
+            before.next = node;
+        }
+        this.size += 1;
+    }
+
+    // Removes the first node with the value.
+    delete(data: int): void {
+        const node: Node? = find_node(this.head, data);
+        if (node != null) {
+            this.unlink(node);
+        }
+    }
+
+    // Removes the node at the position.
+    delete_at(position: int): void {
+        const node: Node? = node_at(this.head, position);
+        if (node != null) {
+            this.unlink(node);
+        }
+    }
+
+    // Takes the node out of the chain by linking its neighbours to each other.
+    private unlink(node: Node): void {
+        const before: Node? = node.prev;
+        const after: Node? = node.next;
+        if (before == null) {
+            this.head = after;
+        } else {
+            before.next = after;
+        }
+        if (after == null) {
+            this.tail = before;
+        } else {
+            after.prev = before;
+        }
+        this.size -= 1;
+    }
+
+    // Turns the list around, the last node becomes the first.
+    reverse(): void {
+        const old_head: Node? = this.head;
+        swap_links(old_head);
+        this.head = this.tail;
+        this.tail = old_head;
+    }
+
+    // Returns true if the value is in the list.
+    search(data: int): bool {
+        return find_node(this.head, data) != null;
+    }
+
+    // Returns the number of values.
+    length(): int {
+        return this.size;
+    }
+
+    // Returns true if the list has no values.
+    is_empty(): bool {
+        return this.size == 0;
+    }
+
+    // Returns the values from front to back.
+    to_list(): list<int> {
+        return values_forward(this.head);
+    }
+
+    // Returns the values from back to front.
+    to_list_reverse(): list<int> {
+        return values_backward(this.tail);
+    }
+}
+
+const numbers: DoublyLinkedList = new DoublyLinkedList();
+numbers.append(1);
+numbers.append(2);
+numbers.append(3);
+numbers.insert(9, 1);
+numbers.insert(0, 0);
+print(numbers.to_list());
+print(numbers.to_list_reverse());
+numbers.delete(9);
+numbers.delete_at(0);
+print(numbers.to_list());
+numbers.reverse();
+print(numbers.to_list());
+print(numbers.search(2));
+print(numbers.search(7));
+print(numbers.length());
+print(numbers.is_empty());

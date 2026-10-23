@@ -1,0 +1,160 @@
+// Text helpers that Somoni does not have built in (no s[i], no substr, no lower/upper).
+
+// Returns the characters of a string as a list, e.g. "abc" -> ["a", "b", "c"].
+export fn chars(text: string): list<string> {
+    var result: list<string> = [];
+    for (c: string in text) {
+        result += [c];
+    }
+    return result;
+}
+
+// Joins the parts with the separator between them, like implode in PHP.
+export fn join(parts: list<string>, separator: string): string {
+    var result: string = "";
+    for (i: int, part: string in parts) {
+        if (i > 0) {
+            result += separator;
+        }
+        result += part;
+    }
+    return result;
+}
+
+// Splits a string at every separator character, like explode in PHP.
+export fn split(text: string, separator: string): list<string> {
+    var parts: list<string> = [];
+    var current: string = "";
+    for (c: string in text) {
+        if (c == separator) {
+            parts += [current];
+            current = "";
+        } else {
+            current += c;
+        }
+    }
+    return parts + [current];
+}
+
+// Returns the part of the list from start with the given length, like array_slice in PHP.
+export fn slice(items: list<string>, start: int, length: int): list<string> {
+    var result: list<string> = [];
+    for (var i: int = start; i < start + length && i < len(items); i += 1) {
+        result += [items[i]];
+    }
+    return result;
+}
+
+// Returns the part of the string from start with the given length, like substr in PHP.
+export fn substring(text: string, start: int, length: int): string {
+    return join(slice(chars(text), start, length), "");
+}
+
+// Returns the string without spaces at the start and the end, like trim in PHP.
+export fn trim(text: string): string {
+    const letters: list<string> = chars(text);
+    var start: int = 0;
+    var end: int = len(letters);
+    while (start < end && letters[start] == " ") {
+        start += 1;
+    }
+    while (end > start && letters[end - 1] == " ") {
+        end -= 1;
+    }
+    return join(slice(letters, start, end - start), "");
+}
+
+// Returns the position of the value in the list, or -1 if it is missing.
+export fn index_of(items: list<string>, value: string): int {
+    for (i: int, item: string in items) {
+        if (item == value) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Returns the string backwards, e.g. "abc" -> "cba".
+export fn reverse(text: string): string {
+    var result: string = "";
+    for (c: string in text) {
+        result = c + result;
+    }
+    return result;
+}
+
+// Returns the 26 lowercase letters of the English alphabet.
+export fn lowercase_letters(): string {
+    return "abcdefghijklmnopqrstuvwxyz";
+}
+
+// Returns the 26 uppercase letters of the English alphabet.
+export fn uppercase_letters(): string {
+    return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+}
+
+// Returns true if the character is one of a to z.
+export fn is_lower(c: string): bool {
+    return index_of(chars(lowercase_letters()), c) >= 0;
+}
+
+// Returns true if the character is one of A to Z.
+export fn is_upper(c: string): bool {
+    return index_of(chars(uppercase_letters()), c) >= 0;
+}
+
+// Returns true if the character is a letter from a to z or A to Z.
+export fn is_letter(c: string): bool {
+    return is_lower(c) || is_upper(c);
+}
+
+// Returns true if the character is one of 0 to 9.
+export fn is_digit(c: string): bool {
+    return index_of(chars("0123456789"), c) >= 0;
+}
+
+// Returns the character in lowercase, other characters stay the same.
+export fn lower_char(c: string): string {
+    const position: int = index_of(chars(uppercase_letters()), c);
+    if (position < 0) {
+        return c;
+    }
+    return chars(lowercase_letters())[position];
+}
+
+// Returns the character in uppercase, other characters stay the same.
+export fn upper_char(c: string): string {
+    const position: int = index_of(chars(lowercase_letters()), c);
+    if (position < 0) {
+        return c;
+    }
+    return chars(uppercase_letters())[position];
+}
+
+// Returns the string in lowercase, like strtolower in PHP.
+export fn lower(text: string): string {
+    var result: string = "";
+    for (c: string in text) {
+        result += lower_char(c);
+    }
+    return result;
+}
+
+// Returns the string in uppercase, like strtoupper in PHP.
+export fn upper(text: string): string {
+    var result: string = "";
+    for (c: string in text) {
+        result += upper_char(c);
+    }
+    return result;
+}
+
+// Returns the value of a digit up to base 36, e.g. "7" -> 7, "f" -> 15, or -1 for other characters.
+export fn digit_value(c: string): int {
+    return index_of(chars("0123456789abcdefghijklmnopqrstuvwxyz"), lower_char(c));
+}
+
+// Returns the digit for a value from 0 to 35, e.g. 11 -> "b".
+export fn digit_char(value: int): string {
+    return chars("0123456789abcdefghijklmnopqrstuvwxyz")[value];
+}

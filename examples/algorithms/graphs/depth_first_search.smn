@@ -1,0 +1,32 @@
+// Depth-first search: follows one path as far as possible before going back. Source: TheAlgorithms/PHP Graphs/DepthFirstSearch.php
+
+// Returns the visited list with the node and everything reachable from it added, in visiting order.
+fn visit(graph: map<string, list<string>>, node: string, visited: list<string>): list<string> {
+    for (seen: string in visited) {
+        if (seen == node) {
+            return visited;
+        }
+    }
+    var result: list<string> = visited + [node];
+    for (next: string in graph[node]) {
+        result = visit(graph, next, result);
+    }
+    return result;
+}
+
+// Returns all nodes reachable from start in depth-first order.
+fn dfs(graph: map<string, list<string>>, start: string): list<string> {
+    return visit(graph, start, []);
+}
+
+const graph: map<string, list<string>> = {
+    "A": ["B", "C", "D"],
+    "B": ["A", "D", "E"],
+    "C": ["A", "F"],
+    "D": ["B", "D"],
+    "E": ["B", "F"],
+    "F": ["C", "E", "G"],
+    "G": ["F"]
+};
+print(dfs(graph, "A"));
+print(dfs(graph, "G"));

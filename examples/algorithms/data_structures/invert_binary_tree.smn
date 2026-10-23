@@ -1,0 +1,63 @@
+// Invert binary tree: swaps the left and right child of every node (a mirror image). Source: TheAlgorithms/PHP DataStructures/InvertBinaryTree/InvertBinaryTree.php
+
+// One node of a binary tree.
+class BinaryTree {
+    value: int;
+    left: BinaryTree? = null;
+    right: BinaryTree? = null;
+
+    constructor(value: int, left: BinaryTree?, right: BinaryTree?) {
+        this.value = value;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+// Swaps the children of the node and of all nodes below it.
+fn invert(node: BinaryTree?): void {
+    if (node != null) {
+        const left: BinaryTree? = node.left;
+        node.left = node.right;
+        node.right = left;
+        invert(node.left);
+        invert(node.right);
+    }
+}
+
+// Returns the values level by level, from left to right.
+fn levels(root: BinaryTree): list<int> {
+    var queue: list<BinaryTree> = [root];
+    var result: list<int> = [];
+    for (var head: int = 0; head < len(queue); head += 1) {
+        const node: BinaryTree = queue[head];
+        result += [node.value];
+        queue += children(node);
+    }
+    return result;
+}
+
+// Returns the children of the node that exist, left first.
+fn children(node: BinaryTree): list<BinaryTree> {
+    var result: list<BinaryTree> = [];
+    const left: BinaryTree? = node.left;
+    const right: BinaryTree? = node.right;
+    if (left != null) {
+        result += [left];
+    }
+    if (right != null) {
+        result += [right];
+    }
+    return result;
+}
+
+// Returns a node without children.
+fn leaf(value: int): BinaryTree {
+    return new BinaryTree(value, null, null);
+}
+
+const root: BinaryTree = new BinaryTree(4,
+    new BinaryTree(2, leaf(1), leaf(3)),
+    new BinaryTree(7, leaf(6), leaf(9)));
+print(levels(root));
+invert(root);
+print(levels(root));

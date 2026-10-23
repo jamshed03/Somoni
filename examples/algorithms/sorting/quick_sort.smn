@@ -1,0 +1,34 @@
+// Quick sort: picks a pivot, puts smaller values left and the others right, and sorts both sides. Source: TheAlgorithms/PHP Sorting/QuickSort.php
+
+// The elements smaller than the pivot and the others.
+struct Partition {
+    smaller: list<int>,
+    others: list<int>
+}
+
+// Returns the elements after the first one, split by the pivot.
+fn partition(items: list<int>, pivot: int): Partition {
+    var smaller: list<int> = [];
+    var others: list<int> = [];
+    for (var i: int = 1; i < len(items); i += 1) {
+        if (items[i] < pivot) {
+            smaller += [items[i]];
+        } else {
+            others += [items[i]];
+        }
+    }
+    return Partition { smaller: smaller, others: others };
+}
+
+// Returns a sorted copy of the list, using the first element as pivot.
+fn quick_sort(items: list<int>): list<int> {
+    if (len(items) <= 1) {
+        return items;
+    }
+    const pivot: int = items[0];
+    const parts: Partition = partition(items, pivot);
+    return quick_sort(parts.smaller) + [pivot] + quick_sort(parts.others);
+}
+
+print(quick_sort([10, 7, 8, 9, 1, 5, 7]));
+print(quick_sort([]));

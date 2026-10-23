@@ -1,0 +1,22 @@
+// Check palindrome: the text reads the same backwards (Level). Source: TheAlgorithms/PHP Strings/CheckPalindrome.php
+
+import { chars, lower, trim } from "../lib/text.smn";
+
+// Returns true if the trimmed text is not empty and reads the same from both ends, ignoring case.
+fn is_palindrome(text: string): bool {
+    const letters: list<string> = chars(lower(trim(text)));
+    const n: int = len(letters);
+    if (n == 0) {
+        return false;
+    }
+    for (var i: int = 0; i < n / 2; i += 1) {
+        if (letters[i] != letters[n - 1 - i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+for (text: string in ["Level", "  racecar ", "hello", "", "Abba"]) {
+    print("'" + text + "': " + string(is_palindrome(text)));
+}

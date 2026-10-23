@@ -1,0 +1,26 @@
+// Fibonacci with a generator object: every call of next() gives the next number. Source: TheAlgorithms/PHP Maths/Fibonacci2.php
+
+// Produces Fibonacci numbers one after another, like the PHP generator with yield.
+class FibonacciGenerator {
+    private current: int = 0;
+    private following: int = 1;
+
+    // Returns the next Fibonacci number.
+    next(): int {
+        const value: int = this.current;
+        this.current = this.following;
+        this.following = value + this.following;
+        return value;
+    }
+}
+
+// Returns the first count values of the generator, joined with commas.
+fn take(generator: FibonacciGenerator, count: int): string {
+    var result: string = "";
+    for (var i: int = 0; i < count; i += 1) {
+        result += string(generator.next()) + ",";
+    }
+    return result;
+}
+
+print(take(new FibonacciGenerator(), 90));

@@ -1,0 +1,18 @@
+// Factorial: n! = 1 * 2 * ... * n. Source: TheAlgorithms/PHP Maths/Factorial.php
+
+// Returns n! for a non-negative n, or an error for a negative n.
+fn factorial(n: int): result<int, string> {
+    if (n < 0) {
+        return err("factorial is not defined for negative numbers");
+    }
+    var product: int = 1;
+    for (var i: int = 2; i <= n; i += 1) {
+        product *= i;
+    }
+    return ok(product);
+}
+
+print(factorial(0));
+print(factorial(5));
+print(factorial(20));
+print(factorial(-1));

@@ -1,0 +1,31 @@
+// Atbash cipher: replaces a with z, b with y and so on. Source: TheAlgorithms/PHP Ciphers/AtbashCipher.php
+
+import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
+
+// Returns the mirrored letter for one character, other characters stay the same.
+fn atbash_char(c: string): string {
+    const letters: list<string> = chars(lowercase_letters());
+    const position: int = index_of(letters, lower_char(c));
+    if (position < 0) {
+        return c;
+    }
+    const mirrored: string = letters[25 - position];
+    if (is_upper(c)) {
+        return upper_char(mirrored);
+    }
+    return mirrored;
+}
+
+// Encrypts the text; applying it twice gives the text back.
+fn atbash(text: string): string {
+    var result: string = "";
+    for (c: string in text) {
+        result += atbash_char(c);
+    }
+    return result;
+}
+
+const plain: string = "Hello World";
+const secret: string = atbash(plain);
+print(secret);
+print(atbash(secret));

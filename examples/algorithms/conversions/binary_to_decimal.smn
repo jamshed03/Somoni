@@ -1,0 +1,20 @@
+// Binary to decimal: reads a string of 0 and 1 as a number. Source: TheAlgorithms/PHP Conversions/BinaryToDecimal.php
+
+import { digit_value } from "../lib/text.smn";
+
+// Returns the decimal value of a binary string, or an error for other characters.
+fn binary_to_decimal(binary: string): result<int, string> {
+    var value: int = 0;
+    for (c: string in binary) {
+        const digit: int = digit_value(c);
+        if (digit < 0 || digit > 1) {
+            return err("'" + binary + "' is not a binary number");
+        }
+        value = value * 2 + digit;
+    }
+    return ok(value);
+}
+
+print(binary_to_decimal("101"));
+print(binary_to_decimal("11111111"));
+print(binary_to_decimal("10201"));

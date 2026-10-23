@@ -1,0 +1,10 @@
+// Check even: a number is even if dividing by 2 leaves no rest. Source: TheAlgorithms/PHP Maths/CheckEven.php
+
+// Returns true if the number is even.
+fn is_even(number: int): bool {
+    return number % 2 == 0;
+}
+
+for (n: int in [0, 1, 2, 7, -4]) {
+    print(string(n) + ": " + string(is_even(n)));
+}

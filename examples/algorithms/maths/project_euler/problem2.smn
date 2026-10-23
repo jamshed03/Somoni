@@ -1,0 +1,19 @@
+// Project Euler 2: sum of the even Fibonacci numbers up to four million. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem2.php
+
+// Returns the sum of all even Fibonacci numbers that are not larger than the limit.
+fn problem2(limit: int): int {
+    var a: int = 1;
+    var b: int = 2;
+    var total: int = 0;
+    while (a <= limit) {
+        if (a % 2 == 0) {
+            total += a;
+        }
+        const next: int = a + b;
+        a = b;
+        b = next;
+    }
+    return total;
+}
+
+print(problem2(4000000));

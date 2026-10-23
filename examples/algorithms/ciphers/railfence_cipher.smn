@@ -1,0 +1,63 @@
+// Rail fence cipher: writes the text in a zigzag over several rails and reads it row by row. Source: TheAlgorithms/PHP Ciphers/RailfenceCipher.php
+
+import { chars, join } from "../lib/text.smn";
+
+// Returns the rail of every position in the zigzag, e.g. 3 rails: 0, 1, 2, 1, 0, 1, ...
+fn rail_pattern(length: int, rails: int): list<int> {
+    const cycle: int = rails * 2 - 2;
+    var pattern: list<int> = [];
+    for (var i: int = 0; i < length; i += 1) {
+        const step: int = i % cycle;
+        if (step < rails) {
+            pattern += [step];
+        } else {
+            pattern += [cycle - step];
+        }
+    }
+    return pattern;
+}
+
+// Returns the positions that lie on the given rail, from left to right.
+fn positions_on_rail(pattern: list<int>, rail: int): list<int> {
+    var result: list<int> = [];
+    for (i: int, r: int in pattern) {
+        if (r == rail) {
+            result += [i];
+        }
+    }
+    return result;
+}
+
+// Returns the order in which the positions are read: rail 0 first, then rail 1 and so on.
+fn reading_order(length: int, rails: int): list<int> {
+    const pattern: list<int> = rail_pattern(length, rails);
+    var order: list<int> = [];
+    for (var rail: int = 0; rail < rails; rail += 1) {
+        order += positions_on_rail(pattern, rail);
+    }
+    return order;
+}
+
+// Encrypts the text with the given number of rails.
+fn rail_encode(text: string, rails: int): string {
+    const letters: list<string> = chars(text);
+    var result: string = "";
+    for (position: int in reading_order(len(letters), rails)) {
+        result += letters[position];
+    }
+    return result;
+}
+
+// Decrypts the text by putting every character back at its zigzag position.
+fn rail_decode(text: string, rails: int): string {
+    const letters: list<string> = chars(text);
+    var plain: list<string> = letters;
+    for (i: int, position: int in reading_order(len(letters), rails)) {
+        plain[position] = letters[i];
+    }
+    return join(plain, "");
+}
+
+const secret: string = rail_encode("WEAREDISCOVEREDFLEEATONCE", 3);
+print(secret);
+print(rail_decode(secret, 3));

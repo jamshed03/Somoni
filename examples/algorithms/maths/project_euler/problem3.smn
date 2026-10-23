@@ -1,0 +1,17 @@
+// Project Euler 3: largest prime factor of 600851475143. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem3.php
+
+// Returns the largest prime factor by dividing out every factor from the smallest up.
+fn problem3(number: int): int {
+    var rest: int = number;
+    var factor: int = 2;
+    while (factor * factor <= rest) {
+        if (rest % factor == 0) {
+            rest /= factor;
+        } else {
+            factor += 1;
+        }
+    }
+    return rest;
+}
+
+print(problem3(600851475143));

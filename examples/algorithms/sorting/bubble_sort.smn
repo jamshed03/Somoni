@@ -1,0 +1,27 @@
+// Bubble sort: every pass swaps neighbours, so the largest value moves to the end. Source: TheAlgorithms/PHP Sorting/BubbleSort.php
+
+// Returns the list after one pass over the first n elements.
+fn bubble_pass(input: list<int>, n: int): list<int> {
+    var items: list<int> = input;
+    for (var i: int = 1; i < n; i += 1) {
+        if (items[i - 1] > items[i]) {
+            const tmp: int = items[i - 1];
+            items[i - 1] = items[i];
+            items[i] = tmp;
+        }
+    }
+    return items;
+}
+
+// Returns a sorted copy of the list with n - 1 passes.
+fn bubble_sort(input: list<int>): list<int> {
+    var items: list<int> = input;
+    for (var n: int = len(items); n > 1; n -= 1) {
+        items = bubble_pass(items, n);
+    }
+    return items;
+}
+
+print(bubble_sort([5, 3, 8, 1, 9, 2, 7]));
+print(bubble_sort([]));
+print(bubble_sort([42]));

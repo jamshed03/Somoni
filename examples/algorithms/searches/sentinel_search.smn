@@ -1,0 +1,27 @@
+// Sentinel search: puts the target at the end, so the loop needs no index check. Source: TheAlgorithms/PHP Searches/SentinelSearch.php
+
+// Returns the index of the target, or -1 if it is missing.
+fn sentinel_search(input: list<int>, target: int): int {
+    const n: int = len(input);
+    if (n == 0) {
+        return -1;
+    }
+    if (input[n - 1] == target) {
+        return n - 1;
+    }
+    var items: list<int> = input;
+    items[n - 1] = target;
+    var i: int = 0;
+    while (items[i] != target) {
+        i += 1;
+    }
+    if (i < n - 1) {
+        return i;
+    }
+    return -1;
+}
+
+const numbers: list<int> = [4, 9, 1, 7, 3, 8];
+for (target: int in [7, 4, 8, 5]) {
+    print(string(target) + ": " + string(sentinel_search(numbers, target)));
+}

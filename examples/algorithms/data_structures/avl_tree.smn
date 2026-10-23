@@ -1,0 +1,277 @@
+// AVL tree: a binary search tree that rotates after every change, so both sides differ in height by at most 1. Source: TheAlgorithms/PHP DataStructures/AVLTree/AVLTree.php
+
+// One node with a key, a value, its height and two children.
+class AVLTreeNode {
+    key: int;
+    value: string;
+    height: int = 1;
+    left: AVLTreeNode? = null;
+    right: AVLTreeNode? = null;
+
+    constructor(key: int, value: string) {
+        this.key = key;
+        this.value = value;
+    }
+}
+
+// Returns the height of the node, 0 for an empty tree.
+fn height(node: AVLTreeNode?): int {
+    if (node != null) {
+        return node.height;
+    }
+    return 0;
+}
+
+// Sets the height of the node from the heights of its children.
+fn update_height(node: AVLTreeNode): void {
+    const left: int = height(node.left);
+    const right: int = height(node.right);
+    if (left > right) {
+        node.height = left + 1;
+    } else {
+        node.height = right + 1;
+    }
+}
+
+// Returns how much higher the left side is than the right side.
+fn balance_factor(node: AVLTreeNode): int {
+    return height(node.left) - height(node.right);
+}
+
+// Turns the left child into the new top of this subtree and returns it.
+fn rotate_right(node: AVLTreeNode): AVLTreeNode {
+    const left: AVLTreeNode? = node.left;
+    if (left != null) {
+        node.left = left.right;
+        left.right = node;
+        update_height(node);
+        update_height(left);
+        return left;
+    }
+    return node;
+}
+
+// Turns the right child into the new top of this subtree and returns it.
+fn rotate_left(node: AVLTreeNode): AVLTreeNode {
+    const right: AVLTreeNode? = node.right;
+    if (right != null) {
+        node.right = right.left;
+        right.left = node;
+        update_height(node);
+        update_height(right);
+        return right;
+    }
+    return node;
+}
+
+// Returns the subtree balanced again with one or two rotations.
+fn balance(node: AVLTreeNode): AVLTreeNode {
+    update_height(node);
+    const factor: int = balance_factor(node);
+    const left: AVLTreeNode? = node.left;
+    const right: AVLTreeNode? = node.right;
+    if (factor > 1 && left != null) {
+        if (balance_factor(left) < 0) {
+            node.left = rotate_left(left);
+        }
+        return rotate_right(node);
+    }
+    if (factor < -1 && right != null) {
+        if (balance_factor(right) > 0) {
+            node.right = rotate_right(right);
+        }
+        return rotate_left(node);
+    }
+    return node;
+}
+
+// Returns the balanced subtree with the key added, or with its value replaced if the key is there.
+fn insert_node(node: AVLTreeNode?, key: int, value: string): AVLTreeNode {
+    if (node != null) {
+        if (key < node.key) {
+            node.left = insert_node(node.left, key, value);
+        } else if (key > node.key) {
+            node.right = insert_node(node.right, key, value);
+        } else {
+            node.value = value;
+        }
+        return balance(node);
+    }
+    return new AVLTreeNode(key, value);
+}
+
+// Returns the node with the smallest key below the node.
+fn min_node(node: AVLTreeNode): AVLTreeNode {
+    const left: AVLTreeNode? = node.left;
+    if (left != null) {
+        return min_node(left);
+    }
+    return node;
+}
+
+// Returns the balanced subtree without the key.
+fn delete_node(node: AVLTreeNode?, key: int): AVLTreeNode? {
+    if (node != null) {
+        if (key < node.key) {
+            node.left = delete_node(node.left, key);
+        } else if (key > node.key) {
+            node.right = delete_node(node.right, key);
+        } else {
+            return delete_found(node);
+        }
+        return balance(node);
+    }
+    return null;
+}
+
+// Returns what takes the place of a deleted node: its only child, or the node with the smallest key of its right side.
+fn delete_found(node: AVLTreeNode): AVLTreeNode? {
+    const left: AVLTreeNode? = node.left;
+    const right: AVLTreeNode? = node.right;
+    if (left != null && right != null) {
+        const successor: AVLTreeNode = min_node(right);
+        node.key = successor.key;
+        node.value = successor.value;
+        node.right = delete_node(right, successor.key);
+        return balance(node);
+    }
+    if (left != null) {
+        return left;
+    }
+    return right;
+}
+
+// Returns the node with the key, or null.
+fn search_node(node: AVLTreeNode?, key: int): AVLTreeNode? {
+    if (node != null && node.key != key) {
+        if (key < node.key) {
+            return search_node(node.left, key);
+        }
+        return search_node(node.right, key);
+    }
+    return node;
+}
+
+// Returns true if every node below has sides that differ in height by at most 1.
+fn is_balanced(node: AVLTreeNode?): bool {
+    if (node != null) {
+        const factor: int = balance_factor(node);
+        return factor >= -1 && factor <= 1 && is_balanced(node.left) && is_balanced(node.right);
+    }
+    return true;
+}
+
+// Returns the number of nodes below and including the node.
+fn count(node: AVLTreeNode?): int {
+    if (node != null) {
+        return 1 + count(node.left) + count(node.right);
+    }
+    return 0;
+}
+
+// Returns the keys in sorted order.
+fn in_order(node: AVLTreeNode?): list<int> {
+    if (node != null) {
+        return in_order(node.left) + [node.key] + in_order(node.right);
+    }
+    return [];
+}
+
+// Returns the keys root first.
+fn pre_order(node: AVLTreeNode?): list<int> {
+    if (node != null) {
+        return [node.key] + pre_order(node.left) + pre_order(node.right);
+    }
+    return [];
+}
+
+// Returns the keys root last.
+fn post_order(node: AVLTreeNode?): list<int> {
+    if (node != null) {
+        return post_order(node.left) + post_order(node.right) + [node.key];
+    }
+    return [];
+}
+
+// An AVL tree that holds its root.
+class AVLTree {
+    private root: AVLTreeNode? = null;
+
+    // Adds the key or replaces its value.
+    insert(key: int, value: string): void {
+        this.root = insert_node(this.root, key, value);
+    }
+
+    // Removes the key if it is there.
+    delete(key: int): void {
+        this.root = delete_node(this.root, key);
+    }
+
+    // Returns the value of the key, or null.
+    search(key: int): string? {
+        const node: AVLTreeNode? = search_node(this.root, key);
+        if (node != null) {
+            return node.value;
+        }
+        return null;
+    }
+
+    // Returns the key at the top of the tree, or null.
+    root_key(): int? {
+        const root: AVLTreeNode? = this.root;
+        if (root != null) {
+            return root.key;
+        }
+        return null;
+    }
+
+    // Returns the number of keys.
+    size(): int {
+        return count(this.root);
+    }
+
+    // Returns the number of levels.
+    height(): int {
+        return height(this.root);
+    }
+
+    // Returns true if the whole tree is balanced.
+    is_balanced(): bool {
+        return is_balanced(this.root);
+    }
+
+    // Returns the keys sorted.
+    in_order(): list<int> {
+        return in_order(this.root);
+    }
+
+    // Returns the keys root first.
+    pre_order(): list<int> {
+        return pre_order(this.root);
+    }
+
+    // Returns the keys root last.
+    post_order(): list<int> {
+        return post_order(this.root);
+    }
+}
+
+const tree: AVLTree = new AVLTree();
+for (var key: int = 1; key <= 15; key += 1) {
+    tree.insert(key, "v" + string(key));
+}
+print(tree.in_order());
+print(tree.pre_order());
+print(tree.root_key());
+print(tree.height());
+print(tree.is_balanced());
+for (key: int in [8, 1, 2, 3, 4]) {
+    tree.delete(key);
+}
+print(tree.in_order());
+print(tree.pre_order());
+print(tree.post_order());
+print(tree.is_balanced());
+print(tree.search(10));
+print(tree.search(8));
+print(tree.size());

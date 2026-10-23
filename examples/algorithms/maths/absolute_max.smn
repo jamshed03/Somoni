@@ -1,0 +1,21 @@
+// Absolute max: the number with the largest distance from 0. Source: TheAlgorithms/PHP Maths/AbsoluteMax.php
+
+import { abs } from "../lib/math.smn";
+
+// Returns the number whose absolute value is the largest, or null for an empty list.
+fn absolute_max(numbers: list<int>): int? {
+    if (len(numbers) == 0) {
+        return null;
+    }
+    var best: int = numbers[0];
+    for (n: int in numbers) {
+        if (abs(n) > abs(best)) {
+            best = n;
+        }
+    }
+    return best;
+}
+
+print(absolute_max([2, -9, 4, 7]));
+print(absolute_max([-1, 0, 1]));
+print(absolute_max([]));

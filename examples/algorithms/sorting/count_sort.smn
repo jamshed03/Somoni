@@ -1,0 +1,40 @@
+// Counting sort: counts how often every value appears and writes them out in order. Source: TheAlgorithms/PHP Sorting/CountSort.php
+
+// Returns a list with the value repeated count times.
+fn repeat(value: int, count: int): list<int> {
+    var result: list<int> = [];
+    for (var i: int = 0; i < count; i += 1) {
+        result += [value];
+    }
+    return result;
+}
+
+// Returns a sorted copy of the list; good when the values lie in a small range.
+fn count_sort(items: list<int>): list<int> {
+    if (len(items) == 0) {
+        return [];
+    }
+    var lowest: int = items[0];
+    var highest: int = items[0];
+    for (n: int in items) {
+        if (n < lowest) {
+            lowest = n;
+        }
+        if (n > highest) {
+            highest = n;
+        }
+    }
+    var counts: list<int> = repeat(0, highest - lowest + 1);
+    for (n: int in items) {
+        counts[n - lowest] += 1;
+    }
+    var result: list<int> = [];
+    for (offset: int, count: int in counts) {
+        result += repeat(lowest + offset, count);
+    }
+    return result;
+}
+
+print(count_sort([4, 2, 2, 8, 3, 3, 1]));
+print(count_sort([-5, 0, -2, 3, -5]));
+print(count_sort([]));

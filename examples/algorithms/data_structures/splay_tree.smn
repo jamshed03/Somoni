@@ -1,0 +1,197 @@
+// Splay tree: a binary search tree that moves every key it touches to the top. Source: TheAlgorithms/PHP DataStructures/SplayTree/SplayTree.php
+
+// One node with a key, a value and two children.
+class SplayTreeNode {
+    key: int;
+    value: string;
+    left: SplayTreeNode? = null;
+    right: SplayTreeNode? = null;
+
+    constructor(key: int, value: string) {
+        this.key = key;
+        this.value = value;
+    }
+}
+
+// Turns the left child into the new top and returns it; without a left child nothing changes.
+fn rotate_right(node: SplayTreeNode): SplayTreeNode {
+    const left: SplayTreeNode? = node.left;
+    if (left != null) {
+        node.left = left.right;
+        left.right = node;
+        return left;
+    }
+    return node;
+}
+
+// Turns the right child into the new top and returns it; without a right child nothing changes.
+fn rotate_left(node: SplayTreeNode): SplayTreeNode {
+    const right: SplayTreeNode? = node.right;
+    if (right != null) {
+        node.right = right.left;
+        right.left = node;
+        return right;
+    }
+    return node;
+}
+
+// Returns the subtree with the key (or the last node on its path) moved to the top.
+fn splay(node: SplayTreeNode?, key: int): SplayTreeNode? {
+    if (node != null) {
+        if (key < node.key) {
+            return splay_left(node, key);
+        }
+        if (key > node.key) {
+            return splay_right(node, key);
+        }
+    }
+    return node;
+}
+
+// Splays a key that lies in the left subtree (zig, zig-zig or zig-zag).
+fn splay_left(node: SplayTreeNode, key: int): SplayTreeNode {
+    const left: SplayTreeNode? = node.left;
+    if (left != null) {
+        if (key < left.key) {
+            left.left = splay(left.left, key);
+            return rotate_right(rotate_right(node));
+        }
+        if (key > left.key) {
+            left.right = splay(left.right, key);
+            node.left = rotate_left(left);
+        }
+        return rotate_right(node);
+    }
+    return node;
+}
+
+// Splays a key that lies in the right subtree (zag, zag-zag or zag-zig).
+fn splay_right(node: SplayTreeNode, key: int): SplayTreeNode {
+    const right: SplayTreeNode? = node.right;
+    if (right != null) {
+        if (key > right.key) {
+            right.right = splay(right.right, key);
+            return rotate_left(rotate_left(node));
+        }
+        if (key < right.key) {
+            right.left = splay(right.left, key);
+            node.right = rotate_right(right);
+        }
+        return rotate_left(node);
+    }
+    return node;
+}
+
+// Returns the keys in sorted order.
+fn in_order(node: SplayTreeNode?): list<int> {
+    if (node != null) {
+        return in_order(node.left) + [node.key] + in_order(node.right);
+    }
+    return [];
+}
+
+// Returns the number of nodes below and including the node.
+fn count(node: SplayTreeNode?): int {
+    if (node != null) {
+        return 1 + count(node.left) + count(node.right);
+    }
+    return 0;
+}
+
+// A splay tree that holds its root.
+class SplayTree {
+    private root: SplayTreeNode? = null;
+
+    // Adds the key or replaces its value; the key ends up at the top.
+    insert(key: int, value: string): void {
+        const top: SplayTreeNode? = splay(this.root, key);
+        if (top == null) {
+            this.root = new SplayTreeNode(key, value);
+        } else {
+            this.root = this.insert_at_top(top, key, value);
+        }
+    }
+
+    // Returns the new root after putting the key above the splayed top.
+    private insert_at_top(top: SplayTreeNode, key: int, value: string): SplayTreeNode {
+        if (top.key == key) {
+            top.value = value;
+            return top;
+        }
+        const node: SplayTreeNode = new SplayTreeNode(key, value);
+        if (key < top.key) {
+            node.left = top.left;
+            node.right = top;
+            top.left = null;
+        } else {
+            node.right = top.right;
+            node.left = top;
+            top.right = null;
+        }
+        return node;
+    }
+
+    // Returns the value of the key and moves it to the top, or null if it is missing.
+    search(key: int): string? {
+        const top: SplayTreeNode? = splay(this.root, key);
+        this.root = top;
+        if (top != null && top.key == key) {
+            return top.value;
+        }
+        return null;
+    }
+
+    // Removes the key; returns false if it was not there.
+    delete(key: int): bool {
+        const top: SplayTreeNode? = splay(this.root, key);
+        this.root = top;
+        if (top != null && top.key == key) {
+            this.root = this.join(top.left, top.right);
+            return true;
+        }
+        return false;
+    }
+
+    // Returns one tree from two trees where every key on the left is smaller than every key on the right.
+    private join(left: SplayTreeNode?, right: SplayTreeNode?): SplayTreeNode? {
+        const top: SplayTreeNode? = splay(left, 9223372036854775807);
+        if (top != null) {
+            top.right = right;
+            return top;
+        }
+        return right;
+    }
+
+    // Returns the key at the top, or null for an empty tree.
+    root_key(): int? {
+        const root: SplayTreeNode? = this.root;
+        if (root != null) {
+            return root.key;
+        }
+        return null;
+    }
+
+    // Returns the number of keys.
+    size(): int {
+        return count(this.root);
+    }
+
+    // Returns the keys sorted.
+    in_order(): list<int> {
+        return in_order(this.root);
+    }
+}
+
+const tree: SplayTree = new SplayTree();
+for (key: int in [50, 30, 70, 20, 40, 60, 80]) {
+    tree.insert(key, "v" + string(key));
+}
+print(tree.in_order());
+print(tree.root_key());
+print(tree.search(40));
+print(tree.root_key());
+print(tree.search(45));
+print(tree.delete(30));
+print(tree.delete(99));
+print(tree.in_order());
+print(tree.size());

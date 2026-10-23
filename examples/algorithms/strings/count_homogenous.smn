@@ -1,0 +1,19 @@
+// Count homogenous: how many runs of equal characters the text has ("aabbbc" has 3). Source: TheAlgorithms/PHP Strings/CountHomogenous.php
+
+// Returns the number of runs where the same character repeats.
+fn count_homogenous(text: string): int {
+    var count: int = 0;
+    var previous: string = "";
+    for (i: int, c: string in text) {
+        if (i == 0 || c != previous) {
+            count += 1;
+        }
+        previous = c;
+    }
+    return count;
+}
+
+print(count_homogenous("aabbbc"));
+print(count_homogenous("abc"));
+print(count_homogenous("zzzz"));
+print(count_homogenous(""));

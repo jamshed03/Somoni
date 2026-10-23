@@ -1,0 +1,10 @@
+// Check odd: a number is odd if dividing by 2 leaves a rest. Source: TheAlgorithms/PHP Maths/CheckOdd.php
+
+// Returns true if the number is odd.
+fn is_odd(number: int): bool {
+    return number % 2 != 0;
+}
+
+for (n: int in [0, 1, 2, 7, -3]) {
+    print(string(n) + ": " + string(is_odd(n)));
+}

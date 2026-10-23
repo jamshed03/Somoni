@@ -1,0 +1,28 @@
+// Speed conversion between mph, km/h, m/s, ft/s and kn. Source: TheAlgorithms/PHP Conversions/SpeedConversion.php
+
+import { round_to } from "../lib/math.smn";
+
+// Returns how many km/h one unit is.
+fn to_kmh_factors(): map<string, float> {
+    return {"mph": 1.609344, "km/h": 1.0, "m/s": 3.6, "ft/s": 1.097, "kn": 1.852};
+}
+
+// Returns how many units one km/h is.
+fn from_kmh_factors(): map<string, float> {
+    return {"mph": 0.6213712, "km/h": 1.0, "m/s": 0.277778, "ft/s": 0.911344, "kn": 0.539957};
+}
+
+// Converts the speed from one unit to another, rounded to 2 places, or an error for an unknown unit.
+fn convert_speed(speed: float, unit_from: string, unit_to: string): result<float, string> {
+    const to_kmh: map<string, float> = to_kmh_factors();
+    const from_kmh: map<string, float> = from_kmh_factors();
+    if (!has(to_kmh, unit_from) || !has(from_kmh, unit_to)) {
+        return err("unknown unit, available: mph, km/h, m/s, ft/s, kn");
+    }
+    return ok(round_to(speed * to_kmh[unit_from] * from_kmh[unit_to], 2));
+}
+
+print(convert_speed(10.0, "mph", "km/h"));
+print(convert_speed(100.0, "km/h", "m/s"));
+print(convert_speed(1.0, "kn", "mph"));
+print(convert_speed(1.0, "km/h", "lightyear/s"));

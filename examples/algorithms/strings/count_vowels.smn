@@ -1,0 +1,19 @@
+// Count vowels: how many of a, e, i, o, u the text has. Source: TheAlgorithms/PHP Strings/CountVowels.php
+
+import { chars, index_of, lower_char } from "../lib/text.smn";
+
+// Returns how many vowels the text has, ignoring upper and lower case.
+fn count_vowels(text: string): int {
+    const vowels: list<string> = chars("aeiou");
+    var count: int = 0;
+    for (c: string in text) {
+        if (index_of(vowels, lower_char(c)) >= 0) {
+            count += 1;
+        }
+    }
+    return count;
+}
+
+print(count_vowels("Hello World"));
+print(count_vowels("AEIOU aeiou"));
+print(count_vowels("rhythm"));
