@@ -1,10 +1,10 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, Assign, BinaryOp, CallTarget, ClassDecl, ClassLayout, EnumDecl, Expr, ExprKind,
-    FieldInit, ForEach, Function, IterKind, Match, MethodTarget, Pattern, Stmt,
+    self, Assign, BinaryOp, Call, CallTarget, ClassDecl, ClassLayout, EnumDecl, Expr, ExprKind,
+    FieldInit, ForEach, Function, IterKind, Match, MethodCall, MethodTarget, Pattern, Stmt,
 };
-use crate::bytecode::{Chunk, ClassCode, Op, Path, PathStep, Program};
+use crate::bytecode::{Chunk, ClassCode, Op, Path, PathStep, Program, index_slot};
 use crate::error::SomoniError;
 use crate::loader::SourceFile;
 use crate::span::Span;
@@ -107,11 +107,6 @@ fn compile_function(
 /// Returns the number of values with `this` in front of `count` others.
 fn with_this(count: usize) -> usize {
     count + 1
-}
-
-/// Returns the slot of the hidden index of a `for`-each loop, which the VM keeps after the sequence.
-fn index_slot(seq: usize) -> usize {
-    seq + 1
 }
 
 /// Returns a value an earlier step filled in, or an internal error naming what is missing.
@@ -593,23 +588,14 @@ impl Compiler {
                 self.compile_expr(operand)?;
                 self.chunk.push(Op::Unary(*op), span);
             }
-            ExprKind::Call { args, target, .. } => self.compile_call(args, *target, span)?,
-            ExprKind::MethodCall {
-                target, args, call, ..
-            } => self.compile_method_call(target, args, *call, span)?,
-            ExprKind::SuperInit { args, target } | ExprKind::SuperCall { args, target, .. } => {
-                self.chunk.push(Op::GetLocal(THIS_SLOT), span);
-                self.call_with_this(*target, args, span)?;
-            }
-            ExprKind::New {
-                args,
-                class,
-                target,
-                ..
-            } => {
-                let class = filled(*class, "class of new")?;
+            ExprKind::Call(call) => self.compile_call(call, span)?,
+            ExprKind::MethodCall(call) => self.compile_method_call(call, span)?,
+            ExprKind::SuperInit { args, target } => self.compile_super(*target, args, span)?,
+            ExprKind::SuperCall(call) => self.compile_super(call.target, &call.args, span)?,
+            ExprKind::New(new) => {
+                let class = filled(new.class, "class of new")?;
                 self.chunk.push(Op::NewObject(class), span);
-                self.call_with_this(*target, args, span)?;
+                self.call_with_this(new.target, &new.args, span)?;
             }
             ExprKind::List(elements) => {
                 self.compile_args(elements)?;
@@ -658,35 +644,36 @@ impl Compiler {
     }
 
     /// Writes a call of a built-in or an own function.
-    fn compile_call(
-        &mut self,
-        args: &[Expr],
-        target: Option<CallTarget>,
-        span: Span,
-    ) -> Result<(), SomoniError> {
-        self.compile_args(args)?;
-        let op = match filled(target, "call target")? {
-            CallTarget::Builtin(builtin) => Op::CallBuiltin(builtin, args.len()),
-            CallTarget::Function(i) => Op::Call(i, args.len()),
+    fn compile_call(&mut self, call: &Call, span: Span) -> Result<(), SomoniError> {
+        self.compile_args(&call.args)?;
+        let count = call.args.len();
+        let op = match filled(call.target, "call target")? {
+            CallTarget::Builtin(builtin) => Op::CallBuiltin(builtin, count),
+            CallTarget::Function(i) => Op::Call(i, count),
         };
         self.chunk.push(op, span);
         Ok(())
     }
 
     /// Writes `target.name(args)`.
-    fn compile_method_call(
+    fn compile_method_call(&mut self, call: &MethodCall, span: Span) -> Result<(), SomoniError> {
+        self.compile_expr(&call.target)?;
+        self.compile_args(&call.args)?;
+        let target = filled(call.call, "method target")?;
+        self.chunk
+            .push(method_op(target, with_this(call.args.len())), span);
+        Ok(())
+    }
+
+    /// Writes `super(args)` or `super.name(args)`, a call of `target` on `this`.
+    fn compile_super(
         &mut self,
-        target: &Expr,
+        target: Option<usize>,
         args: &[Expr],
-        call: Option<MethodTarget>,
         span: Span,
     ) -> Result<(), SomoniError> {
-        self.compile_expr(target)?;
-        self.compile_args(args)?;
-        let call = filled(call, "method target")?;
-        self.chunk
-            .push(method_op(call, with_this(args.len())), span);
-        Ok(())
+        self.chunk.push(Op::GetLocal(THIS_SLOT), span);
+        self.call_with_this(target, args, span)
     }
 
     /// Writes the arguments and a call of `target` with the object below them as `this`.

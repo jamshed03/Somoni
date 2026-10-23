@@ -9,7 +9,7 @@ use crate::parser::Parser;
 use crate::span::Span;
 
 /// The number of the main file, where the program starts.
-const MAIN_FILE: usize = 0;
+pub const MAIN_FILE: usize = 0;
 
 /// One file of the program: its name for messages, its text and its statements.
 pub struct SourceFile {

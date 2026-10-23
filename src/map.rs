@@ -30,8 +30,7 @@ impl Key {
     }
 }
 
-/// The value of a map. It keeps the entries in the order they were added
-/// and finds the entry of a key without searching through all of them.
+/// The value of a map, which keeps its entries in order and finds a key without searching.
 #[derive(Debug, Clone, Default)]
 pub struct MapValue {
     entries: Vec<(Key, Value)>,
@@ -59,8 +58,7 @@ impl MapValue {
         self.positions.get(key).map(|&i| &mut self.entries[i].1)
     }
 
-    /// Returns the value for `key` to change it. A missing key is added first, with `void`
-    /// as value until it is overwritten.
+    /// Returns the value for `key` to change it, adding the key with `void` first if it is missing.
     pub fn entry(&mut self, key: Key) -> &mut Value {
         let i = match self.positions.get(&key) {
             Some(&i) => i,

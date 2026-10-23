@@ -2,7 +2,77 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
 
-/// Turns the source text into tokens, each with its place (line and column).
+/// The keywords of Somoni; every other word is a name.
+const KEYWORDS: &[(&str, Token)] = &[
+    ("var", Token::Var),
+    ("const", Token::Const),
+    ("true", Token::True),
+    ("false", Token::False),
+    ("if", Token::If),
+    ("else", Token::Else),
+    ("while", Token::While),
+    ("for", Token::For),
+    ("break", Token::Break),
+    ("continue", Token::Continue),
+    ("fn", Token::Fn),
+    ("return", Token::Return),
+    ("struct", Token::Struct),
+    ("null", Token::Null),
+    ("in", Token::In),
+    ("enum", Token::Enum),
+    ("match", Token::Match),
+    ("import", Token::Import),
+    ("export", Token::Export),
+    ("class", Token::Class),
+    ("new", Token::New),
+    ("this", Token::This),
+    ("public", Token::Public),
+    ("private", Token::Private),
+    ("protected", Token::Protected),
+    ("interface", Token::Interface),
+    ("implements", Token::Implements),
+    ("extends", Token::Extends),
+    ("super", Token::Super),
+    ("override", Token::Override),
+];
+
+/// The symbols of Somoni, the two-character ones first so `+=` is found before `+`.
+const SYMBOLS: &[(&str, Token)] = &[
+    ("+=", Token::PlusEqual),
+    ("-=", Token::MinusEqual),
+    ("*=", Token::StarEqual),
+    ("/=", Token::SlashEqual),
+    ("%=", Token::PercentEqual),
+    ("==", Token::EqualEqual),
+    ("=>", Token::FatArrow),
+    ("!=", Token::BangEqual),
+    ("<=", Token::LessEqual),
+    (">=", Token::GreaterEqual),
+    ("&&", Token::AndAnd),
+    ("||", Token::OrOr),
+    (":", Token::Colon),
+    (",", Token::Comma),
+    (".", Token::Dot),
+    (";", Token::Semicolon),
+    ("+", Token::Plus),
+    ("-", Token::Minus),
+    ("*", Token::Star),
+    ("/", Token::Slash),
+    ("%", Token::Percent),
+    ("(", Token::LParen),
+    (")", Token::RParen),
+    ("{", Token::LBrace),
+    ("}", Token::RBrace),
+    ("[", Token::LBracket),
+    ("]", Token::RBracket),
+    ("=", Token::Equal),
+    ("!", Token::Bang),
+    ("<", Token::Less),
+    (">", Token::Greater),
+    ("?", Token::Question),
+];
+
+/// Turns the source text into tokens, each with its place.
 pub struct Lexer {
     file: usize,
     chars: Vec<char>,
@@ -12,6 +82,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    /// Starts at the first character of the text of source file number `file`.
     pub fn new(input: &str, file: usize) -> Lexer {
         Lexer {
             file,
@@ -20,6 +91,138 @@ impl Lexer {
             line: 1,
             line_start: 0,
         }
+    }
+
+    /// Reads the whole source and returns its tokens, the last one always `Eof`.
+    pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
+        let mut tokens = Vec::new();
+        while let Some(c) = self.peek() {
+            if self.skip_space_or_comment(c)? {
+                continue;
+            }
+            let (line, col) = (self.line, self.col());
+            let token = self.read_token(c)?;
+            let span = self.span_from(line, col);
+            tokens.push(SpannedToken { token, span });
+        }
+        let span = self.span_from(self.line, self.col());
+        tokens.push(SpannedToken {
+            token: Token::Eof,
+            span,
+        });
+        Ok(tokens)
+    }
+
+    /// Skips a line break, a space or a comment that starts with `c`, and returns true if it did.
+    fn skip_space_or_comment(&mut self, c: char) -> Result<bool, SomoniError> {
+        match (c, self.peek_next()) {
+            ('\n', _) => self.newline(),
+            (c, _) if c.is_whitespace() => self.advance(),
+            ('/', Some('/')) => self.skip_line_comment(),
+            ('/', Some('*')) => self.skip_block_comment()?,
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
+    /// Reads the token that starts with `c`.
+    fn read_token(&mut self, c: char) -> Result<Token, SomoniError> {
+        if c.is_ascii_digit() {
+            return self.read_number();
+        }
+        if c.is_alphabetic() || c == '_' {
+            return Ok(self.read_word());
+        }
+        if c == '"' {
+            return self.read_string();
+        }
+        self.read_symbol(c)
+    }
+
+    /// Reads an int like `42` or a float like `1.5`.
+    fn read_number(&mut self) -> Result<Token, SomoniError> {
+        let (line, col) = (self.line, self.col());
+        let mut text = self.read_while(|c| c.is_ascii_digit());
+        let is_float =
+            self.peek() == Some('.') && self.peek_next().is_some_and(|c| c.is_ascii_digit());
+        if is_float {
+            self.advance();
+            text.push('.');
+            text.push_str(&self.read_while(|c| c.is_ascii_digit()));
+        }
+        let span = self.span_from(line, col);
+        number_token(text, is_float).map_err(|code| SomoniError::at(span, code))
+    }
+
+    /// Reads a keyword like `if` or a name like `count`.
+    fn read_word(&mut self) -> Token {
+        let word = self.read_while(|c| c.is_alphanumeric() || c == '_');
+        keyword(&word).unwrap_or(Token::Ident(word))
+    }
+
+    /// Reads a string `"..."`, which may go over several lines.
+    fn read_string(&mut self) -> Result<Token, SomoniError> {
+        let start = Span::in_line(self.file, self.line, self.col(), 1);
+        self.advance();
+        let mut text = String::new();
+        while let Some(c) = self.peek() {
+            if c == '"' {
+                self.advance();
+                return Ok(Token::Str(text));
+            }
+            text.push(c);
+            if c == '\n' {
+                self.newline();
+            } else {
+                self.advance();
+            }
+        }
+        Err(SomoniError::at(start, ErrorCode::UnterminatedString))
+    }
+
+    /// Reads a symbol like `+=` or `(`, or returns L001 for a character that is none.
+    fn read_symbol(&mut self, c: char) -> Result<Token, SomoniError> {
+        let Some((text, token)) = symbol(c, self.peek_next()) else {
+            let span = Span::in_line(self.file, self.line, self.col(), 1);
+            return Err(SomoniError::at(
+                span,
+                ErrorCode::UnexpectedCharacter { found: c },
+            ));
+        };
+        self.pos += text.len();
+        Ok(token)
+    }
+
+    /// Skips a comment `// ...` up to the end of the line.
+    fn skip_line_comment(&mut self) {
+        self.read_while(|c| c != '\n');
+    }
+
+    /// Skips a comment `/* ... */`, also over several lines.
+    fn skip_block_comment(&mut self) -> Result<(), SomoniError> {
+        let start = Span::in_line(self.file, self.line, self.col(), 2);
+        self.pos += 2;
+        loop {
+            match self.peek() {
+                None => return Err(SomoniError::at(start, ErrorCode::UnterminatedComment)),
+                Some('*') if self.peek_next() == Some('/') => {
+                    self.pos += 2;
+                    return Ok(());
+                }
+                Some('\n') => self.newline(),
+                Some(_) => self.advance(),
+            }
+        }
+    }
+
+    /// Reads characters as long as `wanted` is true for them and returns them.
+    fn read_while(&mut self, wanted: impl Fn(char) -> bool) -> String {
+        let mut text = String::new();
+        while let Some(c) = self.peek().filter(|&c| wanted(c)) {
+            text.push(c);
+            self.advance();
+        }
+        text
     }
 
     /// Returns the current character, None at the end.
@@ -32,6 +235,7 @@ impl Lexer {
         self.chars.get(self.pos + 1).copied()
     }
 
+    /// Goes to the next character in the same line.
     fn advance(&mut self) {
         self.pos += 1;
     }
@@ -58,251 +262,41 @@ impl Lexer {
             end_col: self.col(),
         }
     }
+}
 
-    /// Reads an int like `42` or a float like `1.5`.
-    fn read_number(&mut self) -> Result<Token, SomoniError> {
-        let (line, col) = (self.line, self.col());
-        let mut text = String::new();
-        while let Some(c) = self.peek() {
-            if c.is_ascii_digit() {
-                text.push(c);
-                self.advance();
-            } else {
-                break;
-            }
-        }
+/// Returns the keyword token for `word`, or None if it is a name.
+fn keyword(word: &str) -> Option<Token> {
+    KEYWORDS
+        .iter()
+        .find(|(name, _)| *name == word)
+        .map(|(_, token)| token.clone())
+}
 
-        let next_is_digit = self.peek_next().is_some_and(|c| c.is_ascii_digit());
+/// Returns the symbol that starts with `c` (and maybe `next`) and its token.
+fn symbol(c: char, next: Option<char>) -> Option<(&'static str, Token)> {
+    SYMBOLS
+        .iter()
+        .find(|(text, _)| starts_symbol(text, c, next))
+        .map(|(text, token)| (*text, token.clone()))
+}
 
-        if self.peek() == Some('.') && next_is_digit {
-            text.push('.');
-            self.advance();
-            while let Some(c) = self.peek() {
-                if c.is_ascii_digit() {
-                    text.push(c);
-                    self.advance();
-                } else {
-                    break;
-                }
-            }
-            let span = self.span_from(line, col);
-            return text
-                .parse::<f64>()
-                .map(Token::Float)
-                .map_err(|_| SomoniError::at(span, ErrorCode::InvalidFloat { text }));
-        }
+/// Returns true if the characters `c` and `next` start with the symbol `text`.
+fn starts_symbol(text: &str, c: char, next: Option<char>) -> bool {
+    let mut chars = text.chars();
+    chars.next() == Some(c) && chars.next().is_none_or(|second| Some(second) == next)
+}
 
-        let span = self.span_from(line, col);
-        text.parse::<i64>()
-            .map(Token::Int)
-            .map_err(|_| SomoniError::at(span, ErrorCode::IntegerTooLarge { text }))
+/// Turns the digits of a number into an int or float token, or L004/L005 if they do not fit.
+fn number_token(text: String, is_float: bool) -> Result<Token, ErrorCode> {
+    if is_float {
+        return text
+            .parse()
+            .map(Token::Float)
+            .map_err(|_| ErrorCode::InvalidFloat { text });
     }
-
-    /// Reads a keyword like `if` or a name like `count`.
-    fn read_word(&mut self) -> Token {
-        let mut text = String::new();
-        while let Some(c) = self.peek() {
-            if c.is_alphanumeric() || c == '_' {
-                text.push(c);
-                self.advance();
-            } else {
-                break;
-            }
-        }
-        match text.as_str() {
-            "var" => Token::Var,
-            "const" => Token::Const,
-            "true" => Token::True,
-            "false" => Token::False,
-            "if" => Token::If,
-            "else" => Token::Else,
-            "while" => Token::While,
-            "for" => Token::For,
-            "break" => Token::Break,
-            "continue" => Token::Continue,
-            "fn" => Token::Fn,
-            "return" => Token::Return,
-            "struct" => Token::Struct,
-            "null" => Token::Null,
-            "in" => Token::In,
-            "enum" => Token::Enum,
-            "match" => Token::Match,
-            "import" => Token::Import,
-            "export" => Token::Export,
-            "class" => Token::Class,
-            "new" => Token::New,
-            "this" => Token::This,
-            "public" => Token::Public,
-            "private" => Token::Private,
-            "protected" => Token::Protected,
-            "interface" => Token::Interface,
-            "implements" => Token::Implements,
-            "extends" => Token::Extends,
-            "super" => Token::Super,
-            "override" => Token::Override,
-            _ => Token::Ident(text),
-        }
-    }
-
-    /// Reads a string `"..."`; it may go over several lines.
-    fn read_string(&mut self) -> Result<Token, SomoniError> {
-        let start = Span::in_line(self.file, self.line, self.col(), 1);
-        self.advance();
-        let mut text = String::new();
-        while let Some(c) = self.peek() {
-            if c == '"' {
-                self.advance();
-                return Ok(Token::Str(text));
-            }
-            text.push(c);
-            if c == '\n' {
-                self.newline();
-            } else {
-                self.advance();
-            }
-        }
-        Err(SomoniError::at(start, ErrorCode::UnterminatedString))
-    }
-
-    /// Skips a comment `// ...` up to the end of the line.
-    fn skip_line_comment(&mut self) {
-        while let Some(c) = self.peek() {
-            if c == '\n' {
-                break;
-            }
-            self.advance();
-        }
-    }
-
-    /// Skips a comment `/* ... */`, also over several lines.
-    fn skip_block_comment(&mut self) -> Result<(), SomoniError> {
-        let start = Span::in_line(self.file, self.line, self.col(), 2);
-        self.advance();
-        self.advance();
-        loop {
-            match self.peek() {
-                None => return Err(SomoniError::at(start, ErrorCode::UnterminatedComment)),
-                Some('*') if self.peek_next() == Some('/') => {
-                    self.advance();
-                    self.advance();
-                    return Ok(());
-                }
-                Some('\n') => self.newline(),
-                Some(_) => self.advance(),
-            }
-        }
-    }
-
-    /// Reads the whole source and returns its tokens. The last token is always `Eof`.
-    pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
-        let mut tokens = Vec::new();
-
-        while let Some(c) = self.peek() {
-            if c == '\n' {
-                self.newline();
-                continue;
-            }
-
-            if c.is_whitespace() {
-                self.advance();
-                continue;
-            }
-
-            if c == '/' && self.peek_next() == Some('/') {
-                self.skip_line_comment();
-                continue;
-            }
-
-            if c == '/' && self.peek_next() == Some('*') {
-                self.skip_block_comment()?;
-                continue;
-            }
-
-            let line = self.line;
-            let col = self.col();
-
-            if c.is_ascii_digit() {
-                let token = self.read_number()?;
-                tokens.push(SpannedToken {
-                    token,
-                    span: self.span_from(line, col),
-                });
-                continue;
-            }
-
-            if c.is_alphabetic() || c == '_' {
-                let token = self.read_word();
-                tokens.push(SpannedToken {
-                    token,
-                    span: self.span_from(line, col),
-                });
-                continue;
-            }
-
-            if c == '"' {
-                let token = self.read_string()?;
-                tokens.push(SpannedToken {
-                    token,
-                    span: self.span_from(line, col),
-                });
-                continue;
-            }
-
-            let (token, len) = match c {
-                ':' => (Token::Colon, 1),
-                ',' => (Token::Comma, 1),
-                '.' => (Token::Dot, 1),
-                ';' => (Token::Semicolon, 1),
-                '+' if self.peek_next() == Some('=') => (Token::PlusEqual, 2),
-                '+' => (Token::Plus, 1),
-                '-' if self.peek_next() == Some('=') => (Token::MinusEqual, 2),
-                '-' => (Token::Minus, 1),
-                '*' if self.peek_next() == Some('=') => (Token::StarEqual, 2),
-                '*' => (Token::Star, 1),
-                '/' if self.peek_next() == Some('=') => (Token::SlashEqual, 2),
-                '/' => (Token::Slash, 1),
-                '%' if self.peek_next() == Some('=') => (Token::PercentEqual, 2),
-                '%' => (Token::Percent, 1),
-                '(' => (Token::LParen, 1),
-                ')' => (Token::RParen, 1),
-                '{' => (Token::LBrace, 1),
-                '}' => (Token::RBrace, 1),
-                '[' => (Token::LBracket, 1),
-                ']' => (Token::RBracket, 1),
-                '=' if self.peek_next() == Some('=') => (Token::EqualEqual, 2),
-                '=' if self.peek_next() == Some('>') => (Token::FatArrow, 2),
-                '=' => (Token::Equal, 1),
-                '!' if self.peek_next() == Some('=') => (Token::BangEqual, 2),
-                '!' => (Token::Bang, 1),
-                '<' if self.peek_next() == Some('=') => (Token::LessEqual, 2),
-                '<' => (Token::Less, 1),
-                '>' if self.peek_next() == Some('=') => (Token::GreaterEqual, 2),
-                '>' => (Token::Greater, 1),
-                '&' if self.peek_next() == Some('&') => (Token::AndAnd, 2),
-                '|' if self.peek_next() == Some('|') => (Token::OrOr, 2),
-                '?' => (Token::Question, 1),
-                _ => {
-                    return Err(SomoniError::at(
-                        Span::in_line(self.file, line, col, 1),
-                        ErrorCode::UnexpectedCharacter { found: c },
-                    ));
-                }
-            };
-            for _ in 0..len {
-                self.advance();
-            }
-            tokens.push(SpannedToken {
-                token,
-                span: self.span_from(line, col),
-            });
-        }
-
-        tokens.push(SpannedToken {
-            token: Token::Eof,
-            span: self.span_from(self.line, self.col()),
-        });
-        Ok(tokens)
-    }
+    text.parse()
+        .map(Token::Int)
+        .map_err(|_| ErrorCode::IntegerTooLarge { text })
 }
 
 #[cfg(test)]

@@ -2,7 +2,10 @@
 
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, CallTarget, Expr, ExprKind, FieldInit, MethodTarget, THIS, UnaryOp};
+use crate::ast::{
+    BinaryOp, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit, InterfaceLayout,
+    MethodCall, MethodTarget, New, SuperCall, THIS, UnaryOp,
+};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -36,25 +39,34 @@ impl TypeChecker {
                     expected: expected.clone(),
                 },
             )),
-            (
-                ExprKind::Call {
-                    name, args, target, ..
-                },
-                Type::Result(value, error),
-            ) if Builtin::result_builder(name).is_some() => {
-                let builtin = Builtin::result_builder(name)
-                    .ok_or_else(|| SomoniError::internal("ok or err is no built-in"))?;
-                *target = Some(CallTarget::Builtin(builtin));
-                check_arg_count(name, builtin.arity(), args, expr.span)?;
-                let inner = if builtin == Builtin::Ok { value } else { error };
-                let found = self.check_expr_expecting(&mut args[0], inner)?;
-                if !self.fits(&found, inner) {
-                    return Err(wrong_arg_type(name, found, args[0].span));
-                }
+            (ExprKind::Call(call), Type::Result(value, error))
+                if Builtin::result_builder(&call.name).is_some() =>
+            {
+                self.check_result_builder(call, value, error, expr.span)?;
                 Ok(wanted.clone())
             }
             _ => self.check_expr(expr),
         }
+    }
+
+    /// Checks `ok(x)` or `err(x)` against the value and error types of the expected result.
+    fn check_result_builder(
+        &mut self,
+        call: &mut Call,
+        value: &Type,
+        error: &Type,
+        span: Span,
+    ) -> Result<(), SomoniError> {
+        let builtin = Builtin::result_builder(&call.name)
+            .ok_or_else(|| SomoniError::internal("ok or err is no built-in"))?;
+        call.target = Some(CallTarget::Builtin(builtin));
+        check_arg_count(&call.name, builtin.arity(), &call.args, span)?;
+        let inner = if builtin == Builtin::Ok { value } else { error };
+        let name = &call.name;
+        self.check_fits(&mut call.args[0], inner, |found| ErrorCode::WrongArgType {
+            name: name.clone(),
+            found,
+        })
     }
 
     /// Checks both sides of an operator.
@@ -243,33 +255,11 @@ impl TypeChecker {
                 name_span,
                 index,
             } => self.check_field(target, name, *name_span, index),
-            ExprKind::Call {
-                name,
-                name_span,
-                args,
-                target,
-            } => self.check_call(name, *name_span, args, target, span),
-            ExprKind::MethodCall {
-                target,
-                name,
-                name_span,
-                args,
-                call,
-            } => self.check_method_call(target, name, *name_span, args, call, span),
+            ExprKind::Call(call) => self.check_call(call, span),
+            ExprKind::MethodCall(call) => self.check_method_call(call, span),
             ExprKind::SuperInit { args, target } => self.check_super_init(args, target, span),
-            ExprKind::SuperCall {
-                name,
-                name_span,
-                args,
-                target,
-            } => self.check_super_call(name, *name_span, args, target, span),
-            ExprKind::New {
-                name,
-                name_span,
-                args,
-                class,
-                target,
-            } => self.check_new(name, *name_span, args, class, target, span),
+            ExprKind::SuperCall(call) => self.check_super_call(call, span),
+            ExprKind::New(new) => self.check_new(new, span),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -354,93 +344,102 @@ impl TypeChecker {
     }
 
     /// Checks a call of a built-in or an own function.
-    fn check_call(
-        &mut self,
-        name: &str,
-        name_span: Span,
-        args: &mut [Expr],
-        target: &mut Option<CallTarget>,
-        span: Span,
-    ) -> Result<Type, SomoniError> {
-        if let Some(builtin) = Builtin::from_name(name) {
-            if builtin.builds_result() {
-                return Err(SomoniError::at(
-                    span,
-                    ErrorCode::ResultTypeUnknown {
-                        name: builtin.name(),
-                    },
-                ));
-            }
-            *target = Some(CallTarget::Builtin(builtin));
-            check_arg_count(name, builtin.arity(), args, span)?;
-            let mut arg_types = Vec::new();
-            for arg in args.iter_mut() {
-                arg_types.push(self.check_expr(arg)?);
-            }
-            return builtin
-                .result_type(&arg_types)
-                .map_err(|bad| wrong_arg_type(name, arg_types[bad].clone(), args[bad].span));
+    fn check_call(&mut self, call: &mut Call, span: Span) -> Result<Type, SomoniError> {
+        if let Some(builtin) = Builtin::from_name(&call.name) {
+            return self.check_builtin_call(builtin, call, span);
         }
-        let Some(signature) = self.names.functions.get(name).cloned() else {
+        let Some(signature) = self.names.functions.get(&call.name).cloned() else {
             return Err(SomoniError::at(
-                name_span,
+                call.name_span,
                 ErrorCode::UnknownFunction {
-                    name: name.to_string(),
+                    name: call.name.clone(),
                 },
             ));
         };
-        *target = Some(CallTarget::Function(signature.index));
-        self.check_args(name, &signature.params, args, span)?;
+        call.target = Some(CallTarget::Function(signature.index));
+        self.check_args(&call.name, &signature.params, &mut call.args, span)?;
         Ok(signature.return_type)
+    }
+
+    /// Checks a call of a built-in function, or returns T049 for `ok` and `err` without an expected type.
+    fn check_builtin_call(
+        &mut self,
+        builtin: Builtin,
+        call: &mut Call,
+        span: Span,
+    ) -> Result<Type, SomoniError> {
+        if builtin.builds_result() {
+            return Err(SomoniError::at(
+                span,
+                ErrorCode::ResultTypeUnknown {
+                    name: builtin.name(),
+                },
+            ));
+        }
+        call.target = Some(CallTarget::Builtin(builtin));
+        check_arg_count(&call.name, builtin.arity(), &call.args, span)?;
+        let mut arg_types = Vec::new();
+        for arg in call.args.iter_mut() {
+            arg_types.push(self.check_expr(arg)?);
+        }
+        builtin
+            .result_type(&arg_types)
+            .map_err(|bad| wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span))
     }
 
     /// Checks `target.name(args)` on an object or an interface.
     fn check_method_call(
         &mut self,
-        target: &mut Expr,
-        name: &str,
-        name_span: Span,
-        args: &mut [Expr],
-        call: &mut Option<MethodTarget>,
+        call: &mut MethodCall,
         span: Span,
     ) -> Result<Type, SomoniError> {
-        let unknown = |owner: &str| {
-            SomoniError::at(
-                name_span,
-                ErrorCode::UnknownMethod {
-                    class: owner.to_string(),
-                    name: name.to_string(),
-                },
-            )
-        };
-        let target_type = self.check_expr(target)?;
-        if let Type::Interface(layout) = &target_type {
-            let info = self.interface_info(layout)?;
-            let Some((_, signature)) = info.methods.iter().find(|(m, _)| m == name).cloned() else {
-                return Err(unknown(&layout.name));
-            };
-            *call = Some(MethodTarget::Interface {
-                interface: info.index,
-                method: signature.index,
-            });
-            self.check_args(name, &signature.params, args, span)?;
-            return Ok(signature.return_type);
-        }
-        let Type::Class(layout) = &target_type else {
-            return Err(SomoniError::at(
-                target.span,
+        let target_type = self.check_expr(&mut call.target)?;
+        match &target_type {
+            Type::Interface(layout) => self.check_interface_call(layout, call, span),
+            Type::Class(layout) => self.check_class_method_call(layout, call, span),
+            _ => Err(SomoniError::at(
+                call.target.span,
                 ErrorCode::NoMethods { found: target_type },
-            ));
+            )),
+        }
+    }
+
+    /// Checks a method call on a value of an interface type.
+    fn check_interface_call(
+        &mut self,
+        layout: &Decl<InterfaceLayout>,
+        call: &mut MethodCall,
+        span: Span,
+    ) -> Result<Type, SomoniError> {
+        let info = self.interface_info(layout)?;
+        let found = info.methods.iter().find(|(m, _)| *m == call.name).cloned();
+        let Some((_, signature)) = found else {
+            return Err(unknown_method(&layout.name, &call.name, call.name_span));
         };
+        call.call = Some(MethodTarget::Interface {
+            interface: info.index,
+            method: signature.index,
+        });
+        self.check_args(&call.name, &signature.params, &mut call.args, span)?;
+        Ok(signature.return_type)
+    }
+
+    /// Checks a method call on an object of a class, which may only use methods it can see.
+    fn check_class_method_call(
+        &mut self,
+        layout: &Decl<ClassLayout>,
+        call: &mut MethodCall,
+        span: Span,
+    ) -> Result<Type, SomoniError> {
         let method = self
             .class_info(layout)?
             .methods
-            .get(name)
+            .get(&call.name)
             .cloned()
-            .ok_or_else(|| unknown(&layout.name))?;
-        self.check_access(layout, name, name_span)?;
-        *call = Some(MethodTarget::Virtual { slot: method.slot });
-        self.check_args(name, &method.signature.params, args, span)?;
+            .ok_or_else(|| unknown_method(&layout.name, &call.name, call.name_span))?;
+        self.check_access(layout, &call.name, call.name_span)?;
+        call.call = Some(MethodTarget::Virtual { slot: method.slot });
+        self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)
     }
 
@@ -462,47 +461,26 @@ impl TypeChecker {
     }
 
     /// Checks `super.name(args)`.
-    fn check_super_call(
-        &mut self,
-        name: &str,
-        name_span: Span,
-        args: &mut [Expr],
-        target: &mut Option<usize>,
-        span: Span,
-    ) -> Result<Type, SomoniError> {
+    fn check_super_call(&mut self, call: &mut SuperCall, span: Span) -> Result<Type, SomoniError> {
         let parent = self.current_parent(span)?;
         let info = self.class_info(&parent)?;
-        let Some(method) = info.methods.get(name).cloned() else {
-            return Err(SomoniError::at(
-                name_span,
-                ErrorCode::UnknownMethod {
-                    class: parent.name.clone(),
-                    name: name.to_string(),
-                },
-            ));
+        let Some(method) = info.methods.get(&call.name).cloned() else {
+            return Err(unknown_method(&parent.name, &call.name, call.name_span));
         };
-        *target = Some(info.method_table[method.slot]);
-        self.check_access(&parent, name, name_span)?;
-        self.check_args(name, &method.signature.params, args, span)?;
+        call.target = Some(info.method_table[method.slot]);
+        self.check_access(&parent, &call.name, call.name_span)?;
+        self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)
     }
 
     /// Checks `new Name(args)`.
-    fn check_new(
-        &mut self,
-        name: &str,
-        name_span: Span,
-        args: &mut [Expr],
-        class: &mut Option<usize>,
-        target: &mut Option<usize>,
-        span: Span,
-    ) -> Result<Type, SomoniError> {
-        let layout = self.class_named(name, name_span)?;
+    fn check_new(&mut self, new: &mut New, span: Span) -> Result<Type, SomoniError> {
+        let layout = self.class_named(&new.name, new.name_span)?;
         let info = self.class_info(&layout)?;
         let constructor = info.constructor.clone();
-        *class = Some(info.index);
-        *target = Some(constructor.index);
-        self.check_args(name, &constructor.params, args, span)?;
+        new.class = Some(info.index);
+        new.target = Some(constructor.index);
+        self.check_args(&new.name, &constructor.params, &mut new.args, span)?;
         Ok(constructor.return_type)
     }
 
@@ -566,13 +544,24 @@ impl TypeChecker {
     }
 }
 
+/// Returns the error T056 for a method that the class or interface `owner` does not have.
+fn unknown_method(owner: &str, name: &str, span: Span) -> SomoniError {
+    SomoniError::at(
+        span,
+        ErrorCode::UnknownMethod {
+            class: owner.to_string(),
+            name: name.to_string(),
+        },
+    )
+}
+
 /// Returns true if an expression gets its type from where it is used.
 fn needs_type_hint(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::List(elements) => elements.is_empty(),
         ExprKind::Map(entries) => entries.is_empty(),
         ExprKind::Null => true,
-        ExprKind::Call { name, .. } => Builtin::result_builder(name).is_some(),
+        ExprKind::Call(call) => Builtin::result_builder(&call.name).is_some(),
         _ => false,
     }
 }

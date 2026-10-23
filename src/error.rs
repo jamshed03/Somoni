@@ -14,6 +14,19 @@ pub enum ErrorKind {
     Runtime,
 }
 
+impl ErrorKind {
+    /// Returns how the kind starts a message, e.g. `Type error`.
+    fn label(self) -> &'static str {
+        match self {
+            ErrorKind::Lex => "Lex error",
+            ErrorKind::Parse => "Parse error",
+            ErrorKind::Import => "Import error",
+            ErrorKind::Type => "Type error",
+            ErrorKind::Runtime => "Runtime error",
+        }
+    }
+}
+
 /// All errors Somoni knows. Each has a code like `T001` and a message.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorCode {
@@ -438,8 +451,7 @@ impl ErrorCode {
         }
     }
 
-    /// Returns the part of the pipeline the error belongs to. The first letter of the code says
-    /// it: `L` lexer, `P` parser, `M` loader and imports, `T` type checker, `R` runtime.
+    /// Returns the part of the pipeline from the first letter of the code: `L`, `P`, `M`, `T` or `R`.
     pub fn kind(&self) -> ErrorKind {
         match self.code().chars().next() {
             Some('L') => ErrorKind::Lex,
@@ -784,8 +796,7 @@ impl SomoniError {
         .into()
     }
 
-    /// Returns the error message with the source line and `^^^` under the place.
-    /// `file_name` is shown for errors outside the main file; `source` is the text of that file.
+    /// Returns the message with the line of `source` it is in and `^^^` under the place.
     pub fn render(&self, file_name: Option<&str>, source: &str) -> String {
         let header = self.header(file_name);
         let Some(span) = self.span else {
@@ -794,30 +805,10 @@ impl SomoniError {
         let Some(text) = source.lines().nth(span.line - 1) else {
             return header;
         };
-
-        let end_col = if span.end_line == span.line {
-            span.end_col
-        } else {
-            text.chars().count() + 1
-        };
-        let width = end_col.saturating_sub(span.col).max(1);
-        let indent: String = text
-            .chars()
-            .take(span.col - 1)
-            .map(|c| if c == '\t' { '\t' } else { ' ' })
-            .collect();
-
         let number = span.line.to_string();
         let gutter = " ".repeat(number.len());
-        format!(
-            "{}\n  {} | {}\n  {} | {}{}",
-            header,
-            number,
-            text,
-            gutter,
-            indent,
-            "^".repeat(width)
-        )
+        let marker = marker(span, text);
+        format!("{header}\n  {number} | {text}\n  {gutter} | {marker}")
     }
 
     /// Sets the place if the error has none yet.
@@ -828,16 +819,9 @@ impl SomoniError {
         self
     }
 
-    /// The first line of the message, e.g. `Type error [T002]: Line 4: unknown variable 'y'`,
-    /// with the file name in front of the line if there is one: `mathe.smn: Line 4: ...`.
+    /// The first line of the message, e.g. `Type error [T002]: mathe.smn: Line 4: unknown variable 'y'`.
     fn header(&self, file_name: Option<&str>) -> String {
-        let kind = match self.code.kind() {
-            ErrorKind::Lex => "Lex error",
-            ErrorKind::Parse => "Parse error",
-            ErrorKind::Import => "Import error",
-            ErrorKind::Type => "Type error",
-            ErrorKind::Runtime => "Runtime error",
-        };
+        let kind = self.code.kind().label();
         let place = match (file_name, self.span) {
             (Some(name), Some(span)) => format!("{}: Line {}: ", name, span.line),
             (None, Some(span)) => format!("Line {}: ", span.line),
@@ -851,6 +835,22 @@ impl SomoniError {
             self.code.message()
         )
     }
+}
+
+/// Returns the `^^^` under the place in the line `text`, indented with the same tabs as the line.
+fn marker(span: Span, text: &str) -> String {
+    let end_col = if span.end_line == span.line {
+        span.end_col
+    } else {
+        text.chars().count() + 1
+    };
+    let width = end_col.saturating_sub(span.col).max(1);
+    let indent: String = text
+        .chars()
+        .take(span.col - 1)
+        .map(|c| if c == '\t' { '\t' } else { ' ' })
+        .collect();
+    format!("{}{}", indent, "^".repeat(width))
 }
 
 /// Turns an error code into an error without a place (used for runtime errors).

@@ -21,38 +21,46 @@ use std::fs;
 use std::process;
 
 use error::SomoniError;
-use loader::{Loader, SourceFile};
+use loader::{Loader, MAIN_FILE, SourceFile};
 use typechecker::TypeChecker;
 
-/// Reads the file from the command line and runs it. Exit code 1 on an error.
-/// With `--bytecode`, it shows the instructions instead of running them.
+/// What the command line asks for: the file to run and whether to show its bytecode instead.
+struct Options {
+    path: String,
+    show_bytecode: bool,
+}
+
+/// Runs the file from the command line, or shows its bytecode with `--bytecode`.
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let options = read_options(env::args().collect());
+    let source = fs::read_to_string(&options.path)
+        .unwrap_or_else(|err| fail(&format!("Cannot read '{}': {}", options.path, err)));
+    let mut loader = Loader::default();
+    let result = loader
+        .load(&options.path, source)
+        .and_then(|order| run(&mut loader.files, &order, options.show_bytecode));
+    if let Err(error) = result {
+        fail(&render(&error, &loader.files));
+    }
+}
+
+/// Reads the options from the command line, or stops with the usage.
+fn read_options(args: Vec<String>) -> Options {
     let (show_bytecode, path) = match args.as_slice() {
         [_, path] => (false, path),
         [_, flag, path] if flag == "--bytecode" => (true, path),
-        _ => {
-            eprintln!("Usage: somoni [--bytecode] <file.smn>");
-            process::exit(1);
-        }
+        _ => fail("Usage: somoni [--bytecode] <file.smn>"),
     };
-
-    let source = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(err) => {
-            eprintln!("Cannot read '{}': {}", path, err);
-            process::exit(1);
-        }
-    };
-
-    let mut loader = Loader::default();
-    let result = loader
-        .load(path, source)
-        .and_then(|order| run(&mut loader.files, &order, show_bytecode));
-    if let Err(error) = result {
-        eprintln!("{}", render(&error, &loader.files));
-        process::exit(1);
+    Options {
+        path: path.clone(),
+        show_bytecode,
     }
+}
+
+/// Prints the message and stops with exit code 1.
+fn fail(message: &str) -> ! {
+    eprintln!("{}", message);
+    process::exit(1);
 }
 
 /// Runs the rest of the pipeline on the loaded files: type checker, compiler, VM.
@@ -66,13 +74,12 @@ fn run(files: &mut [SourceFile], order: &[usize], show_bytecode: bool) -> Result
     vm::run(&program)
 }
 
-/// Returns the message of an error with the line of the file it is in.
-/// Only errors outside the main file show the name of their file.
+/// Returns the message of an error with its source line, and the file name outside the main file.
 fn render(error: &SomoniError, files: &[SourceFile]) -> String {
-    let number = error.span.map_or(0, |span| span.file);
+    let number = error.span.map_or(MAIN_FILE, |span| span.file);
     match files.get(number) {
         Some(file) => {
-            let name = (number != 0).then_some(file.name.as_str());
+            let name = (number != MAIN_FILE).then_some(file.name.as_str());
             error.render(name, &file.source)
         }
         None => error.to_string(),

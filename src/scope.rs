@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-/// The open blocks and the names declared in each of them.
-/// `T` is what the type checker knows about a name.
+/// The open blocks and what is known about each name declared in them.
 pub struct Scopes<T> {
     stack: Vec<HashMap<String, T>>,
 }
 
 impl<T> Scopes<T> {
+    /// Starts with one open block that is never closed.
     pub fn new() -> Scopes<T> {
         Scopes {
             stack: vec![HashMap::new()],
@@ -18,9 +18,11 @@ impl<T> Scopes<T> {
         self.stack.push(HashMap::new());
     }
 
-    /// Closes the innermost block; its names are gone.
+    /// Closes the innermost block and forgets its names, but never the first block.
     pub fn pop(&mut self) {
-        self.stack.pop();
+        if self.stack.len() > 1 {
+            self.stack.pop();
+        }
     }
 
     /// Adds a name to the innermost block. Returns false if the block already has it.

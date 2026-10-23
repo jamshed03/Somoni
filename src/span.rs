@@ -1,5 +1,4 @@
-/// A place in the source: from (line, col) up to (end_line, end_col), columns start at 1.
-/// `file` is the number of the source file; 0 is the file given to `somoni`.
+/// A place in source file number `file`, from (line, col) up to (end_line, end_col), counted from 1.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Span {
     pub file: usize,

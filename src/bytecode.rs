@@ -6,8 +6,7 @@ use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::value::{Quoted, Value};
 
-/// One instruction of the VM. Most of them take their operands from the stack
-/// and push their result back onto it.
+/// One instruction of the VM, which mostly takes its operands from the stack and pushes its result.
 #[derive(Debug, Clone)]
 pub enum Op {
     /// Pushes constant number `i` of the chunk.
@@ -30,11 +29,9 @@ pub enum Op {
     JumpIfFalse(usize),
     /// Calls function number `i` with `n` arguments from the stack.
     Call(usize, usize),
-    /// Calls method slot `slot` with `args` arguments from the stack; the first is the object,
-    /// its class decides which function runs (its method table).
+    /// Calls method slot `slot` with `args` values from the stack, the object first, by its method table.
     CallVirtual { slot: usize, args: usize },
-    /// Calls method `method` of interface `interface` with `args` arguments from the stack;
-    /// the first is the object, its class decides which function runs (its vtable).
+    /// Calls method `method` of interface `interface` with `args` values from the stack, the object first, by its vtable.
     CallInterface {
         interface: usize,
         method: usize,
@@ -60,8 +57,7 @@ pub enum Op {
     Index,
     /// Pops a struct or object, pushes its field `p`.
     Field(usize),
-    /// Pops a value and appends it to the string or list in this slot (`s = s + x`).
-    /// For other values (`i = i + 1`) it adds them.
+    /// Pops a value and appends it to the string or list in this slot, or adds it to a number (`s = s + x`).
     AppendLocal(usize),
     /// Pops a value and the indices of path number `i`, writes the value into that part.
     SetPart(usize),
@@ -69,12 +65,9 @@ pub enum Op {
     UpdatePart(usize, BinaryOp),
     /// Pops a string, pushes the list of its characters (for `for`-each over a string).
     Chars,
-    /// One round of a `for`-each loop over the list or map in `slot`; the index is in `slot + 1`.
-    /// If the index is past the end, goes on at `end`. Otherwise pushes the element (list) or
-    /// key (map), with `both` the index and the element or the key and the value, and counts up.
+    /// One round of a `for`-each loop over `slot`: pushes the next element or key (with `both` also the index or value), or goes on at `end`.
     Next { slot: usize, end: usize, both: bool },
-    /// Pops an enum value and goes on at the instruction for its variant in jump table `i`.
-    /// For a result (`ok` is 0, `err` is 1) it first pushes the value inside.
+    /// Pops an enum or result and goes on at its branch in jump table `i`, pushing the value inside a result first.
     Switch(usize),
 }
 
@@ -83,29 +76,41 @@ pub enum Op {
 pub struct Path {
     pub slot: usize,
     pub steps: Vec<PathStep>,
-    /// True if the way goes through an object (see `value::change_part`).
+    /// True if the way goes through an object, see `value::Way`.
     pub in_object: bool,
 }
 
-/// One step of a path. The value of an index is on the stack when the path is used.
+impl Path {
+    /// Returns how many index values the path takes from the stack.
+    pub fn index_count(&self) -> usize {
+        self.steps
+            .iter()
+            .filter(|step| matches!(step, PathStep::Index(_)))
+            .count()
+    }
+}
+
+/// Returns the slot of the hidden index of a `for`-each loop, right after its sequence in `seq`.
+pub fn index_slot(seq: usize) -> usize {
+    seq + 1
+}
+
+/// One step of a path: an index, whose value is on the stack, or a field.
 #[derive(Debug)]
 pub enum PathStep {
     Index(Span),
     Field(usize),
 }
 
-/// A list of instructions with the constants they use.
-/// `spans[i]` is the place in the source of `code[i]`, for error messages.
+/// The instructions of one function with their places in the source, constants, paths and jump tables.
 #[derive(Debug, Default)]
 pub struct Chunk {
-    /// `program` or `fn name`, for `--bytecode`.
     pub name: String,
     pub code: Vec<Op>,
+    /// The place of each instruction, kept apart from `code` so the VM loop reads only instructions.
     pub spans: Vec<Span>,
     pub constants: Vec<Value>,
-    /// The paths of `SetPart`.
     pub paths: Vec<Path>,
-    /// The jump tables of `Switch`: for each variant, the instruction of its branch.
     pub tables: Vec<Vec<usize>>,
     /// How many variable slots the code needs.
     pub locals: usize,
@@ -138,17 +143,13 @@ impl Chunk {
     }
 }
 
-/// A compiled program: the code at the top level and one chunk per function,
-/// numbered like `ast::functions`.
+/// A compiled program: the top-level code and its functions, structs, classes and interfaces, numbered file by file.
 #[derive(Debug, Default)]
 pub struct Program {
     pub main: Chunk,
     pub functions: Vec<Chunk>,
-    /// The structs of the program, numbered like `ast::structs`, file by file.
     pub structs: Vec<Rc<StructDecl>>,
-    /// The classes of the program, numbered like `ast::classes`, file by file.
     pub classes: Vec<ClassCode>,
-    /// The interfaces of the program, numbered like `ast::interfaces`, file by file.
     pub interfaces: Vec<Rc<InterfaceLayout>>,
 }
 
@@ -158,6 +159,16 @@ pub struct ClassCode {
     pub layout: Rc<ClassLayout>,
     pub method_table: Vec<usize>,
     pub vtables: Vec<VTable>,
+}
+
+impl ClassCode {
+    /// Returns the function this class runs for method `method` of interface `interface`.
+    pub fn interface_function(&self, interface: usize, method: usize) -> Option<usize> {
+        self.vtables
+            .iter()
+            .find(|vtable| vtable.interface == interface)
+            .map(|vtable| vtable.functions[method])
+    }
 }
 
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
@@ -174,13 +185,18 @@ fn disassemble_chunk(out: &mut String, chunk: &Chunk, program: &Program) {
     let _ = writeln!(out, "== {} ({} locals) ==", chunk.name, chunk.locals);
     let mut last_line = 0;
     for (i, (op, span)) in chunk.code.iter().zip(&chunk.spans).enumerate() {
-        let line = if span.line == last_line {
-            "    ".to_string()
-        } else {
-            format!("{:>4}", span.line)
-        };
+        let line = show_line(span.line, last_line);
         last_line = span.line;
         let _ = writeln!(out, "{:04}  {}  {}", i, line, show_op(op, chunk, program));
+    }
+}
+
+/// Shows a line number, or blanks if it is the same as the line before.
+fn show_line(line: usize, last_line: usize) -> String {
+    if line == last_line {
+        "    ".to_string()
+    } else {
+        format!("{:>4}", line)
     }
 }
 
@@ -195,6 +211,15 @@ fn show_path(path: &Path) -> String {
         })
         .collect();
     format!("{}{}", path.slot, steps)
+}
+
+/// Shows the targets of a jump table, e.g. `0004, 0009`.
+fn show_table(targets: &[usize]) -> String {
+    let targets: Vec<String> = targets
+        .iter()
+        .map(|target| format!("{:04}", target))
+        .collect();
+    targets.join(", ")
 }
 
 /// Shows one instruction, e.g. `Push 5` or `Binary Add`.
@@ -217,10 +242,8 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
             args,
         } => {
             let layout = &program.interfaces[*interface];
-            format!(
-                "CallInterface {}.{} {}",
-                layout.name, layout.methods[*method], args
-            )
+            let method = &layout.methods[*method];
+            format!("CallInterface {}.{} {}", layout.name, method, args)
         }
         Op::Return => "Return".to_string(),
         Op::MakeList(count) => format!("MakeList {}", count),
@@ -234,13 +257,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::Field(p) => format!("Field {}", p),
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
         Op::Chars => "Chars".to_string(),
-        Op::Switch(i) => {
-            let targets: Vec<String> = chunk.tables[*i]
-                .iter()
-                .map(|target| format!("{:04}", target))
-                .collect();
-            format!("Switch [{}]", targets.join(", "))
-        }
+        Op::Switch(i) => format!("Switch [{}]", show_table(&chunk.tables[*i])),
         Op::Next { slot, end, both } => {
             let both = if *both { " both" } else { "" };
             format!("Next {} {:04}{}", slot, end, both)

@@ -1,10 +1,9 @@
 use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
-use crate::map::Key;
 use crate::text::Text;
 use crate::types::Type;
-use crate::value::Value;
+use crate::value::{Value, map_key};
 
 /// The functions built into Somoni.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,8 +36,7 @@ impl Builtin {
         }
     }
 
-    /// Returns true for `ok` and `err`: they build a result and take its type from the place
-    /// where they are used, like `null`.
+    /// Returns true for `ok` and `err`, which take their result type from where they are used.
     pub fn builds_result(self) -> bool {
         matches!(self, Builtin::Ok | Builtin::Err)
     }
@@ -78,10 +76,7 @@ impl Builtin {
         }
     }
 
-    /// Returns the result type for these argument types,
-    /// or `Err(i)` if argument `i` is not allowed (counted from 0).
-    /// Converting to the same type (`int(5)`) is not allowed.
-    /// `ok` and `err` are not here: their type comes from the place (see `builds_result`).
+    /// Returns the result type for these argument types, or `Err(i)` if argument `i` is not allowed.
     pub fn result_type(self, args: &[Type]) -> Result<Type, usize> {
         match (self, args) {
             (Builtin::Print, [Type::Void]) => Err(0),
@@ -107,24 +102,14 @@ impl Builtin {
                 Ok(Value::Void)
             }
             (Builtin::Int, [Value::Float(f)]) => float_to_int(*f),
-            (Builtin::Int, [Value::Str(s)]) => Ok(match s.as_str().parse::<i64>() {
-                Ok(n) => Value::Ok(Rc::new(Value::Int(n))),
-                Err(_) => cannot_convert(s.as_str(), Type::Int),
-            }),
+            (Builtin::Int, [Value::Str(s)]) => Ok(parse_int(s.as_str())),
             (Builtin::Float, [Value::Int(n)]) => Ok(Value::Float(*n as f64)),
-            (Builtin::Float, [Value::Str(s)]) => Ok(match s.as_str().parse::<f64>() {
-                Ok(f) if f.is_finite() => Value::Ok(Rc::new(Value::Float(f))),
-                _ => cannot_convert(s.as_str(), Type::Float),
-            }),
+            (Builtin::Float, [Value::Str(s)]) => Ok(parse_float(s.as_str())),
             (Builtin::Str, [arg]) => Ok(Value::Str(Rc::new(Text::new(arg.to_string())))),
             (Builtin::Len, [Value::Str(s)]) => Ok(Value::Int(s.char_count() as i64)),
             (Builtin::Len, [Value::List(items)]) => Ok(Value::Int(items.len() as i64)),
             (Builtin::Len, [Value::Map(map)]) => Ok(Value::Int(map.len() as i64)),
-            (Builtin::Has, [Value::Map(map), key]) => {
-                let key = Key::from_value(key)
-                    .ok_or_else(|| SomoniError::internal("map key is no int or string"))?;
-                Ok(Value::Bool(map.contains(&key)))
-            }
+            (Builtin::Has, [Value::Map(map), key]) => Ok(Value::Bool(map.contains(&map_key(key)?))),
             (Builtin::Keys, [Value::Map(map)]) => {
                 let keys = map.entries().map(|(key, _)| key.to_value()).collect();
                 Ok(Value::List(Rc::new(keys)))
@@ -139,14 +124,31 @@ impl Builtin {
     }
 }
 
-/// Turns a float into an int by cutting off: `int(3.9)` is 3, `int(-3.9)` is -3.
-/// Too big values and NaN are R002.
+/// The first float that is too big for an int: 2 to the power of 63.
+const INT_LIMIT: f64 = 9_223_372_036_854_775_808.0;
+
+/// Cuts a float to an int (`int(-3.9)` is -3), or returns R002 for NaN and too big values.
 fn float_to_int(f: f64) -> Result<Value, SomoniError> {
-    let limit = 9_223_372_036_854_775_808.0;
-    if f.is_nan() || f >= limit || f < -limit {
+    if f.is_nan() || f >= INT_LIMIT || f < -INT_LIMIT {
         return Err(ErrorCode::IntegerOverflow.into());
     }
     Ok(Value::Int(f.trunc() as i64))
+}
+
+/// Returns `ok(n)` for a string like `"42"`, or an `err` with the reason.
+fn parse_int(text: &str) -> Value {
+    match text.parse::<i64>() {
+        Ok(n) => Value::Ok(Rc::new(Value::Int(n))),
+        Err(_) => cannot_convert(text, Type::Int),
+    }
+}
+
+/// Returns `ok(f)` for a string like `"1.5"`, or an `err` with the reason.
+fn parse_float(text: &str) -> Value {
+    match text.parse::<f64>() {
+        Ok(f) if f.is_finite() => Value::Ok(Rc::new(Value::Float(f))),
+        _ => cannot_convert(text, Type::Float),
+    }
 }
 
 /// The type of `int(string)` or `float(string)`: the number, or the reason why there is none.

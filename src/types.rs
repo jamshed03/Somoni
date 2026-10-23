@@ -5,8 +5,7 @@ use std::rc::Rc;
 
 use crate::ast::{ClassLayout, EnumDecl, InterfaceLayout, StructDecl};
 
-/// A struct or enum declaration, compared by identity: two declarations with the same name
-/// (e.g. in two files) are different types.
+/// A declaration compared by identity, so two structs with the same name in two files are different types.
 #[derive(Debug)]
 pub struct Decl<T>(pub Rc<T>);
 

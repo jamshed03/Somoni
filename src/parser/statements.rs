@@ -295,10 +295,10 @@ impl Parser {
                 | Token::SlashEqual
                 | Token::PercentEqual
         );
-        if let ExprKind::MethodCall { .. }
-        | ExprKind::New { .. }
+        if let ExprKind::MethodCall(_)
+        | ExprKind::New(_)
         | ExprKind::SuperInit { .. }
-        | ExprKind::SuperCall { .. } = target.kind
+        | ExprKind::SuperCall(_) = target.kind
             && !is_assignment
         {
             return Ok(Stmt::Expr {

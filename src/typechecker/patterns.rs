@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::ast::{EnumDecl, Expr, ExprKind, MatchArm, Pattern};
+use crate::ast::{ERR_VARIANT, EnumDecl, Expr, ExprKind, MatchArm, OK_VARIANT, Pattern};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Type;
@@ -154,7 +154,7 @@ fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), Somoni
             return Ok((variant_of(decl, name, *name_span)?, *name_span));
         }
         (Type::Result(_, _), Pattern::Result { ok, span, .. }) => {
-            return Ok((if *ok { 0 } else { 1 }, *span));
+            return Ok((if *ok { OK_VARIANT } else { ERR_VARIANT }, *span));
         }
         (
             _,

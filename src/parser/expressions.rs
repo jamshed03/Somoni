@@ -2,7 +2,9 @@
 
 use std::rc::Rc;
 
-use crate::ast::{BinaryOp, Expr, ExprKind, FieldInit, THIS, UnaryOp};
+use crate::ast::{
+    BinaryOp, Call, Expr, ExprKind, FieldInit, MethodCall, New, SuperCall, THIS, UnaryOp,
+};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::text::Text;
@@ -21,12 +23,12 @@ impl Parser {
         self.advance();
         let args = self.parse_args()?;
         Ok(Expr {
-            kind: ExprKind::Call {
+            kind: ExprKind::Call(Call {
                 name,
                 name_span,
                 args,
                 target: None,
-            },
+            }),
             span: self.since(name_span),
         })
     }
@@ -148,13 +150,13 @@ impl Parser {
                     let (name, name_span) = self.expect_ident("field name after '.'")?;
                     if self.eat(Token::LParen) {
                         let args = self.parse_args()?;
-                        ExprKind::MethodCall {
+                        ExprKind::MethodCall(MethodCall {
                             target: Box::new(expr),
                             name,
                             name_span,
                             args,
                             call: None,
-                        }
+                        })
                     } else {
                         ExprKind::Field {
                             target: Box::new(expr),
@@ -221,13 +223,13 @@ impl Parser {
         let (name, name_span) = self.expect_ident("class name after 'new'")?;
         self.expect(Token::LParen, "'(' after the class name")?;
         let args = self.parse_args()?;
-        let kind = ExprKind::New {
+        let kind = ExprKind::New(New {
             name,
             name_span,
             args,
             class: None,
             target: None,
-        };
+        });
         Ok(Expr {
             kind,
             span: span.to(self.last_span()),
@@ -245,12 +247,12 @@ impl Parser {
             let (name, name_span) = self.expect_ident("method name after 'super.'")?;
             self.expect(Token::LParen, "'(' after the method name")?;
             let args = self.parse_args()?;
-            ExprKind::SuperCall {
+            ExprKind::SuperCall(SuperCall {
                 name,
                 name_span,
                 args,
                 target: None,
-            }
+            })
         };
         Ok(Expr {
             kind,

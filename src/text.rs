@@ -14,6 +14,7 @@ impl Text {
         Text { text, chars }
     }
 
+    /// Returns the text as a Rust string.
     pub fn as_str(&self) -> &str {
         &self.text
     }
