@@ -87,8 +87,14 @@ impl ClassMembers {
             }
         };
         self.table[slot] = signature.index;
-        self.methods
-            .insert(name.clone(), MethodInfo { slot, signature });
+        self.methods.insert(
+            name.clone(),
+            MethodInfo {
+                slot,
+                signature,
+                is_abstract: method.is_abstract,
+            },
+        );
         self.add_member(name, method.visibility, MemberKind::Method);
         Ok(())
     }

@@ -1,0 +1,3 @@
+class Tier {
+    abstract laut(): string;
+}

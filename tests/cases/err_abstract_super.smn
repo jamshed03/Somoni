@@ -1,0 +1,8 @@
+abstract class Tier {
+    abstract laut(): string;
+}
+class Hund extends Tier {
+    override laut(): string {
+        return super.laut();
+    }
+}

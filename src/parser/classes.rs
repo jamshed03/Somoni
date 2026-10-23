@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    CONSTRUCTOR, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Method, Stmt,
-    Visibility,
+    CONSTRUCTOR, ClassDecl, ClassField, ClassLayout, ClassPlan, Constructor, Function, Method,
+    Stmt, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -20,15 +20,38 @@ struct ClassBody {
     methods: Vec<Method>,
 }
 
-/// The words in front of a member: its visibility, `static` and `readonly` with their places, and `override`.
+/// The words in front of a member: its visibility, `static`, `abstract` and `readonly` with their places, and `override`.
 struct Modifiers {
     visibility: Visibility,
     is_static: Option<Span>,
+    is_abstract: Option<Span>,
     readonly: Option<Span>,
     is_override: bool,
 }
 
 impl Modifiers {
+    /// Returns P016, P017, P018 or P015 if these words do not fit a method of a class that is `in_abstract_class` or not.
+    fn check_method(&self, in_abstract_class: bool) -> Result<(), SomoniError> {
+        if self.is_override {
+            self.forbid_static()?;
+            self.forbid_abstract()?;
+        }
+        if self.is_static.is_some() || !in_abstract_class {
+            self.forbid_abstract()?;
+        }
+        if let Some(span) = self.is_abstract
+            && self.visibility == Visibility::Private
+        {
+            return Err(SomoniError::at(span, ErrorCode::PrivateAbstract));
+        }
+        self.forbid_readonly()
+    }
+
+    /// Returns P017 if `abstract` stands in front of a member where it is not allowed.
+    fn forbid_abstract(&self) -> Result<(), SomoniError> {
+        forbid(self.is_abstract, ErrorCode::AbstractNotAllowed)
+    }
+
     /// Returns P015 if `readonly` stands in front of a member that is no field.
     fn forbid_readonly(&self) -> Result<(), SomoniError> {
         forbid(self.readonly, ErrorCode::ReadonlyNotAllowed)
@@ -56,7 +79,7 @@ impl Parser {
         let (name, name_span) = self.expect_ident("class name")?;
         let extends = self.parse_extends()?;
         let implements = self.parse_implements()?;
-        let body = self.parse_class_body()?;
+        let body = self.parse_class_body(is_abstract)?;
         let layout = ClassLayout {
             name,
             fields: body.fields.iter().map(|f| f.field.name.clone()).collect(),
@@ -91,47 +114,52 @@ impl Parser {
         self.parse_names("interface name after 'implements'")
     }
 
-    /// Reads the `{ ... }` of a class.
-    fn parse_class_body(&mut self) -> Result<ClassBody, SomoniError> {
+    /// Reads the `{ ... }` of a class, which may have abstract methods if it `is_abstract`.
+    fn parse_class_body(&mut self, is_abstract: bool) -> Result<ClassBody, SomoniError> {
         let open = self.current_span();
         self.expect(Token::LBrace, "'{' after class name")?;
         let mut body = ClassBody::default();
-        self.parse_until_brace(open, |this| this.parse_class_member(&mut body))?;
+        self.parse_until_brace(open, |this| this.parse_class_member(&mut body, is_abstract))?;
         Ok(body)
     }
 
     /// Reads one field, the constructor or one method of a class into `body`.
-    fn parse_class_member(&mut self, body: &mut ClassBody) -> Result<(), SomoniError> {
+    fn parse_class_member(
+        &mut self,
+        body: &mut ClassBody,
+        in_abstract_class: bool,
+    ) -> Result<(), SomoniError> {
         let modifiers = self.parse_modifiers()?;
         if self.at_word(CONSTRUCTOR) {
             modifiers.forbid_static()?;
+            modifiers.forbid_abstract()?;
             modifiers.forbid_readonly()?;
             return self.parse_class_constructor(modifiers.visibility, body);
         }
         if let Token::Ident(name) = self.peek().clone()
             && *self.peek_next() == Token::LParen
         {
-            if modifiers.is_override {
-                modifiers.forbid_static()?;
-            }
-            modifiers.forbid_readonly()?;
+            modifiers.check_method(in_abstract_class)?;
             body.methods.push(self.parse_method(name, &modifiers)?);
             return Ok(());
         }
         modifiers.forbid_static()?;
+        modifiers.forbid_abstract()?;
         body.fields.push(self.parse_class_field(&modifiers)?);
         Ok(())
     }
 
-    /// Reads the visibility, `static`, `readonly` and `override` in front of a member, in this order.
+    /// Reads the visibility, `static`, `abstract`, `readonly` and `override` in front of a member, in this order.
     fn parse_modifiers(&mut self) -> Result<Modifiers, SomoniError> {
         let visibility = self.parse_visibility()?;
         let is_static = self.eat_word_at(Token::Static);
+        let is_abstract = self.eat_word_at(Token::Abstract);
         let readonly = self.eat_word_at(Token::Readonly);
         let is_override = self.eat(Token::Override);
         Ok(Modifiers {
             visibility,
             is_static,
+            is_abstract,
             readonly,
             is_override,
         })
@@ -143,16 +171,45 @@ impl Parser {
         self.eat(token).then_some(span)
     }
 
-    /// Reads a method `name(a: int): type { ... }` whose name is the current token.
+    /// Reads a method `name(a: int): type { ... }` whose name is the current token, without a body if it is abstract.
     fn parse_method(&mut self, name: String, modifiers: &Modifiers) -> Result<Method, SomoniError> {
         let name_span = self.current_span();
         self.advance();
-        let function = self.parse_function_rest(false, name, name_span)?;
+        let is_abstract = modifiers.is_abstract.is_some();
+        let function = if is_abstract {
+            self.parse_abstract_rest(name, name_span)?
+        } else {
+            self.parse_function_rest(false, name, name_span)?
+        };
         Ok(Method {
             visibility: modifiers.visibility,
             is_static: modifiers.is_static.is_some(),
+            is_abstract,
             is_override: modifiers.is_override,
             function,
+        })
+    }
+
+    /// Reads the part of an abstract method after its name, `(a: int): type;`, which has no body.
+    fn parse_abstract_rest(
+        &mut self,
+        name: String,
+        name_span: Span,
+    ) -> Result<Function, SomoniError> {
+        self.expect(Token::LParen, "'(' after method name")?;
+        let params = self.parse_params()?;
+        let return_type = self.parse_return_type()?;
+        self.expect(
+            Token::Semicolon,
+            "';' after an abstract method (it has no body)",
+        )?;
+        Ok(Function {
+            exported: false,
+            name,
+            name_span,
+            params,
+            return_type,
+            body: Vec::new(),
         })
     }
 

@@ -468,13 +468,20 @@ impl TypeChecker {
         Ok(Type::Void)
     }
 
-    /// Checks `super.name(args)`.
+    /// Checks `super.name(args)`, or returns T078 for an abstract method.
     fn check_super_call(&mut self, call: &mut SuperCall, span: Span) -> Result<Type, SomoniError> {
         let parent = self.current_parent(span)?;
         let info = self.class_info(&parent)?;
         let Some(method) = info.methods.get(&call.name).cloned() else {
             return Err(unknown_method(&parent.name, &call.name, call.name_span));
         };
+        if method.is_abstract {
+            let code = ErrorCode::AbstractSuper {
+                class: parent.name.clone(),
+                name: call.name.clone(),
+            };
+            return Err(SomoniError::at(call.name_span, code));
+        }
         call.target = Some(info.method_table[method.slot]);
         self.check_access(&parent, &call.name, call.name_span)?;
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;

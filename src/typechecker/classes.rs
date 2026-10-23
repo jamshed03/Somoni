@@ -165,6 +165,7 @@ impl TypeChecker {
         for (method, signature) in statics {
             built.add_static(method, signature)?;
         }
+        check_no_abstract_left(class, &built)?;
         let implements = self.all_interfaces(class, &built, parent.as_ref())?;
         let mut vtables = Vec::new();
         for interface in &implements {
@@ -305,7 +306,7 @@ impl TypeChecker {
         layout: &Decl<ClassLayout>,
         info: &ClassInfo,
     ) -> Result<(), SomoniError> {
-        for method in &mut class.methods {
+        for method in class.methods.iter_mut().filter(|m| !m.is_abstract) {
             let signature = method_signature(info, method)?;
             self.check_method(method, layout, signature)?;
         }
@@ -437,6 +438,32 @@ fn method_signature<'a>(
         info.methods.get(name).map(|m| &m.signature)
     };
     signature.ok_or_else(|| SomoniError::internal("method without signature"))
+}
+
+/// Returns T077 for the first abstract method that a class which is not abstract inherits without overriding it.
+fn check_no_abstract_left(class: &ClassDecl, built: &ClassMembers) -> Result<(), SomoniError> {
+    if class.is_abstract {
+        return Ok(());
+    }
+    let left = built
+        .methods
+        .iter()
+        .filter(|(_, method)| method.is_abstract)
+        .min_by_key(|(_, method)| method.slot);
+    let Some((name, _)) = left else {
+        return Ok(());
+    };
+    let owner = built
+        .members
+        .get(name)
+        .map_or_else(String::new, |member| member.owner.name.clone());
+    Err(SomoniError::at(
+        class.name_span,
+        ErrorCode::AbstractNotOverridden {
+            class: owner,
+            method: name.clone(),
+        },
+    ))
 }
 
 /// Returns T058 if a class extends a class whose constructor is private.

@@ -1,0 +1,3 @@
+Parse error [P001]: Line 2: expected ';' after an abstract method (it has no body)
+  2 |     abstract laut(): string {
+    |                            ^

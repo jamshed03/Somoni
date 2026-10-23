@@ -1,0 +1,50 @@
+// abstract methods have no body, every class that is not abstract overrides them
+interface Benannt {
+    name(): string;
+}
+
+abstract class Tier implements Benannt {
+    abstract laut(): string;
+    protected abstract beine(): int;
+
+    beschreibung(): string {
+        return this.name() + " sagt " + this.laut() + " auf " + string(this.beine()) + " Beinen";
+    }
+
+    name(): string {
+        return "Tier";
+    }
+}
+
+abstract class Vierbeiner extends Tier {
+    protected override beine(): int {
+        return 4;
+    }
+}
+
+class Hund extends Vierbeiner {
+    override laut(): string {
+        return "Wuff";
+    }
+
+    override name(): string {
+        return "Hund";
+    }
+}
+
+class Vogel extends Tier {
+    override laut(): string {
+        return "Piep";
+    }
+
+    protected override beine(): int {
+        return 2;
+    }
+}
+
+var tiere: list<Tier> = [new Hund(), new Vogel()];
+for (t: Tier in tiere) {
+    print(t.beschreibung());
+}
+var b: Benannt = new Hund();
+print(b.name());

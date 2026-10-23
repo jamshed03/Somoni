@@ -1,0 +1,25 @@
+// an abstract class fulfils an interface with an abstract method, its subclass has the body
+interface Form {
+    flaeche(): int;
+}
+
+abstract class Basis implements Form {
+    abstract flaeche(): int;
+
+    doppelt(): int {
+        return this.flaeche() * 2;
+    }
+}
+
+class Quadrat extends Basis {
+    seite: int = 3;
+
+    override flaeche(): int {
+        return this.seite * this.seite;
+    }
+}
+
+var f: Form = new Quadrat();
+print(f.flaeche());
+var b: Basis = new Quadrat();
+print(b.doppelt());

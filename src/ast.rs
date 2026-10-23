@@ -558,6 +558,8 @@ impl Visibility {
 pub struct Method {
     pub visibility: Visibility,
     pub is_static: bool,
+    /// True for `abstract laut(): string;`, whose body is empty.
+    pub is_abstract: bool,
     pub is_override: bool,
     pub function: Function,
 }

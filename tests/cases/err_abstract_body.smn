@@ -1,0 +1,5 @@
+abstract class Tier {
+    abstract laut(): string {
+        return "";
+    }
+}

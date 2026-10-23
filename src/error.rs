@@ -63,6 +63,8 @@ pub enum ErrorCode {
     InterfaceNotTopLevel,
     ReadonlyNotAllowed,
     StaticNotAllowed,
+    AbstractNotAllowed,
+    PrivateAbstract,
 
     // loader and imports
     CannotReadFile {
@@ -314,6 +316,14 @@ pub enum ErrorCode {
     AbstractNew {
         name: String,
     },
+    AbstractNotOverridden {
+        class: String,
+        method: String,
+    },
+    AbstractSuper {
+        class: String,
+        name: String,
+    },
     StaticOnObject {
         class: String,
         name: String,
@@ -373,6 +383,8 @@ impl ErrorCode {
             ErrorCode::InterfaceNotTopLevel => "P014",
             ErrorCode::ReadonlyNotAllowed => "P015",
             ErrorCode::StaticNotAllowed => "P016",
+            ErrorCode::AbstractNotAllowed => "P017",
+            ErrorCode::PrivateAbstract => "P018",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -458,6 +470,8 @@ impl ErrorCode {
             ErrorCode::NotStatic { .. } => "T074",
             ErrorCode::StaticOnObject { .. } => "T075",
             ErrorCode::AbstractNew { .. } => "T076",
+            ErrorCode::AbstractNotOverridden { .. } => "T077",
+            ErrorCode::AbstractSuper { .. } => "T078",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -511,6 +525,10 @@ impl ErrorCode {
             ErrorCode::DuplicateConstructor => "a class can only have one constructor".to_string(),
             ErrorCode::InterfaceNotTopLevel => {
                 "interfaces can only be declared at the top level".to_string()
+            }
+            ErrorCode::AbstractNotAllowed => "'abstract' is only allowed before a class and before methods of an abstract class without 'static' or 'override'".to_string(),
+            ErrorCode::PrivateAbstract => {
+                "an abstract method cannot be private, because subclasses must override it".to_string()
             }
             ErrorCode::StaticNotAllowed => {
                 "'static' is only allowed before a method without 'override'".to_string()
@@ -771,6 +789,14 @@ impl ErrorCode {
                     name, class
                 )
             }
+            ErrorCode::AbstractNotOverridden { class, method } => format!(
+                "'{}' of '{}' is abstract and must be overridden here",
+                method, class
+            ),
+            ErrorCode::AbstractSuper { class, name } => format!(
+                "'{}' is abstract in '{}' and has no body to call with 'super'",
+                name, class
+            ),
             ErrorCode::AbstractNew { name } => format!(
                 "'{}' is abstract and has no objects, create one of a subclass",
                 name

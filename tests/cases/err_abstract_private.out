@@ -1,0 +1,3 @@
+Parse error [P018]: Line 2: an abstract method cannot be private, because subclasses must override it
+  2 |     private abstract laut(): string;
+    |             ^^^^^^^^

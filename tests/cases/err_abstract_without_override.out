@@ -1,0 +1,3 @@
+Type error [T066]: Line 5: 'laut' is inherited from 'Tier', write 'override' in front to replace it
+  5 |     laut(): string {
+    |     ^^^^

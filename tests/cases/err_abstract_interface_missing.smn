@@ -1,0 +1,5 @@
+interface Form {
+    flaeche(): int;
+}
+abstract class Basis implements Form {
+}

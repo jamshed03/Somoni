@@ -129,6 +129,7 @@ struct StaticMethod {
 struct MethodInfo {
     slot: usize,
     signature: Signature,
+    is_abstract: bool,
 }
 
 /// The number of an interface and its methods in order.

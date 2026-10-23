@@ -1,0 +1,3 @@
+Parse error [P017]: Line 2: 'abstract' is only allowed before a class and before methods of an abstract class without 'static' or 'override'
+  2 |     abstract name: string;
+    |     ^^^^^^^^
