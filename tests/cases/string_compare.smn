@@ -1,0 +1,18 @@
+// strings compare by character code, like Rust, PHP strcmp and JavaScript
+print("Anna" < "Bert");
+print("Bert" > "Anna");
+print("Anna" <= "Anna");
+print("Anna" >= "Anne");
+print("Z" < "a");
+print("z" < "ä");
+print("" < "a");
+print("ab" < "abc");
+
+var namen: list<string> = ["Cem", "Ali", "Bea"];
+var kleinster: string = namen[0];
+for (n: string in namen) {
+    if (n < kleinster) {
+        kleinster = n;
+    }
+}
+print(kleinster);

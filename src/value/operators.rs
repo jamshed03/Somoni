@@ -93,11 +93,12 @@ fn compare(op: BinaryOp, l: &Value, r: &Value) -> Option<bool> {
         (BinaryOp::NotEq, _, _) => Some(l != r),
         (_, Value::Int(a), Value::Int(b)) => order(op, a, b),
         (_, Value::Float(a), Value::Float(b)) => order(op, a, b),
+        (_, Value::Str(a), Value::Str(b)) => order(op, a.as_str(), b.as_str()),
         _ => None,
     }
 }
 
-/// Computes `< > <= >=` for two numbers, or None for other operators.
+/// Computes `< > <= >=` for two numbers or strings (by character code), or None for other operators.
 fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
     match op {
         BinaryOp::Less => Some(a < b),

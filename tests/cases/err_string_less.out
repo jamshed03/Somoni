@@ -1,3 +1,0 @@
-Type error [T007]: Line 1: operator not allowed for string
-  1 | print("a" < "b");
-    |           ^
