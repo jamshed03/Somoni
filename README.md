@@ -51,7 +51,7 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 
 ## Status
 
-Version 0.5.0: the core of the language plus lists, structs, optional types, maps, enums and results, compiled to bytecode and run in a VM:
+Version 0.6.0: the core of the language plus lists, structs, optional types, maps, enums, results, tuples, classes, modules, function values and lambdas, compiled to bytecode and run in a VM:
 
 -   Types `int`, `float`, `bool`, `string`; `var` and `const`; assignment; `print`; a top-level `const` is visible in functions and methods
 -   Operators `+ - * / %`, `== != < > <= >=` (also for strings), `&& || !` (short-circuit), unary `-`; `+= -= *= /= %=`, `i++` and `i--` as statements
