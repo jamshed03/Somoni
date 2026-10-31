@@ -1,0 +1,139 @@
+// Turns a text like "2 + 3 * 4" into a tree of nodes, with precedence and brackets.
+
+import { Operation, OperationFactory, Subtract } from "operations.smn";
+
+// One part of the tree: a number or an operation on two parts.
+export interface Node {
+    evaluate(): result<float, string>;
+    show(): string;
+}
+
+class NumberNode implements Node {
+    private value: float;
+
+    constructor(value: float) {
+        this.value = value;
+    }
+
+    evaluate(): result<float, string> {
+        return ok(this.value);
+    }
+
+    show(): string {
+        return string(this.value);
+    }
+}
+
+class OperationNode implements Node {
+    private operation: Operation;
+    private left: Node;
+    private right: Node;
+
+    constructor(operation: Operation, left: Node, right: Node) {
+        this.operation = operation;
+        this.left = left;
+        this.right = right;
+    }
+
+    evaluate(): result<float, string> {
+        var a: float = this.left.evaluate()?;
+        var b: float = this.right.evaluate()?;
+        return this.operation.apply(a, b);
+    }
+
+    show(): string {
+        return "(" + this.left.show() + " " + this.operation.symbol() + " " + this.right.show() + ")";
+    }
+}
+
+// Splits "12+3.5*(2-1)" into ["12", "+", "3.5", "*", "(", "2", "-", "1", ")"].
+export fn tokenize(text: string): result<list<string>, string> {
+    var tokens: list<string> = [];
+    var number: string = "";
+    for (c: string in text) {
+        if ("0123456789.".contains(c)) {
+            number += c;
+            continue;
+        }
+        if (number != "") {
+            tokens += [number];
+            number = "";
+        }
+        if (c == " ") {
+            continue;
+        }
+        if (!OperationFactory::is_operator(c) && c != "(" && c != ")") {
+            return err("unbekanntes Zeichen '" + c + "'");
+        }
+        tokens += [c];
+    }
+    if (number != "") {
+        tokens += [number];
+    }
+    return ok(tokens);
+}
+
+// Reads the tokens with precedence climbing: an operator only takes the right side if it binds at least as strongly.
+export class Parser {
+    private tokens: list<string>;
+    private pos: int;
+
+    constructor(tokens: list<string>) {
+        this.tokens = tokens;
+        this.pos = 0;
+    }
+
+    parse(): result<Node, string> {
+        var tree: Node = this.expression(1)?;
+        if (this.pos < len(this.tokens)) {
+            return err("unerwartet: '" + this.tokens[this.pos] + "'");
+        }
+        return ok(tree);
+    }
+
+    private expression(min_level: int): result<Node, string> {
+        var left: Node = this.primary()?;
+        while (this.pos < len(this.tokens) && OperationFactory::is_operator(this.tokens[this.pos])) {
+            var operation: Operation = OperationFactory::create(this.tokens[this.pos])?;
+            if (operation.precedence() < min_level) {
+                break;
+            }
+            this.pos++;
+            var next_level: int = operation.precedence() + 1;
+            if (operation.right_associative()) {
+                next_level = operation.precedence();
+            }
+            var right: Node = this.expression(next_level)?;
+            left = new OperationNode(operation, left, right);
+        }
+        return ok(left);
+    }
+
+    private primary(): result<Node, string> {
+        if (this.pos >= len(this.tokens)) {
+            return err("am Ende fehlt eine Zahl");
+        }
+        var token: string = this.tokens[this.pos];
+        this.pos++;
+        if (token == "(") {
+            var inner: Node = this.expression(1)?;
+            if (this.pos >= len(this.tokens) || this.tokens[this.pos] != ")") {
+                return err("')' fehlt");
+            }
+            this.pos++;
+            return ok(inner);
+        }
+        if (token == "-") {
+            var value: Node = this.primary()?;
+            return ok(new OperationNode(new Subtract(), new NumberNode(0.0), value));
+        }
+        match (float(token)) {
+            ok(n: float) => {
+                return ok(new NumberNode(n));
+            }
+            err(_reason: string) => {
+                return err("keine Zahl: '" + token + "'");
+            }
+        }
+    }
+}

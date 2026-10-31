@@ -1,0 +1,123 @@
+// The tiles of the robot game: an enum, an interface, an abstract base class, five kinds of tiles and a factory.
+
+// What happens when the robot steps onto a tile.
+export enum Effect {
+    Nothing,
+    Collect,
+    Hurt,
+    Finish
+}
+
+export interface Tile {
+    symbol(): string;
+    can_enter(): bool;
+    enter(): Effect;
+}
+
+// A tile the robot can step on; it counts the visits, the subclasses say how it looks and what it does.
+export abstract class OpenTile implements Tile {
+    protected visits: int = 0;
+
+    can_enter(): bool {
+        return true;
+    }
+
+    enter(): Effect {
+        this.visits++;
+        return this.react();
+    }
+
+    abstract symbol(): string;
+
+    protected abstract react(): Effect;
+}
+
+export class Floor extends OpenTile {
+    override symbol(): string {
+        return ".";
+    }
+
+    protected override react(): Effect {
+        return Effect.Nothing;
+    }
+}
+
+// Dirt is collected on the first visit and is floor afterwards.
+export class Dirt extends OpenTile {
+    private clean: bool = false;
+
+    override symbol(): string {
+        if (this.clean) {
+            return ".";
+        }
+        return "*";
+    }
+
+    protected override react(): Effect {
+        if (this.clean) {
+            return Effect.Nothing;
+        }
+        this.clean = true;
+        return Effect.Collect;
+    }
+}
+
+export class Trap extends OpenTile {
+    override symbol(): string {
+        return "^";
+    }
+
+    protected override react(): Effect {
+        return Effect.Hurt;
+    }
+}
+
+export class Exit extends OpenTile {
+    override symbol(): string {
+        return "E";
+    }
+
+    protected override react(): Effect {
+        return Effect.Finish;
+    }
+}
+
+// A wall implements the interface directly, without the base class.
+export class Wall implements Tile {
+    symbol(): string {
+        return "#";
+    }
+
+    can_enter(): bool {
+        return false;
+    }
+
+    enter(): Effect {
+        return Effect.Nothing;
+    }
+}
+
+// The factory: makes the tile for a sign of the map; "R" is floor where the robot starts.
+export class TileFactory {
+    private constructor() {
+    }
+
+    static create(sign: string): result<Tile, string> {
+        if (sign == "." || sign == "R") {
+            return ok(new Floor());
+        }
+        if (sign == "#") {
+            return ok(new Wall());
+        }
+        if (sign == "*") {
+            return ok(new Dirt());
+        }
+        if (sign == "^") {
+            return ok(new Trap());
+        }
+        if (sign == "E") {
+            return ok(new Exit());
+        }
+        return err("unbekanntes Feld '" + sign + "'");
+    }
+}

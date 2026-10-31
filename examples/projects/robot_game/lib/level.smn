@@ -1,0 +1,59 @@
+// A level of the robot game: a grid of tiles, built from rows of signs by a static factory method.
+
+import { Tile, TileFactory } from "tiles.smn";
+
+export class Level {
+    private rows: list<list<Tile>>;
+    readonly start: (int, int);
+
+    private constructor(rows: list<list<Tile>>, start: (int, int)) {
+        this.rows = rows;
+        this.start = start;
+    }
+
+    // Builds a level from rows like "#R.*#"; "R" marks where the robot starts.
+    static parse(lines: list<string>): result<Level, string> {
+        var rows: list<list<Tile>> = [];
+        var start: (int, int)? = null;
+        for (var y: int = 0; y < len(lines); y++) {
+            var row: list<Tile> = [];
+            var signs: list<string> = lines[y].split("");
+            for (var x: int = 0; x < len(signs); x++) {
+                if (signs[x] == "R") {
+                    start = (x, y);
+                }
+                row += [TileFactory::create(signs[x])?];
+            }
+            rows += [row];
+        }
+        if (start == null) {
+            return err("die Karte hat kein Startfeld 'R'");
+        }
+        return ok(new Level(rows, start));
+    }
+
+    // Returns the tile at x, y, or null outside the level.
+    tile_at(x: int, y: int): Tile? {
+        if (y < 0 || y >= len(this.rows) || x < 0 || x >= len(this.rows[y])) {
+            return null;
+        }
+        return this.rows[y][x];
+    }
+
+    // Returns the level as text, with "R" where the robot stands.
+    render(robot: (int, int)): list<string> {
+        var lines: list<string> = [];
+        for (var y: int = 0; y < len(this.rows); y++) {
+            var line: string = "";
+            for (var x: int = 0; x < len(this.rows[y]); x++) {
+                if (x == robot.0 && y == robot.1) {
+                    line += "R";
+                } else {
+                    line += this.rows[y][x].symbol();
+                }
+            }
+            lines += [line];
+        }
+        return lines;
+    }
+}

@@ -1,0 +1,54 @@
+// A calculator for expressions like "2 + 3 * (4 - 1) ^ 2", built from classes in two imported files.
+
+import { Node, Parser, tokenize } from "lib/parser.smn";
+
+class Calculator {
+    private history: list<string>;
+
+    constructor() {
+        this.history = [];
+    }
+
+    calculate(text: string): result<float, string> {
+        var tokens: list<string> = tokenize(text)?;
+        var tree: Node = new Parser(tokens).parse()?;
+        var value: float = tree.evaluate()?;
+        this.history += [tree.show() + " = " + string(value)];
+        return ok(value);
+    }
+
+    entries(): list<string> {
+        return this.history;
+    }
+}
+
+var calculator: Calculator = new Calculator();
+var inputs: list<string> = [
+    "2 + 3 * 4",
+    "(2 + 3) * 4",
+    "2 ^ 3 ^ 2",
+    "10 / 4 - 1",
+    "-3 + 5",
+    "2 * (3 + (4 - 1)) / 3",
+    "1.5 * 4",
+    "7 / (2 - 2)",
+    "2 + * 3",
+    "(1 + 2",
+    "3 % 2",
+    "4 4"
+];
+for (input: string in inputs) {
+    match (calculator.calculate(input)) {
+        ok(value: float) => {
+            print(input + " = " + string(value));
+        }
+        err(message: string) => {
+            print(input + " -> Fehler: " + message);
+        }
+    }
+}
+
+print("Verlauf:");
+for (entry: string in calculator.entries()) {
+    print("  " + entry);
+}

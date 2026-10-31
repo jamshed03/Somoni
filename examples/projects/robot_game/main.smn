@@ -1,0 +1,164 @@
+// A robot drives over a level after a fixed list of commands: it collects dirt, avoids traps and looks for the exit.
+
+import { Effect, Tile } from "lib/tiles.smn";
+import * as level from "lib/level.smn";
+
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right
+}
+
+// Returns the direction for a command sign, a small factory for directions.
+fn direction_of(sign: string): result<Direction, string> {
+    if (sign == "U") {
+        return ok(Direction.Up);
+    }
+    if (sign == "D") {
+        return ok(Direction.Down);
+    }
+    if (sign == "L") {
+        return ok(Direction.Left);
+    }
+    if (sign == "R") {
+        return ok(Direction.Right);
+    }
+    return err("unbekannter Befehl '" + sign + "'");
+}
+
+// Returns how far one step in `direction` goes, as (dx, dy).
+fn step_of(direction: Direction): (int, int) {
+    match (direction) {
+        Direction.Up => {
+            return (0, -1);
+        }
+        Direction.Down => {
+            return (0, 1);
+        }
+        Direction.Left => {
+            return (-1, 0);
+        }
+        Direction.Right => {
+            return (1, 0);
+        }
+    }
+}
+
+class Robot {
+    x: int;
+    y: int;
+    energy: int = 12;
+    collected: int = 0;
+    finished: bool = false;
+
+    constructor(start: (int, int)) {
+        this.x = start.0;
+        this.y = start.1;
+    }
+
+    position(): (int, int) {
+        return (this.x, this.y);
+    }
+
+    can_go_on(): bool {
+        return !this.finished && this.energy > 0;
+    }
+}
+
+class Game {
+    private map: level.Level;
+    private robot: Robot;
+
+    constructor(map: level.Level) {
+        this.map = map;
+        this.robot = new Robot(map.start);
+    }
+
+    run(commands: string): void {
+        for (sign: string in commands) {
+            if (!this.robot.can_go_on()) {
+                break;
+            }
+            match (direction_of(sign)) {
+                ok(direction: Direction) => {
+                    this.move(direction);
+                }
+                err(message: string) => {
+                    print(message);
+                }
+            }
+        }
+    }
+
+    private move(direction: Direction): void {
+        var (dx: int, dy: int) = step_of(direction);
+        this.robot.energy--;
+        var tile: Tile? = this.map.tile_at(this.robot.x + dx, this.robot.y + dy);
+        if (tile == null || !tile.can_enter()) {
+            print("Rums, Wand bei " + string(this.robot.x + dx) + "," + string(this.robot.y + dy));
+            return;
+        }
+        this.robot.x += dx;
+        this.robot.y += dy;
+        match (tile.enter()) {
+            Effect.Nothing => {
+            }
+            Effect.Collect => {
+                this.robot.collected++;
+            }
+            Effect.Hurt => {
+                this.robot.energy -= 3;
+                print("Autsch, eine Falle");
+            }
+            Effect.Finish => {
+                this.robot.finished = true;
+            }
+        }
+    }
+
+    show(): void {
+        for (line: string in this.map.render(this.robot.position())) {
+            print(line);
+        }
+    }
+
+    report(): string {
+        var state: string = "kein Strom mehr";
+        if (this.robot.finished) {
+            state = "am Ausgang";
+        } else if (this.robot.energy > 0) {
+            state = "unterwegs";
+        }
+        return "Schmutz: " + string(this.robot.collected) + ", Energie: " + string(this.robot.energy) + ", " + state;
+    }
+}
+
+var lines: list<string> = [
+    "#######",
+    "#R.*.^#",
+    "#.#*#.#",
+    "#*...E#",
+    "#######"
+];
+match (level.Level::parse(lines)) {
+    ok(map: level.Level) => {
+        var game: Game = new Game(map);
+        game.show();
+        game.run("RRUDDLLDRRRXRR");
+        print("");
+        game.show();
+        print(game.report());
+    }
+    err(message: string) => {
+        print("Karte kaputt: " + message);
+    }
+}
+
+match (level.Level::parse(["#?#"])) {
+    ok(_map: level.Level) => {
+    }
+    err(message: string) => {
+        print("Karte kaputt: " + message);
+    }
+}
