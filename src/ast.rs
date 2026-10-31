@@ -76,6 +76,8 @@ pub enum ExprKind {
     },
     /// `callee(args)` where `callee` is a function value, e.g. `f(3)` for a variable `f` or `l[0](3)`.
     CallValue(CallValue),
+    /// `fn(x: int): int => x * 2` or `fn(x: int): int { ... }`, a function without a name.
+    Lambda(Box<Lambda>),
     /// A `const` of the top level read in a function, which the type checker makes from a name.
     Constant {
         name: String,
@@ -131,6 +133,14 @@ pub struct SuperCall {
     pub args: Vec<Expr>,
     /// Filled in by the type checker: the function of that method.
     pub target: Option<usize>,
+}
+
+/// A lambda: a function like any other, and its number in the lambdas of the program.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lambda {
+    pub function: Function,
+    /// Filled in by the type checker.
+    pub index: Option<usize>,
 }
 
 /// `callee(args)`, a call of a function value.
@@ -199,6 +209,7 @@ impl Expr {
             ExprKind::Try(value) => value.find_this(),
             ExprKind::FunctionRef { .. } => None,
             ExprKind::CallValue(call) => call.callee.find_this().or_else(|| first_this(&call.args)),
+            ExprKind::Lambda(_) => None,
         }
     }
 
@@ -652,6 +663,9 @@ pub struct Constructor {
     pub body: Vec<Stmt>,
     pub span: Span,
 }
+
+/// The name of every lambda in messages, e.g. "function 'lambda' must return int".
+pub const LAMBDA: &str = "lambda";
 
 /// The name under which a function type like `fn(int): bool` is kept in a `TypeName`.
 pub const FN_TYPE: &str = "fn";

@@ -1,0 +1,5 @@
+var f: fn(int): int = fn(x: int): int {
+    if (x > 0) {
+        return x;
+    }
+};

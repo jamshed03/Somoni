@@ -405,7 +405,8 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::Bool(_)
         | ExprKind::Null
         | ExprKind::EnumValue { .. }
-        | ExprKind::FunctionRef { .. } => true,
+        | ExprKind::FunctionRef { .. }
+        | ExprKind::Lambda(_) => true,
         ExprKind::Constant { .. } => false,
         ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
         ExprKind::Unary { operand, .. } => is_fixed_value(operand),

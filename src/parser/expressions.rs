@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Call, CallValue, Expr, ExprKind, FieldInit, InstanceOf, MethodCall, New,
-    StaticAccess, StaticCall, SuperCall, THIS, UnaryOp,
+    BinaryOp, Call, CallValue, Expr, ExprKind, FieldInit, Function, InstanceOf, LAMBDA, Lambda,
+    MethodCall, New, StaticAccess, StaticCall, Stmt, SuperCall, THIS, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -160,7 +160,37 @@ impl Parser {
         }))
     }
 
-    /// Reads a value, a name, a call, a literal, `new`, `super` or `( ... )`.
+    /// Reads `fn(x: int): int => x * 2` or `fn(x: int): int { ... }`; the short form becomes `{ return x * 2; }`.
+    fn parse_lambda(&mut self, start: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        self.expect(Token::LParen, "'(' after 'fn'")?;
+        let params = self.parse_params()?;
+        let return_type = self.parse_return_type()?;
+        let body = if self.eat(Token::FatArrow) {
+            let value = self.parse_expr()?;
+            vec![Stmt::Return {
+                span: value.span,
+                value: Some(value),
+            }]
+        } else {
+            self.expect_block_stmts("or '=>' after the lambda header")?
+        };
+        let function = Function {
+            exported: false,
+            name: LAMBDA.to_string(),
+            name_span: start,
+            params,
+            return_type,
+            body,
+        };
+        let lambda = Lambda {
+            function,
+            index: None,
+        };
+        Ok(self.expr_since(ExprKind::Lambda(Box::new(lambda)), start))
+    }
+
+    /// Reads a value, a name, a call, a literal, `new`, `super`, a lambda or `( ... )`.
     fn parse_primary(&mut self) -> Result<Expr, SomoniError> {
         let span = self.current_span();
         let kind = match self.peek().clone() {
@@ -185,6 +215,7 @@ impl Parser {
                 slot: None,
             },
             Token::New => return self.parse_new(span),
+            Token::Fn => return self.parse_lambda(span),
             Token::Super => return self.parse_super(span),
             Token::LBracket => return self.parse_list(span),
             Token::LBrace => return self.parse_map(span),

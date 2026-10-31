@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use crate::ast::{
     self, Assign, BinaryOp, Call, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr,
-    ExprKind, FieldInit, ForEach, Function, IterKind, Match, MethodCall, MethodTarget, Pattern,
-    Stmt, VarDecl,
+    ExprKind, FieldInit, ForEach, Function, IterKind, Lambda, Match, MethodCall, MethodTarget,
+    Pattern, Stmt, VarDecl,
 };
 use crate::bytecode::{Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::SomoniError;
@@ -16,19 +16,41 @@ const THIS_SLOT: usize = 0;
 
 /// Turns a checked program into bytecode, file by file in `order` like the type checker.
 pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniError> {
+    let mut lambdas = Vec::new();
     let mut program = Program {
-        main: compile_main(files, order)?,
+        main: compile_main(files, order, &mut lambdas)?,
         globals: global_names(files, order),
         ..Program::default()
     };
     for &number in order {
-        add_file(&mut program, &files[number].stmts)?;
+        add_file(&mut program, &files[number].stmts, &mut lambdas)?;
     }
+    program.lambdas = in_number_order(lambdas)?;
     Ok(program)
 }
 
+/// The compiled lambdas with their numbers, collected while the chunks around them are compiled.
+type Lambdas = Vec<(usize, Chunk)>;
+
+/// Puts the compiled lambdas in the order of their numbers, so that number `i` is at place `i`.
+fn in_number_order(mut lambdas: Lambdas) -> Result<Vec<Chunk>, SomoniError> {
+    lambdas.sort_by_key(|(index, _)| *index);
+    lambdas
+        .into_iter()
+        .enumerate()
+        .map(|(place, (index, chunk))| match place == index {
+            true => Ok(chunk),
+            false => Err(SomoniError::internal("lambda numbers have a gap")),
+        })
+        .collect()
+}
+
 /// Compiles the start values of all static fields and then the top-level code of the main file.
-fn compile_main(files: &[SourceFile], order: &[usize]) -> Result<Chunk, SomoniError> {
+fn compile_main(
+    files: &[SourceFile],
+    order: &[usize],
+    lambdas: &mut Lambdas,
+) -> Result<Chunk, SomoniError> {
     let main = filled(files.first(), "main file")?;
     let mut compiler = Compiler::new("program".to_string(), 0);
     for (_, field, global) in static_fields(files, order) {
@@ -42,7 +64,7 @@ fn compile_main(files: &[SourceFile], order: &[usize]) -> Result<Chunk, SomoniEr
         }
     }
     compiler.compile_stmts(&main.stmts)?;
-    Ok(compiler.chunk)
+    Ok(compiler.finish(lambdas))
 }
 
 /// Returns the name of each global by its number, `Class::field` or the name of a constant.
@@ -91,24 +113,32 @@ fn static_fields<'a>(
 }
 
 /// Adds the interfaces, functions, classes and structs of one file to the program.
-fn add_file(program: &mut Program, stmts: &[Stmt]) -> Result<(), SomoniError> {
+fn add_file(
+    program: &mut Program,
+    stmts: &[Stmt],
+    lambdas: &mut Lambdas,
+) -> Result<(), SomoniError> {
     let interfaces = ast::interfaces(stmts).map(|decl| Rc::clone(&decl.layout));
     program.interfaces.extend(interfaces);
     for function in ast::functions(stmts) {
         let name = format!("fn {}", function.name);
-        let chunk = compile_function(function, name, function.params.len())?;
+        let chunk = compile_function(function, name, function.params.len(), lambdas)?;
         program.functions.push(chunk);
     }
     for class in ast::classes(stmts) {
-        add_class(program, class)?;
+        add_class(program, class, lambdas)?;
     }
     program.structs.extend(ast::structs(stmts).cloned());
     Ok(())
 }
 
 /// Adds the `init`, the methods and the class code of one class to the program.
-fn add_class(program: &mut Program, class: &ClassDecl) -> Result<(), SomoniError> {
-    program.functions.push(compile_init(class)?);
+fn add_class(
+    program: &mut Program,
+    class: &ClassDecl,
+    lambdas: &mut Lambdas,
+) -> Result<(), SomoniError> {
+    program.functions.push(compile_init(class, lambdas)?);
     for method in &class.methods {
         let function = &method.function;
         let name = format!("{}.{}", class.layout.name, function.name);
@@ -119,7 +149,7 @@ fn add_class(program: &mut Program, class: &ClassDecl) -> Result<(), SomoniError
         };
         program
             .functions
-            .push(compile_function(function, name, params)?);
+            .push(compile_function(function, name, params, lambdas)?);
     }
     program.classes.push(class_code(class));
     Ok(())
@@ -140,7 +170,7 @@ fn class_code(class: &ClassDecl) -> ClassCode {
 }
 
 /// Compiles `init Name`, which sets up a new object and returns `this`.
-fn compile_init(class: &ClassDecl) -> Result<Chunk, SomoniError> {
+fn compile_init(class: &ClassDecl, lambdas: &mut Lambdas) -> Result<Chunk, SomoniError> {
     let name = format!("init {}", class.layout.name);
     let mut compiler = Compiler {
         returns_this: true,
@@ -153,7 +183,7 @@ fn compile_init(class: &ClassDecl) -> Result<Chunk, SomoniError> {
         .chunk
         .push(Op::GetLocal(THIS_SLOT), class.name_span);
     compiler.chunk.push(Op::Return, class.name_span);
-    Ok(compiler.chunk)
+    Ok(compiler.finish(lambdas))
 }
 
 /// Compiles a function or method that returns `void` when it reaches its end.
@@ -161,12 +191,11 @@ fn compile_function(
     function: &Function,
     name: String,
     params: usize,
+    lambdas: &mut Lambdas,
 ) -> Result<Chunk, SomoniError> {
     let mut compiler = Compiler::new(name, params);
-    compiler.compile_stmts(&function.body)?;
-    compiler.push_constant(Value::Void, function.name_span);
-    compiler.chunk.push(Op::Return, function.name_span);
-    Ok(compiler.chunk)
+    compiler.compile_body(function)?;
+    Ok(compiler.finish(lambdas))
 }
 
 /// Returns the number of values with `this` in front of `count` others.
@@ -183,6 +212,8 @@ fn filled<T>(value: Option<T>, what: &str) -> Result<T, SomoniError> {
 #[derive(Default)]
 struct Compiler {
     chunk: Chunk,
+    /// The lambdas inside this chunk, compiled into chunks of their own.
+    lambdas: Lambdas,
     loops: Vec<LoopJumps>,
     /// True in `init Name`, where `return;` gives back `this`.
     returns_this: bool,
@@ -204,6 +235,32 @@ impl Compiler {
         compiler.chunk.name = name;
         compiler.chunk.locals = params;
         compiler
+    }
+
+    /// Returns the finished chunk and hands its lambdas on to `lambdas`.
+    fn finish(mut self, lambdas: &mut Lambdas) -> Chunk {
+        lambdas.append(&mut self.lambdas);
+        self.chunk
+    }
+
+    /// Writes the body of a function, which returns `void` when it reaches its end.
+    fn compile_body(&mut self, function: &Function) -> Result<(), SomoniError> {
+        self.compile_stmts(&function.body)?;
+        self.push_constant(Value::Void, function.name_span);
+        self.chunk.push(Op::Return, function.name_span);
+        Ok(())
+    }
+
+    /// Compiles a lambda into a chunk of its own and writes the instruction that makes its value.
+    fn compile_lambda(&mut self, lambda: &Lambda, span: Span) -> Result<(), SomoniError> {
+        let index = filled(lambda.index, "lambda number")?;
+        let function = &lambda.function;
+        let mut inner = Compiler::new(format!("lambda {}", index), function.params.len());
+        inner.compile_body(function)?;
+        let chunk = inner.finish(&mut self.lambdas);
+        self.lambdas.push((index, chunk));
+        self.chunk.push(Op::MakeClosure(index), span);
+        Ok(())
     }
 
     /// Runs the `init` of the parent class and returns the rest of the constructor.
@@ -709,6 +766,7 @@ impl Compiler {
             ExprKind::FunctionRef { index, .. } => {
                 self.push_constant(Value::Function(*index), span)
             }
+            ExprKind::Lambda(lambda) => self.compile_lambda(lambda, span)?,
             ExprKind::CallValue(call) => {
                 self.compile_expr(&call.callee)?;
                 self.compile_args(&call.args)?;

@@ -83,6 +83,8 @@ pub enum Op {
     Try,
     /// Calls the function value below `n` arguments on the stack.
     CallValue(usize),
+    /// Pushes the value of lambda number `i`.
+    MakeClosure(usize),
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -169,6 +171,8 @@ impl Chunk {
 pub struct Program {
     pub main: Chunk,
     pub functions: Vec<Chunk>,
+    /// The chunks of all lambdas, by their number.
+    pub lambdas: Vec<Chunk>,
     pub structs: Vec<Rc<StructDecl>>,
     pub classes: Vec<ClassCode>,
     pub interfaces: Vec<Rc<InterfaceLayout>>,
@@ -227,7 +231,10 @@ impl ClassCode {
 /// Returns the instructions of a program as text, one per line, for `--bytecode`.
 pub fn disassemble(program: &Program) -> String {
     let mut out = String::new();
-    for chunk in std::iter::once(&program.main).chain(&program.functions) {
+    let chunks = std::iter::once(&program.main)
+        .chain(&program.functions)
+        .chain(&program.lambdas);
+    for chunk in chunks {
         disassemble_chunk(&mut out, chunk, program);
     }
     out
@@ -320,6 +327,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::GetConst(i) => format!("GetConst {}", program.globals[*i]),
         Op::Try => "Try".to_string(),
         Op::CallValue(count) => format!("CallValue {}", count),
+        Op::MakeClosure(i) => format!("MakeClosure {}", program.lambdas[*i].name),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

@@ -245,6 +245,8 @@ pub struct TypeChecker {
     in_constructor: bool,
     super_init_allowed: bool,
     function_count: usize,
+    /// The number of lambdas found so far, which have their own list in the program.
+    lambda_count: usize,
     global_count: usize,
     /// True while the top-level code of a file is checked, where a `const` exists only after its line.
     in_main: bool,
@@ -268,6 +270,7 @@ impl TypeChecker {
             in_constructor: false,
             super_init_allowed: false,
             function_count: 0,
+            lambda_count: 0,
             global_count: 0,
             in_main: false,
             in_module: false,

@@ -60,7 +60,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             }
             Value::Ok(inner) => self.show_wrapped("ok", inner),
             Value::Err(inner) => self.show_wrapped("err", inner),
-            Value::Function(_) => write!(self.f, "fn"),
+            Value::Function(_) | Value::Closure(_) => write!(self.f, "fn"),
             Value::Null => write!(self.f, "null"),
             Value::Void => write!(self.f, "void"),
         }

@@ -6,7 +6,7 @@ use crate::bytecode::{Chunk, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::text::Text;
-use crate::value::{self, Object, Step, StructValue, Value, Way, map_key, show_key};
+use crate::value::{self, Closure, Object, Step, StructValue, Value, Way, map_key, show_key};
 
 /// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
@@ -125,6 +125,7 @@ impl<'p> Vm<'p> {
             Op::Return => self.return_to_caller(frame)?,
             Op::Try => self.try_result(frame)?,
             Op::CallValue(count) => self.call_value(*count, frame, program)?,
+            Op::MakeClosure(lambda) => self.make_closure(*lambda),
             Op::MakeList(count) => self.make_list(*count),
             Op::NewMap => self.stack.push(Value::Map(Rc::new(MapValue::default()))),
             Op::MapInsert => self.map_insert()?,
@@ -223,6 +224,16 @@ impl<'p> Vm<'p> {
         Ok(())
     }
 
+    /// Pushes the value of lambda number `lambda`.
+    #[inline(never)]
+    fn make_closure(&mut self, lambda: usize) {
+        let closure = Closure {
+            lambda,
+            captured: Vec::new(),
+        };
+        self.stack.push(Value::Closure(Rc::new(closure)));
+    }
+
     /// Takes the function value from below the `count` arguments and calls it with them.
     #[inline(never)]
     fn call_value(
@@ -234,6 +245,7 @@ impl<'p> Vm<'p> {
         let place = self.top_start(count) - 1;
         match self.stack.remove(place) {
             Value::Function(function) => self.call(&program.functions[function], count, frame),
+            Value::Closure(closure) => self.call(&program.lambdas[closure.lambda], count, frame),
             _ => Err(SomoniError::internal("call of a value that is no function")),
         }
     }

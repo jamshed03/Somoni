@@ -4,8 +4,8 @@ use std::rc::Rc;
 
 use crate::ast::{
     BinaryOp, CONSTRUCTOR, Call, CallTarget, CallValue, ClassLayout, Expr, ExprKind, FieldInit,
-    InstanceOf, InstanceTarget, InterfaceLayout, MethodCall, MethodTarget, New, StaticAccess,
-    StaticCall, SuperCall, THIS, UnaryOp,
+    InstanceOf, InstanceTarget, InterfaceLayout, Lambda, MethodCall, MethodTarget, New,
+    StaticAccess, StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -310,6 +310,7 @@ impl TypeChecker {
                 .map(Signature::function_type)
                 .ok_or_else(|| SomoniError::internal("function value without signature")),
             ExprKind::CallValue(call) => self.check_call_value(call, span),
+            ExprKind::Lambda(lambda) => self.check_lambda(lambda),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -368,6 +369,17 @@ impl TypeChecker {
             callee: Box::new(callee),
             args,
         });
+    }
+
+    /// Checks a lambda like a function of its own, gives it its number and returns its function type.
+    fn check_lambda(&mut self, lambda: &mut Lambda) -> Result<Type, SomoniError> {
+        let index = self.lambda_count;
+        self.lambda_count += 1;
+        lambda.index = Some(index);
+        let signature = self.signature_of(&lambda.function, index)?;
+        let name = lambda.function.name.clone();
+        self.check_body(&mut lambda.function, &name, &signature, None)?;
+        Ok(signature.function_type())
     }
 
     /// Checks `callee(args)`, or returns T091 if the callee is no function.

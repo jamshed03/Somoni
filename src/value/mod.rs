@@ -34,8 +34,17 @@ pub enum Value {
     Err(Rc<Value>),
     /// An own function as a value, by its number.
     Function(usize),
+    /// A lambda as a value, with the copies of the variables it uses.
+    Closure(Rc<Closure>),
     Null,
     Void,
+}
+
+/// The value of a lambda: its number and the copied values of the outside variables it uses.
+#[derive(Debug, PartialEq)]
+pub struct Closure {
+    pub lambda: usize,
+    pub captured: Vec<Value>,
 }
 
 /// The value of a struct: its declaration and the field values in declaration order.

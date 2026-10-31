@@ -1,0 +1,52 @@
+// a lambda is a function without a name: fn(x: int): int => x * 2, or with a block body
+fn anwenden(f: fn(int): int, n: int): int {
+    return f(n);
+}
+
+fn alle(zahlen: list<int>, f: fn(int): int): list<int> {
+    var ergebnis: list<int> = [];
+    for (n: int in zahlen) {
+        ergebnis += [f(n)];
+    }
+    return ergebnis;
+}
+
+fn addierer(): fn(int, int): int {
+    return fn(a: int, b: int): int => a + b;
+}
+
+const ZEHN: int = 10;
+
+var mal2: fn(int): int = fn(x: int): int => x * 2;
+print(mal2(21));
+print(anwenden(fn(x: int): int => x + 1, 41));
+print(alle([1, 2, 3], fn(x: int): int => x * x));
+print(addierer()(2, 3));
+
+var groesser: fn(int, int): int = fn(a: int, b: int): int {
+    if (a > b) {
+        return a;
+    }
+    return b;
+};
+print(groesser(3, 7));
+
+var gruss: fn(string): void = fn(name: string): void {
+    print("Hallo " + name);
+};
+gruss("Ali");
+
+var plus_zehn: fn(int): int = fn(x: int): int => x + ZEHN;
+print(plus_zehn(5));
+
+var verschachtelt: fn(int): fn(int): int = fn(x: int): fn(int): int => fn(y: int): int => y * 3;
+print(verschachtelt(0)(4));
+
+var teilen: fn(int, int): result<int, string> = fn(a: int, b: int): result<int, string> {
+    if (b == 0) {
+        return err("Division durch 0");
+    }
+    return ok(a / b);
+};
+print(teilen(10, 2));
+print(teilen(1, 0));
