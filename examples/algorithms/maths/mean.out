@@ -1,0 +1,3 @@
+ok(3)
+ok(2.5)
+err("please pass values to calculate the mean")

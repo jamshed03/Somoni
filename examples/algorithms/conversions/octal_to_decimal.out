@@ -1,0 +1,4 @@
+ok(15)
+ok(511)
+err("'89' is not an octal number")
+777

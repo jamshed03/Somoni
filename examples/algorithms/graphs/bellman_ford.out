@@ -1,0 +1,2 @@
+ok({"S": 0, "A": 5, "E": 8, "D": 9, "C": 7, "B": 5})
+err("the graph has a negative cycle")

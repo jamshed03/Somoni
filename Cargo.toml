@@ -4,3 +4,7 @@ version = "0.6.0"
 edition = "2024"
 
 [dependencies]
+
+# Lightly optimized debug builds, so that cargo test runs the examples in seconds instead of tens of seconds.
+[profile.dev]
+opt-level = 1

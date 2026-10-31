@@ -1,0 +1,4 @@
+ok(16.09)
+ok(27.78)
+ok(1.15)
+err("unknown unit, available: mph, km/h, m/s, ft/s, kn")

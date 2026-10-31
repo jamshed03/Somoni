@@ -1,0 +1,3 @@
+ok("l")
+ok("i")
+err("please pass a non-empty string value")

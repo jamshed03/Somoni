@@ -7,29 +7,61 @@ use std::process::Command;
 #[test]
 fn smn_programs_match_expected_output() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/cases");
+    let mut programs = smn_files(&dir);
+    programs.sort();
+    check_all(&programs, "tests/cases");
+}
 
-    let mut programs: Vec<PathBuf> = fs::read_dir(&dir)
-        .expect("tests/cases not found")
+/// Runs every program in examples and its subfolders and compares it with its .out file.
+/// Files in folders named `lib` are only imported, not run.
+#[test]
+fn example_programs_match_expected_output() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples");
+    let mut programs = smn_files_below(&dir);
+    programs.sort();
+    check_all(&programs, "examples");
+}
+
+/// Returns the .smn files directly in `dir`.
+fn smn_files(dir: &Path) -> Vec<PathBuf> {
+    fs::read_dir(dir)
+        .unwrap_or_else(|_| panic!("{} not found", dir.display()))
         .map(|entry| entry.unwrap().path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "smn"))
-        .collect();
-    programs.sort();
-    assert!(!programs.is_empty(), "no .smn files in tests/cases");
+        .collect()
+}
 
+/// Returns the .smn files in `dir` and all its subfolders except those named `lib`.
+fn smn_files_below(dir: &Path) -> Vec<PathBuf> {
+    let mut files = smn_files(dir);
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() && !path.ends_with("lib") {
+            files.extend(smn_files_below(&path));
+        }
+    }
+    files
+}
+
+/// Checks all `programs` and fails with every problem found; `place` names the folder in the messages.
+fn check_all(programs: &[PathBuf], place: &str) {
+    assert!(!programs.is_empty(), "no .smn files in {}", place);
     let mut failures = Vec::new();
-    for program in &programs {
+    for program in programs {
         let problems = check_program(program);
         if !problems.is_empty() {
-            let name = program.file_name().unwrap().to_string_lossy();
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+            let name = program.strip_prefix(root).unwrap_or(program).display();
             failures.push(format!("{}\n{}", name, problems.join("\n")));
         }
     }
 
     assert!(
         failures.is_empty(),
-        "{} of {} programs failed:\n\n{}",
+        "{} of {} programs in {} failed:\n\n{}",
         failures.len(),
         programs.len(),
+        place,
         failures.join("\n\n")
     );
 }

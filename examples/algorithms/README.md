@@ -4,6 +4,9 @@
 cargo run --release -- examples/algorithms/sorting/quick_sort.smn
 ```
 
+Jedes Beispiel hat eine `.out` mit seiner erwarteten Ausgabe, `cargo test` prüft alle (siehe `docs/Architektur.md`, Abschnitt 4).
+Ein neues Beispiel braucht deshalb auch eine `.out`. In `lib/` liegen nur Module, die die Beispiele importieren.
+
 ## Ordner
 
 | Ordner                 | Inhalt                                                                                                       |

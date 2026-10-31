@@ -1,0 +1,3 @@
+ok(255)
+ok(6699)
+err("'XYZ' is not a hexadecimal number")
