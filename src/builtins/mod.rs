@@ -10,6 +10,7 @@ use crate::value::{Value, map_key};
 use convert::{conversion_result, float_to_int, parse_float, parse_int};
 use strings::{index_of, join, replace, slice_text, split};
 
+mod collections;
 mod convert;
 mod math;
 mod strings;
@@ -47,6 +48,10 @@ pub enum Builtin {
     Floor,
     Ceil,
     Round,
+    Reverse,
+    Sort,
+    Remove,
+    Values,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -81,6 +86,10 @@ const ALL: &[Builtin] = &[
     Builtin::Floor,
     Builtin::Ceil,
     Builtin::Round,
+    Builtin::Reverse,
+    Builtin::Sort,
+    Builtin::Remove,
+    Builtin::Values,
 ];
 
 impl Builtin {
@@ -112,7 +121,11 @@ impl Builtin {
             | Builtin::EndsWith
             | Builtin::Replace
             | Builtin::Slice
-            | Builtin::IndexOf => true,
+            | Builtin::IndexOf
+            | Builtin::Reverse
+            | Builtin::Sort
+            | Builtin::Remove
+            | Builtin::Values => true,
             Builtin::Print
             | Builtin::Int
             | Builtin::Float
@@ -178,6 +191,10 @@ impl Builtin {
             Builtin::Floor => "floor",
             Builtin::Ceil => "ceil",
             Builtin::Round => "round",
+            Builtin::Reverse => "reverse",
+            Builtin::Sort => "sort",
+            Builtin::Remove => "remove",
+            Builtin::Values => "values",
         }
     }
 
@@ -201,7 +218,10 @@ impl Builtin {
             | Builtin::Sqrt
             | Builtin::Floor
             | Builtin::Ceil
-            | Builtin::Round => 1,
+            | Builtin::Round
+            | Builtin::Reverse
+            | Builtin::Sort
+            | Builtin::Values => 1,
             Builtin::Has
             | Builtin::Split
             | Builtin::Join
@@ -211,7 +231,8 @@ impl Builtin {
             | Builtin::IndexOf
             | Builtin::Min
             | Builtin::Max
-            | Builtin::Pow => 2,
+            | Builtin::Pow
+            | Builtin::Remove => 2,
             Builtin::Replace | Builtin::Slice => 3,
         }
     }
@@ -263,6 +284,26 @@ impl Builtin {
             (Builtin::Min | Builtin::Max | Builtin::Pow, [Type::Int | Type::Float, _]) => Err(1),
             (Builtin::Sqrt, [Type::Float]) => Ok(Type::Float),
             (Builtin::Floor | Builtin::Ceil | Builtin::Round, [Type::Float]) => Ok(Type::Int),
+            (Builtin::Contains, [Type::List(element), x]) if **element == *x => Ok(Type::Bool),
+            (Builtin::IndexOf, [Type::List(element), x]) if **element == *x => {
+                Ok(Type::Optional(Box::new(Type::Int)))
+            }
+            (Builtin::Contains | Builtin::IndexOf, [Type::List(_), _]) => Err(1),
+            (Builtin::Reverse, [list @ Type::List(_)]) => Ok(list.clone()),
+            (Builtin::Sort, [list @ Type::List(element)])
+                if matches!(**element, Type::Int | Type::Float | Type::Str) =>
+            {
+                Ok(list.clone())
+            }
+            (Builtin::Slice, [list @ Type::List(_), Type::Int, Type::Int]) => Ok(list.clone()),
+            (Builtin::Slice, [Type::List(_), Type::Int, _]) => Err(2),
+            (Builtin::Slice, [Type::List(_), _, _]) => Err(1),
+            (Builtin::Remove, [list @ Type::List(_), Type::Int]) => Ok(list.clone()),
+            (Builtin::Remove, [map @ Type::Map(key, _), found]) if **key == *found => {
+                Ok(map.clone())
+            }
+            (Builtin::Remove, [Type::List(_) | Type::Map(_, _), _]) => Err(1),
+            (Builtin::Values, [Type::Map(_, value)]) => Ok(Type::List(value.clone())),
             _ => Err(0),
         }
     }
@@ -328,6 +369,18 @@ impl Builtin {
             (Builtin::Floor, [Value::Float(f)]) => math::to_int(*f, f64::floor),
             (Builtin::Ceil, [Value::Float(f)]) => math::to_int(*f, f64::ceil),
             (Builtin::Round, [Value::Float(f)]) => math::to_int(*f, f64::round),
+            (Builtin::Contains, [Value::List(items), x]) => Ok(Value::Bool(items.contains(x))),
+            (Builtin::IndexOf, [Value::List(items), x]) => Ok(collections::index_of(items, x)),
+            (Builtin::Reverse, [Value::List(items)]) => Ok(collections::reversed(items)),
+            (Builtin::Slice, [Value::List(items), Value::Int(start), Value::Int(end)]) => {
+                collections::slice_list(items, *start, *end)
+            }
+            (Builtin::Sort, [Value::List(items)]) => Ok(collections::sorted(items)),
+            (Builtin::Remove, [Value::List(items), Value::Int(index)]) => {
+                collections::without_index(items, *index)
+            }
+            (Builtin::Remove, [Value::Map(map), key]) => collections::without_key(map, key),
+            (Builtin::Values, [Value::Map(map)]) => Ok(collections::values(map)),
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()

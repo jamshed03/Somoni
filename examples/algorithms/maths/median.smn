@@ -1,14 +1,12 @@
 // Median: the middle value of the sorted numbers.
 
-import { sorted } from "../lib/math.smn";
-
 // Returns the median, the average of the two middle values for an even count, or an error for an empty list.
 fn median(numbers: list<int>): result<float, string> {
     const n: int = len(numbers);
     if (n == 0) {
         return err("please pass values to find the median");
     }
-    const items: list<int> = sorted(numbers);
+    const items: list<int> = numbers.sort();
     if (n % 2 == 1) {
         return ok(float(items[n / 2]));
     }

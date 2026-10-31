@@ -1,4 +1,4 @@
-// Math helpers that Somoni does not have built in (abs, min, max, sqrt, pow and round are built in).
+// Math helpers that Somoni does not have built in (abs, min, max, sqrt, pow, round and l.sort() are built in).
 
 // Returns the integer square root, the largest r with r * r <= n (binary search).
 export fn isqrt(n: int): int {
@@ -80,32 +80,6 @@ export fn sum(numbers: list<int>): int {
         total += n;
     }
     return total;
-}
-
-// Returns the sorted list with the value put in at the right place.
-fn insert_sorted(sorted_items: list<int>, value: int): list<int> {
-    var result: list<int> = [];
-    var placed: bool = false;
-    for (item: int in sorted_items) {
-        if (!placed && value < item) {
-            result += [value];
-            placed = true;
-        }
-        result += [item];
-    }
-    if (!placed) {
-        result += [value];
-    }
-    return result;
-}
-
-// Returns a sorted copy of the list, like sort in PHP.
-export fn sorted(numbers: list<int>): list<int> {
-    var result: list<int> = [];
-    for (n: int in numbers) {
-        result = insert_sorted(result, n);
-    }
-    return result;
 }
 
 // Returns the digits of a non-negative number, e.g. 153 -> [1, 5, 3].

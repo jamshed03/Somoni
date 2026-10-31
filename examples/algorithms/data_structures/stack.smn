@@ -1,7 +1,5 @@
 // Stack: last in, first out.
 
-import { sorted } from "../lib/math.smn";
-
 // A stack of numbers; the top is the end of the list.
 class Stack {
     private items: list<int> = [];
@@ -70,7 +68,7 @@ class Stack {
 
     // Sorts the values, the largest ends up on top.
     sort(): void {
-        this.items = sorted(this.items);
+        this.items = this.items.sort();
     }
 
     // Returns the values from bottom to top.

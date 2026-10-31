@@ -1,10 +1,8 @@
 // Two pointers: counts pairs with a given sum by moving one pointer from each end of the sorted list.
 
-import { sorted } from "../lib/math.smn";
-
 // Returns how many pairs in the list add up to the target.
 fn two_pointers(numbers: list<int>, target: int): int {
-    const items: list<int> = sorted(numbers);
+    const items: list<int> = numbers.sort();
     var left: int = 0;
     var right: int = len(items) - 1;
     var pairs: int = 0;
