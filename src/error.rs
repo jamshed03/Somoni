@@ -662,7 +662,10 @@ impl ErrorCode {
                 format!("'{}' has no function, struct or enum '{}'", path, name)
             }
             ErrorCode::ImportConflict { name } => {
-                format!("'{}' is already imported in this file", name)
+                format!(
+                    "'{}' is already imported in this file (give one of them another name with 'as')",
+                    name
+                )
             }
 
             ErrorCode::UnknownType { name } => format!("unknown type '{}'", name),

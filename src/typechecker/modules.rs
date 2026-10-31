@@ -23,11 +23,12 @@ impl TypeChecker {
             .and_then(|file| self.exports_by_file.get(&file))
             .ok_or_else(|| SomoniError::internal("import of a file that is not checked"))?;
         for item in &import.names {
-            if self.names.contains(&item.name) {
+            let (local, local_span) = item.local();
+            if self.names.contains(local) {
                 return Err(SomoniError::at(
-                    item.span,
+                    local_span,
                     ErrorCode::ImportConflict {
-                        name: item.name.clone(),
+                        name: local.to_string(),
                     },
                 ));
             }
@@ -46,7 +47,7 @@ impl TypeChecker {
                 };
                 return Err(SomoniError::at(item.span, code));
             }
-            self.names.add_from(from, &item.name);
+            self.names.add_from(from, &item.name, local);
         }
         Ok(())
     }
@@ -68,7 +69,7 @@ impl TypeChecker {
                 exports.private.insert(name.clone());
                 continue;
             }
-            exports.names.add_from(&self.names, name);
+            exports.names.add_from(&self.names, name, name);
         }
         exports
     }

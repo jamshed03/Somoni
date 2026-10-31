@@ -205,29 +205,30 @@ impl Names {
         }
     }
 
-    /// Copies everything called `name` from `from`.
-    fn add_from(&mut self, from: &Names, name: &str) {
+    /// Copies everything called `name` from `from`, under the name `local` (different after `as`).
+    fn add_from(&mut self, from: &Names, name: &str, local: &str) {
+        let local = local.to_string();
         if let Some(signature) = from.functions.get(name) {
-            self.functions.insert(name.to_string(), signature.clone());
+            self.functions.insert(local.clone(), signature.clone());
         }
         if let Some(constant) = from.constants.get(name) {
             let constant = Constant {
                 own: false,
                 ..constant.clone()
             };
-            self.constants.insert(name.to_string(), constant);
+            self.constants.insert(local.clone(), constant);
         }
         if let Some(decl) = from.structs.get(name) {
-            self.structs.insert(name.to_string(), decl.clone());
+            self.structs.insert(local.clone(), decl.clone());
         }
         if let Some(decl) = from.enums.get(name) {
-            self.enums.insert(name.to_string(), decl.clone());
+            self.enums.insert(local.clone(), decl.clone());
         }
         if let Some(layout) = from.classes.get(name) {
-            self.classes.insert(name.to_string(), layout.clone());
+            self.classes.insert(local.clone(), layout.clone());
         }
         if let Some(layout) = from.interfaces.get(name) {
-            self.interfaces.insert(name.to_string(), layout.clone());
+            self.interfaces.insert(local, layout.clone());
         }
     }
 }

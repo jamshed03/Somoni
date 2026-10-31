@@ -589,11 +589,22 @@ pub struct Import {
     pub span: Span,
 }
 
-/// One name in the `{ ... }` of an import.
+/// One name in the `{ ... }` of an import, with its new name after `as` if it has one.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportName {
     pub name: String,
     pub span: Span,
+    pub alias: Option<(String, Span)>,
+}
+
+impl ImportName {
+    /// Returns the name the importing file uses and its place: the one after `as`, or else the name itself.
+    pub fn local(&self) -> (&str, Span) {
+        match &self.alias {
+            Some((alias, span)) => (alias, *span),
+            None => (&self.name, self.span),
+        }
+    }
 }
 
 /// One `name: type` in the parameters of a function.

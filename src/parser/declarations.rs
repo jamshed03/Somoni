@@ -36,10 +36,16 @@ impl Parser {
         }))
     }
 
-    /// Reads one name in the `{ ... }` of an import.
+    /// Reads one name in the `{ ... }` of an import, like `quadrat` or `quadrat as q`.
     fn parse_import_name(&mut self) -> Result<ImportName, SomoniError> {
         let (name, span) = self.expect_ident("name to import")?;
-        Ok(ImportName { name, span })
+        let alias = if self.at_word("as") {
+            self.advance();
+            Some(self.expect_ident("new name after 'as'")?)
+        } else {
+            None
+        };
+        Ok(ImportName { name, span, alias })
     }
 
     /// Reads `export` and the declaration after it.
