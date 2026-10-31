@@ -1,0 +1,3 @@
+print([1, 0].map(fn(n: int): int {
+    return 10 / n;
+}));

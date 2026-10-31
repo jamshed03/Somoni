@@ -1,11 +1,10 @@
 //! The built-in methods of lists and maps, like `l.sort()` and `m.values()`.
 
-use std::cmp::Ordering;
 use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
-use crate::value::{Value, map_key};
+use crate::value::{Value, map_key, sort_order};
 
 use super::slice_range;
 
@@ -31,7 +30,7 @@ pub(super) fn slice_list(items: &[Value], start: i64, end: i64) -> Result<Value,
 /// Returns the items sorted from small to big; the type checker allows only ints, floats and strings.
 pub(super) fn sorted(items: &[Value]) -> Value {
     let mut items = items.to_vec();
-    items.sort_by(order);
+    items.sort_by(sort_order);
     list(items)
 }
 
@@ -68,14 +67,4 @@ pub(super) fn values(map: &MapValue) -> Value {
 /// Returns a list value.
 fn list(items: Vec<Value>) -> Value {
     Value::List(Rc::new(items))
-}
-
-/// Compares two ints, floats or strings like `<` does.
-fn order(a: &Value, b: &Value) -> Ordering {
-    match (a, b) {
-        (Value::Int(a), Value::Int(b)) => a.cmp(b),
-        (Value::Float(a), Value::Float(b)) => a.total_cmp(b),
-        (Value::Str(a), Value::Str(b)) => a.as_str().cmp(b.as_str()),
-        _ => Ordering::Equal,
-    }
 }

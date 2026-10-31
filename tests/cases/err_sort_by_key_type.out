@@ -1,0 +1,3 @@
+Type error [T014]: Line 5: cannot use fn(P): P as argument of 'sort_by'
+  5 | print(l.sort_by(fn(p: P): P => p));
+    |                 ^^^^^^^^^^^^^^^^

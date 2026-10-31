@@ -1,5 +1,6 @@
 //! Computing operators on values: arithmetic, comparisons and joining strings and lists.
 
+use std::cmp::Ordering;
 use std::rc::Rc;
 
 use crate::ast::{BinaryOp, UnaryOp};
@@ -127,5 +128,15 @@ fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
         BinaryOp::LessEq => Some(a <= b),
         BinaryOp::GreaterEq => Some(a >= b),
         _ => None,
+    }
+}
+
+/// Compares two ints, floats or strings like `<` does, for `l.sort()` and `l.sort_by(...)`; other values count as equal.
+pub fn sort_order(a: &Value, b: &Value) -> Ordering {
+    match (a, b) {
+        (Value::Int(a), Value::Int(b)) => a.cmp(b),
+        (Value::Float(a), Value::Float(b)) => a.total_cmp(b),
+        (Value::Str(a), Value::Str(b)) => a.as_str().cmp(b.as_str()),
+        _ => Ordering::Equal,
     }
 }

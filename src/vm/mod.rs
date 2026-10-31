@@ -8,6 +8,8 @@ use crate::map::MapValue;
 use crate::text::Text;
 use crate::value::{self, Closure, Object, Step, StructValue, Value, Way, map_key, show_key};
 
+mod higher;
+
 /// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
 
@@ -59,13 +61,44 @@ impl<'p> Vm<'p> {
         };
         self.stack.resize(frame.chunk.locals, Value::Void);
         self.globals = vec![Value::Void; program.globals.len()];
-        while let Some(op) = frame.chunk.code.get(frame.ip) {
+        self.run_until(&mut frame, program, None)
+    }
+
+    /// Runs instructions until the main chunk ends or, with `depth`, until only `depth` callers wait again.
+    /// It is the only place that calls `execute`, so the compiler can build `execute` into this loop.
+    fn run_until(
+        &mut self,
+        frame: &mut Frame<'p>,
+        program: &'p Program,
+        depth: Option<usize>,
+    ) -> Result<(), SomoniError> {
+        while depth.is_none_or(|depth| self.callers.len() > depth) {
+            let Some(op) = frame.chunk.code.get(frame.ip) else {
+                return Ok(());
+            };
             let (chunk, at) = (frame.chunk, frame.ip);
             frame.ip += 1;
-            self.execute(op, &mut frame, program)
+            self.execute(op, frame, program)
                 .map_err(|error| error.with_span_if_missing(Some(chunk.spans[at])))?;
         }
         Ok(())
+    }
+
+    /// Calls the function value `function` with `args`, runs it until it returns and gives back its result.
+    /// Built-in methods like `l.map(f)` use it; `frame` is the running chunk, which goes on afterwards.
+    fn call_now(
+        &mut self,
+        function: &Value,
+        args: &[Value],
+        frame: &mut Frame<'p>,
+        program: &'p Program,
+    ) -> Result<Value, SomoniError> {
+        let depth = self.callers.len();
+        self.stack.push(function.clone());
+        self.stack.extend(args.iter().cloned());
+        self.call_value(args.len(), frame, program)?;
+        self.run_until(frame, program, Some(depth))?;
+        self.pop()
     }
 
     /// Runs one instruction of `frame`; calls and returns switch `frame` to another chunk.
@@ -100,6 +133,7 @@ impl<'p> Vm<'p> {
                 self.stack.push(value::unary(*op, operand)?);
             }
             Op::CallBuiltin(builtin, count) => self.call_builtin(*builtin, *count)?,
+            Op::CallHigher(builtin, count) => self.call_higher(*builtin, *count, frame, program)?,
             Op::Jump(target) => frame.ip = *target,
             Op::JumpIfFalse(target) => {
                 if let Value::Bool(false) = self.pop()? {

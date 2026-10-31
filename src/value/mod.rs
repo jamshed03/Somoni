@@ -12,7 +12,7 @@ mod operators;
 mod parts;
 mod show;
 
-pub use operators::{append, binary, int_binary, unary};
+pub use operators::{append, binary, int_binary, sort_order, unary};
 pub use parts::{Step, Way, change_part, field, index};
 pub use show::Quoted;
 

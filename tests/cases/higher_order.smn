@@ -1,0 +1,47 @@
+// map, filter, reduce, any, all and sort_by call a function for the elements of a list
+struct User {
+    name: string,
+    alter: int
+}
+
+fn quadrat(n: int): int {
+    return n * n;
+}
+
+var zahlen: list<int> = [3, 1, 4, 1, 5];
+print(zahlen.map(quadrat));
+print(zahlen.map(fn(n: int): string => "#" + string(n)));
+print(zahlen.filter(fn(n: int): bool => n > 2));
+print(zahlen.reduce(0, fn(summe: int, n: int): int => summe + n));
+print(zahlen.reduce("", fn(text: string, n: int): string => text + string(n)));
+print(zahlen.any(fn(n: int): bool => n == 4));
+print(zahlen.all(fn(n: int): bool => n > 0));
+print(zahlen.all(fn(n: int): bool => n > 1));
+
+var grenze: int = 3;
+print(zahlen.filter(fn(n: int): bool => n >= grenze).map(quadrat));
+
+var users: list<User> = [
+    User { name: "Cem", alter: 41 },
+    User { name: "Ali", alter: 30 },
+    User { name: "Bea", alter: 30 }
+];
+var nach_alter: list<User> = users.sort_by(fn(u: User): int => u.alter);
+print(nach_alter.map(fn(u: User): string => u.name));
+print(users.sort_by(fn(u: User): string => u.name).map(fn(u: User): string => u.name));
+print(users.sort_by(fn(u: User): int => u.alter).reverse()[0].name);
+
+var tabelle: list<list<int>> = [[1, 2], [3]];
+print(tabelle.map(fn(zeile: list<int>): list<int> => zeile.map(fn(n: int): int => n * 10)));
+
+var leer: list<int> = [];
+print(leer.map(quadrat));
+print(leer.any(fn(n: int): bool => true));
+print(leer.all(fn(n: int): bool => false));
+print(leer.reduce(7, fn(a: int, n: int): int => a + n));
+
+fn zaehle(n: int): bool {
+    print("prüfe " + string(n));
+    return n > 2;
+}
+print([1, 5, 9].any(zaehle));

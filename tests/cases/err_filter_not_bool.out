@@ -1,0 +1,3 @@
+Type error [T014]: Line 1: cannot use fn(int): int as argument of 'filter'
+  1 | print([1, 2].filter(fn(n: int): int => n));
+    |                     ^^^^^^^^^^^^^^^^^^^^

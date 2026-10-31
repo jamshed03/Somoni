@@ -52,6 +52,12 @@ pub enum Builtin {
     Sort,
     Remove,
     Values,
+    Map,
+    Filter,
+    Reduce,
+    Any,
+    All,
+    SortBy,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -90,6 +96,12 @@ const ALL: &[Builtin] = &[
     Builtin::Sort,
     Builtin::Remove,
     Builtin::Values,
+    Builtin::Map,
+    Builtin::Filter,
+    Builtin::Reduce,
+    Builtin::Any,
+    Builtin::All,
+    Builtin::SortBy,
 ];
 
 impl Builtin {
@@ -125,7 +137,13 @@ impl Builtin {
             | Builtin::Reverse
             | Builtin::Sort
             | Builtin::Remove
-            | Builtin::Values => true,
+            | Builtin::Values
+            | Builtin::Map
+            | Builtin::Filter
+            | Builtin::Reduce
+            | Builtin::Any
+            | Builtin::All
+            | Builtin::SortBy => true,
             Builtin::Print
             | Builtin::Int
             | Builtin::Float
@@ -146,6 +164,19 @@ impl Builtin {
             | Builtin::Ceil
             | Builtin::Round => false,
         }
+    }
+
+    /// Returns true for a method like `l.map(f)` that calls a function, which only the VM can do (`CallHigher`).
+    pub fn calls_functions(self) -> bool {
+        matches!(
+            self,
+            Builtin::Map
+                | Builtin::Filter
+                | Builtin::Reduce
+                | Builtin::Any
+                | Builtin::All
+                | Builtin::SortBy
+        )
     }
 
     /// Returns true for `ok` and `err`, which take their result type from where they are used.
@@ -195,6 +226,12 @@ impl Builtin {
             Builtin::Sort => "sort",
             Builtin::Remove => "remove",
             Builtin::Values => "values",
+            Builtin::Map => "map",
+            Builtin::Filter => "filter",
+            Builtin::Reduce => "reduce",
+            Builtin::Any => "any",
+            Builtin::All => "all",
+            Builtin::SortBy => "sort_by",
         }
     }
 
@@ -232,8 +269,13 @@ impl Builtin {
             | Builtin::Min
             | Builtin::Max
             | Builtin::Pow
-            | Builtin::Remove => 2,
-            Builtin::Replace | Builtin::Slice => 3,
+            | Builtin::Remove
+            | Builtin::Map
+            | Builtin::Filter
+            | Builtin::Any
+            | Builtin::All
+            | Builtin::SortBy => 2,
+            Builtin::Replace | Builtin::Slice | Builtin::Reduce => 3,
         }
     }
 
@@ -304,6 +346,37 @@ impl Builtin {
             }
             (Builtin::Remove, [Type::List(_) | Type::Map(_, _), _]) => Err(1),
             (Builtin::Values, [Type::Map(_, value)]) => Ok(Type::List(value.clone())),
+            (Builtin::Map, [Type::List(element), Type::Function(f)])
+                if f.params == [(**element).clone()] && f.result != Type::Void =>
+            {
+                Ok(Type::List(Box::new(f.result.clone())))
+            }
+            (Builtin::Filter, [list @ Type::List(element), Type::Function(f)])
+                if f.params == [(**element).clone()] && f.result == Type::Bool =>
+            {
+                Ok(list.clone())
+            }
+            (Builtin::Any | Builtin::All, [Type::List(element), Type::Function(f)])
+                if f.params == [(**element).clone()] && f.result == Type::Bool =>
+            {
+                Ok(Type::Bool)
+            }
+            (Builtin::SortBy, [list @ Type::List(element), Type::Function(f)])
+                if f.params == [(**element).clone()]
+                    && matches!(f.result, Type::Int | Type::Float | Type::Str) =>
+            {
+                Ok(list.clone())
+            }
+            (Builtin::Reduce, [Type::List(element), start, Type::Function(f)])
+                if f.params == [start.clone(), (**element).clone()] && f.result == *start =>
+            {
+                Ok(start.clone())
+            }
+            (
+                Builtin::Map | Builtin::Filter | Builtin::Any | Builtin::All | Builtin::SortBy,
+                [Type::List(_), _],
+            ) => Err(1),
+            (Builtin::Reduce, [Type::List(_), _, _]) => Err(2),
             _ => Err(0),
         }
     }

@@ -83,6 +83,8 @@ pub enum Op {
     Try,
     /// Calls the function value below `n` arguments on the stack.
     CallValue(usize),
+    /// Like `CallBuiltin`, for a method like `l.map(f)` that calls a function value.
+    CallHigher(Builtin, usize),
     /// Pops `n` values and pushes a tuple of them.
     MakeTuple(usize),
     /// Pops `captured` copies and pushes the value of lambda number `lambda` with them.
@@ -336,6 +338,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         }
         Op::GetCaptured(i) => format!("GetCaptured {}", i),
         Op::MakeTuple(count) => format!("MakeTuple {}", count),
+        Op::CallHigher(builtin, count) => format!("CallHigher {} {}", builtin.name(), count),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

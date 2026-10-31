@@ -1,0 +1,1 @@
+print([1, 2].reduce(0, fn(a: int, n: int): string => "x"));

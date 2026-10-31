@@ -1,0 +1,3 @@
+Type error [T014]: Line 1: cannot use fn(string): int as argument of 'map'
+  1 | print([1, 2].map(fn(s: string): int => 1));
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^
