@@ -1,0 +1,3 @@
+Type error [T034]: Line 4: map keys must be string or int, got fn(int): int
+  4 | var m: map<fn(int): int, int> = {};
+    |            ^^^^^^^^^^^^

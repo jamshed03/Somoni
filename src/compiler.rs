@@ -718,6 +718,14 @@ impl Compiler {
                 self.compile_expr(value)?;
                 self.chunk.push(Op::Try, span);
             }
+            ExprKind::FunctionRef { index, .. } => {
+                self.push_constant(Value::Function(*index), span)
+            }
+            ExprKind::CallValue(call) => {
+                self.compile_expr(&call.callee)?;
+                self.compile_args(&call.args)?;
+                self.chunk.push(Op::CallValue(call.args.len()), span);
+            }
             ExprKind::StaticCall(call) => {
                 self.compile_args(&call.args)?;
                 let target = filled(call.target, "static method")?;

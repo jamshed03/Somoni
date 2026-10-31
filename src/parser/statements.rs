@@ -27,9 +27,6 @@ impl Parser {
             }
             Token::Match => self.parse_match(start),
             Token::Return => self.parse_return(start),
-            Token::Ident(name) if *self.peek_next() == Token::LParen => {
-                self.parse_call_stmt(name, start)
-            }
             Token::Ident(_) | Token::This | Token::New | Token::Super => self.parse_assign(start),
             other => Err(SomoniError::at(start, misplaced(other))),
         }
@@ -53,17 +50,6 @@ impl Parser {
         let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
         Ok(Stmt::Return { value, span })
-    }
-
-    /// Reads a call like `print(x);` or `speichern(x)?;` as a statement.
-    fn parse_call_stmt(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
-        let mut expr = self.parse_call(name, start)?;
-        if self.eat(Token::Question) {
-            expr = self.expr_since(ExprKind::Try(Box::new(expr)), start);
-        }
-        let span = self.since(start);
-        self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::Expr { expr, span })
     }
 
     /// Reads `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
@@ -369,14 +355,16 @@ fn compound_op(token: &Token) -> Option<BinaryOp> {
     }
 }
 
-/// Returns true for a method call, a static call, `new` or `super`, which may stand alone as a statement.
+/// Returns true for a call of any kind, `new`, `super` or one of them with `?`, which may stand alone as a statement.
 fn stands_alone(expr: &Expr) -> bool {
     match &expr.kind {
-        ExprKind::MethodCall(_)
+        ExprKind::Call(_)
+        | ExprKind::MethodCall(_)
         | ExprKind::StaticCall(_)
         | ExprKind::New(_)
         | ExprKind::SuperInit { .. }
-        | ExprKind::SuperCall(_) => true,
+        | ExprKind::SuperCall(_)
+        | ExprKind::CallValue(_) => true,
         ExprKind::Try(inner) => stands_alone(inner),
         _ => false,
     }

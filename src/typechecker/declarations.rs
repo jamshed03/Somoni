@@ -3,7 +3,7 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, EnumDecl, Expr, ExprKind, Field, Function, Param, Stmt, StructDecl, TypeName,
+    self, EnumDecl, Expr, ExprKind, FN_TYPE, Field, Function, Param, Stmt, StructDecl, TypeName,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -303,6 +303,9 @@ impl TypeChecker {
         written: &TypeName,
         allow_void: bool,
     ) -> Result<Type, SomoniError> {
+        if written.name == FN_TYPE {
+            return self.resolve_fn_type(&written.args);
+        }
         let simple = self.simple_type(&written.name, allow_void);
         check_type_args(written, simple.is_some())?;
         match simple {
@@ -319,6 +322,19 @@ impl TypeChecker {
             Type::from_name(name)
         };
         builtin.or_else(|| self.names.type_named(name))
+    }
+
+    /// Turns `fn(int, string): bool` into a type; the last written type is the result, which may be `void`.
+    fn resolve_fn_type(&self, written: &[TypeName]) -> Result<Type, SomoniError> {
+        let (result, params) = written
+            .split_last()
+            .ok_or_else(|| SomoniError::internal("function type without result"))?;
+        let params = params
+            .iter()
+            .map(|param| self.resolve_type(param, false))
+            .collect::<Result<Vec<_>, _>>()?;
+        let result = self.resolve_type(result, true)?;
+        Ok(Type::function(params, result))
     }
 
     /// Turns `list<T>`, `map<K, V>` or `result<T, E>` into a type, or returns T034 for a map key type that is not allowed.
@@ -388,7 +404,8 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::Str(_)
         | ExprKind::Bool(_)
         | ExprKind::Null
-        | ExprKind::EnumValue { .. } => true,
+        | ExprKind::EnumValue { .. }
+        | ExprKind::FunctionRef { .. } => true,
         ExprKind::Constant { .. } => false,
         ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
         ExprKind::Unary { operand, .. } => is_fixed_value(operand),
@@ -410,7 +427,8 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::StaticCall(_)
         | ExprKind::StaticAccess(_)
         | ExprKind::InstanceOf(_)
-        | ExprKind::Try(_) => false,
+        | ExprKind::Try(_)
+        | ExprKind::CallValue(_) => false,
     }
 }
 

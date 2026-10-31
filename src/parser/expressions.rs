@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, Call, Expr, ExprKind, FieldInit, InstanceOf, MethodCall, New, StaticAccess,
-    StaticCall, SuperCall, THIS, UnaryOp,
+    BinaryOp, Call, CallValue, Expr, ExprKind, FieldInit, InstanceOf, MethodCall, New,
+    StaticAccess, StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -101,7 +101,7 @@ impl Parser {
         })
     }
 
-    /// Reads an expression followed by any number of `[index]`, `.field`, `.method(args)` and `?`, e.g. `l[0].x`.
+    /// Reads an expression followed by any number of `[index]`, `.field`, `.method(args)`, `(args)` and `?`, e.g. `l[0].x`.
     pub(super) fn parse_postfix(&mut self) -> Result<Expr, SomoniError> {
         let mut expr = self.parse_primary()?;
         loop {
@@ -112,6 +112,14 @@ impl Parser {
                 Token::Question => {
                     self.advance();
                     ExprKind::Try(Box::new(expr))
+                }
+                Token::LParen => {
+                    self.advance();
+                    let args = self.parse_args()?;
+                    ExprKind::CallValue(CallValue {
+                        callee: Box::new(expr),
+                        args,
+                    })
                 }
                 _ => return Ok(expr),
             };

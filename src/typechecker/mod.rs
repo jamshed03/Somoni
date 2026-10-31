@@ -40,6 +40,11 @@ struct Signature {
 }
 
 impl Signature {
+    /// Returns the type of the function as a value, e.g. `fn(int): int`.
+    fn function_type(&self) -> Type {
+        Type::function(self.params.clone(), self.return_type.clone())
+    }
+
     /// Returns true if both signatures have the same parameter types and return type.
     fn same_types(&self, other: &Signature) -> bool {
         self.params == other.params && self.return_type == other.return_type

@@ -87,7 +87,7 @@ impl Builtin {
     /// Returns the result type for these argument types, or `Err(i)` if argument `i` is not allowed.
     pub fn result_type(self, args: &[Type]) -> Result<Type, usize> {
         match (self, args) {
-            (Builtin::Print, [Type::Void]) => Err(0),
+            (Builtin::Print, [Type::Void | Type::Function(_)]) => Err(0),
             (Builtin::Print, [_]) => Ok(Type::Void),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),

@@ -1,0 +1,3 @@
+Type error [T090]: Line 1: the built-in function 'print' is no value, only own functions are
+  1 | var f: fn(int): int = print;
+    |                       ^^^^^

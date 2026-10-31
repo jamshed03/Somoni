@@ -1,6 +1,6 @@
 //! The parser, which turns the tokens of the lexer into a tree; its parts are spread over this folder.
 
-use crate::ast::{Expr, ExprKind, Field, Param, Stmt, TypeName};
+use crate::ast::{Expr, ExprKind, FN_TYPE, Field, Param, Stmt, TypeName};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
@@ -232,6 +232,9 @@ impl Parser {
 
     /// Reads a type like `int`, `int?`, `list<int>` or `map<string, list<int>>`.
     fn parse_type(&mut self, what: &str) -> Result<TypeName, SomoniError> {
+        if *self.peek() == Token::Fn {
+            return self.parse_fn_type();
+        }
         let (name, start) = self.expect_ident(what)?;
         let mut args = Vec::new();
         if self.eat(Token::Less) {
@@ -242,6 +245,23 @@ impl Parser {
             name,
             args,
             optional,
+            span: self.since(start),
+        })
+    }
+
+    /// Reads a function type like `fn(int, string): bool`, kept as the type `fn` with the parameters and then the result as arguments.
+    fn parse_fn_type(&mut self) -> Result<TypeName, SomoniError> {
+        let start = self.current_span();
+        self.advance();
+        self.expect(Token::LParen, "'(' after 'fn'")?;
+        let mut args =
+            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_type("type"))?;
+        self.expect(Token::Colon, "':' and the result type")?;
+        args.push(self.parse_type("result type")?);
+        Ok(TypeName {
+            name: FN_TYPE.to_string(),
+            args,
+            optional: false,
             span: self.since(start),
         })
     }

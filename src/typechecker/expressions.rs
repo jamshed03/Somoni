@@ -3,9 +3,9 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, CONSTRUCTOR, Call, CallTarget, ClassLayout, Expr, ExprKind, FieldInit, InstanceOf,
-    InstanceTarget, InterfaceLayout, MethodCall, MethodTarget, New, StaticAccess, StaticCall,
-    SuperCall, THIS, UnaryOp,
+    BinaryOp, CONSTRUCTOR, Call, CallTarget, CallValue, ClassLayout, Expr, ExprKind, FieldInit,
+    InstanceOf, InstanceTarget, InterfaceLayout, MethodCall, MethodTarget, New, StaticAccess,
+    StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -13,7 +13,7 @@ use crate::span::Span;
 use crate::types::{Decl, Type};
 
 use super::declarations::check_key_type;
-use super::{Constant, TypeChecker, check_arg_count, field_of, wrong_arg_type};
+use super::{Constant, Signature, TypeChecker, check_arg_count, field_of, wrong_arg_type};
 
 impl TypeChecker {
     /// Checks an expression whose type is expected, so `[]`, `null` and `ok(...)` get it.
@@ -247,6 +247,14 @@ impl TypeChecker {
             };
             return Ok(constant.ty);
         }
+        if let Some((name, signature)) = self.function_value(expr)? {
+            expr.kind = ExprKind::FunctionRef {
+                name,
+                index: signature.index,
+            };
+            return Ok(signature.function_type());
+        }
+        self.call_through_variable(expr);
         let span = expr.span;
         match &mut expr.kind {
             ExprKind::Int(_) => Ok(Type::Int),
@@ -295,6 +303,13 @@ impl TypeChecker {
             ExprKind::StaticAccess(access) => self.check_static_access(access),
             ExprKind::InstanceOf(test) => self.check_instanceof(test),
             ExprKind::Try(value) => self.check_try(value, span),
+            ExprKind::FunctionRef { name, .. } => self
+                .names
+                .functions
+                .get(name)
+                .map(Signature::function_type)
+                .ok_or_else(|| SomoniError::internal("function value without signature")),
+            ExprKind::CallValue(call) => self.check_call_value(call, span),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -312,6 +327,62 @@ impl TypeChecker {
             return None;
         }
         Some((name.clone(), constant.clone()))
+    }
+
+    /// Returns the own function that a name means when no variable has the name, or T090 for a built-in function.
+    fn function_value(&self, expr: &Expr) -> Result<Option<(String, Signature)>, SomoniError> {
+        let ExprKind::Ident { name, .. } = &expr.kind else {
+            return Ok(None);
+        };
+        if self.scopes.lookup(name).is_some() {
+            return Ok(None);
+        }
+        if Builtin::from_name(name).is_some() {
+            let code = ErrorCode::BuiltinAsValue { name: name.clone() };
+            return Err(SomoniError::at(expr.span, code));
+        }
+        let signature = self.names.functions.get(name).cloned();
+        Ok(signature.map(|signature| (name.clone(), signature)))
+    }
+
+    /// Turns `f(args)` into a call of a function value if `f` is a variable or a constant, which hide an own function.
+    fn call_through_variable(&self, expr: &mut Expr) {
+        let ExprKind::Call(call) = &mut expr.kind else {
+            return;
+        };
+        if Builtin::from_name(&call.name).is_some() {
+            return;
+        }
+        let callee = Expr {
+            kind: ExprKind::Ident {
+                name: call.name.clone(),
+                slot: None,
+            },
+            span: call.name_span,
+        };
+        if self.scopes.lookup(&call.name).is_none() && self.global_constant(&callee).is_none() {
+            return;
+        }
+        let args = std::mem::take(&mut call.args);
+        expr.kind = ExprKind::CallValue(CallValue {
+            callee: Box::new(callee),
+            args,
+        });
+    }
+
+    /// Checks `callee(args)`, or returns T091 if the callee is no function.
+    fn check_call_value(&mut self, call: &mut CallValue, span: Span) -> Result<Type, SomoniError> {
+        let found = self.check_expr(&mut call.callee)?;
+        let Type::Function(function) = &found else {
+            let code = ErrorCode::NotCallable { found };
+            return Err(SomoniError::at(call.callee.span, code));
+        };
+        let name = match &call.callee.kind {
+            ExprKind::Ident { name, .. } => name.clone(),
+            _ => found.to_string(),
+        };
+        self.check_args(&name, &function.params, &mut call.args, span)?;
+        Ok(function.result.clone())
     }
 
     /// Checks a variable and gives it its slot.
@@ -721,6 +792,10 @@ impl TypeChecker {
         }
         match (&l, op) {
             (Type::Void, _) => Err(SomoniError::at(
+                op_span,
+                ErrorCode::OperatorNotAllowed { found: l },
+            )),
+            (Type::Function(_), _) => Err(SomoniError::at(
                 op_span,
                 ErrorCode::OperatorNotAllowed { found: l },
             )),

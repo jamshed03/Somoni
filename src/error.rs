@@ -330,6 +330,12 @@ pub enum ErrorCode {
     },
     ModuleConstNotFixed,
     TryOutsideResultFunction,
+    BuiltinAsValue {
+        name: String,
+    },
+    NotCallable {
+        found: Type,
+    },
     TryNotResult {
         found: Type,
     },
@@ -517,6 +523,8 @@ impl ErrorCode {
             ErrorCode::TryOutsideResultFunction => "T087",
             ErrorCode::TryNotResult { .. } => "T088",
             ErrorCode::TryErrorType { .. } => "T089",
+            ErrorCode::BuiltinAsValue { .. } => "T090",
+            ErrorCode::NotCallable { .. } => "T091",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -898,6 +906,11 @@ impl ErrorCode {
                 "'?' only works in a function that returns a result".to_string()
             }
             ErrorCode::TryNotResult { found } => format!("'?' needs a result, found {}", found),
+            ErrorCode::BuiltinAsValue { name } => format!(
+                "the built-in function '{}' is no value, only own functions are",
+                name
+            ),
+            ErrorCode::NotCallable { found } => format!("{} is no function and cannot be called", found),
             ErrorCode::TryErrorType { found, expected } => format!(
                 "'?' passes on an err of {}, but the function returns {}",
                 found, expected

@@ -64,6 +64,22 @@ pub enum Type {
     Interface(Decl<InterfaceLayout>),
     /// `result<T, E>` with the type of `ok` and the type of `err`.
     Result(Box<Type>, Box<Type>),
+    /// `fn(int, string): bool`, behind an `Rc` so that `Type` stays small.
+    Function(Rc<FunctionType>),
+}
+
+/// The parameter types and the result type of a function type.
+#[derive(Debug, PartialEq)]
+pub struct FunctionType {
+    pub params: Vec<Type>,
+    pub result: Type,
+}
+
+impl Type {
+    /// Builds the type `fn(params): result`.
+    pub fn function(params: Vec<Type>, result: Type) -> Type {
+        Type::Function(Rc::new(FunctionType { params, result }))
+    }
 }
 
 impl Type {
@@ -129,6 +145,10 @@ impl fmt::Display for Type {
             Type::Class(layout) => write!(f, "{}", layout.name),
             Type::Interface(layout) => write!(f, "{}", layout.name),
             Type::Result(value, error) => write!(f, "result<{}, {}>", value, error),
+            Type::Function(function) => {
+                let params: Vec<String> = function.params.iter().map(Type::to_string).collect();
+                write!(f, "fn({}): {}", params.join(", "), function.result)
+            }
         }
     }
 }

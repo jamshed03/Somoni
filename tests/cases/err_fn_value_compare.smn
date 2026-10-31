@@ -1,0 +1,5 @@
+fn quadrat(n: int): int {
+    return n * n;
+}
+var f: fn(int): int = quadrat;
+print(f == quadrat);

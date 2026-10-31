@@ -1,0 +1,3 @@
+Type error [T007]: Line 5: operator not allowed for fn(int): int
+  5 | print(f == quadrat);
+    |         ^^

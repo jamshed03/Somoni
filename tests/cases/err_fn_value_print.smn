@@ -1,0 +1,4 @@
+fn quadrat(n: int): int {
+    return n * n;
+}
+print(quadrat);

@@ -32,6 +32,8 @@ pub enum Value {
     Ok(Rc<Value>),
     /// `err(x)` of a result, with the error inside.
     Err(Rc<Value>),
+    /// An own function as a value, by its number.
+    Function(usize),
     Null,
     Void,
 }

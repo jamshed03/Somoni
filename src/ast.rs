@@ -69,6 +69,13 @@ pub enum ExprKind {
     },
     /// `value?`: the value inside an `ok`, or the function returns the `err` at once.
     Try(Box<Expr>),
+    /// The name of an own function used as a value, which the type checker makes from a name.
+    FunctionRef {
+        name: String,
+        index: usize,
+    },
+    /// `callee(args)` where `callee` is a function value, e.g. `f(3)` for a variable `f` or `l[0](3)`.
+    CallValue(CallValue),
     /// A `const` of the top level read in a function, which the type checker makes from a name.
     Constant {
         name: String,
@@ -124,6 +131,13 @@ pub struct SuperCall {
     pub args: Vec<Expr>,
     /// Filled in by the type checker: the function of that method.
     pub target: Option<usize>,
+}
+
+/// `callee(args)`, a call of a function value.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CallValue {
+    pub callee: Box<Expr>,
+    pub args: Vec<Expr>,
 }
 
 /// `Class::name(args)`, a call of a static method, which has no `this`.
@@ -183,6 +197,8 @@ impl Expr {
             ExprKind::StaticAccess(_) => None,
             ExprKind::InstanceOf(test) => test.value.find_this(),
             ExprKind::Try(value) => value.find_this(),
+            ExprKind::FunctionRef { .. } => None,
+            ExprKind::CallValue(call) => call.callee.find_this().or_else(|| first_this(&call.args)),
         }
     }
 
@@ -634,6 +650,9 @@ pub struct Constructor {
     pub body: Vec<Stmt>,
     pub span: Span,
 }
+
+/// The name under which a function type like `fn(int): bool` is kept in a `TypeName`.
+pub const FN_TYPE: &str = "fn";
 
 /// The name of the variable that holds the object in a constructor or method, a keyword no other variable can have.
 pub const THIS: &str = "this";

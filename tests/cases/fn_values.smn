@@ -1,0 +1,56 @@
+// own functions are values of type fn(...): ..., they can be stored, passed on and called
+fn quadrat(n: int): int {
+    return n * n;
+}
+
+fn doppelt(n: int): int {
+    return n * 2;
+}
+
+fn anwenden(f: fn(int): int, n: int): int {
+    return f(n);
+}
+
+fn waehle(gross: bool): fn(int): int {
+    if (gross) {
+        return quadrat;
+    }
+    return doppelt;
+}
+
+fn alle(fs: list<fn(int): int>, n: int): list<int> {
+    var ergebnisse: list<int> = [];
+    for (f: fn(int): int in fs) {
+        ergebnisse += [f(n)];
+    }
+    return ergebnisse;
+}
+
+var f: fn(int): int = quadrat;
+print(f(3));
+f = doppelt;
+print(f(3));
+print(anwenden(quadrat, 4));
+print(waehle(true)(5));
+print(waehle(false)(5));
+var fs: list<fn(int): int> = [quadrat, doppelt];
+print(fs[1](10));
+print(alle(fs, 7));
+var leer: fn(): void = fn_ohne;
+leer();
+
+fn fn_ohne(): void {
+    print("ohne Parameter");
+}
+
+fn melder(): fn(): void {
+    return fn_ohne;
+}
+
+melder()();
+
+{
+    var quadrat: fn(int): int = doppelt;
+    print(quadrat(6));
+}
+print(quadrat(6));

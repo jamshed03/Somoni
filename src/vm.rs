@@ -124,6 +124,7 @@ impl<'p> Vm<'p> {
             }
             Op::Return => self.return_to_caller(frame)?,
             Op::Try => self.try_result(frame)?,
+            Op::CallValue(count) => self.call_value(*count, frame, program)?,
             Op::MakeList(count) => self.make_list(*count),
             Op::NewMap => self.stack.push(Value::Map(Rc::new(MapValue::default()))),
             Op::MapInsert => self.map_insert()?,
@@ -220,6 +221,21 @@ impl<'p> Vm<'p> {
             .ok_or_else(|| SomoniError::internal("return outside of a function"))?;
         self.stack.push(result);
         Ok(())
+    }
+
+    /// Takes the function value from below the `count` arguments and calls it with them.
+    #[inline(never)]
+    fn call_value(
+        &mut self,
+        count: usize,
+        frame: &mut Frame<'p>,
+        program: &'p Program,
+    ) -> Result<(), SomoniError> {
+        let place = self.top_start(count) - 1;
+        match self.stack.remove(place) {
+            Value::Function(function) => self.call(&program.functions[function], count, frame),
+            _ => Err(SomoniError::internal("call of a value that is no function")),
+        }
     }
 
     /// Pops a result: pushes the value of an `ok`, or returns the whole `err` to the caller.
