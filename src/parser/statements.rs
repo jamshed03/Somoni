@@ -1,7 +1,8 @@
 //! Reading statements: blocks, `if`, loops, `match`, variables and assignments.
 
 use crate::ast::{
-    Assign, BinaryOp, Expr, ExprKind, ForEach, Match, MatchArm, Pattern, Stmt, VarDecl,
+    Assign, BinaryOp, Destructure, Expr, ExprKind, ForEach, Match, MatchArm, Pattern, Stmt,
+    TUPLE_TYPE, TypeName, VarDecl,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -15,6 +16,10 @@ impl Parser {
     pub(super) fn parse_stmt(&mut self) -> Result<Stmt, SomoniError> {
         let start = self.current_span();
         match self.peek().clone() {
+            Token::Var | Token::Const if *self.peek_next() == Token::LParen => {
+                let mutable = *self.peek() == Token::Var;
+                self.parse_destructure(mutable, start)
+            }
             Token::Var => Ok(Stmt::VarDecl(self.parse_var_decl(true, start)?)),
             Token::Const => Ok(Stmt::VarDecl(self.parse_var_decl(false, start)?)),
             Token::LBrace => self.parse_block(start),
@@ -299,6 +304,67 @@ impl Parser {
             in_object: false,
             span: self.since(start),
         }))
+    }
+
+    /// Reads `var (q: int, r: int) = value;`: a hidden variable holds the tuple, every name reads one element of it.
+    fn parse_destructure(&mut self, mutable: bool, start: Span) -> Result<Stmt, SomoniError> {
+        self.advance();
+        self.advance();
+        let names =
+            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("variable"))?;
+        self.expect(Token::Equal, "'='")?;
+        let value = self.parse_expr()?;
+        let span = self.since(start);
+        self.expect(Token::Semicolon, "';'")?;
+        let hidden = format!("<tuple {}:{}>", start.line, start.col);
+        let tuple_type = TypeName {
+            name: TUPLE_TYPE.to_string(),
+            args: names.iter().map(|name| name.type_name.clone()).collect(),
+            optional: false,
+            span,
+        };
+        let tuple = VarDecl {
+            exported: false,
+            name: hidden.clone(),
+            name_span: start,
+            type_name: tuple_type,
+            value,
+            mutable: true,
+            slot: None,
+            global: None,
+            span,
+        };
+        let parts = names
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| {
+                let read = ExprKind::TupleIndex {
+                    target: Box::new(Expr {
+                        kind: ExprKind::Ident {
+                            name: hidden.clone(),
+                            slot: None,
+                        },
+                        span: name.name_span,
+                    }),
+                    index,
+                };
+                VarDecl {
+                    exported: false,
+                    value: Expr {
+                        kind: read,
+                        span: name.name_span,
+                    },
+                    name: name.name,
+                    name_span: name.name_span,
+                    type_name: name.type_name,
+                    mutable,
+                    slot: None,
+                    global: None,
+                    span,
+                }
+            })
+            .collect();
+        Ok(Stmt::Destructure(Destructure { tuple, parts }))
     }
 
     /// Reads `var name: type = value;` or `const name: type = value;`.

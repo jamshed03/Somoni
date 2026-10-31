@@ -64,7 +64,7 @@ Version 0.5.0: the core of the language plus lists, structs, optional types, map
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected
 -   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`)
 -   Errors as values: `result<int, string>` with `ok(x)` and `err(e)`, read with `match` (`ok(n: int) => { ... }`), passed on with `value?` inside functions that return a result, tested with `is_ok(r)` and `is_err(r)`
--   Tuples `(int, string)` with `(1, "eins")` and `p.0`, also to return several values from a function
+-   Tuples `(int, string)` with `(1, "eins")` and `p.0`, also to return several values from a function, taken apart with `var (q: int, r: int) = teilen(17, 5);`
 -   Maps `map<string, int>` with `{"Ali": 30}`, `m["Ali"]`, `m["Tom"] = 40;`, `len`, `has(m, k)`, `keys(m)` (insertion order)
 -   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
 -   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err`, `is_ok`, `is_err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
@@ -77,4 +77,4 @@ Version 0.5.0: the core of the language plus lists, structs, optional types, map
 
 -   Null checks: after `if (a != null)` the value of `a` can be used
 
-Next: taking tuples apart with `var (a, b) = p;`, then `import { a as b }` and `import * as m` (see `docs/Checkliste.md`).
+Next: `import { a as b }` and `import * as m` (see `docs/Checkliste.md`).

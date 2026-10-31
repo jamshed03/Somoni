@@ -1,0 +1,2 @@
+const (a: int, b: int) = (1, 2);
+a = 3;

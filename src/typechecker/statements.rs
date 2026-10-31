@@ -91,6 +91,12 @@ impl TypeChecker {
     pub(super) fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl(decl) => self.check_var_decl(decl),
+            Stmt::Destructure(_) => {
+                for decl in stmt.var_decls_mut() {
+                    self.check_var_decl(decl)?;
+                }
+                Ok(())
+            }
             Stmt::Assign(assign) => self.check_assign(assign),
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
@@ -457,6 +463,7 @@ fn stmt_always_ends(stmt: &Stmt, exit: Exit) -> bool {
         },
         Stmt::While { .. } | Stmt::For { .. } | Stmt::ForEach(_) => false,
         Stmt::VarDecl(_)
+        | Stmt::Destructure(_)
         | Stmt::Assign(_)
         | Stmt::Expr { .. }
         | Stmt::FnDecl(_)

@@ -1,0 +1,32 @@
+// var (a: int, b: string) = tuple; gives every element its own variable
+fn teilen(a: int, b: int): (int, int) {
+    return (a / b, a % b);
+}
+
+fn zeige(): string {
+    return NAME + " ist " + string(ALTER);
+}
+
+const (NAME: string, ALTER: int) = ("Ali", 30);
+
+var (q: int, r: int) = teilen(17, 5);
+print(q);
+print(r);
+q = q * 10;
+print(q);
+
+print(zeige());
+
+var (zahl: int?, liste: list<int>) = (null, [1]);
+print(zahl);
+print(liste);
+
+{
+    var (q: int, r: string) = (1, "innen");
+    print(r);
+}
+print(q);
+
+var (a: int, b: int) = (1, 2);
+var (x: int, y: int) = (3, 4);
+print(a + b + x + y);

@@ -376,6 +376,8 @@ pub enum UnaryOp {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     VarDecl(VarDecl),
+    /// `var (q: int, r: int) = value;`, kept as a hidden variable with the tuple and one variable per element.
+    Destructure(Destructure),
     /// A call as a statement, e.g. `print(x);`
     Expr {
         expr: Expr,
@@ -420,6 +422,13 @@ pub enum Stmt {
         value: Option<Expr>,
         span: Span,
     },
+}
+
+/// `var (q: int, r: int) = value;` as `var <tuple>: (int, int) = value; var q: int = <tuple>.0; ...`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Destructure {
+    pub tuple: VarDecl,
+    pub parts: Vec<VarDecl>,
 }
 
 /// `var name: type = value;` or `const name: type = value;`.
@@ -486,10 +495,31 @@ pub struct Match {
 }
 
 impl Stmt {
+    /// Returns the variables a `var`, `const` or tuple statement declares, in the order they run; none for other statements.
+    pub fn var_decls(&self) -> impl Iterator<Item = &VarDecl> {
+        let (first, rest): (Option<&VarDecl>, &[VarDecl]) = match self {
+            Stmt::VarDecl(decl) => (Some(decl), &[]),
+            Stmt::Destructure(d) => (Some(&d.tuple), &d.parts),
+            _ => (None, &[]),
+        };
+        first.into_iter().chain(rest)
+    }
+
+    /// Like `var_decls`, for the type checker to fill in slots and globals.
+    pub fn var_decls_mut(&mut self) -> impl Iterator<Item = &mut VarDecl> {
+        let (first, rest): (Option<&mut VarDecl>, &mut [VarDecl]) = match self {
+            Stmt::VarDecl(decl) => (Some(decl), &mut []),
+            Stmt::Destructure(d) => (Some(&mut d.tuple), &mut d.parts),
+            _ => (None, &mut []),
+        };
+        first.into_iter().chain(rest)
+    }
+
     /// Returns the place of the first `this` in the statement, not counting declarations inside it.
     pub fn find_this(&self) -> Option<Span> {
         match self {
             Stmt::VarDecl(decl) => decl.value.find_this(),
+            Stmt::Destructure(d) => d.tuple.value.find_this(),
             Stmt::Expr { expr, .. } => expr.find_this(),
             Stmt::Assign(assign) => assign
                 .target

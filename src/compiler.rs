@@ -91,10 +91,9 @@ fn constants<'a>(
         files[number]
             .stmts
             .iter()
-            .filter_map(move |stmt| match stmt {
-                Stmt::VarDecl(decl) if decl.global.is_some() => Some((number, decl)),
-                _ => None,
-            })
+            .flat_map(Stmt::var_decls)
+            .filter(|decl| decl.global.is_some())
+            .map(move |decl| (number, decl))
     })
 }
 
@@ -331,7 +330,11 @@ impl Compiler {
     /// Writes a statement, leaving the stack as before.
     fn compile_stmt(&mut self, stmt: &Stmt) -> Result<(), SomoniError> {
         match stmt {
-            Stmt::VarDecl(decl) => self.compile_var_decl(decl)?,
+            Stmt::VarDecl(_) | Stmt::Destructure(_) => {
+                for decl in stmt.var_decls() {
+                    self.compile_var_decl(decl)?;
+                }
+            }
             Stmt::Assign(assign) => self.compile_assign(assign)?,
             Stmt::Expr { expr, span } => {
                 self.compile_expr(expr)?;
