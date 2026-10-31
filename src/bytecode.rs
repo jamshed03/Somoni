@@ -71,6 +71,8 @@ pub enum Op {
     Next { slot: usize, end: usize, both: bool },
     /// Pops an enum or result and goes on at its branch in jump table `i`, pushing the value inside a result first.
     Switch(usize),
+    /// Pops an int or a string and goes on at its branch in value table `i`, or at the `_` branch.
+    SwitchValue(usize),
     /// Pops a value and pushes whether it is an object of the class or interface; `null` gives false.
     InstanceOf(InstanceTarget),
     /// Pushes global number `i`, a static field.
@@ -131,6 +133,13 @@ pub enum PathStep {
     Field(usize),
 }
 
+/// Where a `match` over ints or strings goes on: the branch of each value, and the `_` branch.
+#[derive(Debug, Default)]
+pub struct ValueTable {
+    pub cases: Vec<(Value, usize)>,
+    pub rest: usize,
+}
+
 /// The instructions of one function with their places in the source, constants, paths and jump tables.
 #[derive(Debug, Default)]
 pub struct Chunk {
@@ -141,6 +150,8 @@ pub struct Chunk {
     pub constants: Vec<Value>,
     pub paths: Vec<Path>,
     pub tables: Vec<Vec<usize>>,
+    /// The tables of `SwitchValue`, for a `match` over ints or strings.
+    pub value_tables: Vec<ValueTable>,
     /// How many variable slots the code needs.
     pub locals: usize,
 }
@@ -328,6 +339,15 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::AppendLocal(slot) => format!("AppendLocal {}", slot),
         Op::Chars => "Chars".to_string(),
         Op::Switch(i) => format!("Switch [{}]", show_table(&chunk.tables[*i])),
+        Op::SwitchValue(i) => {
+            let table = &chunk.value_tables[*i];
+            let cases: Vec<String> = table
+                .cases
+                .iter()
+                .map(|(value, target)| format!("{} -> {:04}", Quoted(value), target))
+                .collect();
+            format!("SwitchValue [{}, _ -> {:04}]", cases.join(", "), table.rest)
+        }
         Op::GetGlobal(i) => format!("GetGlobal {}", program.globals[*i]),
         Op::SetGlobal(i) => format!("SetGlobal {}", program.globals[*i]),
         Op::GetConst(i) => format!("GetConst {}", program.globals[*i]),

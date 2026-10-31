@@ -1,4 +1,4 @@
-match (5) {
+match (5.5) {
     _ => {
         print(1);
     }

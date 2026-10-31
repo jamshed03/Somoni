@@ -1,0 +1,6 @@
+var s: string = "a";
+match (s) {
+    "a" => {
+        print(1);
+    }
+}

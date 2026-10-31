@@ -1,0 +1,67 @@
+// match over strings and ints, with `_` for all other values, and ok(_) / err(_) without a name
+fn name_of(sign: string): string {
+    match (sign) {
+        "+" => {
+            return "plus";
+        }
+        "-" => {
+            return "minus";
+        }
+        _ => {
+            return "unbekannt";
+        }
+    }
+}
+
+fn size(n: int): string {
+    match (n) {
+        0 => {
+            return "null";
+        }
+        -1 => {
+            return "minus eins";
+        }
+        1 => {
+            return "eins";
+        }
+        _ => {
+            return "viele";
+        }
+    }
+}
+
+print(name_of("+"));
+print(name_of("-"));
+print(name_of("*"));
+print(size(0));
+print(size(-1));
+print(size(1));
+print(size(42));
+
+for (word: string in ["Ali", "Bea", "äöü"]) {
+    match (word) {
+        "äöü" => {
+            print("Umlaute");
+        }
+        _ => {
+            print("Name " + word);
+        }
+    }
+}
+
+match (int("12")) {
+    ok(_) => {
+        print("eine Zahl");
+    }
+    err(_) => {
+        print("keine Zahl");
+    }
+}
+match (int("x")) {
+    ok(n: int) => {
+        print(n);
+    }
+    err(_) => {
+        print("keine Zahl");
+    }
+}

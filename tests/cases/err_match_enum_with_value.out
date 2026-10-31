@@ -1,0 +1,3 @@
+Type error [T042]: Line 7: this match is over Farbe, not int
+  7 |     1 => {
+    |     ^

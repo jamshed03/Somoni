@@ -2,10 +2,12 @@ use std::rc::Rc;
 
 use crate::ast::{
     self, Assign, BinaryOp, Call, CallTarget, CaptureSource, ClassDecl, ClassField, ClassLayout,
-    EnumDecl, Expr, ExprKind, FieldInit, ForEach, Function, IterKind, Lambda, Match, MethodCall,
-    MethodTarget, Pattern, Stmt, VarDecl,
+    EnumDecl, Expr, ExprKind, FieldInit, ForEach, Function, IterKind, Lambda, Literal, Match,
+    MethodCall, MethodTarget, Pattern, Stmt, VarDecl,
 };
-use crate::bytecode::{Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, index_slot};
+use crate::bytecode::{
+    Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, ValueTable, index_slot,
+};
 use crate::error::SomoniError;
 use crate::loader::{MAIN_FILE, SourceFile};
 use crate::span::Span;
@@ -195,6 +197,14 @@ fn compile_function(
     let mut compiler = Compiler::new(name, params);
     compiler.compile_body(function)?;
     Ok(compiler.finish(lambdas))
+}
+
+/// Returns the runtime value of a value in a branch of `match`.
+fn literal_value(literal: &Literal) -> Value {
+    match literal {
+        Literal::Int(n) => Value::Int(*n),
+        Literal::Str(s) => Value::Str(Rc::clone(s)),
+    }
 }
 
 /// Returns the number of values with the value of a lambda in front of `count` arguments.
@@ -530,11 +540,34 @@ impl Compiler {
 
     /// Writes a `match` as a jump table over the variants.
     fn compile_match(&mut self, m: &Match) -> Result<(), SomoniError> {
+        if m.by_value {
+            return self.compile_value_match(m);
+        }
         self.compile_expr(&m.subject)?;
         let table = self.chunk.add_table();
         self.chunk.push(Op::Switch(table), m.span);
         let starts = self.compile_arms(m)?;
         self.chunk.tables[table] = m.arm_of_variant.iter().map(|&arm| starts[arm]).collect();
+        Ok(())
+    }
+
+    /// Writes a `match` over an int or a string, which finds its branch in a table of values.
+    fn compile_value_match(&mut self, m: &Match) -> Result<(), SomoniError> {
+        self.compile_expr(&m.subject)?;
+        let table = self.chunk.value_tables.len();
+        self.chunk.value_tables.push(ValueTable::default());
+        self.chunk.push(Op::SwitchValue(table), m.span);
+        let starts = self.compile_arms(m)?;
+        for (arm, start) in m.arms.iter().zip(starts) {
+            let entry = &mut self.chunk.value_tables[table];
+            match &arm.pattern {
+                Pattern::Literal { value, .. } => entry.cases.push((literal_value(value), start)),
+                Pattern::Rest(_) => entry.rest = start,
+                Pattern::Variant { .. } | Pattern::Result { .. } => {
+                    return Err(SomoniError::internal("variant in a match over values"));
+                }
+            }
+        }
         Ok(())
     }
 
@@ -560,14 +593,19 @@ impl Compiler {
         span: Span,
     ) -> Result<(), SomoniError> {
         match pattern {
-            Pattern::Result { slot, .. } => {
+            Pattern::Result {
+                var: Some(_), slot, ..
+            } => {
                 let slot = self.use_slot(filled(*slot, "pattern slot")?);
                 self.chunk.push(Op::SetLocal(slot), span);
+            }
+            Pattern::Result { var: None, .. } => {
+                self.chunk.push(Op::Pop, span);
             }
             Pattern::Rest(_) if unwraps => {
                 self.chunk.push(Op::Pop, span);
             }
-            Pattern::Variant { .. } | Pattern::Rest(_) => {}
+            Pattern::Variant { .. } | Pattern::Rest(_) | Pattern::Literal { .. } => {}
         }
         Ok(())
     }

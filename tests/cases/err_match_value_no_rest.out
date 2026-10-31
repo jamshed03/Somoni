@@ -1,0 +1,3 @@
+Type error [T099]: Line 2: a match over string needs a branch '_' for all other values
+  2 | match (s) {
+    | ^^^^^

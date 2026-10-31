@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use crate::ast::{ERR_VARIANT, EnumDecl, Expr, ExprKind, MatchArm, OK_VARIANT, Pattern};
+use crate::ast::{ERR_VARIANT, EnumDecl, Expr, ExprKind, Literal, MatchArm, OK_VARIANT, Pattern};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Type;
@@ -16,7 +16,13 @@ impl TypeChecker {
         arm: &mut MatchArm,
         subject: &Type,
     ) -> Result<(), SomoniError> {
-        let Pattern::Result { ok, var, slot, .. } = &mut arm.pattern else {
+        let Pattern::Result {
+            ok,
+            var: Some(var),
+            slot,
+            ..
+        } = &mut arm.pattern
+        else {
             return self.check_stmt(&mut arm.body);
         };
         let Type::Result(value, error) = subject else {
@@ -200,6 +206,7 @@ fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), Somoni
             },
         ) => (enum_name.clone(), *enum_span),
         (_, Pattern::Result { span, .. }) => ("result".to_string(), *span),
+        (_, Pattern::Literal { value, span }) => (value.ty().to_string(), *span),
         (_, Pattern::Rest(_)) => return Err(SomoniError::internal("'_' has no variant")),
     };
     Err(SomoniError::at(
@@ -209,6 +216,60 @@ fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), Somoni
             found,
         },
     ))
+}
+
+/// Checks a `match` over an int or a string: every branch is a value of that type, none twice, and `_` comes last.
+pub(super) fn check_value_match(
+    ty: &Type,
+    arms: &[MatchArm],
+    span: Span,
+) -> Result<(), SomoniError> {
+    let mut seen: Vec<&Literal> = Vec::new();
+    let mut rest: Option<Span> = None;
+    for arm in arms {
+        if let Some(rest) = rest {
+            return Err(SomoniError::at(rest, ErrorCode::RestNotLast));
+        }
+        match &arm.pattern {
+            Pattern::Rest(span) => rest = Some(*span),
+            Pattern::Literal { value, span } if value.ty() == *ty => {
+                if seen.contains(&value) {
+                    let name = value.to_string();
+                    return Err(SomoniError::at(*span, ErrorCode::DuplicateBranch { name }));
+                }
+                seen.push(value);
+            }
+            pattern => return Err(wrong_pattern(ty, pattern)),
+        }
+    }
+    match rest {
+        Some(_) => Ok(()),
+        None => Err(SomoniError::at(
+            span,
+            ErrorCode::ValueMatchWithoutRest { ty: ty.clone() },
+        )),
+    }
+}
+
+/// Returns T042 for a branch that does not fit a `match` over an int or a string.
+fn wrong_pattern(ty: &Type, pattern: &Pattern) -> SomoniError {
+    let (found, span) = match pattern {
+        Pattern::Literal { value, span } => (value.ty().to_string(), *span),
+        Pattern::Variant {
+            enum_name,
+            enum_span,
+            ..
+        } => (enum_name.clone(), *enum_span),
+        Pattern::Result { span, .. } => ("result".to_string(), *span),
+        Pattern::Rest(span) => ("_".to_string(), *span),
+    };
+    SomoniError::at(
+        span,
+        ErrorCode::PatternWrongEnum {
+            expected: ty.clone(),
+            found,
+        },
+    )
 }
 
 /// Returns the number of a variant of an enum.

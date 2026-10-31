@@ -1,8 +1,10 @@
+use std::fmt;
 use std::rc::Rc;
 
 use crate::builtins::Builtin;
 use crate::span::Span;
 use crate::text::Text;
+use crate::types::Type;
 
 /// An expression with its place in the source.
 #[derive(Debug, Clone, PartialEq)]
@@ -493,6 +495,8 @@ pub struct Match {
     pub arm_of_variant: Vec<usize>,
     /// Filled in by the type checker: true for a result, whose branches get the value inside it.
     pub unwraps: bool,
+    /// Filled in by the type checker: true for a match over an int or a string, whose branches are values.
+    pub by_value: bool,
     pub span: Span,
 }
 
@@ -814,15 +818,44 @@ pub enum Pattern {
         name: String,
         name_span: Span,
     },
-    /// `ok(n: int)` or `err(e: string)`, whose variable (in `slot`) gets the value inside the result.
+    /// `ok(n: int)`, `err(e: string)` or `ok(_)`, whose variable (in `slot`) gets the value inside the result.
     Result {
         ok: bool,
-        var: Param,
+        var: Option<Param>,
         slot: Option<usize>,
         span: Span,
     },
+    /// `"+"`, `42` or `-1` in a `match` over a string or an int.
+    Literal { value: Literal, span: Span },
     /// `_`: all variants that have no branch of their own
     Rest(Span),
+}
+
+/// A fixed value in a branch of `match`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    Int(i64),
+    Str(Rc<Text>),
+}
+
+impl Literal {
+    /// Returns the type of the value.
+    pub fn ty(&self) -> Type {
+        match self {
+            Literal::Int(_) => Type::Int,
+            Literal::Str(_) => Type::Str,
+        }
+    }
+}
+
+/// The value as written in Somoni, e.g. `42` or `"+"`.
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Literal::Int(n) => write!(f, "{}", n),
+            Literal::Str(s) => write!(f, "\"{}\"", s),
+        }
+    }
 }
 
 /// One `name: type` in a struct declaration.

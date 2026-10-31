@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
 use crate::builtins::Builtin;
-use crate::bytecode::{Chunk, Op, Path, PathRoot, PathStep, Program, index_slot};
+use crate::bytecode::{Chunk, Op, Path, PathRoot, PathStep, Program, ValueTable, index_slot};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
 use crate::text::Text;
@@ -198,6 +198,9 @@ impl<'p> Vm<'p> {
             Op::Switch(table) => {
                 let variant = self.pop_variant()?;
                 frame.ip = frame.chunk.tables[*table][variant];
+            }
+            Op::SwitchValue(table) => {
+                frame.ip = self.switch_value(&frame.chunk.value_tables[*table])?;
             }
             Op::Chars => self.chars()?,
             Op::InstanceOf(target) => self.instance_of(*target, program)?,
@@ -476,6 +479,14 @@ impl<'p> Vm<'p> {
             }
             _ => Err(SomoniError::internal("match on a non-enum")),
         }
+    }
+
+    /// Pops the value of a `match` over ints or strings and returns where its branch starts.
+    #[inline(never)]
+    fn switch_value(&mut self, table: &ValueTable) -> Result<usize, SomoniError> {
+        let value = self.pop()?;
+        let found = table.cases.iter().find(|(case, _)| *case == value);
+        Ok(found.map_or(table.rest, |(_, start)| *start))
     }
 
     /// Pushes constant number `i`, or returns R008 if its line has not run yet.

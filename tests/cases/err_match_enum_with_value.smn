@@ -1,0 +1,11 @@
+enum Farbe {
+    Rot,
+    Blau
+}
+var f: Farbe = Farbe.Rot;
+match (f) {
+    1 => {
+    }
+    _ => {
+    }
+}

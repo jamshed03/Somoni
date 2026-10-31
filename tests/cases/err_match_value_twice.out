@@ -1,0 +1,3 @@
+Type error [T043]: Line 5: there is already a branch for 1
+  5 |     1 => {
+    |     ^

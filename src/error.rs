@@ -347,6 +347,9 @@ pub enum ErrorCode {
     ModuleNotValue {
         name: String,
     },
+    ValueMatchWithoutRest {
+        ty: Type,
+    },
     TupleIndexOutOfRange {
         found: Type,
         index: usize,
@@ -558,6 +561,7 @@ impl ErrorCode {
             ErrorCode::NotATuple { .. } => "T096",
             ErrorCode::ModuleNameTaken { .. } => "T097",
             ErrorCode::ModuleNotValue { .. } => "T098",
+            ErrorCode::ValueMatchWithoutRest { .. } => "T099",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -791,7 +795,7 @@ impl ErrorCode {
                 format!("'{}' has no variant '{}'", enum_name, name)
             }
             ErrorCode::MatchNotEnum { found } => {
-                format!("match needs an enum or a result, got {}", found)
+                format!("match needs an enum, a result, an int or a string, got {}", found)
             }
             ErrorCode::PatternWrongEnum { expected, found } => {
                 format!("this match is over {}, not {}", expected, found)
@@ -955,6 +959,10 @@ impl ErrorCode {
             ),
             ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
             ErrorCode::TupleTooShort => "a tuple needs at least two elements".to_string(),
+            ErrorCode::ValueMatchWithoutRest { ty } => format!(
+                "a match over {} needs a branch '_' for all other values",
+                ty
+            ),
             ErrorCode::ModuleNameTaken { name } => {
                 format!("'{}' is the name of an imported module", name)
             }

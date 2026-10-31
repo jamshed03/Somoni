@@ -9,7 +9,7 @@ use crate::span::Span;
 use crate::types::Type;
 
 use super::declarations::is_fixed_value;
-use super::patterns::check_match;
+use super::patterns::{check_match, check_value_match};
 use super::{ObjectField, Signature, TypeChecker};
 
 impl TypeChecker {
@@ -170,8 +170,13 @@ impl TypeChecker {
     /// Checks a `match` statement: the subject, that every variant is covered, and each branch.
     fn check_match_stmt(&mut self, m: &mut Match) -> Result<(), SomoniError> {
         let ty = self.check_expr(&mut m.subject)?;
-        m.arm_of_variant = check_match(&ty, m.subject.span, &m.arms, m.span)?;
-        m.unwraps = matches!(ty, Type::Result(_, _));
+        if matches!(ty, Type::Int | Type::Str) {
+            check_value_match(&ty, &m.arms, m.span)?;
+            m.by_value = true;
+        } else {
+            m.arm_of_variant = check_match(&ty, m.subject.span, &m.arms, m.span)?;
+            m.unwraps = matches!(ty, Type::Result(_, _));
+        }
         for arm in &mut m.arms {
             self.check_arm(arm, &ty)?;
         }

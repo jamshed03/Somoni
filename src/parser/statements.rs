@@ -1,12 +1,15 @@
 //! Reading statements: blocks, `if`, loops, `match`, variables and assignments.
 
+use std::rc::Rc;
+
 use crate::ast::{
-    Assign, BinaryOp, Destructure, Expr, ExprKind, ForEach, Match, MatchArm, Pattern, Stmt,
-    TUPLE_TYPE, TypeName, VarDecl,
+    Assign, BinaryOp, Destructure, Expr, ExprKind, ForEach, Literal, Match, MatchArm, Pattern,
+    Stmt, TUPLE_TYPE, TypeName, VarDecl,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
+use crate::text::Text;
 use crate::token::Token;
 
 use super::Parser;
@@ -71,6 +74,7 @@ impl Parser {
             arms,
             arm_of_variant: Vec::new(),
             unwraps: false,
+            by_value: false,
             span: start,
         }))
     }
@@ -83,12 +87,15 @@ impl Parser {
         Ok(MatchArm { pattern, body })
     }
 
-    /// Reads what a branch of `match` stands for: `Farbe.Rot`, `ok(n: int)`, `err(e: string)` or `_`.
+    /// Reads what a branch of `match` stands for: `Farbe.Rot`, `ok(n: int)`, `err(e: string)`, `"+"`, `42` or `_`.
     fn parse_pattern(&mut self) -> Result<Pattern, SomoniError> {
         if self.at_word("_") {
             let span = self.current_span();
             self.advance();
             return Ok(Pattern::Rest(span));
+        }
+        if let Some(pattern) = self.parse_literal_pattern() {
+            return Ok(pattern);
         }
         if let Token::Ident(name) = self.peek()
             && let Some(builtin) = Builtin::result_builder(name)
@@ -99,12 +106,36 @@ impl Parser {
         self.parse_variant_pattern()
     }
 
-    /// Reads `ok(n: int)` or `err(e: string)` in a branch of `match`.
+    /// Reads a value like `"+"`, `42` or `-1` in a branch of `match`, if one comes next.
+    fn parse_literal_pattern(&mut self) -> Option<Pattern> {
+        let start = self.current_span();
+        let value = match (self.peek().clone(), self.peek_next().clone()) {
+            (Token::Str(s), _) => Literal::Str(Rc::new(Text::new(s))),
+            (Token::Int(n), _) => Literal::Int(n),
+            (Token::Minus, Token::Int(n)) => {
+                self.advance();
+                Literal::Int(-n)
+            }
+            _ => return None,
+        };
+        self.advance();
+        Some(Pattern::Literal {
+            value,
+            span: self.since(start),
+        })
+    }
+
+    /// Reads `ok(n: int)`, `err(e: string)`, `ok(_)` or `err(_)` in a branch of `match`.
     fn parse_result_pattern(&mut self, builtin: Builtin) -> Result<Pattern, SomoniError> {
         let span = self.current_span();
         self.advance();
         self.advance();
-        let var = self.parse_param("variable")?;
+        let var = if self.at_word("_") {
+            self.advance();
+            None
+        } else {
+            Some(self.parse_param("variable")?)
+        };
         self.expect(Token::RParen, "')' after the variable")?;
         Ok(Pattern::Result {
             ok: builtin == Builtin::Ok,

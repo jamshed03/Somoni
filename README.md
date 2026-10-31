@@ -62,7 +62,7 @@ Version 0.6.0: the core of the language plus lists, structs, optional types, map
 -   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)`, joined with `l + [4]` (values are copied like PHP arrays)
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected
--   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`)
+-   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`); `match` also over ints and strings (`"+" => { ... }`, `_` required)
 -   Errors as values: `result<int, string>` with `ok(x)` and `err(e)`, read with `match` (`ok(n: int) => { ... }`), passed on with `value?` inside functions that return a result, tested with `is_ok(r)` and `is_err(r)`
 -   Tuples `(int, string)` with `(1, "eins")` and `p.0`, also to return several values from a function, taken apart with `var (q: int, r: int) = teilen(17, 5);`
 -   Maps `map<string, int>` with `{"Ali": 30}`, `m["Ali"]`, `m["Tom"] = 40;`, `len`, `has(m, k)`, `keys(m)` (insertion order)

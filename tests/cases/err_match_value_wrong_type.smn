@@ -1,0 +1,8 @@
+var n: int = 1;
+match (n) {
+    "a" => {
+        print(1);
+    }
+    _ => {
+    }
+}

@@ -1,0 +1,3 @@
+Type error [T044]: Line 3: '_' must be the last branch
+  3 |     _ => {
+    |     ^
