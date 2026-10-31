@@ -1,9 +1,17 @@
+//! The functions and methods built into Somoni; the methods of strings and the conversions have files of their own.
+
 use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::text::Text;
 use crate::types::Type;
 use crate::value::{Value, map_key};
+
+use convert::{conversion_result, float_to_int, parse_float, parse_int};
+use strings::{index_of, join, replace, slice_text, split};
+
+mod convert;
+mod strings;
 
 /// The functions built into Somoni.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -268,104 +276,20 @@ impl Builtin {
 }
 
 /// Returns a string value.
-fn string_value(s: String) -> Value {
+pub(super) fn string_value(s: String) -> Value {
     Value::Str(Rc::new(Text::new(s)))
 }
 
-/// Splits `s` at every `sep`, or into its characters if `sep` is empty.
-fn split(s: &str, sep: &str) -> Value {
-    let parts: Vec<Value> = if sep.is_empty() {
-        s.chars().map(|c| string_value(c.to_string())).collect()
-    } else {
-        s.split(sep)
-            .map(|part| string_value(part.to_string()))
-            .collect()
-    };
-    Value::List(Rc::new(parts))
-}
-
-/// Joins a list of strings with `sep` between them.
-fn join(items: &[Value], sep: &str) -> Result<Value, SomoniError> {
-    let parts = items
-        .iter()
-        .map(|item| match item {
-            Value::Str(s) => Ok(s.as_str()),
-            _ => Err(SomoniError::internal(
-                "'join' on a list that holds no strings",
-            )),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(string_value(parts.join(sep)))
-}
-
-/// Replaces every `old` in `s` with `new`; an empty `old` leaves `s` as it is.
-fn replace(s: &Rc<Text>, old: &str, new: &str) -> Value {
-    if old.is_empty() {
-        return Value::Str(Rc::clone(s));
-    }
-    string_value(s.as_str().replace(old, new))
-}
-
-/// Returns the characters of `s` from `start` up to `end`, or R009 if that is not inside `s`.
-fn slice_text(s: &Text, start: i64, end: i64) -> Result<Value, SomoniError> {
-    let length = s.char_count();
-    let (from, to) = slice_range(start, end, length)?;
-    let part: String = s.as_str().chars().skip(from).take(to - from).collect();
-    Ok(string_value(part))
-}
-
 /// Returns `start..end` as positions inside `length` values, or R009 if they are outside or backwards.
-fn slice_range(start: i64, end: i64, length: usize) -> Result<(usize, usize), SomoniError> {
+pub(super) fn slice_range(
+    start: i64,
+    end: i64,
+    length: usize,
+) -> Result<(usize, usize), SomoniError> {
     let from = usize::try_from(start).ok();
     let to = usize::try_from(end).ok().filter(|&to| to <= length);
     match (from, to) {
         (Some(from), Some(to)) if from <= to => Ok((from, to)),
         _ => Err(ErrorCode::SliceOutOfRange { start, end, length }.into()),
     }
-}
-
-/// Returns the place in characters of the first `part` in `s`, or `null`.
-fn index_of(s: &str, part: &str) -> Value {
-    match s.find(part) {
-        Some(byte) => Value::Int(s[..byte].chars().count() as i64),
-        None => Value::Null,
-    }
-}
-
-/// The first float that is too big for an int: 2 to the power of 63.
-const INT_LIMIT: f64 = 9_223_372_036_854_775_808.0;
-
-/// Cuts a float to an int (`int(-3.9)` is -3), or returns R002 for NaN and too big values.
-fn float_to_int(f: f64) -> Result<Value, SomoniError> {
-    if f.is_nan() || f >= INT_LIMIT || f < -INT_LIMIT {
-        return Err(ErrorCode::IntegerOverflow.into());
-    }
-    Ok(Value::Int(f.trunc() as i64))
-}
-
-/// Returns `ok(n)` for a string like `"42"`, or an `err` with the reason.
-fn parse_int(text: &str) -> Value {
-    match text.parse::<i64>() {
-        Ok(n) => Value::Ok(Rc::new(Value::Int(n))),
-        Err(_) => cannot_convert(text, Type::Int),
-    }
-}
-
-/// Returns `ok(f)` for a string like `"1.5"`, or an `err` with the reason.
-fn parse_float(text: &str) -> Value {
-    match text.parse::<f64>() {
-        Ok(f) if f.is_finite() => Value::Ok(Rc::new(Value::Float(f))),
-        _ => cannot_convert(text, Type::Float),
-    }
-}
-
-/// The type of `int(string)` or `float(string)`: the number, or the reason why there is none.
-fn conversion_result(target: Type) -> Type {
-    Type::Result(Box::new(target), Box::new(Type::Str))
-}
-
-/// The `err` of a conversion that is not possible, e.g. `int("abc")`.
-fn cannot_convert(text: &str, target: Type) -> Value {
-    let message = format!("cannot convert '{}' to {}", text, target);
-    Value::Err(Rc::new(string_value(message)))
 }
