@@ -17,6 +17,8 @@ pub enum Builtin {
     Keys,
     Ok,
     Err,
+    IsOk,
+    IsErr,
 }
 
 impl Builtin {
@@ -32,6 +34,8 @@ impl Builtin {
             "keys" => Some(Builtin::Keys),
             "ok" => Some(Builtin::Ok),
             "err" => Some(Builtin::Err),
+            "is_ok" => Some(Builtin::IsOk),
+            "is_err" => Some(Builtin::IsErr),
             _ => None,
         }
     }
@@ -58,6 +62,8 @@ impl Builtin {
             Builtin::Keys => "keys",
             Builtin::Ok => "ok",
             Builtin::Err => "err",
+            Builtin::IsOk => "is_ok",
+            Builtin::IsErr => "is_err",
         }
     }
 
@@ -71,7 +77,9 @@ impl Builtin {
             | Builtin::Len
             | Builtin::Keys
             | Builtin::Ok
-            | Builtin::Err => 1,
+            | Builtin::Err
+            | Builtin::IsOk
+            | Builtin::IsErr => 1,
             Builtin::Has => 2,
         }
     }
@@ -90,6 +98,7 @@ impl Builtin {
             (Builtin::Has, [Type::Map(key, _), found]) if **key == *found => Ok(Type::Bool),
             (Builtin::Has, [Type::Map(_, _), _]) => Err(1),
             (Builtin::Keys, [Type::Map(key, _)]) => Ok(Type::List(key.clone())),
+            (Builtin::IsOk | Builtin::IsErr, [Type::Result(_, _)]) => Ok(Type::Bool),
             _ => Err(0),
         }
     }
@@ -116,6 +125,8 @@ impl Builtin {
             }
             (Builtin::Ok, [arg]) => Ok(Value::Ok(Rc::new(arg.clone()))),
             (Builtin::Err, [arg]) => Ok(Value::Err(Rc::new(arg.clone()))),
+            (Builtin::IsOk, [arg]) => Ok(Value::Bool(matches!(arg, Value::Ok(_)))),
+            (Builtin::IsErr, [arg]) => Ok(Value::Bool(matches!(arg, Value::Err(_)))),
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()
