@@ -410,6 +410,9 @@ pub enum ErrorCode {
         end: i64,
         length: usize,
     },
+    NoMathResult {
+        function: &'static str,
+    },
     KeyNotFound {
         key: String,
     },
@@ -565,6 +568,7 @@ impl ErrorCode {
             ErrorCode::DuplicateKey { .. } => "R007",
             ErrorCode::ConstBeforeValue { .. } => "R008",
             ErrorCode::SliceOutOfRange { .. } => "R009",
+            ErrorCode::NoMathResult { .. } => "R010",
         }
     }
 
@@ -998,6 +1002,10 @@ impl ErrorCode {
             ErrorCode::SliceOutOfRange { start, end, length } => format!(
                 "cannot take {} to {} from a value with {} elements (0 <= start <= end <= length)",
                 start, end, length
+            ),
+            ErrorCode::NoMathResult { function } => format!(
+                "'{}' has no result for these arguments, like sqrt(-1.0) or pow(2, -1)",
+                function
             ),
             ErrorCode::IndexOutOfRange { index, length } => format!(
                 "index {} is out of range (list has {} elements)",

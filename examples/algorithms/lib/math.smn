@@ -1,36 +1,4 @@
-// Math helpers that Somoni does not have built in (no abs, min, max, sqrt, round).
-
-// Returns the value without its sign, e.g. -5 -> 5.
-export fn abs(x: int): int {
-    if (x < 0) {
-        return -x;
-    }
-    return x;
-}
-
-// Returns the float value without its sign, e.g. -2.5 -> 2.5.
-export fn abs_float(x: float): float {
-    if (x < 0.0) {
-        return -x;
-    }
-    return x;
-}
-
-// Returns the smaller of two numbers.
-export fn min(a: int, b: int): int {
-    if (a < b) {
-        return a;
-    }
-    return b;
-}
-
-// Returns the larger of two numbers.
-export fn max(a: int, b: int): int {
-    if (a > b) {
-        return a;
-    }
-    return b;
-}
+// Math helpers that Somoni does not have built in (abs, min, max, sqrt, pow and round are built in).
 
 // Returns the integer square root, the largest r with r * r <= n (binary search).
 export fn isqrt(n: int): int {
@@ -66,7 +34,7 @@ export fn round_to(x: float, places: int): float {
 export fn exp(x: float): float {
     var y: float = x;
     var halvings: int = 0;
-    while (abs_float(y) > 0.5) {
+    while (abs(y) > 0.5) {
         y /= 2.0;
         halvings += 1;
     }

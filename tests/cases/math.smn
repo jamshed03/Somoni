@@ -1,0 +1,29 @@
+// abs, min, max, sqrt, pow, floor, ceil and round as functions like in PHP
+print(abs(-5));
+print(abs(3));
+print(abs(-2.5));
+print(min(3, 7));
+print(max(3, 7));
+print(min(-1.5, 2.0));
+print(max(2.5, 2.25));
+print(sqrt(16.0));
+print(sqrt(2.0));
+print(pow(2, 10));
+print(pow(2.0, 0.5));
+print(pow(5, 0));
+print(floor(2.7));
+print(floor(-2.2));
+print(ceil(2.1));
+print(round(2.5));
+print(round(-2.5));
+print(round(2.4));
+
+var zahlen: list<int> = [4, -9, 2];
+var groesste: int = zahlen[0];
+for (n: int in zahlen) {
+    groesste = max(groesste, abs(n));
+}
+print(groesste);
+
+var max: int = 1;
+print(max + 1);

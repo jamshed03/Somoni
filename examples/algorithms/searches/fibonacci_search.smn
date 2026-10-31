@@ -1,7 +1,5 @@
 // Fibonacci search: splits the sorted list at Fibonacci numbers instead of the middle.
 
-import { min } from "../lib/math.smn";
-
 // Returns the index of the target in the sorted list, or -1 if it is missing.
 fn fibonacci_search(items: list<int>, target: int): int {
     const n: int = len(items);

@@ -1,0 +1,3 @@
+Runtime error [R002]: Line 1: integer overflow
+  1 | print(abs(-9223372036854775807 - 1));
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

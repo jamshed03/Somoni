@@ -1,7 +1,5 @@
 // Greatest common divisor with the Euclidean algorithm.
 
-import { abs } from "../lib/math.smn";
-
 // Returns the largest number that divides both a and b.
 fn gcd(a: int, b: int): int {
     if (b == 0) {

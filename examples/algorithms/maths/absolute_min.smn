@@ -1,7 +1,5 @@
 // Absolute min: the number closest to 0.
 
-import { abs } from "../lib/math.smn";
-
 // Returns the number whose absolute value is the smallest, or null for an empty list.
 fn absolute_min(numbers: list<int>): int? {
     if (len(numbers) == 0) {

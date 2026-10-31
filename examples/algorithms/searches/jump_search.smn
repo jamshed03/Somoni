@@ -1,6 +1,6 @@
 // Jump search: jumps ahead in blocks of √n, then walks back through one block.
 
-import { isqrt, min } from "../lib/math.smn";
+import { isqrt } from "../lib/math.smn";
 
 // Returns the index of the target in the sorted list, or -1 if it is missing.
 fn jump_search(items: list<int>, target: int): int {

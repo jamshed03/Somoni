@@ -1,4 +1,4 @@
-fn abs(n: int): int {
+fn betrag(n: int): int {
     if (n < 0) {
         return -n;
     } else {
@@ -26,8 +26,8 @@ fn void_without_return(): void {
     print("void needs no return");
 }
 
-print(abs(-4));
-print(abs(4));
+print(betrag(-4));
+print(betrag(4));
 print(grade(95));
 print(grade(60));
 print(grade(10));

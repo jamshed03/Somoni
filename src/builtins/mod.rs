@@ -11,6 +11,7 @@ use convert::{conversion_result, float_to_int, parse_float, parse_int};
 use strings::{index_of, join, replace, slice_text, split};
 
 mod convert;
+mod math;
 mod strings;
 
 /// The functions built into Somoni.
@@ -38,6 +39,14 @@ pub enum Builtin {
     Replace,
     Slice,
     IndexOf,
+    Abs,
+    Min,
+    Max,
+    Sqrt,
+    Pow,
+    Floor,
+    Ceil,
+    Round,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -64,6 +73,14 @@ const ALL: &[Builtin] = &[
     Builtin::Replace,
     Builtin::Slice,
     Builtin::IndexOf,
+    Builtin::Abs,
+    Builtin::Min,
+    Builtin::Max,
+    Builtin::Sqrt,
+    Builtin::Pow,
+    Builtin::Floor,
+    Builtin::Ceil,
+    Builtin::Round,
 ];
 
 impl Builtin {
@@ -106,7 +123,15 @@ impl Builtin {
             | Builtin::Ok
             | Builtin::Err
             | Builtin::IsOk
-            | Builtin::IsErr => false,
+            | Builtin::IsErr
+            | Builtin::Abs
+            | Builtin::Min
+            | Builtin::Max
+            | Builtin::Sqrt
+            | Builtin::Pow
+            | Builtin::Floor
+            | Builtin::Ceil
+            | Builtin::Round => false,
         }
     }
 
@@ -145,6 +170,14 @@ impl Builtin {
             Builtin::Replace => "replace",
             Builtin::Slice => "slice",
             Builtin::IndexOf => "index_of",
+            Builtin::Abs => "abs",
+            Builtin::Min => "min",
+            Builtin::Max => "max",
+            Builtin::Sqrt => "sqrt",
+            Builtin::Pow => "pow",
+            Builtin::Floor => "floor",
+            Builtin::Ceil => "ceil",
+            Builtin::Round => "round",
         }
     }
 
@@ -163,14 +196,22 @@ impl Builtin {
             | Builtin::IsErr
             | Builtin::Upper
             | Builtin::Lower
-            | Builtin::Trim => 1,
+            | Builtin::Trim
+            | Builtin::Abs
+            | Builtin::Sqrt
+            | Builtin::Floor
+            | Builtin::Ceil
+            | Builtin::Round => 1,
             Builtin::Has
             | Builtin::Split
             | Builtin::Join
             | Builtin::Contains
             | Builtin::StartsWith
             | Builtin::EndsWith
-            | Builtin::IndexOf => 2,
+            | Builtin::IndexOf
+            | Builtin::Min
+            | Builtin::Max
+            | Builtin::Pow => 2,
             Builtin::Replace | Builtin::Slice => 3,
         }
     }
@@ -214,6 +255,14 @@ impl Builtin {
                 [Type::Str, ..],
             ) => Err(1),
             (Builtin::Join, [Type::List(element), _]) if **element == Type::Str => Err(1),
+            (Builtin::Abs, [number @ (Type::Int | Type::Float)]) => Ok(number.clone()),
+            (Builtin::Min | Builtin::Max | Builtin::Pow, [Type::Int, Type::Int]) => Ok(Type::Int),
+            (Builtin::Min | Builtin::Max | Builtin::Pow, [Type::Float, Type::Float]) => {
+                Ok(Type::Float)
+            }
+            (Builtin::Min | Builtin::Max | Builtin::Pow, [Type::Int | Type::Float, _]) => Err(1),
+            (Builtin::Sqrt, [Type::Float]) => Ok(Type::Float),
+            (Builtin::Floor | Builtin::Ceil | Builtin::Round, [Type::Float]) => Ok(Type::Int),
             _ => Err(0),
         }
     }
@@ -267,6 +316,18 @@ impl Builtin {
             (Builtin::IndexOf, [Value::Str(s), Value::Str(part)]) => {
                 Ok(index_of(s.as_str(), part.as_str()))
             }
+            (Builtin::Abs, [Value::Int(n)]) => math::abs_int(*n),
+            (Builtin::Abs, [Value::Float(f)]) => Ok(Value::Float(f.abs())),
+            (Builtin::Min, [Value::Int(a), Value::Int(b)]) => Ok(Value::Int(*a.min(b))),
+            (Builtin::Max, [Value::Int(a), Value::Int(b)]) => Ok(Value::Int(*a.max(b))),
+            (Builtin::Min, [Value::Float(a), Value::Float(b)]) => Ok(Value::Float(a.min(*b))),
+            (Builtin::Max, [Value::Float(a), Value::Float(b)]) => Ok(Value::Float(a.max(*b))),
+            (Builtin::Sqrt, [Value::Float(f)]) => math::sqrt(*f),
+            (Builtin::Pow, [Value::Int(a), Value::Int(b)]) => math::pow_int(*a, *b),
+            (Builtin::Pow, [Value::Float(a), Value::Float(b)]) => math::pow_float(*a, *b),
+            (Builtin::Floor, [Value::Float(f)]) => math::to_int(*f, f64::floor),
+            (Builtin::Ceil, [Value::Float(f)]) => math::to_int(*f, f64::ceil),
+            (Builtin::Round, [Value::Float(f)]) => math::to_int(*f, f64::round),
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()

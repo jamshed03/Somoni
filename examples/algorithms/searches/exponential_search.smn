@@ -1,7 +1,5 @@
 // Exponential search: doubles the range until it passes the target, then searches binary in it.
 
-import { min } from "../lib/math.smn";
-
 // Returns the index of the target between low and high, or -1.
 fn binary_search(items: list<int>, target: int, low: int, high: int): int {
     if (low > high) {
