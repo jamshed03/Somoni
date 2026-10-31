@@ -1,0 +1,3 @@
+Type error [T012]: Line 1: unknown function 'upper'
+  1 | print(upper("a"));
+    |       ^^^^^

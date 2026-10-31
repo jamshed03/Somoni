@@ -629,11 +629,42 @@ impl TypeChecker {
             Type::Struct(_) if self.has_field(&target_type, &call.name) => {
                 self.check_field_call(&target_type, call, span)
             }
+            Type::Str | Type::List(_) | Type::Map(_, _) => {
+                self.check_builtin_method(target_type, call, span)
+            }
             _ => Err(SomoniError::at(
                 call.target.span,
                 ErrorCode::NoMethods { found: target_type },
             )),
         }
+    }
+
+    /// Checks `s.upper()` and other built-in methods, which get the value before the dot as their first argument.
+    fn check_builtin_method(
+        &mut self,
+        target_type: Type,
+        call: &mut MethodCall,
+        span: Span,
+    ) -> Result<Type, SomoniError> {
+        let unknown = || unknown_method(&target_type.to_string(), &call.name, call.name_span);
+        let Some(builtin) = Builtin::method_named(&call.name) else {
+            return Err(unknown());
+        };
+        check_arg_count(&call.name, builtin.arity() - 1, &call.args, span)?;
+        let mut types = vec![target_type.clone()];
+        for arg in call.args.iter_mut() {
+            types.push(self.check_expr(arg)?);
+        }
+        let result = match builtin.result_type(&types) {
+            Ok(result) => result,
+            Err(0) => return Err(unknown()),
+            Err(bad) => {
+                let found = types[bad].clone();
+                return Err(wrong_arg_type(&call.name, found, call.args[bad - 1].span));
+            }
+        };
+        call.call = Some(MethodTarget::Builtin(builtin));
+        Ok(result)
     }
 
     /// Checks a method call on a value of an interface type.

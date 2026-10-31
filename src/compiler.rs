@@ -889,6 +889,7 @@ impl Compiler {
                 self.chunk.push(Op::Field(position), call.name_span);
                 Op::CallValue(call.args.len())
             }
+            MethodTarget::Builtin(builtin) => Op::CallBuiltin(builtin, with_this(call.args.len())),
         };
         self.compile_args(&call.args)?;
         self.chunk.push(op, span);

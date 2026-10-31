@@ -1,0 +1,3 @@
+Type error [T057]: Line 2: cannot call a method on int (only objects, strings, lists and maps have methods)
+  2 | print(n.upper());
+    |       ^

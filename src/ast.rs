@@ -306,6 +306,8 @@ pub enum MethodTarget {
     Interface { interface: usize, method: usize },
     /// Field number `position` with a function type, whose value is called: `k.aktion(x)`.
     Field { position: usize },
+    /// A built-in method of a string, list or map, called like a function with the value first: `s.upper()`.
+    Builtin(Builtin),
 }
 
 /// One `field: value` in a struct literal; `index` is the position of the field in the struct.

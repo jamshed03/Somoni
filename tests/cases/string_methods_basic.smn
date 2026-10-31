@@ -1,0 +1,18 @@
+// strings have methods like s.upper(); they return a new string and never change s
+var name: string = "  Ali Baba ";
+print(name.trim());
+print(name.upper());
+print(name.trim().lower());
+print("äöü".upper());
+print(name);
+
+var namen: list<string> = ["ali", "bea"];
+print(namen[1].upper());
+
+fn upper(n: int): int {
+    return n * 2;
+}
+print(upper(21));
+
+const GRUSS: string = "hallo";
+print(GRUSS.upper());

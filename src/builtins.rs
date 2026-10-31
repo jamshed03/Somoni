@@ -19,24 +19,60 @@ pub enum Builtin {
     Err,
     IsOk,
     IsErr,
+    Upper,
+    Lower,
+    Trim,
 }
 
+/// Every built-in function and method, so that a name only has to be written in `name`.
+const ALL: &[Builtin] = &[
+    Builtin::Print,
+    Builtin::Int,
+    Builtin::Float,
+    Builtin::Str,
+    Builtin::Len,
+    Builtin::Has,
+    Builtin::Keys,
+    Builtin::Ok,
+    Builtin::Err,
+    Builtin::IsOk,
+    Builtin::IsErr,
+    Builtin::Upper,
+    Builtin::Lower,
+    Builtin::Trim,
+];
+
 impl Builtin {
-    /// Returns the built-in function with this name, if there is one.
+    /// Returns the built-in function with this name, if there is one; methods like `upper` are no functions.
     pub fn from_name(name: &str) -> Option<Builtin> {
-        match name {
-            "print" => Some(Builtin::Print),
-            "int" => Some(Builtin::Int),
-            "float" => Some(Builtin::Float),
-            "string" => Some(Builtin::Str),
-            "len" => Some(Builtin::Len),
-            "has" => Some(Builtin::Has),
-            "keys" => Some(Builtin::Keys),
-            "ok" => Some(Builtin::Ok),
-            "err" => Some(Builtin::Err),
-            "is_ok" => Some(Builtin::IsOk),
-            "is_err" => Some(Builtin::IsErr),
-            _ => None,
+        Builtin::named(name).filter(|builtin| !builtin.is_method())
+    }
+
+    /// Returns the built-in method with this name, e.g. `upper` for `s.upper()`.
+    pub fn method_named(name: &str) -> Option<Builtin> {
+        Builtin::named(name).filter(|builtin| builtin.is_method())
+    }
+
+    /// Returns the function or method with this name.
+    fn named(name: &str) -> Option<Builtin> {
+        ALL.iter().copied().find(|builtin| builtin.name() == name)
+    }
+
+    /// Returns true for a method, which is called on a value (`s.upper()`) and gets that value as its first argument.
+    pub fn is_method(self) -> bool {
+        match self {
+            Builtin::Upper | Builtin::Lower | Builtin::Trim => true,
+            Builtin::Print
+            | Builtin::Int
+            | Builtin::Float
+            | Builtin::Str
+            | Builtin::Len
+            | Builtin::Has
+            | Builtin::Keys
+            | Builtin::Ok
+            | Builtin::Err
+            | Builtin::IsOk
+            | Builtin::IsErr => false,
         }
     }
 
@@ -64,6 +100,9 @@ impl Builtin {
             Builtin::Err => "err",
             Builtin::IsOk => "is_ok",
             Builtin::IsErr => "is_err",
+            Builtin::Upper => "upper",
+            Builtin::Lower => "lower",
+            Builtin::Trim => "trim",
         }
     }
 
@@ -79,7 +118,10 @@ impl Builtin {
             | Builtin::Ok
             | Builtin::Err
             | Builtin::IsOk
-            | Builtin::IsErr => 1,
+            | Builtin::IsErr
+            | Builtin::Upper
+            | Builtin::Lower
+            | Builtin::Trim => 1,
             Builtin::Has => 2,
         }
     }
@@ -99,6 +141,7 @@ impl Builtin {
             (Builtin::Has, [Type::Map(_, _), _]) => Err(1),
             (Builtin::Keys, [Type::Map(key, _)]) => Ok(Type::List(key.clone())),
             (Builtin::IsOk | Builtin::IsErr, [Type::Result(_, _)]) => Ok(Type::Bool),
+            (Builtin::Upper | Builtin::Lower | Builtin::Trim, [Type::Str]) => Ok(Type::Str),
             _ => Err(0),
         }
     }
@@ -114,7 +157,7 @@ impl Builtin {
             (Builtin::Int, [Value::Str(s)]) => Ok(parse_int(s.as_str())),
             (Builtin::Float, [Value::Int(n)]) => Ok(Value::Float(*n as f64)),
             (Builtin::Float, [Value::Str(s)]) => Ok(parse_float(s.as_str())),
-            (Builtin::Str, [arg]) => Ok(Value::Str(Rc::new(Text::new(arg.to_string())))),
+            (Builtin::Str, [arg]) => Ok(string_value(arg.to_string())),
             (Builtin::Len, [Value::Str(s)]) => Ok(Value::Int(s.char_count() as i64)),
             (Builtin::Len, [Value::List(items)]) => Ok(Value::Int(items.len() as i64)),
             (Builtin::Len, [Value::Map(map)]) => Ok(Value::Int(map.len() as i64)),
@@ -127,12 +170,20 @@ impl Builtin {
             (Builtin::Err, [arg]) => Ok(Value::Err(Rc::new(arg.clone()))),
             (Builtin::IsOk, [arg]) => Ok(Value::Bool(matches!(arg, Value::Ok(_)))),
             (Builtin::IsErr, [arg]) => Ok(Value::Bool(matches!(arg, Value::Err(_)))),
+            (Builtin::Upper, [Value::Str(s)]) => Ok(string_value(s.as_str().to_uppercase())),
+            (Builtin::Lower, [Value::Str(s)]) => Ok(string_value(s.as_str().to_lowercase())),
+            (Builtin::Trim, [Value::Str(s)]) => Ok(string_value(s.as_str().trim().to_string())),
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()
             ))),
         }
     }
+}
+
+/// Returns a string value.
+fn string_value(s: String) -> Value {
+    Value::Str(Rc::new(Text::new(s)))
 }
 
 /// The first float that is too big for an int: 2 to the power of 63.
@@ -170,5 +221,5 @@ fn conversion_result(target: Type) -> Type {
 /// The `err` of a conversion that is not possible, e.g. `int("abc")`.
 fn cannot_convert(text: &str, target: Type) -> Value {
     let message = format!("cannot convert '{}' to {}", text, target);
-    Value::Err(Rc::new(Value::Str(Rc::new(Text::new(message)))))
+    Value::Err(Rc::new(string_value(message)))
 }
