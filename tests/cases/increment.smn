@@ -1,0 +1,40 @@
+// i++ and i-- are short statements for i += 1 and i -= 1, also for parts and in a for step
+struct Zaehler {
+    n: int
+}
+
+class Statistik {
+    static aufrufe: int = 0;
+}
+
+var i: int = 5;
+i++;
+i++;
+i--;
+print(i);
+
+var summe: int = 0;
+for (var k: int = 0; k < 4; k++) {
+    summe += k;
+}
+print(summe);
+
+for (var k: int = 3; k > 0; k--) {
+    print(k);
+}
+
+var l: list<int> = [10, 20];
+l[1]++;
+print(l);
+
+var z: Zaehler = Zaehler { n: 0 };
+z.n++;
+z.n++;
+print(z.n);
+
+Statistik::aufrufe++;
+print(Statistik::aufrufe);
+
+var x: int = 3;
+print(--x);
+print(x - -1);

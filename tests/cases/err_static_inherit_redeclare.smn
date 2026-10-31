@@ -1,0 +1,10 @@
+class Tier {
+    static erzeugen(): int {
+        return 1;
+    }
+}
+class Hund extends Tier {
+    static erzeugen(): int {
+        return 2;
+    }
+}

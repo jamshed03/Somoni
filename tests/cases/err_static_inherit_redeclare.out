@@ -1,0 +1,3 @@
+Type error [T055]: Line 7: 'erzeugen' is already a field or method of 'Hund'
+  7 |     static erzeugen(): int {
+    |            ^^^^^^^^

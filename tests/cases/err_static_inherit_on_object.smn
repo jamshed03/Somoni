@@ -1,0 +1,7 @@
+class Tier {
+    static anzahl: int = 0;
+}
+class Hund extends Tier {
+}
+var h: Hund = new Hund();
+print(h.anzahl);

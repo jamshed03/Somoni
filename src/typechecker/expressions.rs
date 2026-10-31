@@ -764,7 +764,12 @@ impl TypeChecker {
             };
             return Err(SomoniError::at(access.name_span, code));
         };
-        self.check_visible(field.visibility, &layout, &access.name, access.name_span)?;
+        self.check_visible(
+            field.visibility,
+            &field.owner,
+            &access.name,
+            access.name_span,
+        )?;
         access.global = Some(field.global);
         Ok(field.ty)
     }
@@ -787,7 +792,7 @@ impl TypeChecker {
             };
             return Err(SomoniError::at(call.name_span, code));
         };
-        self.check_visible(method.visibility, &layout, &call.name, call.name_span)?;
+        self.check_visible(method.visibility, &method.owner, &call.name, call.name_span)?;
         call.target = Some(method.signature.index);
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)

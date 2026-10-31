@@ -1,0 +1,3 @@
+Type error [T084]: Line 7: 'anzahl' is static, use it as 'Hund::anzahl'
+  7 | print(h.anzahl);
+    |         ^^^^^^

@@ -54,7 +54,7 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 Version 0.5.0: the core of the language plus lists, structs, optional types, maps, enums and results, compiled to bytecode and run in a VM:
 
 -   Types `int`, `float`, `bool`, `string`; `var` and `const`; assignment; `print`; a top-level `const` is visible in functions and methods
--   Operators `+ - * / %`, `== != < > <= >=` (also for strings), `&& || !` (short-circuit), unary `-`; `+= -= *= /= %=`
+-   Operators `+ - * / %`, `== != < > <= >=` (also for strings), `&& || !` (short-circuit), unary `-`; `+= -= *= /= %=`, `i++` and `i--` as statements
 -   Integer overflow and division by zero are runtime errors
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
@@ -72,7 +72,7 @@ Version 0.5.0: the core of the language plus lists, structs, optional types, map
 -   Functions as values with types like `fn(int): int`: `var f: fn(int): int = quadrat; f(3)`, also in lists and fields (`k.aktion(x)`)
 -   Lambdas `fn(x: int): int => x * 2` or with a block; they copy the outside variables they use (and `this`) when they are made
 -   Comments `//` and `/* */`
--   Classes: fields with start values, `constructor(...)` with `this`, methods (`u.greet()`), `public`/`private`, `readonly` fields, `static` methods and fields (`User::gast()`, `User::anzahl`), `abstract` classes and methods, `instanceof` with narrowing, private and protected constructors, `interface` with `implements`, `extends` with `super`, `override` and `protected` (methods chosen at runtime), `new User("Ali", 30)`; objects are references (`==` is identity), structs stay copies
+-   Classes: fields with start values, `constructor(...)` with `this`, methods (`u.greet()`), `public`/`private`, `readonly` fields, `static` methods and fields (`User::gast()`, `User::anzahl`, inherited by subclasses), `abstract` classes and methods, `instanceof` with narrowing, private and protected constructors, `interface` with `implements`, `extends` with `super`, `override` and `protected` (methods chosen at runtime), `new User("Ali", 30)`; objects are references (`==` is identity), structs stay copies
 -   Modules: `import { quadrat, Punkt as P } from "mathe.smn";` or `import * as mathe from "mathe.smn";` with `mathe.quadrat(3)`, and `export fn`/`struct`/`enum`/`class`/`interface`/`const` (imported files contain only declarations, their constants only fixed values)
 
 -   Null checks: after `if (a != null)` the value of `a` can be used

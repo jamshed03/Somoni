@@ -1,0 +1,8 @@
+class Tier {
+    private static geheim: int = 7;
+}
+class Hund extends Tier {
+    static zeigen(): int {
+        return Hund::geheim;
+    }
+}

@@ -1,0 +1,44 @@
+// static methods and fields are inherited; an inherited static field is the same field
+class Tier {
+    static anzahl: int = 0;
+    protected static einheit: string = "Stück";
+    private static geheim: int = 7;
+
+    constructor() {
+        Tier::anzahl += 1;
+    }
+
+    static erzeugen(): Tier {
+        return new Tier();
+    }
+
+    static beschreiben(): string {
+        return string(Tier::anzahl) + " " + Tier::einheit + ", geheim " + string(Tier::geheim);
+    }
+}
+
+class Hund extends Tier {
+    constructor() {
+        super();
+        Hund::anzahl += 10;
+    }
+
+    static zaehlen(): string {
+        return string(Hund::anzahl) + " " + Hund::einheit;
+    }
+}
+
+class Welpe extends Hund {
+}
+
+Tier::erzeugen();
+var h: Hund = new Hund();
+print(Tier::anzahl);
+print(Hund::anzahl);
+print(Welpe::anzahl);
+print(Hund::beschreiben());
+print(Welpe::zaehlen());
+Welpe::anzahl = 100;
+print(Tier::anzahl);
+var t: Tier = Welpe::erzeugen();
+print(Tier::anzahl);

@@ -133,6 +133,8 @@ struct ObjectField {
 struct StaticMethod {
     visibility: Visibility,
     signature: Signature,
+    /// The class that writes the method, which `private` refers to; a subclass inherits it unchanged.
+    owner: Decl<ClassLayout>,
 }
 
 /// A static field of a class: who may use it, its type and its global number.
@@ -141,6 +143,8 @@ struct StaticField {
     visibility: Visibility,
     ty: Type,
     global: usize,
+    /// The class that writes the field; a subclass shares the same global.
+    owner: Decl<ClassLayout>,
 }
 
 /// A method of a class with its slot in the method table.

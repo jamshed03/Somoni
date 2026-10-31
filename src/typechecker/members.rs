@@ -29,8 +29,8 @@ impl ClassMembers {
                 members: parent.members.clone(),
                 methods: parent.methods.clone(),
                 table: parent.method_table.clone(),
-                statics: HashMap::new(),
-                static_fields: HashMap::new(),
+                statics: parent.statics.clone(),
+                static_fields: parent.static_fields.clone(),
             },
             None => ClassMembers {
                 layout,
@@ -116,6 +116,7 @@ impl ClassMembers {
         let method = StaticMethod {
             visibility,
             signature,
+            owner: self.layout.clone(),
         };
         self.statics.insert(name.clone(), method);
         Ok(())
@@ -136,6 +137,7 @@ impl ClassMembers {
             visibility: field.visibility,
             ty,
             global,
+            owner: self.layout.clone(),
         };
         self.static_fields.insert(name.clone(), info);
         Ok(())

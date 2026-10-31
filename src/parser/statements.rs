@@ -273,9 +273,12 @@ impl Parser {
         Ok(assign)
     }
 
-    /// Reads an assignment without `;` like `x += 1`, or a call statement like `k.einzahlen(5)`.
+    /// Reads an assignment without `;` like `x += 1` or `x++`, or a call statement like `k.einzahlen(5)`.
     fn parse_assignment(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         let target = self.parse_postfix()?;
+        if let Some(op) = self.step_op() {
+            return self.finish_step(target, op, start);
+        }
         let is_assignment = *self.peek() == Token::Equal || compound_op(self.peek()).is_some();
         if stands_alone(&target) && !is_assignment {
             return Ok(Stmt::Expr {
@@ -284,6 +287,45 @@ impl Parser {
             });
         }
         self.finish_assignment(target, start)
+    }
+
+    /// Returns `+` for `++` and `-` for `--` after an assignment target: two signs with no space between them.
+    /// Nothing else may follow a target there, so `--x` in an expression stays two minus signs.
+    fn step_op(&self) -> Option<BinaryOp> {
+        let op = match (self.peek(), self.peek_next()) {
+            (Token::Plus, Token::Plus) => BinaryOp::Add,
+            (Token::Minus, Token::Minus) => BinaryOp::Sub,
+            _ => return None,
+        };
+        let first = self.tokens[self.pos].span;
+        let second = self.tokens[self.pos + 1].span;
+        let touching = second.line == first.end_line && second.col == first.end_col;
+        touching.then_some(op)
+    }
+
+    /// Reads `++` or `--` after `target` as `target += 1` or `target -= 1`, or returns P007 if the target is no variable or part of one.
+    fn finish_step(
+        &mut self,
+        target: Expr,
+        op: BinaryOp,
+        start: Span,
+    ) -> Result<Stmt, SomoniError> {
+        if target.assign_root().is_none() {
+            return Err(SomoniError::at(target.span, ErrorCode::InvalidAssignTarget));
+        }
+        let op_span = self.current_span().to(self.tokens[self.pos + 1].span);
+        self.advance();
+        self.advance();
+        Ok(Stmt::Assign(Assign {
+            target,
+            op: Some((op, op_span)),
+            value: Expr {
+                kind: ExprKind::Int(1),
+                span: op_span,
+            },
+            in_object: false,
+            span: self.since(start),
+        }))
     }
 
     /// Reads `= value` or `+= value` after `target`, or returns P007 if the target is no variable or part of one.
