@@ -63,15 +63,18 @@ Version 0.5.0: the core of the language plus lists, structs, optional types, map
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected
 -   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`)
--   Errors as values: `result<int, string>` with `ok(x)` and `err(e)`, read with `match` (`ok(n: int) => { ... }`)
+-   Errors as values: `result<int, string>` with `ok(x)` and `err(e)`, read with `match` (`ok(n: int) => { ... }`), passed on with `value?` inside functions that return a result, tested with `is_ok(r)` and `is_err(r)`
+-   Tuples `(int, string)` with `(1, "eins")` and `p.0`, also to return several values from a function
 -   Maps `map<string, int>` with `{"Ali": 30}`, `m["Ali"]`, `m["Tom"] = 40;`, `len`, `has(m, k)`, `keys(m)` (insertion order)
 -   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
--   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
+-   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err`, `is_ok`, `is_err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
+-   Functions as values with types like `fn(int): int`: `var f: fn(int): int = quadrat; f(3)`, also in lists and fields (`k.aktion(x)`)
+-   Lambdas `fn(x: int): int => x * 2` or with a block; they copy the outside variables they use (and `this`) when they are made
 -   Comments `//` and `/* */`
 -   Classes: fields with start values, `constructor(...)` with `this`, methods (`u.greet()`), `public`/`private`, `readonly` fields, `static` methods and fields (`User::gast()`, `User::anzahl`), `abstract` classes and methods, `instanceof` with narrowing, private and protected constructors, `interface` with `implements`, `extends` with `super`, `override` and `protected` (methods chosen at runtime), `new User("Ali", 30)`; objects are references (`==` is identity), structs stay copies
--   Modules: `import { quadrat, Punkt } from "mathe.smn";` and `export fn`/`struct`/`enum` (imported files contain only declarations)
+-   Modules: `import { quadrat, Punkt } from "mathe.smn";` and `export fn`/`struct`/`enum`/`class`/`interface`/`const` (imported files contain only declarations, their constants only fixed values)
 
 -   Null checks: after `if (a != null)` the value of `a` can be used
 
-Next: modules with `import` (step 17).
+Next: taking tuples apart with `var (a, b) = p;`, then `import { a as b }` and `import * as m` (see `docs/Checkliste.md`).
