@@ -103,21 +103,25 @@ export class OperationFactory {
     }
 
     static create(sign: string): result<Operation, string> {
-        if (sign == "+") {
-            return ok(new Add());
+        match (sign) {
+            "+" => {
+                return ok(new Add());
+            }
+            "-" => {
+                return ok(new Subtract());
+            }
+            "*" => {
+                return ok(new Multiply());
+            }
+            "/" => {
+                return ok(new Divide());
+            }
+            "^" => {
+                return ok(new Power());
+            }
+            _ => {
+                return err("unbekannter Operator '" + sign + "'");
+            }
         }
-        if (sign == "-") {
-            return ok(new Subtract());
-        }
-        if (sign == "*") {
-            return ok(new Multiply());
-        }
-        if (sign == "/") {
-            return ok(new Divide());
-        }
-        if (sign == "^") {
-            return ok(new Power());
-        }
-        return err("unbekannter Operator '" + sign + "'");
     }
 }

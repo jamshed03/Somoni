@@ -131,7 +131,7 @@ export class Parser {
             ok(n: float) => {
                 return ok(new NumberNode(n));
             }
-            err(_reason: string) => {
+            err(_) => {
                 return err("keine Zahl: '" + token + "'");
             }
         }

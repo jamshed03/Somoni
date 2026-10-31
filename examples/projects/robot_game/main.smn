@@ -12,19 +12,23 @@ enum Direction {
 
 // Returns the direction for a command sign, a small factory for directions.
 fn direction_of(sign: string): result<Direction, string> {
-    if (sign == "U") {
-        return ok(Direction.Up);
+    match (sign) {
+        "U" => {
+            return ok(Direction.Up);
+        }
+        "D" => {
+            return ok(Direction.Down);
+        }
+        "L" => {
+            return ok(Direction.Left);
+        }
+        "R" => {
+            return ok(Direction.Right);
+        }
+        _ => {
+            return err("unbekannter Befehl '" + sign + "'");
+        }
     }
-    if (sign == "D") {
-        return ok(Direction.Down);
-    }
-    if (sign == "L") {
-        return ok(Direction.Left);
-    }
-    if (sign == "R") {
-        return ok(Direction.Right);
-    }
-    return err("unbekannter Befehl '" + sign + "'");
 }
 
 // Returns how far one step in `direction` goes, as (dx, dy).
@@ -156,7 +160,7 @@ match (level.Level::parse(lines)) {
 }
 
 match (level.Level::parse(["#?#"])) {
-    ok(_map: level.Level) => {
+    ok(_) => {
     }
     err(message: string) => {
         print("Karte kaputt: " + message);

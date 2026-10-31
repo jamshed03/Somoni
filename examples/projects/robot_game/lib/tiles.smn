@@ -103,21 +103,28 @@ export class TileFactory {
     }
 
     static create(sign: string): result<Tile, string> {
-        if (sign == "." || sign == "R") {
-            return ok(new Floor());
+        match (sign) {
+            "." => {
+                return ok(new Floor());
+            }
+            "R" => {
+                return ok(new Floor());
+            }
+            "#" => {
+                return ok(new Wall());
+            }
+            "*" => {
+                return ok(new Dirt());
+            }
+            "^" => {
+                return ok(new Trap());
+            }
+            "E" => {
+                return ok(new Exit());
+            }
+            _ => {
+                return err("unbekanntes Feld '" + sign + "'");
+            }
         }
-        if (sign == "#") {
-            return ok(new Wall());
-        }
-        if (sign == "*") {
-            return ok(new Dirt());
-        }
-        if (sign == "^") {
-            return ok(new Trap());
-        }
-        if (sign == "E") {
-            return ok(new Exit());
-        }
-        return err("unbekanntes Feld '" + sign + "'");
     }
 }
