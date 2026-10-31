@@ -1,0 +1,4 @@
+var n: int = 1;
+var f: fn(): void = fn(): void {
+    n = 2;
+};

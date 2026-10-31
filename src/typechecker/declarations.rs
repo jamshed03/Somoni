@@ -429,7 +429,8 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::StaticAccess(_)
         | ExprKind::InstanceOf(_)
         | ExprKind::Try(_)
-        | ExprKind::CallValue(_) => false,
+        | ExprKind::CallValue(_)
+        | ExprKind::Captured { .. } => false,
     }
 }
 

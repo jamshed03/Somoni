@@ -1,0 +1,3 @@
+Type error [T092]: Line 3: 'n' is a copy from outside the lambda and cannot be changed
+  3 |     n = 2;
+    |     ^

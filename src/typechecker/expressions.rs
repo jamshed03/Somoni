@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    BinaryOp, CONSTRUCTOR, Call, CallTarget, CallValue, ClassLayout, Expr, ExprKind, FieldInit,
-    InstanceOf, InstanceTarget, InterfaceLayout, Lambda, MethodCall, MethodTarget, New,
+    BinaryOp, CLOSURE, CONSTRUCTOR, Call, CallTarget, CallValue, ClassLayout, Expr, ExprKind,
+    FieldInit, InstanceOf, InstanceTarget, InterfaceLayout, Lambda, MethodCall, MethodTarget, New,
     StaticAccess, StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::builtins::Builtin;
@@ -13,7 +13,11 @@ use crate::span::Span;
 use crate::types::{Decl, Type};
 
 use super::declarations::check_key_type;
-use super::{Constant, Signature, TypeChecker, check_arg_count, field_of, wrong_arg_type};
+use crate::scope::Scopes;
+
+use super::{
+    Constant, LambdaScope, Signature, TypeChecker, check_arg_count, field_of, wrong_arg_type,
+};
 
 impl TypeChecker {
     /// Checks an expression whose type is expected, so `[]`, `null` and `ok(...)` get it.
@@ -254,6 +258,10 @@ impl TypeChecker {
             };
             return Ok(signature.function_type());
         }
+        if let Some((name, index, ty)) = self.captured_variable(expr) {
+            expr.kind = ExprKind::Captured { name, index };
+            return Ok(ty);
+        }
         self.call_through_variable(expr);
         let span = expr.span;
         match &mut expr.kind {
@@ -311,6 +319,12 @@ impl TypeChecker {
                 .ok_or_else(|| SomoniError::internal("function value without signature")),
             ExprKind::CallValue(call) => self.check_call_value(call, span),
             ExprKind::Lambda(lambda) => self.check_lambda(lambda),
+            ExprKind::Captured { name, .. } => self
+                .lambda_scopes
+                .last()
+                .and_then(|level| level.captures.iter().find(|(c, _)| c.name == *name))
+                .map(|(_, ty)| ty.clone())
+                .ok_or_else(|| SomoniError::internal("copy without type")),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -320,7 +334,7 @@ impl TypeChecker {
         let ExprKind::Ident { name, .. } = &expr.kind else {
             return None;
         };
-        if self.scopes.lookup(name).is_some() {
+        if self.has_variable(name) {
             return None;
         }
         let constant = self.names.constants.get(name)?;
@@ -335,7 +349,7 @@ impl TypeChecker {
         let ExprKind::Ident { name, .. } = &expr.kind else {
             return Ok(None);
         };
-        if self.scopes.lookup(name).is_some() {
+        if self.has_variable(name) {
             return Ok(None);
         }
         if Builtin::from_name(name).is_some() {
@@ -361,7 +375,7 @@ impl TypeChecker {
             },
             span: call.name_span,
         };
-        if self.scopes.lookup(&call.name).is_none() && self.global_constant(&callee).is_none() {
+        if !self.has_variable(&call.name) && self.global_constant(&callee).is_none() {
             return;
         }
         let args = std::mem::take(&mut call.args);
@@ -371,15 +385,46 @@ impl TypeChecker {
         });
     }
 
-    /// Checks a lambda like a function of its own, gives it its number and returns its function type.
+    /// Checks a lambda like a function of its own whose slot 0 holds its value, and collects the outside variables it copies.
     fn check_lambda(&mut self, lambda: &mut Lambda) -> Result<Type, SomoniError> {
         let index = self.lambda_count;
         self.lambda_count += 1;
         lambda.index = Some(index);
         let signature = self.signature_of(&lambda.function, index)?;
+        let ty = signature.function_type();
+        let outer = std::mem::replace(&mut self.scopes, Scopes::new());
+        self.lambda_scopes.push(LambdaScope {
+            outer,
+            captures: Vec::new(),
+        });
         let name = lambda.function.name.clone();
-        self.check_body(&mut lambda.function, &name, &signature, None)?;
-        Ok(signature.function_type())
+        let hidden = Some((CLOSURE, ty.clone()));
+        let checked = self.check_body(&mut lambda.function, &name, &signature, hidden);
+        let level = self
+            .lambda_scopes
+            .pop()
+            .ok_or_else(|| SomoniError::internal("lambda scope missing"))?;
+        self.scopes = level.outer;
+        checked?;
+        lambda.captures = level
+            .captures
+            .into_iter()
+            .map(|(capture, _)| capture)
+            .collect();
+        Ok(ty)
+    }
+
+    /// Returns the copy number and type of an outside variable that a name inside a lambda means, copying it if needed.
+    fn captured_variable(&mut self, expr: &Expr) -> Option<(String, usize, Type)> {
+        let ExprKind::Ident { name, .. } = &expr.kind else {
+            return None;
+        };
+        if self.scopes.lookup(name).is_some() {
+            return None;
+        }
+        let depth = self.lambda_scopes.len().checked_sub(1)?;
+        let (index, ty) = self.capture_at(depth, name)?;
+        Some((name.clone(), index, ty))
     }
 
     /// Checks `callee(args)`, or returns T091 if the callee is no function.

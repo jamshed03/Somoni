@@ -1,0 +1,3 @@
+Type error [T092]: Line 10: 'this' is a copy from outside the lambda and cannot be changed
+  10 |             this.n = 2;
+     |             ^^^^

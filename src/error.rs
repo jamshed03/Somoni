@@ -336,6 +336,10 @@ pub enum ErrorCode {
     NotCallable {
         found: Type,
     },
+    AssignToCopy {
+        name: String,
+    },
+    SuperInLambda,
     TryNotResult {
         found: Type,
     },
@@ -525,6 +529,8 @@ impl ErrorCode {
             ErrorCode::TryErrorType { .. } => "T089",
             ErrorCode::BuiltinAsValue { .. } => "T090",
             ErrorCode::NotCallable { .. } => "T091",
+            ErrorCode::AssignToCopy { .. } => "T092",
+            ErrorCode::SuperInLambda => "T093",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -911,6 +917,11 @@ impl ErrorCode {
                 name
             ),
             ErrorCode::NotCallable { found } => format!("{} is no function and cannot be called", found),
+            ErrorCode::AssignToCopy { name } => format!(
+                "'{}' is a copy from outside the lambda and cannot be changed",
+                name
+            ),
+            ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
             ErrorCode::TryErrorType { found, expected } => format!(
                 "'?' passes on an err of {}, but the function returns {}",
                 found, expected

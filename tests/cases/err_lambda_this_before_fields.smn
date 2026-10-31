@@ -1,0 +1,9 @@
+class A {
+    n: int;
+    f: fn(): int;
+
+    constructor() {
+        this.f = fn(): int => this.n;
+        this.n = 1;
+    }
+}

@@ -1,0 +1,13 @@
+class A {
+    n: int;
+
+    constructor() {
+        this.n = 1;
+    }
+
+    setzer(): fn(): void {
+        return fn(): void {
+            this.n = 2;
+        };
+    }
+}

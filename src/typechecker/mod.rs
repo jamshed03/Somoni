@@ -3,7 +3,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    ClassLayout, EnumDecl, Expr, InterfaceLayout, Param, StructDecl, VTable, Visibility,
+    Capture, CaptureSource, ClassLayout, EnumDecl, Expr, InterfaceLayout, Param, StructDecl,
+    VTable, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::loader::{MAIN_FILE, SourceFile};
@@ -166,6 +167,12 @@ struct Constant {
     own: bool,
 }
 
+/// A lambda being checked: the variables around it when it is made and the ones it copies so far.
+struct LambdaScope {
+    outer: Scopes<VarInfo>,
+    captures: Vec<(Capture, Type)>,
+}
+
 /// The names a file can use: its own declarations and its imports.
 #[derive(Default)]
 struct Names {
@@ -247,6 +254,8 @@ pub struct TypeChecker {
     function_count: usize,
     /// The number of lambdas found so far, which have their own list in the program.
     lambda_count: usize,
+    /// The lambdas being checked, the innermost last, with the variables around each one.
+    lambda_scopes: Vec<LambdaScope>,
     global_count: usize,
     /// True while the top-level code of a file is checked, where a `const` exists only after its line.
     in_main: bool,
@@ -271,6 +280,7 @@ impl TypeChecker {
             super_init_allowed: false,
             function_count: 0,
             lambda_count: 0,
+            lambda_scopes: Vec::new(),
             global_count: 0,
             in_main: false,
             in_module: false,
@@ -319,6 +329,38 @@ impl TypeChecker {
         self.next_slot = outer_next_slot;
         self.in_main = outer_main;
         result
+    }
+
+    /// Returns true if `name` is a variable here, inside the current function or around a lambda it is in.
+    fn has_variable(&self, name: &str) -> bool {
+        self.scopes.lookup(name).is_some()
+            || self
+                .lambda_scopes
+                .iter()
+                .any(|level| level.outer.lookup(name).is_some())
+    }
+
+    /// Returns the copy number and type of `name` in lambda number `depth` of `lambda_scopes`, copying it there first if needed.
+    fn capture_at(&mut self, depth: usize, name: &str) -> Option<(usize, Type)> {
+        let level = &self.lambda_scopes[depth];
+        if let Some(found) = level.captures.iter().position(|(c, _)| c.name == name) {
+            return Some((found, level.captures[found].1.clone()));
+        }
+        let (source, ty) = match level.outer.lookup(name) {
+            Some(info) => (CaptureSource::Local(info.slot), info.ty.clone()),
+            None if depth > 0 => {
+                let (outer, ty) = self.capture_at(depth - 1, name)?;
+                (CaptureSource::Captured(outer), ty)
+            }
+            None => return None,
+        };
+        let capture = Capture {
+            name: name.to_string(),
+            source,
+        };
+        let captures = &mut self.lambda_scopes[depth].captures;
+        captures.push((capture, ty.clone()));
+        Some((captures.len() - 1, ty))
     }
 
     /// Declares the parameters of a function as const variables.

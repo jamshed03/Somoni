@@ -83,8 +83,10 @@ pub enum Op {
     Try,
     /// Calls the function value below `n` arguments on the stack.
     CallValue(usize),
-    /// Pushes the value of lambda number `i`.
-    MakeClosure(usize),
+    /// Pops `captured` copies and pushes the value of lambda number `lambda` with them.
+    MakeClosure { lambda: usize, captured: usize },
+    /// Pushes copy number `i` of the running lambda, whose value is in slot 0.
+    GetCaptured(usize),
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -327,7 +329,10 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::GetConst(i) => format!("GetConst {}", program.globals[*i]),
         Op::Try => "Try".to_string(),
         Op::CallValue(count) => format!("CallValue {}", count),
-        Op::MakeClosure(i) => format!("MakeClosure {}", program.lambdas[*i].name),
+        Op::MakeClosure { lambda, captured } => {
+            format!("MakeClosure {} {}", program.lambdas[*lambda].name, captured)
+        }
+        Op::GetCaptured(i) => format!("GetCaptured {}", i),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

@@ -186,6 +186,7 @@ impl Parser {
         let lambda = Lambda {
             function,
             index: None,
+            captures: Vec::new(),
         };
         Ok(self.expr_since(ExprKind::Lambda(Box::new(lambda)), start))
     }

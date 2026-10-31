@@ -78,6 +78,11 @@ pub enum ExprKind {
     CallValue(CallValue),
     /// `fn(x: int): int => x * 2` or `fn(x: int): int { ... }`, a function without a name.
     Lambda(Box<Lambda>),
+    /// A variable from outside a lambda, read from its copy number `index`, which the type checker makes from a name.
+    Captured {
+        name: String,
+        index: usize,
+    },
     /// A `const` of the top level read in a function, which the type checker makes from a name.
     Constant {
         name: String,
@@ -141,6 +146,24 @@ pub struct Lambda {
     pub function: Function,
     /// Filled in by the type checker.
     pub index: Option<usize>,
+    /// Filled in by the type checker: the outside variables the lambda copies, in the order of their copies.
+    pub captures: Vec<Capture>,
+}
+
+/// One outside variable a lambda copies when it is made.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Capture {
+    pub name: String,
+    pub source: CaptureSource,
+}
+
+/// Where the value of a copy comes from when the lambda is made.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CaptureSource {
+    /// A variable of the function around the lambda, by its slot.
+    Local(usize),
+    /// A copy of the lambda around this one, by its number.
+    Captured(usize),
 }
 
 /// `callee(args)`, a call of a function value.
@@ -209,7 +232,12 @@ impl Expr {
             ExprKind::Try(value) => value.find_this(),
             ExprKind::FunctionRef { .. } => None,
             ExprKind::CallValue(call) => call.callee.find_this().or_else(|| first_this(&call.args)),
-            ExprKind::Lambda(_) => None,
+            ExprKind::Lambda(lambda) => lambda
+                .captures
+                .iter()
+                .any(|capture| capture.name == THIS)
+                .then_some(self.span),
+            ExprKind::Captured { name, .. } => (name == THIS).then_some(self.span),
         }
     }
 
@@ -241,6 +269,7 @@ impl Expr {
                 Some(AssignRoot::Variable(name, self.span))
             }
             ExprKind::StaticAccess(_) => Some(AssignRoot::Static),
+            ExprKind::Captured { name, .. } => Some(AssignRoot::Captured(name, self.span)),
             ExprKind::Index { target, .. } | ExprKind::Field { target, .. } => target.assign_root(),
             _ => None,
         }
@@ -251,6 +280,8 @@ impl Expr {
 pub enum AssignRoot<'a> {
     Variable(&'a str, Span),
     Static,
+    /// A copy inside a lambda, which cannot be changed.
+    Captured(&'a str, Span),
 }
 
 /// Returns the place of the first `this` in these expressions, if there is one.
@@ -663,6 +694,9 @@ pub struct Constructor {
     pub body: Vec<Stmt>,
     pub span: Span,
 }
+
+/// The hidden variable in slot 0 of a lambda that holds the lambda's own value with its copies; no name can be written like this.
+pub const CLOSURE: &str = "<closure>";
 
 /// The name of every lambda in messages, e.g. "function 'lambda' must return int".
 pub const LAMBDA: &str = "lambda";

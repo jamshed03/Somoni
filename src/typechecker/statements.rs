@@ -58,18 +58,18 @@ impl TypeChecker {
         self.check_body(function, &name, &signature, None)
     }
 
-    /// Checks the body of a function or method and that it returns on every path.
+    /// Checks the body of a function or method and that it returns on every path; `hidden` is `this` or the value of a lambda in slot 0.
     pub(super) fn check_body(
         &mut self,
         function: &mut Function,
         name: &str,
         signature: &Signature,
-        this_type: Option<Type>,
+        hidden: Option<(&str, Type)>,
     ) -> Result<(), SomoniError> {
         let return_type = signature.return_type.clone();
         self.in_function(Some(return_type.clone()), |this| {
-            if let Some(ty) = this_type {
-                this.declare(THIS, function.name_span, ty, false)?;
+            if let Some((name, ty)) = hidden {
+                this.declare(name, function.name_span, ty, false)?;
             }
             this.declare_params(&function.params, &signature.params)?;
             this.check_stmts(&mut function.body)
@@ -226,6 +226,12 @@ impl TypeChecker {
         let (name, name_span) = match target.assign_root() {
             Some(AssignRoot::Variable(name, span)) => (name, span),
             Some(AssignRoot::Static) => return Ok(()),
+            Some(AssignRoot::Captured(name, span)) => {
+                let code = ErrorCode::AssignToCopy {
+                    name: name.to_string(),
+                };
+                return Err(SomoniError::at(span, code));
+            }
             None => return Err(SomoniError::internal("assignment to a non-variable")),
         };
         if !in_object && !self.scopes.lookup(name).is_some_and(|info| info.mutable) {

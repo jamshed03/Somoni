@@ -1,0 +1,82 @@
+// a lambda copies the outside variables it uses when it is made; later changes outside do not reach it
+fn mal(faktor: int): fn(int): int {
+    return fn(x: int): int => x * faktor;
+}
+
+fn alle(zahlen: list<int>, f: fn(int): int): list<int> {
+    var ergebnis: list<int> = [];
+    for (n: int in zahlen) {
+        ergebnis += [f(n)];
+    }
+    return ergebnis;
+}
+
+fn zaehler_liste(): list<fn(): int> {
+    var fs: list<fn(): int> = [];
+    for (var i: int = 0; i < 3; i = i + 1) {
+        fs += [fn(): int => i * 10];
+    }
+    return fs;
+}
+
+fn addierer(a: int): fn(int): fn(int): int {
+    return fn(b: int): fn(int): int => fn(c: int): int => a + b + c;
+}
+
+class Konto {
+    stand: int;
+
+    constructor(stand: int) {
+        this.stand = stand;
+    }
+
+    einzahlen(betrag: int): void {
+        this.stand += betrag;
+    }
+
+    spaeter(betrag: int): fn(): void {
+        return fn(): void {
+            this.einzahlen(betrag);
+        };
+    }
+
+    zeiger(): fn(): int {
+        return fn(): int => this.stand;
+    }
+}
+
+var dreifach: fn(int): int = mal(3);
+print(dreifach(5));
+print(alle([1, 2, 3], mal(10)));
+
+var n: int = 2;
+var plus_n: fn(int): int = fn(x: int): int => x + n;
+n = 100;
+print(plus_n(1));
+
+var name: string = "Ali";
+var gruss: fn(): string = fn(): string {
+    var text: string = "Hallo " + name;
+    return text + "!";
+};
+name = "Bea";
+print(gruss());
+
+for (f: fn(): int in zaehler_liste()) {
+    print(f());
+}
+
+print(addierer(1)(20)(300));
+
+var k: Konto = new Konto(5);
+var auszahlung: fn(): void = k.spaeter(10);
+var stand: fn(): int = k.zeiger();
+auszahlung();
+auszahlung();
+print(stand());
+print(k.stand);
+
+var liste: list<int> = [1, 2];
+var laenge: fn(): int = fn(): int => len(liste);
+liste += [3];
+print(laenge());

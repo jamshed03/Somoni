@@ -125,7 +125,8 @@ impl<'p> Vm<'p> {
             Op::Return => self.return_to_caller(frame)?,
             Op::Try => self.try_result(frame)?,
             Op::CallValue(count) => self.call_value(*count, frame, program)?,
-            Op::MakeClosure(lambda) => self.make_closure(*lambda),
+            Op::MakeClosure { lambda, captured } => self.make_closure(*lambda, *captured),
+            Op::GetCaptured(i) => self.get_captured(*i, frame)?,
             Op::MakeList(count) => self.make_list(*count),
             Op::NewMap => self.stack.push(Value::Map(Rc::new(MapValue::default()))),
             Op::MapInsert => self.map_insert()?,
@@ -224,17 +225,26 @@ impl<'p> Vm<'p> {
         Ok(())
     }
 
-    /// Pushes the value of lambda number `lambda`.
+    /// Pops `count` copies and pushes the value of lambda number `lambda` with them.
     #[inline(never)]
-    fn make_closure(&mut self, lambda: usize) {
-        let closure = Closure {
-            lambda,
-            captured: Vec::new(),
-        };
+    fn make_closure(&mut self, lambda: usize, count: usize) {
+        let captured = self.stack.split_off(self.top_start(count));
+        let closure = Closure { lambda, captured };
         self.stack.push(Value::Closure(Rc::new(closure)));
     }
 
-    /// Takes the function value from below the `count` arguments and calls it with them.
+    /// Pushes copy number `i` of the running lambda, whose value is in slot 0 of its frame.
+    #[inline(never)]
+    fn get_captured(&mut self, i: usize, frame: &Frame<'p>) -> Result<(), SomoniError> {
+        let Some(Value::Closure(closure)) = self.stack.get(frame.base) else {
+            return Err(SomoniError::internal("copy outside of a lambda"));
+        };
+        let value = closure.captured[i].clone();
+        self.stack.push(value);
+        Ok(())
+    }
+
+    /// Calls the function value below the `count` arguments; a lambda keeps its value there as slot 0 for its copies.
     #[inline(never)]
     fn call_value(
         &mut self,
@@ -243,9 +253,16 @@ impl<'p> Vm<'p> {
         program: &'p Program,
     ) -> Result<(), SomoniError> {
         let place = self.top_start(count) - 1;
-        match self.stack.remove(place) {
-            Value::Function(function) => self.call(&program.functions[function], count, frame),
-            Value::Closure(closure) => self.call(&program.lambdas[closure.lambda], count, frame),
+        match &self.stack[place] {
+            Value::Function(function) => {
+                let function = *function;
+                self.stack.remove(place);
+                self.call(&program.functions[function], count, frame)
+            }
+            Value::Closure(closure) => {
+                let chunk = &program.lambdas[closure.lambda];
+                self.call(chunk, count + 1, frame)
+            }
             _ => Err(SomoniError::internal("call of a value that is no function")),
         }
     }

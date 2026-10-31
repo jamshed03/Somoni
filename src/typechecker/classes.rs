@@ -216,8 +216,8 @@ impl TypeChecker {
         signature: &Signature,
     ) -> Result<(), SomoniError> {
         let name = format!("{}.{}", layout.name, method.function.name);
-        let this_type = (!method.is_static).then(|| Type::Class(layout.clone()));
-        self.check_body(&mut method.function, &name, signature, this_type)
+        let this = (!method.is_static).then(|| (THIS, Type::Class(layout.clone())));
+        self.check_body(&mut method.function, &name, signature, this)
     }
 
     /// Checks a class with access to its private members.
@@ -430,6 +430,9 @@ impl TypeChecker {
 
     /// Returns the parent of the class being checked, for `super`.
     pub(super) fn current_parent(&self, span: Span) -> Result<Decl<ClassLayout>, SomoniError> {
+        if !self.lambda_scopes.is_empty() {
+            return Err(SomoniError::at(span, ErrorCode::SuperInLambda));
+        }
         self.current_class
             .as_ref()
             .and_then(|class| self.parent_of(class))

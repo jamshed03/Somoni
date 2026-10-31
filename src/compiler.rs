@@ -1,9 +1,9 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, Assign, BinaryOp, Call, CallTarget, ClassDecl, ClassField, ClassLayout, EnumDecl, Expr,
-    ExprKind, FieldInit, ForEach, Function, IterKind, Lambda, Match, MethodCall, MethodTarget,
-    Pattern, Stmt, VarDecl,
+    self, Assign, BinaryOp, Call, CallTarget, CaptureSource, ClassDecl, ClassField, ClassLayout,
+    EnumDecl, Expr, ExprKind, FieldInit, ForEach, Function, IterKind, Lambda, Match, MethodCall,
+    MethodTarget, Pattern, Stmt, VarDecl,
 };
 use crate::bytecode::{Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::SomoniError;
@@ -198,6 +198,11 @@ fn compile_function(
     Ok(compiler.finish(lambdas))
 }
 
+/// Returns the number of values with the value of a lambda in front of `count` arguments.
+fn with_closure(count: usize) -> usize {
+    count + 1
+}
+
 /// Returns the number of values with `this` in front of `count` others.
 fn with_this(count: usize) -> usize {
     count + 1
@@ -251,15 +256,30 @@ impl Compiler {
         Ok(())
     }
 
-    /// Compiles a lambda into a chunk of its own and writes the instruction that makes its value.
+    /// Compiles a lambda into a chunk of its own, whose slot 0 holds its value, and writes the instructions that make the value with its copies.
     fn compile_lambda(&mut self, lambda: &Lambda, span: Span) -> Result<(), SomoniError> {
         let index = filled(lambda.index, "lambda number")?;
         let function = &lambda.function;
-        let mut inner = Compiler::new(format!("lambda {}", index), function.params.len());
+        let name = format!("lambda {}", index);
+        let mut inner = Compiler::new(name, with_closure(function.params.len()));
         inner.compile_body(function)?;
         let chunk = inner.finish(&mut self.lambdas);
         self.lambdas.push((index, chunk));
-        self.chunk.push(Op::MakeClosure(index), span);
+        for capture in &lambda.captures {
+            let op = match capture.source {
+                CaptureSource::Local(slot) => Op::GetLocal(slot),
+                CaptureSource::Captured(copy) => Op::GetCaptured(copy),
+            };
+            self.chunk.push(op, span);
+        }
+        let captured = lambda.captures.len();
+        self.chunk.push(
+            Op::MakeClosure {
+                lambda: index,
+                captured,
+            },
+            span,
+        );
         Ok(())
     }
 
@@ -767,6 +787,9 @@ impl Compiler {
                 self.push_constant(Value::Function(*index), span)
             }
             ExprKind::Lambda(lambda) => self.compile_lambda(lambda, span)?,
+            ExprKind::Captured { index, .. } => {
+                self.chunk.push(Op::GetCaptured(*index), span);
+            }
             ExprKind::CallValue(call) => {
                 self.compile_expr(&call.callee)?;
                 self.compile_args(&call.args)?;

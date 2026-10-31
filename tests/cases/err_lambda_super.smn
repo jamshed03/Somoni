@@ -1,0 +1,11 @@
+class A {
+    m(): int {
+        return 1;
+    }
+}
+class B extends A {
+    override m(): int {
+        var f: fn(): int = fn(): int => super.m();
+        return f();
+    }
+}
