@@ -28,6 +28,26 @@ pub fn binary(op: BinaryOp, l: Value, r: Value) -> Result<Value, SomoniError> {
     }
 }
 
+/// Computes `a op b` for two ints, the case the VM meets most often.
+#[inline]
+pub fn int_binary(op: BinaryOp, a: i64, b: i64) -> Result<Value, SomoniError> {
+    let result = match op {
+        BinaryOp::Eq => a == b,
+        BinaryOp::NotEq => a != b,
+        BinaryOp::Less => a < b,
+        BinaryOp::Greater => a > b,
+        BinaryOp::LessEq => a <= b,
+        BinaryOp::GreaterEq => a >= b,
+        BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
+            return int_arithmetic(op, a, b);
+        }
+        BinaryOp::And | BinaryOp::Or => {
+            return Err(SomoniError::internal("operator not supported for int"));
+        }
+    };
+    Ok(Value::Bool(result))
+}
+
 /// Computes `!value` or `-value`.
 pub fn unary(op: UnaryOp, value: Value) -> Result<Value, SomoniError> {
     match (op, value) {
@@ -53,6 +73,7 @@ pub fn append(target: &mut Value, rest: Value) -> Result<(), SomoniError> {
 }
 
 /// Computes `+ - * / %` for two ints, or returns R002 on overflow and R001 for a division by zero.
+#[inline]
 fn int_arithmetic(op: BinaryOp, a: i64, b: i64) -> Result<Value, SomoniError> {
     let result = match op {
         BinaryOp::Div | BinaryOp::Mod if b == 0 => return Err(ErrorCode::DivisionByZero.into()),

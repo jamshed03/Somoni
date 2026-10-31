@@ -76,8 +76,11 @@ impl<'p> Vm<'p> {
         program: &'p Program,
     ) -> Result<(), SomoniError> {
         match op {
-            Op::Push(i) => self.stack.push(frame.chunk.constants[*i].clone()),
-            Op::GetLocal(slot) => self.stack.push(self.stack[frame.place(*slot)].clone()),
+            Op::Push(i) => self.stack.push(copy_value(&frame.chunk.constants[*i])),
+            Op::GetLocal(slot) => {
+                let value = copy_value(&self.stack[frame.place(*slot)]);
+                self.stack.push(value);
+            }
             Op::GetGlobal(i) => self.stack.push(self.globals[*i].clone()),
             Op::SetGlobal(i) => {
                 let value = self.pop()?;
@@ -177,8 +180,15 @@ impl<'p> Vm<'p> {
         Ok(())
     }
 
-    /// Pops the right and the left operand and pushes `left op right`.
+    /// Pops the right and the left operand and pushes `left op right`; two ints take a short way.
     fn binary(&mut self, op: BinaryOp) -> Result<(), SomoniError> {
+        if let [.., Value::Int(a), Value::Int(b)] = self.stack.as_slice() {
+            let result = value::int_binary(op, *a, *b)?;
+            let left = self.stack.len() - 2;
+            self.pop_int();
+            self.overwrite_int(left, result);
+            return Ok(());
+        }
         let right = self.pop()?;
         let left = self.pop()?;
         self.stack.push(value::binary(op, left, right)?);
@@ -346,8 +356,27 @@ impl<'p> Vm<'p> {
         Ok(())
     }
 
+    /// Removes the top value, which the caller has checked to be an int.
+    fn pop_int(&mut self) {
+        // An int owns nothing on the heap, so forgetting it safely skips the call that would drop it.
+        std::mem::forget(self.stack.pop());
+    }
+
+    /// Writes `value` at stack place `place`, where the caller has checked an int to be.
+    fn overwrite_int(&mut self, place: usize, value: Value) {
+        std::mem::forget(std::mem::replace(&mut self.stack[place], value));
+    }
+
     /// Pops a value and appends it to the string or list at stack place `place`, or adds it to a number there.
     fn append_local(&mut self, place: usize) -> Result<(), SomoniError> {
+        if let (Some(Value::Int(rest)), Some(Value::Int(sum))) =
+            (self.stack.last(), self.stack.get(place))
+        {
+            let result = value::int_binary(BinaryOp::Add, *sum, *rest)?;
+            self.pop_int();
+            self.overwrite_int(place, result);
+            return Ok(());
+        }
         let rest = self.pop()?;
         let target = &mut self.stack[place];
         if let Value::Str(_) | Value::List(_) = target {
@@ -525,5 +554,14 @@ fn loop_entry(sequence: &Value, index: i64) -> Result<Option<LoopEntry>, SomoniE
             is_list: false,
         })),
         _ => Err(SomoniError::internal("loop over a non-list")),
+    }
+}
+
+/// Returns a copy of a value; an int, the most common value, is copied directly instead of through `clone`.
+#[inline]
+fn copy_value(value: &Value) -> Value {
+    match value {
+        Value::Int(n) => Value::Int(*n),
+        other => other.clone(),
     }
 }
