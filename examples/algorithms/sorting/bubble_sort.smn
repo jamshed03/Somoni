@@ -1,4 +1,4 @@
-// Bubble sort: every pass swaps neighbours, so the largest value moves to the end. Source: TheAlgorithms/PHP Sorting/BubbleSort.php
+// Bubble sort: every pass swaps neighbours, so the largest value moves to the end.
 
 // Returns the list after one pass over the first n elements.
 fn bubble_pass(input: list<int>, n: int): list<int> {

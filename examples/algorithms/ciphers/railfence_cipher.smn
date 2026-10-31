@@ -1,4 +1,4 @@
-// Rail fence cipher: writes the text in a zigzag over several rails and reads it row by row. Source: TheAlgorithms/PHP Ciphers/RailfenceCipher.php
+// Rail fence cipher: writes the text in a zigzag over several rails and reads it row by row.
 
 import { chars, join } from "../lib/text.smn";
 

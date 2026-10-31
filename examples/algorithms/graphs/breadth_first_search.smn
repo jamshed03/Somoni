@@ -1,4 +1,4 @@
-// Breadth-first search: visits the graph level by level with a queue. Source: TheAlgorithms/PHP Graphs/BreadthFirstSearch.php
+// Breadth-first search: visits the graph level by level with a queue.
 
 // Returns true if there is a path from start to goal; the queue is a list with a moving head.
 fn bfs(graph: map<string, list<string>>, start: string, goal: string): bool {

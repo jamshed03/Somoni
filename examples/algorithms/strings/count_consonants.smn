@@ -1,4 +1,4 @@
-// Count consonants: letters from a to z that are not vowels. Source: TheAlgorithms/PHP Strings/CountConsonants.php
+// Count consonants: letters from a to z that are not vowels.
 
 import { chars, index_of, is_letter, lower_char } from "../lib/text.smn";
 

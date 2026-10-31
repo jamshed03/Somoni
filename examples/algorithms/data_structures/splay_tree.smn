@@ -1,4 +1,4 @@
-// Splay tree: a binary search tree that moves every key it touches to the top. Source: TheAlgorithms/PHP DataStructures/SplayTree/SplayTree.php
+// Splay tree: a binary search tree that moves every key it touches to the top.
 
 // One node with a key, a value and two children.
 class SplayTreeNode {

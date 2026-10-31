@@ -1,4 +1,4 @@
-// Mode: the values that appear most often. Source: TheAlgorithms/PHP Maths/Mode.php
+// Mode: the values that appear most often.
 
 // Returns how often every value appears, in the order of first appearance.
 fn count_values(numbers: list<int>): map<int, int> {

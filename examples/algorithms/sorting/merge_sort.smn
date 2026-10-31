@@ -1,4 +1,4 @@
-// Merge sort: splits the list in halves, sorts them and merges them back together. Source: TheAlgorithms/PHP Sorting/MergeSort.php
+// Merge sort: splits the list in halves, sorts them and merges them back together.
 
 // Returns the elements from start (inclusive) to end (exclusive).
 fn slice(items: list<int>, start: int, end: int): list<int> {

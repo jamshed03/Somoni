@@ -1,4 +1,4 @@
-// Heap sort: builds a max heap, then moves the largest value to the end again and again. Source: TheAlgorithms/PHP Sorting/HeapSort.php
+// Heap sort: builds a max heap, then moves the largest value to the end again and again.
 
 // Returns the list with the two positions swapped.
 fn swap(input: list<int>, a: int, b: int): list<int> {

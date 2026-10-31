@@ -1,4 +1,4 @@
-// Base X: writes a number in any base from 2 to 36. Source: TheAlgorithms/PHP Maths/BaseX.php
+// Base X: writes a number in any base from 2 to 36.
 
 import { digit_char } from "../lib/text.smn";
 

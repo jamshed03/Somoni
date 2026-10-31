@@ -1,4 +1,4 @@
-// Count sentences: counts the endings ".", "!" and "?" that close a sentence. Source: TheAlgorithms/PHP Strings/CountSentences.php
+// Count sentences: counts the endings ".", "!" and "?" that close a sentence.
 
 import { chars, index_of, is_digit, is_letter, trim } from "../lib/text.smn";
 

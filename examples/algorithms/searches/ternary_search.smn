@@ -1,4 +1,4 @@
-// Ternary search: splits the sorted list into three parts instead of two. Source: TheAlgorithms/PHP Searches/TernarySearch.php
+// Ternary search: splits the sorted list into three parts instead of two.
 
 // Returns the index of the target between low and high, or -1 if it is missing.
 fn ternary_search(items: list<int>, target: int, low: int, high: int): int {

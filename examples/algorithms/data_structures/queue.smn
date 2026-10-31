@@ -1,4 +1,4 @@
-// Queue: first in, first out. Source: TheAlgorithms/PHP DataStructures/Queue.php
+// Queue: first in, first out.
 
 // A queue of numbers; new values go to the end, values leave at the front.
 class Queue {

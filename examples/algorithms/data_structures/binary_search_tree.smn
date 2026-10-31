@@ -1,4 +1,4 @@
-// Binary search tree: smaller keys go left, larger keys go right. Source: TheAlgorithms/PHP DataStructures/BinarySearchTree/BSTree.php
+// Binary search tree: smaller keys go left, larger keys go right.
 
 // One node with a key, a value and two children.
 class BSTNode {

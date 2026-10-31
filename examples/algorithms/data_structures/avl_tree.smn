@@ -1,4 +1,4 @@
-// AVL tree: a binary search tree that rotates after every change, so both sides differ in height by at most 1. Source: TheAlgorithms/PHP DataStructures/AVLTree/AVLTree.php
+// AVL tree: a binary search tree that rotates after every change, so both sides differ in height by at most 1.
 
 // One node with a key, a value, its height and two children.
 class AVLTreeNode {

@@ -1,4 +1,4 @@
-// Upper bound: the first position in a sorted list whose value is larger than the target. Source: TheAlgorithms/PHP Searches/UpperBound.php
+// Upper bound: the first position in a sorted list whose value is larger than the target.
 
 // Returns the first index with items[index] > target, or len(items) if there is none.
 fn upper_bound(items: list<int>, target: int): int {

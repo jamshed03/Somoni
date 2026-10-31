@@ -1,4 +1,4 @@
-// Bubble sort that stops early when a pass swaps nothing. Source: TheAlgorithms/PHP Sorting/BubbleSort2.php
+// Bubble sort that stops early when a pass swaps nothing.
 
 // The list after one pass and whether the pass swapped anything.
 struct Pass {

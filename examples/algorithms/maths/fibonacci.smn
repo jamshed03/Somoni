@@ -1,4 +1,4 @@
-// Fibonacci numbers: every number is the sum of the two before it. Source: TheAlgorithms/PHP Maths/Fibonacci.php
+// Fibonacci numbers: every number is the sum of the two before it.
 
 // Returns the n-th Fibonacci number with recursion (slow, for small n).
 fn fib_recursive(n: int): int {

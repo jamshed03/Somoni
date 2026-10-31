@@ -1,4 +1,4 @@
-// Singly linked list: every node knows only the next one. Source: TheAlgorithms/PHP DataStructures/SinglyLinkedList.php
+// Singly linked list: every node knows only the next one.
 
 // One node of the list; the first node is the list.
 class SinglyLinkedList {

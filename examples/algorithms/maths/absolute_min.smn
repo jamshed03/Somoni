@@ -1,4 +1,4 @@
-// Absolute min: the number closest to 0. Source: TheAlgorithms/PHP Maths/AbsoluteMin.php
+// Absolute min: the number closest to 0.
 
 import { abs } from "../lib/math.smn";
 

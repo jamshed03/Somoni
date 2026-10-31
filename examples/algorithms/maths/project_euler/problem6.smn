@@ -1,4 +1,4 @@
-// Project Euler 6: square of the sum minus sum of the squares of 1 to 100. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem6.php
+// Project Euler 6: square of the sum minus sum of the squares of 1 to 100.
 
 // Returns (1 + ... + n)² - (1² + ... + n²).
 fn problem6(n: int): int {

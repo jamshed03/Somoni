@@ -1,4 +1,4 @@
-// Array keys sort: sorts records by several keys, the next key decides on a tie. Source: TheAlgorithms/PHP Sorting/ArrayKeysSort.php
+// Array keys sort: sorts records by several keys, the next key decides on a tie.
 // Somoni version: records are map<string, int>, because strings have no < yet and there are no callbacks like usort.
 
 // The direction of the sort.

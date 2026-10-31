@@ -1,4 +1,4 @@
-// Compare binary trees: two trees are equal if they have the same shape and the same values. Source: TheAlgorithms/PHP DataStructures/CompareBinaryTree/CompareBinaryTree.php
+// Compare binary trees: two trees are equal if they have the same shape and the same values.
 
 // One node of a binary tree.
 class BinaryTreeNode {

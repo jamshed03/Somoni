@@ -1,4 +1,4 @@
-// Greatest common divisor with the Euclidean algorithm. Source: TheAlgorithms/PHP Maths/GreatestCommonDivisor.php
+// Greatest common divisor with the Euclidean algorithm.
 
 import { abs } from "../lib/math.smn";
 

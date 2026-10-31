@@ -1,4 +1,4 @@
-// Sieve of Eratosthenes: crosses out all multiples of every prime. Source: TheAlgorithms/PHP Maths/EratosthenesSieve.php
+// Sieve of Eratosthenes: crosses out all multiples of every prime.
 
 // Holds one flag per number; the list lives in the object, so crossing out changes it in place without a copy.
 class Sieve {

@@ -1,4 +1,4 @@
-// Project Euler 11: the largest product of four adjacent numbers in a 20x20 grid. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem11.php
+// Project Euler 11: the largest product of four adjacent numbers in a 20x20 grid.
 
 import { split } from "../../lib/text.smn";
 

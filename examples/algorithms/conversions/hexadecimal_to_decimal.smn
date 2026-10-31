@@ -1,4 +1,4 @@
-// Hexadecimal to decimal: reads 0-9 and a-f as a number in base 16. Source: TheAlgorithms/PHP Conversions/HexadecimalToDecimal.php
+// Hexadecimal to decimal: reads 0-9 and a-f as a number in base 16.
 
 import { digit_value } from "../lib/text.smn";
 

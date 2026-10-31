@@ -1,4 +1,4 @@
-// Temperature conversions between Celsius, Fahrenheit and Kelvin. Source: TheAlgorithms/PHP Conversions/TemperatureConversions.php
+// Temperature conversions between Celsius, Fahrenheit and Kelvin.
 
 import { round_to } from "../lib/math.smn";
 

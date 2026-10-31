@@ -1,4 +1,4 @@
-// Linear search: checks every element from the start. Source: TheAlgorithms/PHP Searches/LinearSearch.php
+// Linear search: checks every element from the start.
 
 // Returns the index of the first element equal to the target, or -1 if it is missing.
 fn linear_search(items: list<int>, target: int): int {

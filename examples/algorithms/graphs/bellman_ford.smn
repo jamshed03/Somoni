@@ -1,4 +1,4 @@
-// Bellman-Ford: shortest paths from one start, also with negative edge weights. Source: TheAlgorithms/PHP Graphs/BellmanFord.php
+// Bellman-Ford: shortest paths from one start, also with negative edge weights.
 
 import { GraphEdge } from "graph_edge.smn";
 

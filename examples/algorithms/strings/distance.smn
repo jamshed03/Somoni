@@ -1,4 +1,4 @@
-// Levenshtein distance: the fewest inserts, deletes and replacements to turn one text into another. Source: TheAlgorithms/PHP Strings/Distance.php
+// Levenshtein distance: the fewest inserts, deletes and replacements to turn one text into another.
 
 import { chars } from "../lib/text.smn";
 import { min } from "../lib/math.smn";

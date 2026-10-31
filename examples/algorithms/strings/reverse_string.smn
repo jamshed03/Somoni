@@ -1,4 +1,4 @@
-// Reverse string: the characters in the opposite order. Source: TheAlgorithms/PHP Strings/ReverseString.php
+// Reverse string: the characters in the opposite order.
 
 import { chars, join } from "../lib/text.smn";
 

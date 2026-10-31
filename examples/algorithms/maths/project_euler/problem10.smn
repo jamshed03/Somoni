@@ -1,4 +1,4 @@
-// Project Euler 10: sum of all primes below two million. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem10.php
+// Project Euler 10: sum of all primes below two million.
 
 // Holds one flag per number; the list lives in the object, so crossing out changes it in place without a copy.
 class Sieve {

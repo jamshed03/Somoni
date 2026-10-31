@@ -1,4 +1,4 @@
-// Mean: the sum of all numbers divided by how many there are. Source: TheAlgorithms/PHP Maths/Mean.php
+// Mean: the sum of all numbers divided by how many there are.
 
 import { sum } from "../lib/math.smn";
 

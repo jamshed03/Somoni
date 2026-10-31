@@ -1,4 +1,4 @@
-// Binary to decimal: reads a string of 0 and 1 as a number. Source: TheAlgorithms/PHP Conversions/BinaryToDecimal.php
+// Binary to decimal: reads a string of 0 and 1 as a number.
 
 import { digit_value } from "../lib/text.smn";
 

@@ -1,4 +1,4 @@
-// Reverse words: the words in the opposite order. Source: TheAlgorithms/PHP Strings/ReverseWords.php
+// Reverse words: the words in the opposite order.
 
 import { join, split, trim } from "../lib/text.smn";
 

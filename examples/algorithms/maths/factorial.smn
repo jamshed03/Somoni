@@ -1,4 +1,4 @@
-// Factorial: n! = 1 * 2 * ... * n. Source: TheAlgorithms/PHP Maths/Factorial.php
+// Factorial: n! = 1 * 2 * ... * n.
 
 // Returns n! for a non-negative n, or an error for a negative n.
 fn factorial(n: int): result<int, string> {

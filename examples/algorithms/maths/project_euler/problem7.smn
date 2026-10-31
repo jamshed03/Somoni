@@ -1,4 +1,4 @@
-// Project Euler 7: the 10001st prime number. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem7.php
+// Project Euler 7: the 10001st prime number.
 
 // Returns true if no prime from the list up to the square root divides the number.
 fn has_no_prime_divisor(number: int, primes: list<int>): bool {

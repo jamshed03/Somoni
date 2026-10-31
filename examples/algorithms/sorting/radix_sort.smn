@@ -1,4 +1,4 @@
-// Radix sort: sorts non-negative numbers digit by digit, from the last digit to the first. Source: TheAlgorithms/PHP Sorting/RadixSort.php
+// Radix sort: sorts non-negative numbers digit by digit, from the last digit to the first.
 
 // Returns ten empty buckets, one for every digit.
 fn empty_buckets(): list<list<int>> {

@@ -1,4 +1,4 @@
-// Binary search: halves a sorted list until the value is found, with a loop and with recursion. Source: TheAlgorithms/PHP Searches/BinarySearch.php
+// Binary search: halves a sorted list until the value is found, with a loop and with recursion.
 
 // Returns the index of the target in the sorted list, or -1 if it is missing.
 fn binary_search(items: list<int>, target: int): int {

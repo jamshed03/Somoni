@@ -1,4 +1,4 @@
-// Doubly linked list: every node knows the next and the previous one. Source: TheAlgorithms/PHP DataStructures/DoublyLinkedList.php
+// Doubly linked list: every node knows the next and the previous one.
 
 // One node with links in both directions.
 class Node {

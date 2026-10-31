@@ -1,4 +1,4 @@
-// Check prime: a prime has no divisor between 2 and its square root. Source: TheAlgorithms/PHP Maths/CheckPrime.php
+// Check prime: a prime has no divisor between 2 and its square root.
 
 // Returns true if the number is a prime.
 fn is_prime(number: int): bool {

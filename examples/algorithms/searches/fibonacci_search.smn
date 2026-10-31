@@ -1,4 +1,4 @@
-// Fibonacci search: splits the sorted list at Fibonacci numbers instead of the middle. Source: TheAlgorithms/PHP Searches/FibonacciSearch.php
+// Fibonacci search: splits the sorted list at Fibonacci numbers instead of the middle.
 
 import { min } from "../lib/math.smn";
 

@@ -1,4 +1,4 @@
-// Lower bound: the first position in a sorted list whose value is not smaller than the target. Source: TheAlgorithms/PHP Searches/LowerBound.php
+// Lower bound: the first position in a sorted list whose value is not smaller than the target.
 
 // Returns the first index with items[index] >= target, or len(items) if there is none.
 fn lower_bound(items: list<int>, target: int): int {

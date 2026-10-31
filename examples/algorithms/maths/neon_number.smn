@@ -1,4 +1,4 @@
-// Neon number: the digits of its square add up to the number itself (9 * 9 = 81, 8 + 1 = 9). Source: TheAlgorithms/PHP Maths/NeonNumber.php
+// Neon number: the digits of its square add up to the number itself (9 * 9 = 81, 8 + 1 = 9).
 
 import { digits, sum } from "../lib/math.smn";
 

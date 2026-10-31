@@ -1,4 +1,4 @@
-// Depth-first search: follows one path as far as possible before going back. Source: TheAlgorithms/PHP Graphs/DepthFirstSearch.php
+// Depth-first search: follows one path as far as possible before going back.
 
 // Returns the visited list with the node and everything reachable from it added, in visiting order.
 fn visit(graph: map<string, list<string>>, node: string, visited: list<string>): list<string> {

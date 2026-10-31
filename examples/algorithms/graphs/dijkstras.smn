@@ -1,4 +1,4 @@
-// Dijkstra: shortest paths from one start when all edge weights are non-negative. Source: TheAlgorithms/PHP Graphs/Dijkstras.php
+// Dijkstra: shortest paths from one start when all edge weights are non-negative.
 
 import { GraphEdge } from "graph_edge.smn";
 

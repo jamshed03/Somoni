@@ -1,4 +1,4 @@
-// Check palindrome: the text reads the same backwards (Level). Source: TheAlgorithms/PHP Strings/CheckPalindrome.php
+// Check palindrome: the text reads the same backwards (Level).
 
 import { chars, lower, trim } from "../lib/text.smn";
 

@@ -1,4 +1,4 @@
-// Selection sort: finds the smallest remaining value and puts it at the front. Source: TheAlgorithms/PHP Sorting/SelectionSort.php
+// Selection sort: finds the smallest remaining value and puts it at the front.
 
 // Returns the index of the smallest value from start to the end.
 fn index_of_min(items: list<int>, start: int): int {

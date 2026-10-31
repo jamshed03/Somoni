@@ -1,4 +1,4 @@
-// Check odd: a number is odd if dividing by 2 leaves a rest. Source: TheAlgorithms/PHP Maths/CheckOdd.php
+// Check odd: a number is odd if dividing by 2 leaves a rest.
 
 // Returns true if the number is odd.
 fn is_odd(number: int): bool {

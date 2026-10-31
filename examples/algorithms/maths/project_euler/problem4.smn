@@ -1,4 +1,4 @@
-// Project Euler 4: largest palindrome that is a product of two 3-digit numbers. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem4.php
+// Project Euler 4: largest palindrome that is a product of two 3-digit numbers.
 
 import { reverse } from "../../lib/text.smn";
 

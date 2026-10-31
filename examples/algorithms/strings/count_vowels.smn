@@ -1,4 +1,4 @@
-// Count vowels: how many of a, e, i, o, u the text has. Source: TheAlgorithms/PHP Strings/CountVowels.php
+// Count vowels: how many of a, e, i, o, u the text has.
 
 import { chars, index_of, lower_char } from "../lib/text.smn";
 

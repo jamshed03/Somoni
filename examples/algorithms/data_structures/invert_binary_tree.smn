@@ -1,4 +1,4 @@
-// Invert binary tree: swaps the left and right child of every node (a mirror image). Source: TheAlgorithms/PHP DataStructures/InvertBinaryTree/InvertBinaryTree.php
+// Invert binary tree: swaps the left and right child of every node (a mirror image).
 
 // One node of a binary tree.
 class BinaryTree {

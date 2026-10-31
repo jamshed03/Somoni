@@ -1,4 +1,4 @@
-// Counting sort: counts how often every value appears and writes them out in order. Source: TheAlgorithms/PHP Sorting/CountSort.php
+// Counting sort: counts how often every value appears and writes them out in order.
 
 // Returns a list with the value repeated count times.
 fn repeat(value: int, count: int): list<int> {

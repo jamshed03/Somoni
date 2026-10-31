@@ -1,4 +1,4 @@
-// Morse code: letters become dots and dashes, words are separated by "/". Source: TheAlgorithms/PHP Ciphers/MorseCode.php
+// Morse code: letters become dots and dashes, words are separated by "/".
 
 import { split, upper } from "../lib/text.smn";
 

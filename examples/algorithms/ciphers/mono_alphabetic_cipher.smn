@@ -1,4 +1,4 @@
-// Mono-alphabetic cipher: every letter of the alphabet has a fixed partner in the key. Source: TheAlgorithms/PHP Ciphers/MonoAlphabeticCipher.php
+// Mono-alphabetic cipher: every letter of the alphabet has a fixed partner in the key.
 
 import { chars, index_of, is_digit, is_upper, lower_char, upper_char } from "../lib/text.smn";
 

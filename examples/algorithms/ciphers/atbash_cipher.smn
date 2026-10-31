@@ -1,4 +1,4 @@
-// Atbash cipher: replaces a with z, b with y and so on. Source: TheAlgorithms/PHP Ciphers/AtbashCipher.php
+// Atbash cipher: replaces a with z, b with y and so on.
 
 import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
 

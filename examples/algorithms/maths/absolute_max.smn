@@ -1,4 +1,4 @@
-// Absolute max: the number with the largest distance from 0. Source: TheAlgorithms/PHP Maths/AbsoluteMax.php
+// Absolute max: the number with the largest distance from 0.
 
 import { abs } from "../lib/math.smn";
 

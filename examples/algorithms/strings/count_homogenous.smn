@@ -1,4 +1,4 @@
-// Count homogenous: how many runs of equal characters the text has ("aabbbc" has 3). Source: TheAlgorithms/PHP Strings/CountHomogenous.php
+// Count homogenous: how many runs of equal characters the text has ("aabbbc" has 3).
 
 // Returns the number of runs where the same character repeats.
 fn count_homogenous(text: string): int {

@@ -1,4 +1,4 @@
-// Fibonacci with a generator object: every call of next() gives the next number. Source: TheAlgorithms/PHP Maths/Fibonacci2.php
+// Fibonacci with a generator object: every call of next() gives the next number.
 
 // Produces Fibonacci numbers one after another, like the PHP generator with yield.
 class FibonacciGenerator {

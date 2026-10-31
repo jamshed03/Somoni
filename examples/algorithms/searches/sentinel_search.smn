@@ -1,4 +1,4 @@
-// Sentinel search: puts the target at the end, so the loop needs no index check. Source: TheAlgorithms/PHP Searches/SentinelSearch.php
+// Sentinel search: puts the target at the end, so the loop needs no index check.
 
 // Returns the index of the target, or -1 if it is missing.
 fn sentinel_search(input: list<int>, target: int): int {

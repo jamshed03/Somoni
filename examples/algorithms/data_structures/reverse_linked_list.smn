@@ -1,4 +1,4 @@
-// Reverse linked list: turns every next link around. Source: TheAlgorithms/PHP DataStructures/ReverseLinkedList/ReverseLinkedList.php
+// Reverse linked list: turns every next link around.
 
 // One item of a singly linked list.
 class LinkedListItem {

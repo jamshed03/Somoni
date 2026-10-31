@@ -1,4 +1,4 @@
-// Fast exponentiation: squares the base and halves the exponent (O(log n) steps). Source: TheAlgorithms/PHP Maths/FastExponentiation.php
+// Fast exponentiation: squares the base and halves the exponent (O(log n) steps).
 
 // Returns base to the power of a non-negative exponent.
 fn fast_exponentiation(base: int, exponent: int): int {

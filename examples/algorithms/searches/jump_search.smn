@@ -1,4 +1,4 @@
-// Jump search: jumps ahead in blocks of √n, then walks back through one block. Source: TheAlgorithms/PHP Searches/JumpSearch.php
+// Jump search: jumps ahead in blocks of √n, then walks back through one block.
 
 import { isqrt, min } from "../lib/math.smn";
 

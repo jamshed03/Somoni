@@ -1,4 +1,4 @@
-// Speed conversion between mph, km/h, m/s, ft/s and kn. Source: TheAlgorithms/PHP Conversions/SpeedConversion.php
+// Speed conversion between mph, km/h, m/s, ft/s and kn.
 
 import { round_to } from "../lib/math.smn";
 

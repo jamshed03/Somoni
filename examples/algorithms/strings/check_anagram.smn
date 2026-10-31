@@ -1,4 +1,4 @@
-// Check anagram: two words are anagrams if they use the same letters equally often (listen, silent). Source: TheAlgorithms/PHP Strings/CheckAnagram.php
+// Check anagram: two words are anagrams if they use the same letters equally often (listen, silent).
 
 import { lower } from "../lib/text.smn";
 

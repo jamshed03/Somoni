@@ -1,4 +1,4 @@
-// Project Euler 8: the largest product of 13 adjacent digits in a 1000-digit number. Source: TheAlgorithms/PHP Maths/ProjectEuler/Problem8.php
+// Project Euler 8: the largest product of 13 adjacent digits in a 1000-digit number.
 
 import { digit_value } from "../../lib/text.smn";
 

@@ -1,4 +1,4 @@
-// Quick sort: picks a pivot, puts smaller values left and the others right, and sorts both sides. Source: TheAlgorithms/PHP Sorting/QuickSort.php
+// Quick sort: picks a pivot, puts smaller values left and the others right, and sorts both sides.
 
 // The elements smaller than the pivot and the others.
 struct Partition {

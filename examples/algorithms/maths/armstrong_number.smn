@@ -1,4 +1,4 @@
-// Armstrong number: the sum of its digits, each to the power of the digit count, is the number itself (153 = 1³ + 5³ + 3³). Source: TheAlgorithms/PHP Maths/ArmstrongNumber.php
+// Armstrong number: the sum of its digits, each to the power of the digit count, is the number itself (153 = 1³ + 5³ + 3³).
 
 import { digits } from "../lib/math.smn";
 

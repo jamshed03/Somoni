@@ -1,4 +1,4 @@
-// Insertion sort: takes one element after another and moves it left to its place. Source: TheAlgorithms/PHP Sorting/InsertionSort.php
+// Insertion sort: takes one element after another and moves it left to its place.
 
 // Returns the list with the element at index moved left until the part before it is sorted.
 fn insert_left(input: list<int>, index: int): list<int> {

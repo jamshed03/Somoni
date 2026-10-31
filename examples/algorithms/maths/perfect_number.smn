@@ -1,4 +1,4 @@
-// Perfect number: the sum of its divisors (without itself) is the number (6 = 1 + 2 + 3). Source: TheAlgorithms/PHP Maths/PerfectNumber.php
+// Perfect number: the sum of its divisors (without itself) is the number (6 = 1 + 2 + 3).
 
 // Returns the sum of all divisors of the number that are smaller than the number.
 fn divisor_sum(number: int): int {

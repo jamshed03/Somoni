@@ -1,4 +1,4 @@
-// Max character: the character that appears most often. Source: TheAlgorithms/PHP Strings/MaxCharacter.php
+// Max character: the character that appears most often.
 
 import { lower } from "../lib/text.smn";
 

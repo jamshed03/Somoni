@@ -1,4 +1,4 @@
-// Median: the middle value of the sorted numbers. Source: TheAlgorithms/PHP Maths/Median.php
+// Median: the middle value of the sorted numbers.
 
 import { sorted } from "../lib/math.smn";
 

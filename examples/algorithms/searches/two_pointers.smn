@@ -1,4 +1,4 @@
-// Two pointers: counts pairs with a given sum by moving one pointer from each end of the sorted list. Source: TheAlgorithms/PHP Searches/TwoPointers.php
+// Two pointers: counts pairs with a given sum by moving one pointer from each end of the sorted list.
 
 import { sorted } from "../lib/math.smn";
 

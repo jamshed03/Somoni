@@ -1,4 +1,4 @@
-// Vigenère cipher: every letter is moved by the matching letter of a repeating key. Source: TheAlgorithms/PHP Ciphers/VignereCipher.php
+// Vigenère cipher: every letter is moved by the matching letter of a repeating key.
 
 import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
 

@@ -1,4 +1,4 @@
-// Caesar cipher: moves every letter a fixed number of places. Source: TheAlgorithms/PHP Ciphers/CaesarCipher.php
+// Caesar cipher: moves every letter a fixed number of places.
 
 import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
 

@@ -1,4 +1,4 @@
-// Perceptron classifier: one neuron with a sigmoid learns the rule "x0 is 1 and x1 is 0" with gradient descent. Source: TheAlgorithms/PHP NeuralNetworks/PerceptronClassifier/NeuralNetworkPerceptronClassifier.php
+// Perceptron classifier: one neuron with a sigmoid learns the rule "x0 is 1 and x1 is 0" with gradient descent.
 
 import { exp, ln } from "../lib/math.smn";
 

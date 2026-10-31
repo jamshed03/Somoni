@@ -1,4 +1,4 @@
-// Trie: a tree of characters, every path from the root spells a word prefix. Source: TheAlgorithms/PHP DataStructures/Trie/Trie.php
+// Trie: a tree of characters, every path from the root spells a word prefix.
 
 import { chars } from "../lib/text.smn";
 

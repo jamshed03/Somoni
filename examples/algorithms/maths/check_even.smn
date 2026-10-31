@@ -1,4 +1,4 @@
-// Check even: a number is even if dividing by 2 leaves no rest. Source: TheAlgorithms/PHP Maths/CheckEven.php
+// Check even: a number is even if dividing by 2 leaves no rest.
 
 // Returns true if the number is even.
 fn is_even(number: int): bool {

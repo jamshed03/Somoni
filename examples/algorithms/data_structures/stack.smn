@@ -1,4 +1,4 @@
-// Stack: last in, first out. Source: TheAlgorithms/PHP DataStructures/Stack.php
+// Stack: last in, first out.
 
 import { sorted } from "../lib/math.smn";
 

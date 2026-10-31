@@ -1,4 +1,4 @@
-// Gnome sort: steps forward while in order, swaps and steps back otherwise. Source: TheAlgorithms/PHP Sorting/GnomeSort.php
+// Gnome sort: steps forward while in order, swaps and steps back otherwise.
 
 // Returns a sorted copy of the list.
 fn gnome_sort(input: list<int>): list<int> {

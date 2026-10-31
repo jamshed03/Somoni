@@ -1,4 +1,4 @@
-// A weighted, directed edge of a graph, shared by Bellman-Ford and Dijkstra. Source: TheAlgorithms/PHP Graphs/GraphEdge.php
+// A weighted, directed edge of a graph, shared by Bellman-Ford and Dijkstra.
 
 // An edge from start to end with a cost.
 export struct GraphEdge {

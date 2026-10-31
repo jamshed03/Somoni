@@ -1,4 +1,4 @@
-// Interpolation search: guesses the position from the values, good for evenly spread sorted lists. Source: TheAlgorithms/PHP Searches/InterpolationSearch.php
+// Interpolation search: guesses the position from the values, good for evenly spread sorted lists.
 
 // Returns the index of the target in the sorted list, or -1 if it is missing.
 fn interpolation_search(items: list<int>, target: int): int {

@@ -1,4 +1,4 @@
-// Disjoint set (union-find): groups elements into sets that can be merged quickly. Source: TheAlgorithms/PHP DataStructures/DisjointSets/DisjointSet.php
+// Disjoint set (union-find): groups elements into sets that can be merged quickly.
 
 // One element; a node without parent is the representative of its set.
 class DisjointSetNode {

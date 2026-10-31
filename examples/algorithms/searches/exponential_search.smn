@@ -1,4 +1,4 @@
-// Exponential search: doubles the range until it passes the target, then searches binary in it. Source: TheAlgorithms/PHP Searches/ExponentialSearch.php
+// Exponential search: doubles the range until it passes the target, then searches binary in it.
 
 import { min } from "../lib/math.smn";
 
