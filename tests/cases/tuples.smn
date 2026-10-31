@@ -1,0 +1,63 @@
+// a tuple holds a fixed number of values of fixed types, read with p.0, p.1, ...
+fn teilen(a: int, b: int): (int, int) {
+    return (a / b, a % b);
+}
+
+fn min_max(zahlen: list<int>): (int, int)? {
+    if (len(zahlen) == 0) {
+        return null;
+    }
+    var klein: int = zahlen[0];
+    var gross: int = zahlen[0];
+    for (n: int in zahlen) {
+        if (n < klein) {
+            klein = n;
+        }
+        if (n > gross) {
+            gross = n;
+        }
+    }
+    return (klein, gross);
+}
+
+struct Eintrag {
+    name: string,
+    position: (int, int)
+}
+
+var p: (int, string) = (1, "eins");
+print(p);
+print(p.0 + 1);
+print(p.1);
+
+var ergebnis: (int, int) = teilen(17, 5);
+print(ergebnis.0);
+print(ergebnis.1);
+
+var paare: list<(string, bool)> = [("a", true), ("b", false)];
+for (paar: (string, bool) in paare) {
+    if (paar.1) {
+        print(paar.0);
+    }
+}
+
+print(min_max([3, 9, 1]));
+print(min_max([]));
+
+var leer: (int?, list<int>) = (null, []);
+print(leer);
+
+var e: Eintrag = Eintrag { name: "x", position: (2, 3) };
+print(e.position.1);
+print(e);
+
+var tief: ((int, int), string) = ((1, 2), "z");
+print((tief.0).1);
+
+print((1, "a") == (1, "a"));
+print((1, "a") != (1, "b"));
+
+var kopie: (int, string) = p;
+p = (2, "zwei");
+print(kopie);
+print(p);

@@ -37,6 +37,12 @@ impl TypeChecker {
             (ExprKind::Map(entries), Type::Map(key, value)) => {
                 self.check_map(entries, expr.span, Some((key, value)))
             }
+            (ExprKind::Tuple(items), Type::Tuple(types)) if items.len() == types.len() => {
+                for (item, ty) in items.iter_mut().zip(types.iter()) {
+                    self.check_assignable(item, ty)?;
+                }
+                Ok(wanted.clone())
+            }
             (ExprKind::Null, _) if matches!(expected, Type::Optional(_)) => Ok(expected.clone()),
             (ExprKind::Null, _) => Err(SomoniError::at(
                 expr.span,
@@ -289,6 +295,8 @@ impl TypeChecker {
             }
             ExprKind::List(elements) => self.check_list(elements, span, None),
             ExprKind::Map(entries) => self.check_map(entries, span, None),
+            ExprKind::Tuple(items) => self.check_tuple(items, span),
+            ExprKind::TupleIndex { target, index } => self.check_tuple_index(target, *index),
             ExprKind::Index { target, index } => self.check_index(target, index),
             ExprKind::StructLiteral {
                 name,
@@ -383,6 +391,36 @@ impl TypeChecker {
             callee: Box::new(callee),
             args,
         });
+    }
+
+    /// Checks a tuple literal without an expected type, or returns T094 for fewer than two elements.
+    fn check_tuple(&mut self, items: &mut [Expr], span: Span) -> Result<Type, SomoniError> {
+        if items.len() < 2 {
+            return Err(SomoniError::at(span, ErrorCode::TupleTooShort));
+        }
+        let types = items
+            .iter_mut()
+            .map(|item| self.check_expr(item))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Type::Tuple(types.into()))
+    }
+
+    /// Checks `target.0` and returns the type of that element, or T095 or T096.
+    fn check_tuple_index(&mut self, target: &mut Expr, index: usize) -> Result<Type, SomoniError> {
+        let found = self.check_expr(target)?;
+        let Type::Tuple(elements) = &found else {
+            return Err(SomoniError::at(target.span, ErrorCode::NotATuple { found }));
+        };
+        match elements.get(index) {
+            Some(element) => Ok(element.clone()),
+            None => {
+                let code = ErrorCode::TupleIndexOutOfRange {
+                    found: found.clone(),
+                    index,
+                };
+                Err(SomoniError::at(target.span, code))
+            }
+        }
     }
 
     /// Checks a lambda like a function of its own whose slot 0 holds its value, and collects the outside variables it copies.
@@ -949,6 +987,7 @@ fn needs_type_hint(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::List(elements) => elements.is_empty(),
         ExprKind::Map(entries) => entries.is_empty(),
+        ExprKind::Tuple(items) => items.iter().any(needs_type_hint),
         ExprKind::Null => true,
         ExprKind::Call(call) => Builtin::result_builder(&call.name).is_some(),
         _ => false,

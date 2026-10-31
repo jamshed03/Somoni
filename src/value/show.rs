@@ -47,7 +47,8 @@ impl<'a, 'b> Writer<'a, 'b> {
             Value::Bool(b) => write!(self.f, "{}", b),
             Value::Str(s) if quoted => write!(self.f, "\"{}\"", s),
             Value::Str(s) => write!(self.f, "{}", s),
-            Value::List(items) => self.show_list(items),
+            Value::List(items) => self.show_items("[", items, "]"),
+            Value::Tuple(items) => self.show_items("(", items, ")"),
             Value::Struct(value) => {
                 let names = value.decl.fields.iter().map(|field| field.name.as_str());
                 self.show_fields(&value.decl.name, names, &value.fields)
@@ -66,14 +67,14 @@ impl<'a, 'b> Writer<'a, 'b> {
         }
     }
 
-    /// Writes a list as `[1, 2]`.
-    fn show_list(&mut self, items: &[Value]) -> fmt::Result {
-        write!(self.f, "[")?;
+    /// Writes a list as `[1, 2]` or a tuple as `(1, "a")`.
+    fn show_items(&mut self, open: &str, items: &[Value], close: &str) -> fmt::Result {
+        write!(self.f, "{}", open)?;
         for (i, item) in items.iter().enumerate() {
             self.separator(i)?;
             self.show(item, true)?;
         }
-        write!(self.f, "]")
+        write!(self.f, "{}", close)
     }
 
     /// Writes a map as `{"a": 1, "b": 2}`.

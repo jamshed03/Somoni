@@ -30,6 +30,7 @@ pub fn field(value: &Value, position: usize) -> Result<Value, SomoniError> {
     let found = match value {
         Value::Struct(value) => value.fields.get(position).cloned(),
         Value::Object(object) => object.0.borrow().fields.get(position).cloned(),
+        Value::Tuple(items) => items.get(position).cloned(),
         _ => None,
     };
     found.ok_or_else(|| SomoniError::internal("field of a non-struct"))

@@ -36,6 +36,13 @@ pub enum ExprKind {
     Null,
     /// `[a, b, c]`
     List(Vec<Expr>),
+    /// `(a, b)`, a tuple with at least two elements.
+    Tuple(Vec<Expr>),
+    /// `target.0`, element number `index` of a tuple.
+    TupleIndex {
+        target: Box<Expr>,
+        index: usize,
+    },
     /// `{key: value, ...}`
     Map(Vec<(Expr, Expr)>),
     /// `target[index]`
@@ -210,7 +217,8 @@ impl Expr {
             | ExprKind::EnumValue { .. } => None,
             ExprKind::Binary { left, right, .. } => left.find_this().or_else(|| right.find_this()),
             ExprKind::Unary { operand, .. } => operand.find_this(),
-            ExprKind::List(items) => first_this(items),
+            ExprKind::List(items) | ExprKind::Tuple(items) => first_this(items),
+            ExprKind::TupleIndex { target, .. } => target.find_this(),
             ExprKind::Call(call) => first_this(&call.args),
             ExprKind::New(new) => first_this(&new.args),
             ExprKind::Map(entries) => entries
@@ -700,6 +708,9 @@ pub const CLOSURE: &str = "<closure>";
 
 /// The name of every lambda in messages, e.g. "function 'lambda' must return int".
 pub const LAMBDA: &str = "lambda";
+
+/// The name under which a tuple type like `(int, string)` is kept in a `TypeName`; no type can be written like this.
+pub const TUPLE_TYPE: &str = "()";
 
 /// The name under which a function type like `fn(int): bool` is kept in a `TypeName`.
 pub const FN_TYPE: &str = "fn";

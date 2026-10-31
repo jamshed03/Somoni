@@ -1,6 +1,6 @@
 //! The parser, which turns the tokens of the lexer into a tree; its parts are spread over this folder.
 
-use crate::ast::{Expr, ExprKind, FN_TYPE, Field, Param, Stmt, TypeName};
+use crate::ast::{Expr, ExprKind, FN_TYPE, Field, Param, Stmt, TUPLE_TYPE, TypeName};
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
@@ -232,8 +232,10 @@ impl Parser {
 
     /// Reads a type like `int`, `int?`, `list<int>` or `map<string, list<int>>`.
     fn parse_type(&mut self, what: &str) -> Result<TypeName, SomoniError> {
-        if *self.peek() == Token::Fn {
-            return self.parse_fn_type();
+        match self.peek() {
+            Token::Fn => return self.parse_fn_type(),
+            Token::LParen => return self.parse_tuple_type(),
+            _ => {}
         }
         let (name, start) = self.expect_ident(what)?;
         let mut args = Vec::new();
@@ -243,6 +245,20 @@ impl Parser {
         let optional = self.eat(Token::Question);
         Ok(TypeName {
             name,
+            args,
+            optional,
+            span: self.since(start),
+        })
+    }
+
+    /// Reads a tuple type like `(int, string)` or `(int, string)?`, kept as the type `()` with the element types as arguments.
+    fn parse_tuple_type(&mut self) -> Result<TypeName, SomoniError> {
+        let start = self.current_span();
+        self.advance();
+        let args = self.parse_comma_list(Token::RParen, "')'", |this| this.parse_type("type"))?;
+        let optional = self.eat(Token::Question);
+        Ok(TypeName {
+            name: TUPLE_TYPE.to_string(),
             args,
             optional,
             span: self.since(start),

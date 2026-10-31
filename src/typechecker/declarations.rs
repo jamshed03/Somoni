@@ -3,7 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    self, EnumDecl, Expr, ExprKind, FN_TYPE, Field, Function, Param, Stmt, StructDecl, TypeName,
+    self, EnumDecl, Expr, ExprKind, FN_TYPE, Field, Function, Param, Stmt, StructDecl, TUPLE_TYPE,
+    TypeName,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -306,6 +307,9 @@ impl TypeChecker {
         if written.name == FN_TYPE {
             return self.resolve_fn_type(&written.args);
         }
+        if written.name == TUPLE_TYPE {
+            return self.resolve_tuple_type(written);
+        }
         let simple = self.simple_type(&written.name, allow_void);
         check_type_args(written, simple.is_some())?;
         match simple {
@@ -322,6 +326,19 @@ impl TypeChecker {
             Type::from_name(name)
         };
         builtin.or_else(|| self.names.type_named(name))
+    }
+
+    /// Turns `(int, string)` into a type, or returns T094 for fewer than two elements.
+    fn resolve_tuple_type(&self, written: &TypeName) -> Result<Type, SomoniError> {
+        if written.args.len() < 2 {
+            return Err(SomoniError::at(written.span, ErrorCode::TupleTooShort));
+        }
+        let elements = written
+            .args
+            .iter()
+            .map(|arg| self.resolve_type(arg, false))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Type::Tuple(elements.into()))
     }
 
     /// Turns `fn(int, string): bool` into a type; the last written type is the result, which may be `void`.
@@ -410,7 +427,7 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         ExprKind::Constant { .. } => false,
         ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
         ExprKind::Unary { operand, .. } => is_fixed_value(operand),
-        ExprKind::List(items) => items.iter().all(is_fixed_value),
+        ExprKind::List(items) | ExprKind::Tuple(items) => items.iter().all(is_fixed_value),
         ExprKind::Map(entries) => entries
             .iter()
             .all(|(key, value)| is_fixed_value(key) && is_fixed_value(value)),
@@ -430,7 +447,8 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::InstanceOf(_)
         | ExprKind::Try(_)
         | ExprKind::CallValue(_)
-        | ExprKind::Captured { .. } => false,
+        | ExprKind::Captured { .. }
+        | ExprKind::TupleIndex { .. } => false,
     }
 }
 

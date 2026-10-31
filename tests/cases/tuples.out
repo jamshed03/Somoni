@@ -1,0 +1,16 @@
+(1, "eins")
+2
+eins
+3
+2
+a
+(1, 9)
+null
+(null, [])
+3
+Eintrag { name: "x", position: (2, 3) }
+2
+true
+true
+(1, "eins")
+(2, "zwei")

@@ -1,0 +1,3 @@
+Type error [T096]: Line 2: '.0', '.1', ... only work on tuples, not on int
+  2 | print(n.0);
+    |       ^

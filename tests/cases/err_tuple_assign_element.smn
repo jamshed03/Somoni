@@ -1,0 +1,2 @@
+var p: (int, string) = (1, "eins");
+p.0 = 2;

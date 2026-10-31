@@ -127,6 +127,7 @@ impl<'p> Vm<'p> {
             Op::CallValue(count) => self.call_value(*count, frame, program)?,
             Op::MakeClosure { lambda, captured } => self.make_closure(*lambda, *captured),
             Op::GetCaptured(i) => self.get_captured(*i, frame)?,
+            Op::MakeTuple(count) => self.make_tuple(*count),
             Op::MakeList(count) => self.make_list(*count),
             Op::NewMap => self.stack.push(Value::Map(Rc::new(MapValue::default()))),
             Op::MapInsert => self.map_insert()?,
@@ -223,6 +224,13 @@ impl<'p> Vm<'p> {
             .ok_or_else(|| SomoniError::internal("return outside of a function"))?;
         self.stack.push(result);
         Ok(())
+    }
+
+    /// Pops `count` values and pushes a tuple of them.
+    #[inline(never)]
+    fn make_tuple(&mut self, count: usize) {
+        let items = self.stack.split_off(self.top_start(count));
+        self.stack.push(Value::Tuple(Rc::new(items)));
     }
 
     /// Pops `count` copies and pushes the value of lambda number `lambda` with them.

@@ -1,0 +1,3 @@
+Type error [T003]: Line 1: cannot assign string to int
+  1 | var p: (int, string) = ("eins", 1);
+    |                         ^^^^^^

@@ -1,0 +1,3 @@
+Type error [T094]: Line 1: a tuple needs at least two elements
+  1 | var p: (int) = 1;
+    |        ^^^^^

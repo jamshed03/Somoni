@@ -138,9 +138,18 @@ impl Parser {
         })
     }
 
-    /// Reads `.field` or `.method(args)` after `target`.
+    /// Reads `.field`, `.method(args)` or the tuple element `.0` after `target`.
     fn parse_member(&mut self, target: Expr) -> Result<ExprKind, SomoniError> {
         self.advance();
+        if let Token::Int(n) = *self.peek() {
+            self.advance();
+            let index =
+                usize::try_from(n).map_err(|_| self.expected("element number after '.'"))?;
+            return Ok(ExprKind::TupleIndex {
+                target: Box::new(target),
+                index,
+            });
+        }
         let (name, name_span) = self.expect_ident("field name after '.'")?;
         if !self.eat(Token::LParen) {
             return Ok(ExprKind::Field {
@@ -331,12 +340,17 @@ impl Parser {
         Ok((key, value))
     }
 
-    /// Reads `( expr )`, whose place then includes the brackets.
+    /// Reads `( expr )`, whose place then includes the brackets, or a tuple `(a, b)`.
     fn parse_parens(&mut self, start: Span) -> Result<Expr, SomoniError> {
         self.advance();
         let inner = self.parse_expr()?;
-        self.expect(Token::RParen, "')'")?;
-        Ok(self.expr_since(inner.kind, start))
+        if !self.eat(Token::Comma) {
+            self.expect(Token::RParen, "')'")?;
+            return Ok(self.expr_since(inner.kind, start));
+        }
+        let mut items = vec![inner];
+        items.extend(self.parse_comma_list(Token::RParen, "')'", |this| this.parse_expr())?);
+        Ok(self.expr_since(ExprKind::Tuple(items), start))
     }
 
     /// Reads `new Name(args)`.

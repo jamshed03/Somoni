@@ -66,6 +66,8 @@ pub enum Type {
     Result(Box<Type>, Box<Type>),
     /// `fn(int, string): bool`, behind an `Rc` so that `Type` stays small.
     Function(Rc<FunctionType>),
+    /// `(int, string)` with the type of each element.
+    Tuple(Rc<[Type]>),
 }
 
 /// The parameter types and the result type of a function type.
@@ -145,6 +147,10 @@ impl fmt::Display for Type {
             Type::Class(layout) => write!(f, "{}", layout.name),
             Type::Interface(layout) => write!(f, "{}", layout.name),
             Type::Result(value, error) => write!(f, "result<{}, {}>", value, error),
+            Type::Tuple(elements) => {
+                let elements: Vec<String> = elements.iter().map(Type::to_string).collect();
+                write!(f, "({})", elements.join(", "))
+            }
             Type::Function(function) => {
                 let params: Vec<String> = function.params.iter().map(Type::to_string).collect();
                 write!(f, "fn({}): {}", params.join(", "), function.result)

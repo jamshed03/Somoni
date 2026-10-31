@@ -57,7 +57,7 @@ pub enum Op {
     InitLocalField(usize, usize),
     /// Pops an index (or key) and a list (or map), pushes the element.
     Index,
-    /// Pops a struct or object, pushes its field `p`.
+    /// Pops a struct, object or tuple, pushes its field or element `p`.
     Field(usize),
     /// Pops a value and appends it to the string or list in this slot, or adds it to a number (`s = s + x`).
     AppendLocal(usize),
@@ -83,6 +83,8 @@ pub enum Op {
     Try,
     /// Calls the function value below `n` arguments on the stack.
     CallValue(usize),
+    /// Pops `n` values and pushes a tuple of them.
+    MakeTuple(usize),
     /// Pops `captured` copies and pushes the value of lambda number `lambda` with them.
     MakeClosure { lambda: usize, captured: usize },
     /// Pushes copy number `i` of the running lambda, whose value is in slot 0.
@@ -333,6 +335,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
             format!("MakeClosure {} {}", program.lambdas[*lambda].name, captured)
         }
         Op::GetCaptured(i) => format!("GetCaptured {}", i),
+        Op::MakeTuple(count) => format!("MakeTuple {}", count),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

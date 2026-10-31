@@ -809,6 +809,14 @@ impl Compiler {
                 self.compile_args(elements)?;
                 self.chunk.push(Op::MakeList(elements.len()), span);
             }
+            ExprKind::Tuple(items) => {
+                self.compile_args(items)?;
+                self.chunk.push(Op::MakeTuple(items.len()), span);
+            }
+            ExprKind::TupleIndex { target, index } => {
+                self.compile_expr(target)?;
+                self.chunk.push(Op::Field(*index), span);
+            }
             ExprKind::Map(entries) => self.compile_map(entries, span)?,
             ExprKind::Index { target, index } => {
                 self.compile_expr(target)?;

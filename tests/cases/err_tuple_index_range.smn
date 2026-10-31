@@ -1,0 +1,2 @@
+var p: (int, string) = (1, "eins");
+print(p.2);

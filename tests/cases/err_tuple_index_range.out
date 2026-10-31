@@ -1,0 +1,3 @@
+Type error [T095]: Line 2: (int, string) has no element 2
+  2 | print(p.2);
+    |       ^

@@ -340,6 +340,14 @@ pub enum ErrorCode {
         name: String,
     },
     SuperInLambda,
+    TupleTooShort,
+    TupleIndexOutOfRange {
+        found: Type,
+        index: usize,
+    },
+    NotATuple {
+        found: Type,
+    },
     TryNotResult {
         found: Type,
     },
@@ -531,6 +539,9 @@ impl ErrorCode {
             ErrorCode::NotCallable { .. } => "T091",
             ErrorCode::AssignToCopy { .. } => "T092",
             ErrorCode::SuperInLambda => "T093",
+            ErrorCode::TupleTooShort => "T094",
+            ErrorCode::TupleIndexOutOfRange { .. } => "T095",
+            ErrorCode::NotATuple { .. } => "T096",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -922,6 +933,11 @@ impl ErrorCode {
                 name
             ),
             ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
+            ErrorCode::TupleTooShort => "a tuple needs at least two elements".to_string(),
+            ErrorCode::TupleIndexOutOfRange { found, index } => {
+                format!("{} has no element {}", found, index)
+            }
+            ErrorCode::NotATuple { found } => format!("'.0', '.1', ... only work on tuples, not on {}", found),
             ErrorCode::TryErrorType { found, expected } => format!(
                 "'?' passes on an err of {}, but the function returns {}",
                 found, expected
