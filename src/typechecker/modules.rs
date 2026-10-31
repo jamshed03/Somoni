@@ -22,6 +22,19 @@ impl TypeChecker {
             .file
             .and_then(|file| self.exports_by_file.get(&file))
             .ok_or_else(|| SomoniError::internal("import of a file that is not checked"))?;
+        if let Some((namespace, span)) = &import.namespace {
+            if self.names.contains(namespace) {
+                let code = ErrorCode::ImportConflict {
+                    name: namespace.clone(),
+                };
+                return Err(SomoniError::at(*span, code));
+            }
+            for name in exports.names.all() {
+                let local = format!("{}.{}", namespace, name);
+                self.names.add_from(&exports.names, name, &local);
+            }
+            self.names.modules.insert(namespace.clone());
+        }
         for item in &import.names {
             let (local, local_span) = item.local();
             if self.names.contains(local) {

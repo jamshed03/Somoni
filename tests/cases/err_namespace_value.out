@@ -1,0 +1,3 @@
+Type error [T098]: Line 2: 'mathe' is a module and no value, use a name in it like 'mathe.name'
+  2 | print(mathe);
+    |       ^^^^^

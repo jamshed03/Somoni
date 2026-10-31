@@ -1,0 +1,2 @@
+import * as mathe from "modules/mathe.smn";
+print(mathe.mal(2, 3));

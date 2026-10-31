@@ -182,12 +182,15 @@ struct Names {
     enums: HashMap<String, Decl<EnumDecl>>,
     classes: HashMap<String, Decl<ClassLayout>>,
     interfaces: HashMap<String, Decl<InterfaceLayout>>,
+    /// The names after `import * as`, like `mathe`.
+    modules: HashSet<String>,
 }
 
 impl Names {
     /// Returns true if anything has this name.
     fn contains(&self, name: &str) -> bool {
-        self.functions.contains_key(name)
+        self.modules.contains(name)
+            || self.functions.contains_key(name)
             || self.constants.contains_key(name)
             || self.type_named(name).is_some()
     }
@@ -203,6 +206,18 @@ impl Names {
         } else {
             self.enums.get(name).cloned().map(Type::Enum)
         }
+    }
+
+    /// Returns every name in the table except the modules, each once.
+    fn all(&self) -> HashSet<&String> {
+        self.functions
+            .keys()
+            .chain(self.constants.keys())
+            .chain(self.structs.keys())
+            .chain(self.enums.keys())
+            .chain(self.classes.keys())
+            .chain(self.interfaces.keys())
+            .collect()
     }
 
     /// Copies everything called `name` from `from`, under the name `local` (different after `as`).
@@ -390,6 +405,12 @@ impl TypeChecker {
         ty: Type,
         mutable: bool,
     ) -> Result<usize, SomoniError> {
+        if self.names.modules.contains(name) {
+            let code = ErrorCode::ModuleNameTaken {
+                name: name.to_string(),
+            };
+            return Err(SomoniError::at(name_span, code));
+        }
         let slot = self.next_slot;
         let info = VarInfo {
             declared: ty.clone(),

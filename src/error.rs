@@ -341,6 +341,12 @@ pub enum ErrorCode {
     },
     SuperInLambda,
     TupleTooShort,
+    ModuleNameTaken {
+        name: String,
+    },
+    ModuleNotValue {
+        name: String,
+    },
     TupleIndexOutOfRange {
         found: Type,
         index: usize,
@@ -542,6 +548,8 @@ impl ErrorCode {
             ErrorCode::TupleTooShort => "T094",
             ErrorCode::TupleIndexOutOfRange { .. } => "T095",
             ErrorCode::NotATuple { .. } => "T096",
+            ErrorCode::ModuleNameTaken { .. } => "T097",
+            ErrorCode::ModuleNotValue { .. } => "T098",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -937,6 +945,13 @@ impl ErrorCode {
             ),
             ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
             ErrorCode::TupleTooShort => "a tuple needs at least two elements".to_string(),
+            ErrorCode::ModuleNameTaken { name } => {
+                format!("'{}' is the name of an imported module", name)
+            }
+            ErrorCode::ModuleNotValue { name } => format!(
+                "'{}' is a module and no value, use a name in it like '{}.name'",
+                name, name
+            ),
             ErrorCode::TupleIndexOutOfRange { found, index } => {
                 format!("{} has no element {}", found, index)
             }

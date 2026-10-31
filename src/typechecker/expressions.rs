@@ -490,6 +490,10 @@ impl TypeChecker {
         let info = self.scopes.lookup(name).ok_or_else(|| {
             let code = if name == THIS {
                 ErrorCode::ThisOutsideClass
+            } else if self.names.modules.contains(name) {
+                ErrorCode::ModuleNotValue {
+                    name: name.to_string(),
+                }
             } else {
                 ErrorCode::UnknownVariable {
                     name: name.to_string(),

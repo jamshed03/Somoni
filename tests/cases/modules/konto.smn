@@ -1,3 +1,7 @@
 export class Konto {
     stand: int = 100;
+
+    static neu(): Konto {
+        return new Konto();
+    }
 }

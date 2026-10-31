@@ -1,0 +1,31 @@
+// import * as name puts every export of a file behind name.
+import * as mathe from "modules/mathe.smn";
+import * as k from "modules/konstanten.smn";
+import * as bank from "modules/konto.smn";
+
+struct Linie {
+    von: mathe.Punkt,
+    bis: mathe.Punkt
+}
+
+fn quadrat(n: int): int {
+    return 0;
+}
+
+print(mathe.quadrat(5));
+print(quadrat(5));
+var p: mathe.Punkt = mathe.Punkt { x: 1, y: 2 };
+print(mathe.verschieben(p, 3));
+var r: mathe.Richtung = mathe.Richtung.Rechts;
+print(r == mathe.Richtung.Rechts);
+print(k.PI);
+print(len(k.PRIMZAHLEN));
+print(k.umfang(1.0));
+var konto: bank.Konto = new bank.Konto();
+print(konto.stand);
+print(bank.Konto::neu().stand);
+var f: fn(int): int = mathe.quadrat;
+print(f(7));
+var l: Linie = Linie { von: p, bis: mathe.Punkt { x: 9, y: 9 } };
+print(l.bis.x);
+print(p.x);

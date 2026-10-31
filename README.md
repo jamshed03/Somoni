@@ -73,8 +73,8 @@ Version 0.5.0: the core of the language plus lists, structs, optional types, map
 -   Lambdas `fn(x: int): int => x * 2` or with a block; they copy the outside variables they use (and `this`) when they are made
 -   Comments `//` and `/* */`
 -   Classes: fields with start values, `constructor(...)` with `this`, methods (`u.greet()`), `public`/`private`, `readonly` fields, `static` methods and fields (`User::gast()`, `User::anzahl`), `abstract` classes and methods, `instanceof` with narrowing, private and protected constructors, `interface` with `implements`, `extends` with `super`, `override` and `protected` (methods chosen at runtime), `new User("Ali", 30)`; objects are references (`==` is identity), structs stay copies
--   Modules: `import { quadrat, Punkt as P } from "mathe.smn";` and `export fn`/`struct`/`enum`/`class`/`interface`/`const` (imported files contain only declarations, their constants only fixed values)
+-   Modules: `import { quadrat, Punkt as P } from "mathe.smn";` or `import * as mathe from "mathe.smn";` with `mathe.quadrat(3)`, and `export fn`/`struct`/`enum`/`class`/`interface`/`const` (imported files contain only declarations, their constants only fixed values)
 
 -   Null checks: after `if (a != null)` the value of `a` can be used
 
-Next: `import * as m` (see `docs/Checkliste.md`).
+Next: see `docs/Checkliste.md`.

@@ -1,0 +1,3 @@
+Type error [T012]: Line 2: unknown function 'mathe.mal'
+  2 | print(mathe.mal(2, 3));
+    |       ^^^^^^^^^

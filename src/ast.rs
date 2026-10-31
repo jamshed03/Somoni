@@ -582,6 +582,8 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Import {
     pub names: Vec<ImportName>,
+    /// The name after `import * as`, under which all exports of the file are used, e.g. `mathe.quadrat`.
+    pub namespace: Option<(String, Span)>,
     pub path: String,
     pub path_span: Span,
     /// Filled in by the loader: the number of the imported file.

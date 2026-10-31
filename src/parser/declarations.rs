@@ -8,7 +8,7 @@ use crate::ast::{
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
-use crate::token::Token;
+use crate::token::{SpannedToken, Token};
 
 use super::Parser;
 
@@ -17,9 +17,17 @@ impl Parser {
     pub(super) fn parse_import(&mut self) -> Result<Stmt, SomoniError> {
         let start = self.current_span();
         self.advance();
-        self.expect(Token::LBrace, "'{' after 'import'")?;
-        let names = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_import_name)?;
-        self.expect_word("from", "'from' after '}'")?;
+        let (names, namespace) = if self.eat(Token::Star) {
+            self.expect_word("as", "'as' after 'import *'")?;
+            let namespace = self.expect_ident("module name after 'as'")?;
+            self.merge_namespace(&namespace.0);
+            (Vec::new(), Some(namespace))
+        } else {
+            self.expect(Token::LBrace, "'{' or '*' after 'import'")?;
+            let names = self.parse_comma_list(Token::RBrace, "'}'", Self::parse_import_name)?;
+            (names, None)
+        };
+        self.expect_word("from", "'from' after the imported names")?;
         let path_span = self.current_span();
         let Token::Str(path) = self.peek().clone() else {
             return Err(self.expected("a file name like \"mathe.smn\" after 'from'"));
@@ -29,11 +37,32 @@ impl Parser {
         self.expect(Token::Semicolon, "';'")?;
         Ok(Stmt::Import(Import {
             names,
+            namespace,
             path,
             path_span,
             file: None,
             span,
         }))
+    }
+
+    /// Turns `namespace . name` in all later tokens into the one name `namespace.name`, which no one can write by hand.
+    /// Imports come first in a file, so every use of the module comes after this.
+    fn merge_namespace(&mut self, namespace: &str) {
+        let rest = self.tokens.split_off(self.pos);
+        let mut i = 0;
+        while i < rest.len() {
+            let after_dot = self.tokens.last().is_some_and(|t| t.token == Token::Dot);
+            match qualified_name(&rest[i..], namespace).filter(|_| !after_dot) {
+                Some(token) => {
+                    self.tokens.push(token);
+                    i += 3;
+                }
+                None => {
+                    self.tokens.push(rest[i].clone());
+                    i += 1;
+                }
+            }
+        }
     }
 
     /// Reads one name in the `{ ... }` of an import, like `quadrat` or `quadrat as q`.
@@ -173,5 +202,21 @@ impl Parser {
             name_span,
             variants,
         })))
+    }
+}
+
+/// Returns `namespace.name` as one token if `tokens` start with `namespace . name`.
+fn qualified_name(tokens: &[SpannedToken], namespace: &str) -> Option<SpannedToken> {
+    let [first, dot, next, ..] = tokens else {
+        return None;
+    };
+    match (&first.token, &dot.token, &next.token) {
+        (Token::Ident(module), Token::Dot, Token::Ident(name)) if module == namespace => {
+            Some(SpannedToken {
+                token: Token::Ident(format!("{}.{}", namespace, name)),
+                span: first.span.to(next.span),
+            })
+        }
+        _ => None,
     }
 }
