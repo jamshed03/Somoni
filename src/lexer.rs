@@ -165,7 +165,7 @@ impl Lexer {
         keyword(&word).unwrap_or(Token::Ident(word))
     }
 
-    /// Reads a string `"..."`, which may go over several lines.
+    /// Reads a string `"..."`, which may go over several lines and hold escapes like `\n`.
     fn read_string(&mut self) -> Result<Token, SomoniError> {
         let start = Span::in_line(self.file, self.line, self.col(), 1);
         self.advance();
@@ -175,6 +175,10 @@ impl Lexer {
                 self.advance();
                 return Ok(Token::Str(text));
             }
+            if c == '\\' {
+                text.push(self.read_escape(start)?);
+                continue;
+            }
             text.push(c);
             if c == '\n' {
                 self.newline();
@@ -183,6 +187,27 @@ impl Lexer {
             }
         }
         Err(SomoniError::at(start, ErrorCode::UnterminatedString))
+    }
+
+    /// Reads an escape `\n`, `\t`, `\"` or `\\` and returns its character, or L006 for another one.
+    fn read_escape(&mut self, string_start: Span) -> Result<char, SomoniError> {
+        let place = Span::in_line(self.file, self.line, self.col(), 2);
+        self.advance();
+        let Some(c) = self.peek() else {
+            return Err(SomoniError::at(string_start, ErrorCode::UnterminatedString));
+        };
+        let meant = match c {
+            'n' => '\n',
+            't' => '\t',
+            '"' => '"',
+            '\\' => '\\',
+            other => {
+                let code = ErrorCode::UnknownEscape { found: other };
+                return Err(SomoniError::at(place, code));
+            }
+        };
+        self.advance();
+        Ok(meant)
     }
 
     /// Reads a symbol like `+=` or `(`, or returns L001 for a character that is none.
@@ -340,6 +365,25 @@ mod tests {
             spans("a\n\tb // comment\n/* x\n y */ c"),
             vec![(1, 1, 1, 2), (2, 2, 2, 3), (4, 7, 4, 8), (4, 8, 4, 8)]
         );
+    }
+
+    /// Returns the text of the first token, which must be a string.
+    fn string_text(source: &str) -> String {
+        match &Lexer::new(source, 0).tokenize().unwrap()[0].token {
+            Token::Str(text) => text.clone(),
+            other => panic!("no string: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn escapes_become_their_characters() {
+        assert_eq!(string_text(r#""a\nb\tc\"d\\e""#), "a\nb\tc\"d\\e");
+    }
+
+    #[test]
+    fn unknown_escape_is_an_error() {
+        let error = Lexer::new(r#""a\qb""#, 0).tokenize().unwrap_err();
+        assert!(error.to_string().contains("L006"), "{}", error);
     }
 
     #[test]

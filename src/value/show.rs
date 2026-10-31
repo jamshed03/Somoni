@@ -45,7 +45,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             Value::Int(n) => write!(self.f, "{}", n),
             Value::Float(x) => write!(self.f, "{}", x),
             Value::Bool(b) => write!(self.f, "{}", b),
-            Value::Str(s) if quoted => write!(self.f, "\"{}\"", s),
+            Value::Str(s) if quoted => write!(self.f, "\"{}\"", escaped(s.as_str())),
             Value::Str(s) => write!(self.f, "{}", s),
             Value::List(items) => self.show_items("[", items, "]"),
             Value::Tuple(items) => self.show_items("(", items, ")"),
@@ -137,4 +137,19 @@ impl<'a, 'b> Writer<'a, 'b> {
         }
         Ok(())
     }
+}
+
+/// Returns a string as it is written in Somoni, so that `"a\"b"` in a list shows as `"a\"b"` and not `"a"b"`.
+fn escaped(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\t' => out.push_str("\\t"),
+            other => out.push(other),
+        }
+    }
+    out
 }

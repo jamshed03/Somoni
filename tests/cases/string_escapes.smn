@@ -1,0 +1,14 @@
+// escape sequences in strings: \n new line, \t tab, \" quote, \\ backslash
+print("eins\nzwei");
+print("Name:\tAli");
+print("Er sagte \"Hallo\"");
+print("C:\\temp\\neu");
+print(len("\n"));
+print(len("\\"));
+var zeilen: list<string> = "a\nb\nc".split("\n");
+print(len(zeilen));
+print(zeilen[2]);
+print("ein Satz
+über zwei Zeilen" == "ein Satz\nüber zwei Zeilen");
+print(["a\"b", "x\ny", "C:\\"]);
+print({"tab": "a\tb"});

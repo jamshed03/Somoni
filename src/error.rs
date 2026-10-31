@@ -35,6 +35,9 @@ pub enum ErrorCode {
         found: char,
     },
     UnterminatedString,
+    UnknownEscape {
+        found: char,
+    },
     UnterminatedComment,
     IntegerTooLarge {
         text: String,
@@ -436,6 +439,7 @@ impl ErrorCode {
             ErrorCode::UnterminatedComment => "L003",
             ErrorCode::IntegerTooLarge { .. } => "L004",
             ErrorCode::InvalidFloat { .. } => "L005",
+            ErrorCode::UnknownEscape { .. } => "L006",
 
             ErrorCode::Expected { .. } => "P001",
             ErrorCode::UnexpectedToken { .. } => "P002",
@@ -623,6 +627,10 @@ impl ErrorCode {
         match self {
             ErrorCode::UnexpectedCharacter { found } => format!("unexpected character '{}'", found),
             ErrorCode::UnterminatedString => "unterminated string".to_string(),
+            ErrorCode::UnknownEscape { found } => format!(
+                "unknown escape '\\{}' in a string (known: \\n \\t \\\" \\\\)",
+                found
+            ),
             ErrorCode::UnterminatedComment => "unterminated comment".to_string(),
             ErrorCode::IntegerTooLarge { text } => format!("integer too large '{}'", text),
             ErrorCode::InvalidFloat { text } => format!("invalid float '{}'", text),
