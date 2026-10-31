@@ -1,0 +1,9 @@
+enum F {
+    A,
+    B,
+    C
+}
+match (F.A) {
+    F.A | F.B => {
+    }
+}

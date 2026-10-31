@@ -81,10 +81,28 @@ impl Parser {
 
     /// Reads one branch `pattern => { ... }` of a `match`.
     fn parse_arm(&mut self) -> Result<MatchArm, SomoniError> {
-        let pattern = self.parse_pattern()?;
+        let pattern = self.parse_alternatives()?;
         self.expect(Token::FatArrow, "'=>'")?;
         let body = self.expect_block("after '=>'")?;
         Ok(MatchArm { pattern, body })
+    }
+
+    /// Reads one pattern or several joined with `|`, or returns P019 if `_` or `ok`/`err` stand in an `|`.
+    fn parse_alternatives(&mut self) -> Result<Pattern, SomoniError> {
+        let first = self.parse_pattern()?;
+        if *self.peek() != Token::Pipe {
+            return Ok(first);
+        }
+        let mut patterns = vec![first];
+        while self.eat(Token::Pipe) {
+            patterns.push(self.parse_pattern()?);
+        }
+        for pattern in &patterns {
+            if let Pattern::Rest(span) | Pattern::Result { span, .. } = pattern {
+                return Err(SomoniError::at(*span, ErrorCode::OrPatternNotAllowed));
+            }
+        }
+        Ok(Pattern::Or(patterns))
     }
 
     /// Reads what a branch of `match` stands for: `Farbe.Rot`, `ok(n: int)`, `err(e: string)`, `"+"`, `42` or `_`.

@@ -72,6 +72,8 @@ pub enum Token {
     GreaterEqual,
     AndAnd,
     OrOr,
+    /// `|` between the values of one branch of `match`.
+    Pipe,
     Bang,
     Question,
     PlusEqual,

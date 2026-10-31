@@ -827,8 +827,20 @@ pub enum Pattern {
     },
     /// `"+"`, `42` or `-1` in a `match` over a string or an int.
     Literal { value: Literal, span: Span },
+    /// `"." | "R"` or `Farbe.Rot | Farbe.Gelb`: values or variants that share one branch.
+    Or(Vec<Pattern>),
     /// `_`: all variants that have no branch of their own
     Rest(Span),
+}
+
+impl Pattern {
+    /// Returns the patterns of an `|`, or the pattern itself.
+    pub fn alternatives(&self) -> &[Pattern] {
+        match self {
+            Pattern::Or(patterns) => patterns,
+            other => std::slice::from_ref(other),
+        }
+    }
 }
 
 /// A fixed value in a branch of `match`.

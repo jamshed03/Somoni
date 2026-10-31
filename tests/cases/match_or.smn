@@ -1,0 +1,61 @@
+// several values or variants in one branch of match, joined with |
+enum Farbe {
+    Rot,
+    Gruen,
+    Blau,
+    Gelb
+}
+
+fn warm(f: Farbe): bool {
+    match (f) {
+        Farbe.Rot | Farbe.Gelb => {
+            return true;
+        }
+        Farbe.Gruen | Farbe.Blau => {
+            return false;
+        }
+    }
+}
+
+fn art(c: string): string {
+    match (c) {
+        "a" | "e" | "i" | "o" | "u" => {
+            return "Vokal";
+        }
+        " " => {
+            return "Leer";
+        }
+        _ => {
+            return "anderes";
+        }
+    }
+}
+
+fn tag(n: int): string {
+    match (n) {
+        6 | 7 => {
+            return "Wochenende";
+        }
+        _ => {
+            return "Werktag";
+        }
+    }
+}
+
+print(warm(Farbe.Rot));
+print(warm(Farbe.Blau));
+print(warm(Farbe.Gelb));
+print(art("e"));
+print(art(" "));
+print(art("x"));
+print(tag(7));
+print(tag(3));
+
+match (Farbe.Gruen) {
+    Farbe.Rot | Farbe.Blau => {
+        print("rot oder blau");
+    }
+    _ => {
+        print("etwas anderes");
+    }
+}

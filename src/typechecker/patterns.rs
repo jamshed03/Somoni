@@ -119,24 +119,24 @@ fn find_branches(
         if let Some(rest) = &branches.rest {
             return Err(SomoniError::at(rest.span, ErrorCode::RestNotLast));
         }
-        let (variant, pattern_span) = match &arm.pattern {
-            Pattern::Rest(span) => {
-                branches.rest = Some(RestArm {
-                    arm: i,
-                    span: *span,
-                });
-                continue;
-            }
-            pattern => pattern_variant(ty, pattern)?,
-        };
-        if branches.of_variant[variant].is_some() {
-            let name = variants[variant].clone();
-            return Err(SomoniError::at(
-                pattern_span,
-                ErrorCode::DuplicateBranch { name },
-            ));
+        if let Pattern::Rest(span) = &arm.pattern {
+            branches.rest = Some(RestArm {
+                arm: i,
+                span: *span,
+            });
+            continue;
         }
-        branches.of_variant[variant] = Some(i);
+        for pattern in arm.pattern.alternatives() {
+            let (variant, pattern_span) = pattern_variant(ty, pattern)?;
+            if branches.of_variant[variant].is_some() {
+                let name = variants[variant].clone();
+                return Err(SomoniError::at(
+                    pattern_span,
+                    ErrorCode::DuplicateBranch { name },
+                ));
+            }
+            branches.of_variant[variant] = Some(i);
+        }
     }
     Ok(branches)
 }
@@ -208,6 +208,7 @@ fn pattern_variant(ty: &Type, pattern: &Pattern) -> Result<(usize, Span), Somoni
         (_, Pattern::Result { span, .. }) => ("result".to_string(), *span),
         (_, Pattern::Literal { value, span }) => (value.ty().to_string(), *span),
         (_, Pattern::Rest(_)) => return Err(SomoniError::internal("'_' has no variant")),
+        (_, Pattern::Or(_)) => return Err(SomoniError::internal("'|' inside '|'")),
     };
     Err(SomoniError::at(
         span,
@@ -230,16 +231,21 @@ pub(super) fn check_value_match(
         if let Some(rest) = rest {
             return Err(SomoniError::at(rest, ErrorCode::RestNotLast));
         }
-        match &arm.pattern {
-            Pattern::Rest(span) => rest = Some(*span),
-            Pattern::Literal { value, span } if value.ty() == *ty => {
-                if seen.contains(&value) {
-                    let name = value.to_string();
-                    return Err(SomoniError::at(*span, ErrorCode::DuplicateBranch { name }));
+        if let Pattern::Rest(span) = &arm.pattern {
+            rest = Some(*span);
+            continue;
+        }
+        for pattern in arm.pattern.alternatives() {
+            match pattern {
+                Pattern::Literal { value, span } if value.ty() == *ty => {
+                    if seen.contains(&value) {
+                        let name = value.to_string();
+                        return Err(SomoniError::at(*span, ErrorCode::DuplicateBranch { name }));
+                    }
+                    seen.push(value);
                 }
-                seen.push(value);
+                pattern => return Err(wrong_pattern(ty, pattern)),
             }
-            pattern => return Err(wrong_pattern(ty, pattern)),
         }
     }
     match rest {
@@ -262,6 +268,7 @@ fn wrong_pattern(ty: &Type, pattern: &Pattern) -> SomoniError {
         } => (enum_name.clone(), *enum_span),
         Pattern::Result { span, .. } => ("result".to_string(), *span),
         Pattern::Rest(span) => ("_".to_string(), *span),
+        Pattern::Or(_) => return SomoniError::internal("'|' inside '|'"),
     };
     SomoniError::at(
         span,

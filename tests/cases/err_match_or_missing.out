@@ -1,0 +1,3 @@
+Type error [T046]: Line 6: no branch for F.C (add it or use '_')
+  6 | match (F.A) {
+    | ^^^^^

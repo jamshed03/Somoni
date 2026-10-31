@@ -560,11 +560,15 @@ impl Compiler {
         let starts = self.compile_arms(m)?;
         for (arm, start) in m.arms.iter().zip(starts) {
             let entry = &mut self.chunk.value_tables[table];
-            match &arm.pattern {
-                Pattern::Literal { value, .. } => entry.cases.push((literal_value(value), start)),
-                Pattern::Rest(_) => entry.rest = start,
-                Pattern::Variant { .. } | Pattern::Result { .. } => {
-                    return Err(SomoniError::internal("variant in a match over values"));
+            for pattern in arm.pattern.alternatives() {
+                match pattern {
+                    Pattern::Literal { value, .. } => {
+                        entry.cases.push((literal_value(value), start))
+                    }
+                    Pattern::Rest(_) => entry.rest = start,
+                    Pattern::Variant { .. } | Pattern::Result { .. } | Pattern::Or(_) => {
+                        return Err(SomoniError::internal("variant in a match over values"));
+                    }
                 }
             }
         }
@@ -605,7 +609,10 @@ impl Compiler {
             Pattern::Rest(_) if unwraps => {
                 self.chunk.push(Op::Pop, span);
             }
-            Pattern::Variant { .. } | Pattern::Rest(_) | Pattern::Literal { .. } => {}
+            Pattern::Variant { .. }
+            | Pattern::Rest(_)
+            | Pattern::Literal { .. }
+            | Pattern::Or(_) => {}
         }
         Ok(())
     }

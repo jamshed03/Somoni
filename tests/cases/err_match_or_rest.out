@@ -1,0 +1,3 @@
+Parse error [P019]: Line 3: '|' joins only values and variants, not '_', ok(...) or err(...)
+  3 |     "a" | _ => {
+    |           ^

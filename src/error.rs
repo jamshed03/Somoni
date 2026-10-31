@@ -35,6 +35,7 @@ pub enum ErrorCode {
         found: char,
     },
     UnterminatedString,
+    OrPatternNotAllowed,
     UnknownEscape {
         found: char,
     },
@@ -458,6 +459,7 @@ impl ErrorCode {
             ErrorCode::StaticNotAllowed => "P016",
             ErrorCode::AbstractNotAllowed => "P017",
             ErrorCode::PrivateAbstract => "P018",
+            ErrorCode::OrPatternNotAllowed => "P019",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -627,6 +629,9 @@ impl ErrorCode {
         match self {
             ErrorCode::UnexpectedCharacter { found } => format!("unexpected character '{}'", found),
             ErrorCode::UnterminatedString => "unterminated string".to_string(),
+            ErrorCode::OrPatternNotAllowed => {
+                "'|' joins only values and variants, not '_', ok(...) or err(...)".to_string()
+            }
             ErrorCode::UnknownEscape { found } => format!(
                 "unknown escape '\\{}' in a string (known: \\n \\t \\\" \\\\)",
                 found

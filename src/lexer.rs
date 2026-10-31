@@ -75,6 +75,7 @@ const SYMBOLS: &[(&str, Token)] = &[
     ("<", Token::Less),
     (">", Token::Greater),
     ("?", Token::Question),
+    ("|", Token::Pipe),
 ];
 
 /// Turns the source text into tokens, each with its place.
