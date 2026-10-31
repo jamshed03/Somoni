@@ -294,6 +294,7 @@ impl TypeChecker {
             ExprKind::StaticCall(call) => self.check_static_call(call, span),
             ExprKind::StaticAccess(access) => self.check_static_access(access),
             ExprKind::InstanceOf(test) => self.check_instanceof(test),
+            ExprKind::Try(value) => self.check_try(value, span),
             ExprKind::Unary { op, operand } => self.check_unary(*op, operand, span),
         }
     }
@@ -610,6 +611,30 @@ impl TypeChecker {
         }
         test.target = Some(target);
         Ok(Type::Bool)
+    }
+
+    /// Checks `value?` and returns the type inside the `ok`; the function must return a result with the same error type.
+    fn check_try(&mut self, value: &mut Expr, span: Span) -> Result<Type, SomoniError> {
+        let (ok_type, err_type) = match self.check_expr(value)? {
+            Type::Result(ok_type, err_type) => (*ok_type, *err_type),
+            found => {
+                return Err(SomoniError::at(
+                    value.span,
+                    ErrorCode::TryNotResult { found },
+                ));
+            }
+        };
+        let Some(expected @ Type::Result(_, expected_err)) = &self.current_return else {
+            return Err(SomoniError::at(span, ErrorCode::TryOutsideResultFunction));
+        };
+        if **expected_err != err_type {
+            let code = ErrorCode::TryErrorType {
+                found: err_type,
+                expected: expected.clone(),
+            };
+            return Err(SomoniError::at(span, code));
+        }
+        Ok(ok_type)
     }
 
     /// Returns the class or interface type named after `instanceof` and its number, or T081 for another type.

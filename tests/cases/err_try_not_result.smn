@@ -1,0 +1,3 @@
+fn f(n: int): result<int, string> {
+    return ok(n? + 1);
+}

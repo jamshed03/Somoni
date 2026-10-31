@@ -1,0 +1,3 @@
+Type error [T089]: Line 2: '?' passes on an err of string, but the function returns result<int, int>
+  2 |     var n: int = int("5")?;
+    |                  ^^^^^^^^^

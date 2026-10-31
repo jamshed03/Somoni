@@ -714,6 +714,10 @@ impl Compiler {
             ExprKind::Constant { global, .. } => {
                 self.chunk.push(Op::GetConst(*global), span);
             }
+            ExprKind::Try(value) => {
+                self.compile_expr(value)?;
+                self.chunk.push(Op::Try, span);
+            }
             ExprKind::StaticCall(call) => {
                 self.compile_args(&call.args)?;
                 let target = filled(call.target, "static method")?;

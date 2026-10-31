@@ -1,0 +1,3 @@
+fn lesen(): void {
+    int("5")?;
+}

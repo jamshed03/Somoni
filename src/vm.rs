@@ -123,6 +123,7 @@ impl<'p> Vm<'p> {
                 self.call(&program.functions[function], *args, frame)?;
             }
             Op::Return => self.return_to_caller(frame)?,
+            Op::Try => self.try_result(frame)?,
             Op::MakeList(count) => self.make_list(*count),
             Op::NewMap => self.stack.push(Value::Map(Rc::new(MapValue::default()))),
             Op::MapInsert => self.map_insert()?,
@@ -218,6 +219,20 @@ impl<'p> Vm<'p> {
             .pop()
             .ok_or_else(|| SomoniError::internal("return outside of a function"))?;
         self.stack.push(result);
+        Ok(())
+    }
+
+    /// Pops a result: pushes the value of an `ok`, or returns the whole `err` to the caller.
+    #[inline(never)]
+    fn try_result(&mut self, frame: &mut Frame<'p>) -> Result<(), SomoniError> {
+        match self.pop()? {
+            Value::Ok(value) => self.stack.push(Rc::unwrap_or_clone(value)),
+            err @ Value::Err(_) => {
+                self.stack.push(err);
+                self.return_to_caller(frame)?;
+            }
+            _ => return Err(SomoniError::internal("'?' on a value that is no result")),
+        }
         Ok(())
     }
 

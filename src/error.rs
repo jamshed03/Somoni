@@ -329,6 +329,14 @@ pub enum ErrorCode {
         name: String,
     },
     ModuleConstNotFixed,
+    TryOutsideResultFunction,
+    TryNotResult {
+        found: Type,
+    },
+    TryErrorType {
+        found: Type,
+        expected: Type,
+    },
     AbstractNotOverridden {
         class: String,
         method: String,
@@ -506,6 +514,9 @@ impl ErrorCode {
             ErrorCode::StaticFieldOnObject { .. } => "T084",
             ErrorCode::UnknownStaticField { .. } => "T085",
             ErrorCode::ModuleConstNotFixed => "T086",
+            ErrorCode::TryOutsideResultFunction => "T087",
+            ErrorCode::TryNotResult { .. } => "T088",
+            ErrorCode::TryErrorType { .. } => "T089",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -883,6 +894,14 @@ impl ErrorCode {
                 format!("'{}' has no static field '{}'", class, name)
             }
             ErrorCode::ModuleConstNotFixed => "a const in an imported file must be a fixed value (no calls, new or variables)".to_string(),
+            ErrorCode::TryOutsideResultFunction => {
+                "'?' only works in a function that returns a result".to_string()
+            }
+            ErrorCode::TryNotResult { found } => format!("'?' needs a result, found {}", found),
+            ErrorCode::TryErrorType { found, expected } => format!(
+                "'?' passes on an err of {}, but the function returns {}",
+                found, expected
+            ),
             ErrorCode::ConstBeforeValue { name } => {
                 format!("'{}' is used before its line has run", name)
             }

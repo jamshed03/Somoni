@@ -409,7 +409,8 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         | ExprKind::SuperCall(_)
         | ExprKind::StaticCall(_)
         | ExprKind::StaticAccess(_)
-        | ExprKind::InstanceOf(_) => false,
+        | ExprKind::InstanceOf(_)
+        | ExprKind::Try(_) => false,
     }
 }
 

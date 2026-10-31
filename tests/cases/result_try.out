@@ -1,0 +1,13 @@
+erster Schritt fertig
+ok(11)
+err("Division durch 0")
+erster Schritt fertig
+err("Division durch 0")
+ok(6)
+err("cannot convert 'x' to int")
+ok(3)
+err("negativ: -2")
+ok(12)
+err("cannot convert 'vier' to int")
+err("cannot convert 'a' to int")
+ok(6)

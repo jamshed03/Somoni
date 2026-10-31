@@ -67,6 +67,8 @@ pub enum ExprKind {
         decl: Rc<EnumDecl>,
         variant: usize,
     },
+    /// `value?`: the value inside an `ok`, or the function returns the `err` at once.
+    Try(Box<Expr>),
     /// A `const` of the top level read in a function, which the type checker makes from a name.
     Constant {
         name: String,
@@ -180,6 +182,7 @@ impl Expr {
             ExprKind::StaticCall(call) => first_this(&call.args),
             ExprKind::StaticAccess(_) => None,
             ExprKind::InstanceOf(test) => test.value.find_this(),
+            ExprKind::Try(value) => value.find_this(),
         }
     }
 

@@ -79,6 +79,8 @@ pub enum Op {
     SetGlobal(usize),
     /// Pushes global number `i`, a constant, or returns R008 if its line has not run yet.
     GetConst(usize),
+    /// Pops a result: pushes the value of an `ok`, or returns the `err` from the function (`value?`).
+    Try,
 }
 
 /// The way from a variable to a part of it, e.g. `l[i].x`: the slot of `l` and the steps.
@@ -314,6 +316,7 @@ fn show_op(op: &Op, chunk: &Chunk, program: &Program) -> String {
         Op::GetGlobal(i) => format!("GetGlobal {}", program.globals[*i]),
         Op::SetGlobal(i) => format!("SetGlobal {}", program.globals[*i]),
         Op::GetConst(i) => format!("GetConst {}", program.globals[*i]),
+        Op::Try => "Try".to_string(),
         Op::InstanceOf(InstanceTarget::Class(i)) => {
             format!("InstanceOf {}", program.classes[*i].layout.name)
         }

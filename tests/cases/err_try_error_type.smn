@@ -1,0 +1,4 @@
+fn f(): result<int, int> {
+    var n: int = int("5")?;
+    return ok(n);
+}

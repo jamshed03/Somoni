@@ -1,0 +1,3 @@
+Type error [T087]: Line 1: '?' only works in a function that returns a result
+  1 | var n: int = int("5")?;
+    |              ^^^^^^^^^

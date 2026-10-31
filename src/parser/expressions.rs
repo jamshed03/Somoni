@@ -101,7 +101,7 @@ impl Parser {
         })
     }
 
-    /// Reads an expression followed by any number of `[index]`, `.field` and `.method(args)`, e.g. `l[0].x`.
+    /// Reads an expression followed by any number of `[index]`, `.field`, `.method(args)` and `?`, e.g. `l[0].x`.
     pub(super) fn parse_postfix(&mut self) -> Result<Expr, SomoniError> {
         let mut expr = self.parse_primary()?;
         loop {
@@ -109,6 +109,10 @@ impl Parser {
             let kind = match self.peek() {
                 Token::LBracket => self.parse_index(expr)?,
                 Token::Dot => self.parse_member(expr)?,
+                Token::Question => {
+                    self.advance();
+                    ExprKind::Try(Box::new(expr))
+                }
                 _ => return Ok(expr),
             };
             expr = self.expr_since(kind, start);

@@ -1,0 +1,3 @@
+Type error [T088]: Line 2: '?' needs a result, found int
+  2 |     return ok(n? + 1);
+    |               ^

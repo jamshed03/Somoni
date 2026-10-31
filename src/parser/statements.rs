@@ -55,9 +55,12 @@ impl Parser {
         Ok(Stmt::Return { value, span })
     }
 
-    /// Reads a call like `print(x);` as a statement.
+    /// Reads a call like `print(x);` or `speichern(x)?;` as a statement.
     fn parse_call_stmt(&mut self, name: String, start: Span) -> Result<Stmt, SomoniError> {
-        let expr = self.parse_call(name, start)?;
+        let mut expr = self.parse_call(name, start)?;
+        if self.eat(Token::Question) {
+            expr = self.expr_since(ExprKind::Try(Box::new(expr)), start);
+        }
         let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
         Ok(Stmt::Expr { expr, span })
@@ -368,12 +371,13 @@ fn compound_op(token: &Token) -> Option<BinaryOp> {
 
 /// Returns true for a method call, a static call, `new` or `super`, which may stand alone as a statement.
 fn stands_alone(expr: &Expr) -> bool {
-    matches!(
-        expr.kind,
+    match &expr.kind {
         ExprKind::MethodCall(_)
-            | ExprKind::StaticCall(_)
-            | ExprKind::New(_)
-            | ExprKind::SuperInit { .. }
-            | ExprKind::SuperCall(_)
-    )
+        | ExprKind::StaticCall(_)
+        | ExprKind::New(_)
+        | ExprKind::SuperInit { .. }
+        | ExprKind::SuperCall(_) => true,
+        ExprKind::Try(inner) => stands_alone(inner),
+        _ => false,
+    }
 }

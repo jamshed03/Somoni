@@ -1,0 +1,65 @@
+// '?' gives the value of an ok, or returns the err from the function at once
+fn teilen(a: int, b: int): result<int, string> {
+    if (b == 0) {
+        return err("Division durch 0");
+    }
+    return ok(a / b);
+}
+
+fn rechne(a: int, b: int, c: int): result<int, string> {
+    var x: int = teilen(a, b)?;
+    print("erster Schritt fertig");
+    return ok(teilen(x, c)? + 1);
+}
+
+fn summe(texte: list<string>): result<int, string> {
+    var s: int = 0;
+    for (t: string in texte) {
+        s += int(t)?;
+    }
+    return ok(s);
+}
+
+fn pruefe(n: int): result<bool, string> {
+    if (n < 0) {
+        return err("negativ: " + string(n));
+    }
+    return ok(true);
+}
+
+fn alle(zahlen: list<int>): result<int, string> {
+    for (n: int in zahlen) {
+        pruefe(n)?;
+    }
+    return ok(len(zahlen));
+}
+
+class Rechner {
+    faktor: int;
+
+    constructor(faktor: int) {
+        this.faktor = faktor;
+    }
+
+    mal(text: string): result<int, string> {
+        return ok(int(text)? * this.faktor);
+    }
+
+    beide(a: string, b: string): result<int, string> {
+        this.mal(a)?;
+        return this.mal(b);
+    }
+}
+
+print(rechne(100, 5, 2));
+print(rechne(100, 0, 2));
+print(rechne(100, 5, 0));
+print(summe(["1", "2", "3"]));
+print(summe(["1", "x", "3"]));
+print(alle([1, 2, 3]));
+print(alle([1, -2, -3]));
+var r: Rechner = new Rechner(3);
+print(r.mal("4"));
+print(r.mal("vier"));
+print(r.beide("a", "2"));
+print(r.beide("1", "2"));
