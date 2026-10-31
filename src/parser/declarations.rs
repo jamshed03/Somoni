@@ -51,8 +51,13 @@ impl Parser {
             Token::Enum => self.parse_enum(true),
             Token::Class | Token::Abstract => self.parse_class(true),
             Token::Interface => self.parse_interface(true),
+            Token::Const => {
+                let mut decl = self.parse_var_decl(false, self.current_span())?;
+                decl.exported = true;
+                Ok(Stmt::VarDecl(decl))
+            }
             _ => Err(self.expected(
-                "'fn', 'struct', 'enum', 'class', 'abstract class' or 'interface' after 'export'",
+                "'fn', 'struct', 'enum', 'class', 'abstract class', 'interface' or 'const' after 'export'",
             )),
         }
     }

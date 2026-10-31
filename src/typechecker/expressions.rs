@@ -303,10 +303,13 @@ impl TypeChecker {
         let ExprKind::Ident { name, .. } = &expr.kind else {
             return None;
         };
-        if self.in_main || self.scopes.lookup(name).is_some() {
+        if self.scopes.lookup(name).is_some() {
             return None;
         }
         let constant = self.names.constants.get(name)?;
+        if self.in_main && constant.own {
+            return None;
+        }
         Some((name.clone(), constant.clone()))
     }
 

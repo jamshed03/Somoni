@@ -61,6 +61,7 @@ impl TypeChecker {
                 Stmt::EnumDecl(decl) => (&decl.name, decl.exported),
                 Stmt::ClassDecl(class) => (&class.layout.name, class.exported),
                 Stmt::InterfaceDecl(decl) => (&decl.layout.name, decl.exported),
+                Stmt::VarDecl(decl) if !decl.mutable => (&decl.name, decl.exported),
                 _ => continue,
             };
             if !exported {

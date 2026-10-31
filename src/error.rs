@@ -328,6 +328,7 @@ pub enum ErrorCode {
         class: String,
         name: String,
     },
+    ModuleConstNotFixed,
     AbstractNotOverridden {
         class: String,
         method: String,
@@ -504,6 +505,7 @@ impl ErrorCode {
             ErrorCode::StaticStartNotFixed => "T083",
             ErrorCode::StaticFieldOnObject { .. } => "T084",
             ErrorCode::UnknownStaticField { .. } => "T085",
+            ErrorCode::ModuleConstNotFixed => "T086",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -607,7 +609,7 @@ impl ErrorCode {
             ErrorCode::CannotReadFile { name } => format!("cannot read file '{}'", name),
             ErrorCode::ImportCycle { cycle } => format!("files import each other: {}", cycle),
             ErrorCode::OnlyDeclarations => {
-                "an imported file may only contain fn, struct, enum, class, interface and import"
+                "an imported file may only contain fn, struct, enum, class, interface, const and import"
                     .to_string()
             }
             ErrorCode::ReservedPath { path } => format!(
@@ -880,6 +882,7 @@ impl ErrorCode {
             ErrorCode::UnknownStaticField { class, name } => {
                 format!("'{}' has no static field '{}'", class, name)
             }
+            ErrorCode::ModuleConstNotFixed => "a const in an imported file must be a fixed value (no calls, new or variables)".to_string(),
             ErrorCode::ConstBeforeValue { name } => {
                 format!("'{}' is used before its line has run", name)
             }

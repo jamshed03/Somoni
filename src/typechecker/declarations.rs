@@ -2,7 +2,9 @@
 
 use std::rc::Rc;
 
-use crate::ast::{self, EnumDecl, Field, Function, Param, Stmt, StructDecl, TypeName};
+use crate::ast::{
+    self, EnumDecl, Expr, ExprKind, Field, Function, Param, Stmt, StructDecl, TypeName,
+};
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -37,6 +39,7 @@ impl TypeChecker {
             let constant = Constant {
                 ty,
                 global: self.global_count,
+                own: true,
             };
             self.names.constants.insert(decl.name.clone(), constant);
             self.global_count += 1;
@@ -375,6 +378,39 @@ fn check_variants(decl: &EnumDecl) -> Result<(), SomoniError> {
         }
     }
     Ok(())
+}
+
+/// Returns true for a value that is known before the program runs, like `60 * 60` or `["a", "b"]`.
+pub(super) fn is_fixed_value(expr: &Expr) -> bool {
+    match &expr.kind {
+        ExprKind::Int(_)
+        | ExprKind::Float(_)
+        | ExprKind::Str(_)
+        | ExprKind::Bool(_)
+        | ExprKind::Null
+        | ExprKind::EnumValue { .. } => true,
+        ExprKind::Constant { .. } => false,
+        ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
+        ExprKind::Unary { operand, .. } => is_fixed_value(operand),
+        ExprKind::List(items) => items.iter().all(is_fixed_value),
+        ExprKind::Map(entries) => entries
+            .iter()
+            .all(|(key, value)| is_fixed_value(key) && is_fixed_value(value)),
+        ExprKind::StructLiteral { fields, .. } => {
+            fields.iter().all(|init| is_fixed_value(&init.value))
+        }
+        ExprKind::Ident { .. }
+        | ExprKind::Index { .. }
+        | ExprKind::Field { .. }
+        | ExprKind::Call(_)
+        | ExprKind::New(_)
+        | ExprKind::MethodCall(_)
+        | ExprKind::SuperInit { .. }
+        | ExprKind::SuperCall(_)
+        | ExprKind::StaticCall(_)
+        | ExprKind::StaticAccess(_)
+        | ExprKind::InstanceOf(_) => false,
+    }
 }
 
 /// Checks that a type may be the key of a map.

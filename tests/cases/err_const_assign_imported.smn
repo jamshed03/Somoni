@@ -1,0 +1,2 @@
+import { PI } from "modules/konstanten.smn";
+PI = 3.0;

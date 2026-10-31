@@ -8,6 +8,7 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::Type;
 
+use super::declarations::is_fixed_value;
 use super::patterns::check_match;
 use super::{ObjectField, Signature, TypeChecker};
 
@@ -132,6 +133,12 @@ impl TypeChecker {
     fn check_var_decl(&mut self, decl: &mut VarDecl) -> Result<(), SomoniError> {
         let declared = self.resolve_type(&decl.type_name, false)?;
         self.check_assignable(&mut decl.value, &declared)?;
+        if self.in_module && decl.global.is_some() && !is_fixed_value(&decl.value) {
+            return Err(SomoniError::at(
+                decl.value.span,
+                ErrorCode::ModuleConstNotFixed,
+            ));
+        }
         let slot = self.declare(&decl.name, decl.name_span, declared, decl.mutable)?;
         decl.slot = Some(slot);
         Ok(())

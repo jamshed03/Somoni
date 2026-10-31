@@ -354,6 +354,8 @@ pub enum Stmt {
 /// `var name: type = value;` or `const name: type = value;`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarDecl {
+    /// True for `export const`, which other files can import.
+    pub exported: bool,
     pub name: String,
     pub name_span: Span,
     pub type_name: TypeName,

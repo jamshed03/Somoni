@@ -6,7 +6,7 @@ use crate::ast::{
     ClassLayout, EnumDecl, Expr, InterfaceLayout, Param, StructDecl, VTable, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
-use crate::loader::SourceFile;
+use crate::loader::{MAIN_FILE, SourceFile};
 use crate::scope::Scopes;
 use crate::span::Span;
 use crate::types::{Decl, Type};
@@ -157,6 +157,8 @@ struct InterfaceInfo {
 struct Constant {
     ty: Type,
     global: usize,
+    /// True if the constant is declared in this file, false if it is imported.
+    own: bool,
 }
 
 /// The names a file can use: its own declarations and its imports.
@@ -173,7 +175,9 @@ struct Names {
 impl Names {
     /// Returns true if anything has this name.
     fn contains(&self, name: &str) -> bool {
-        self.functions.contains_key(name) || self.type_named(name).is_some()
+        self.functions.contains_key(name)
+            || self.constants.contains_key(name)
+            || self.type_named(name).is_some()
     }
 
     /// Returns the struct, class, interface or enum type with this name.
@@ -193,6 +197,13 @@ impl Names {
     fn add_from(&mut self, from: &Names, name: &str) {
         if let Some(signature) = from.functions.get(name) {
             self.functions.insert(name.to_string(), signature.clone());
+        }
+        if let Some(constant) = from.constants.get(name) {
+            let constant = Constant {
+                own: false,
+                ..constant.clone()
+            };
+            self.constants.insert(name.to_string(), constant);
         }
         if let Some(decl) = from.structs.get(name) {
             self.structs.insert(name.to_string(), decl.clone());
@@ -232,6 +243,8 @@ pub struct TypeChecker {
     global_count: usize,
     /// True while the top-level code of a file is checked, where a `const` exists only after its line.
     in_main: bool,
+    /// True while a file other than the main file is checked, whose constants must have fixed values.
+    in_module: bool,
     current_return: Option<Type>,
     next_slot: usize,
 }
@@ -252,6 +265,7 @@ impl TypeChecker {
             function_count: 0,
             global_count: 0,
             in_main: false,
+            in_module: false,
             current_return: None,
             next_slot: 0,
         }
@@ -262,12 +276,15 @@ impl TypeChecker {
         for &number in order {
             let stmts = &mut files[number].stmts;
             self.names = Names::default();
+            self.scopes = Scopes::new();
+            self.next_slot = 0;
             self.import_names(stmts)?;
             self.declare_enums(stmts)?;
             self.declare_structs(stmts)?;
             self.declare_functions(stmts)?;
             self.declare_class_functions(stmts)?;
             self.declare_constants(stmts)?;
+            self.in_module = number != MAIN_FILE;
             self.in_main = true;
             let result = self.check_stmts(stmts);
             self.in_main = false;

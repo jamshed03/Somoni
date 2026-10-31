@@ -1,0 +1,12 @@
+// exported constants of another file can be used everywhere, also in the top-level code
+import { PI, PRIMZAHLEN, umfang, geheim } from "modules/konstanten.smn";
+
+fn erste(): int {
+    return PRIMZAHLEN[0];
+}
+
+print(PI);
+print(umfang(1.0));
+print(erste());
+print(len(PRIMZAHLEN));
+print(geheim());

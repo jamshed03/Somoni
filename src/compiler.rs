@@ -7,7 +7,7 @@ use crate::ast::{
 };
 use crate::bytecode::{Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, index_slot};
 use crate::error::SomoniError;
-use crate::loader::SourceFile;
+use crate::loader::{MAIN_FILE, SourceFile};
 use crate::span::Span;
 use crate::value::{EnumValue, Value};
 
@@ -36,6 +36,11 @@ fn compile_main(files: &[SourceFile], order: &[usize]) -> Result<Chunk, SomoniEr
         compiler.compile_expr(start)?;
         compiler.chunk.push(Op::SetGlobal(global), start.span);
     }
+    for (number, decl) in constants(files, order) {
+        if number != MAIN_FILE {
+            compiler.compile_var_value(decl)?;
+        }
+    }
     compiler.compile_stmts(&main.stmts)?;
     Ok(compiler.chunk)
 }
@@ -47,24 +52,28 @@ fn global_names(files: &[SourceFile], order: &[usize]) -> Vec<String> {
     for (class, field, global) in static_fields(files, order) {
         names[global] = format!("{}::{}", class.layout.name, field.field.name);
     }
-    for (name, global) in constants(files, order) {
-        names[global] = name.clone();
+    for (_, decl) in constants(files, order) {
+        if let Some(global) = decl.global {
+            names[global] = decl.name.clone();
+        }
     }
     names
 }
 
-/// Returns every `const` at the top level of the program with its global number, file by file in `order`.
+/// Returns every `const` at the top level of the program with the number of its file, file by file in `order`.
 fn constants<'a>(
     files: &'a [SourceFile],
     order: &'a [usize],
-) -> impl Iterator<Item = (&'a String, usize)> {
-    order
-        .iter()
-        .flat_map(|&number| &files[number].stmts)
-        .filter_map(|stmt| match stmt {
-            Stmt::VarDecl(decl) => decl.global.map(|global| (&decl.name, global)),
-            _ => None,
-        })
+) -> impl Iterator<Item = (usize, &'a VarDecl)> {
+    order.iter().flat_map(move |&number| {
+        files[number]
+            .stmts
+            .iter()
+            .filter_map(move |stmt| match stmt {
+                Stmt::VarDecl(decl) if decl.global.is_some() => Some((number, decl)),
+                _ => None,
+            })
+    })
 }
 
 /// Returns every static field of the program with its class and global number, file by file in `order`.
@@ -313,6 +322,14 @@ impl Compiler {
         }
         let slot = self.use_slot(filled(decl.slot, "variable slot")?);
         self.chunk.push(Op::SetLocal(slot), decl.span);
+        Ok(())
+    }
+
+    /// Writes the value of a constant of an imported file into its global, before the main code runs.
+    fn compile_var_value(&mut self, decl: &VarDecl) -> Result<(), SomoniError> {
+        self.compile_expr(&decl.value)?;
+        let global = filled(decl.global, "global of a constant")?;
+        self.chunk.push(Op::SetGlobal(global), decl.span);
         Ok(())
     }
 

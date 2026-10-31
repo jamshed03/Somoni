@@ -258,6 +258,7 @@ fn starts_declaration(token: &Token) -> bool {
             | Token::Enum
             | Token::Class
             | Token::Abstract
+            | Token::Const
             | Token::Interface
     )
 }

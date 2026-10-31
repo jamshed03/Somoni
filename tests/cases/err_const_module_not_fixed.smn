@@ -1,0 +1,2 @@
+import { N } from "modules/const_berechnet.smn";
+print(N);

@@ -15,8 +15,8 @@ impl Parser {
     pub(super) fn parse_stmt(&mut self) -> Result<Stmt, SomoniError> {
         let start = self.current_span();
         match self.peek().clone() {
-            Token::Var => self.parse_var_decl(true, start),
-            Token::Const => self.parse_var_decl(false, start),
+            Token::Var => Ok(Stmt::VarDecl(self.parse_var_decl(true, start)?)),
+            Token::Const => Ok(Stmt::VarDecl(self.parse_var_decl(false, start)?)),
             Token::LBrace => self.parse_block(start),
             Token::If => self.parse_if(start),
             Token::While => self.parse_while(start),
@@ -231,7 +231,7 @@ impl Parser {
     fn parse_for_init(&mut self) -> Result<Stmt, SomoniError> {
         let span = self.current_span();
         match self.peek() {
-            Token::Var => self.parse_var_decl(true, span),
+            Token::Var => Ok(Stmt::VarDecl(self.parse_var_decl(true, span)?)),
             Token::Const => Err(SomoniError::at(span, ErrorCode::ForStartConst)),
             _ => Err(self.expected("'var' after 'for ('")),
         }
@@ -313,7 +313,11 @@ impl Parser {
     }
 
     /// Reads `var name: type = value;` or `const name: type = value;`.
-    fn parse_var_decl(&mut self, mutable: bool, start: Span) -> Result<Stmt, SomoniError> {
+    pub(super) fn parse_var_decl(
+        &mut self,
+        mutable: bool,
+        start: Span,
+    ) -> Result<VarDecl, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("variable name")?;
         self.expect(Token::Colon, "':'")?;
@@ -322,7 +326,8 @@ impl Parser {
         let value = self.parse_expr()?;
         let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
-        Ok(Stmt::VarDecl(VarDecl {
+        Ok(VarDecl {
+            exported: false,
             name,
             name_span,
             type_name,
@@ -331,7 +336,7 @@ impl Parser {
             slot: None,
             global: None,
             span,
-        }))
+        })
     }
 }
 
