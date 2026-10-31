@@ -405,6 +405,11 @@ pub enum ErrorCode {
         index: i64,
         length: usize,
     },
+    SliceOutOfRange {
+        start: i64,
+        end: i64,
+        length: usize,
+    },
     KeyNotFound {
         key: String,
     },
@@ -559,6 +564,7 @@ impl ErrorCode {
             ErrorCode::KeyNotFound { .. } => "R006",
             ErrorCode::DuplicateKey { .. } => "R007",
             ErrorCode::ConstBeforeValue { .. } => "R008",
+            ErrorCode::SliceOutOfRange { .. } => "R009",
         }
     }
 
@@ -989,6 +995,10 @@ impl ErrorCode {
             ErrorCode::RecursionTooDeep { limit } => {
                 format!("recursion too deep (more than {} nested calls)", limit)
             }
+            ErrorCode::SliceOutOfRange { start, end, length } => format!(
+                "cannot take {} to {} from a value with {} elements (0 <= start <= end <= length)",
+                start, end, length
+            ),
             ErrorCode::IndexOutOfRange { index, length } => format!(
                 "index {} is out of range (list has {} elements)",
                 index, length

@@ -1,0 +1,36 @@
+// split, join, contains, starts_with, ends_with, replace, slice and index_of on strings
+var zeile: string = "Ali,Bea,,Cem";
+var teile: list<string> = zeile.split(",");
+print(teile);
+print(len(teile));
+print(teile.join(" / "));
+print("abc".split(""));
+print(["x"].join("-"));
+var leer: list<string> = [];
+print(leer.join(",") == "");
+
+print("Hallo Welt".contains("lo W"));
+print("Hallo".contains("x"));
+print("Hallo".starts_with("Ha"));
+print("Hallo".ends_with("lo"));
+print("Hallo".ends_with("La"));
+
+print("a-b-c".replace("-", " + "));
+print("aaa".replace("a", "bb"));
+print("abc".replace("", "x"));
+
+print("Grüße".slice(1, 4));
+print("abc".slice(0, 0) == "");
+print("abc".slice(0, 3));
+
+print("Grüße aus Wien".index_of("aus"));
+print("abc".index_of("x"));
+var stelle: int? = "abc".index_of("c");
+if (stelle != null) {
+    print(stelle + 1);
+}
+
+var csv: string = "  name ; alter ";
+for (feld: string in csv.split(";")) {
+    print("[" + feld.trim().upper() + "]");
+}

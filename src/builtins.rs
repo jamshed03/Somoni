@@ -22,6 +22,14 @@ pub enum Builtin {
     Upper,
     Lower,
     Trim,
+    Split,
+    Join,
+    Contains,
+    StartsWith,
+    EndsWith,
+    Replace,
+    Slice,
+    IndexOf,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -40,6 +48,14 @@ const ALL: &[Builtin] = &[
     Builtin::Upper,
     Builtin::Lower,
     Builtin::Trim,
+    Builtin::Split,
+    Builtin::Join,
+    Builtin::Contains,
+    Builtin::StartsWith,
+    Builtin::EndsWith,
+    Builtin::Replace,
+    Builtin::Slice,
+    Builtin::IndexOf,
 ];
 
 impl Builtin {
@@ -61,7 +77,17 @@ impl Builtin {
     /// Returns true for a method, which is called on a value (`s.upper()`) and gets that value as its first argument.
     pub fn is_method(self) -> bool {
         match self {
-            Builtin::Upper | Builtin::Lower | Builtin::Trim => true,
+            Builtin::Upper
+            | Builtin::Lower
+            | Builtin::Trim
+            | Builtin::Split
+            | Builtin::Join
+            | Builtin::Contains
+            | Builtin::StartsWith
+            | Builtin::EndsWith
+            | Builtin::Replace
+            | Builtin::Slice
+            | Builtin::IndexOf => true,
             Builtin::Print
             | Builtin::Int
             | Builtin::Float
@@ -103,6 +129,14 @@ impl Builtin {
             Builtin::Upper => "upper",
             Builtin::Lower => "lower",
             Builtin::Trim => "trim",
+            Builtin::Split => "split",
+            Builtin::Join => "join",
+            Builtin::Contains => "contains",
+            Builtin::StartsWith => "starts_with",
+            Builtin::EndsWith => "ends_with",
+            Builtin::Replace => "replace",
+            Builtin::Slice => "slice",
+            Builtin::IndexOf => "index_of",
         }
     }
 
@@ -122,7 +156,14 @@ impl Builtin {
             | Builtin::Upper
             | Builtin::Lower
             | Builtin::Trim => 1,
-            Builtin::Has => 2,
+            Builtin::Has
+            | Builtin::Split
+            | Builtin::Join
+            | Builtin::Contains
+            | Builtin::StartsWith
+            | Builtin::EndsWith
+            | Builtin::IndexOf => 2,
+            Builtin::Replace | Builtin::Slice => 3,
         }
     }
 
@@ -142,6 +183,29 @@ impl Builtin {
             (Builtin::Keys, [Type::Map(key, _)]) => Ok(Type::List(key.clone())),
             (Builtin::IsOk | Builtin::IsErr, [Type::Result(_, _)]) => Ok(Type::Bool),
             (Builtin::Upper | Builtin::Lower | Builtin::Trim, [Type::Str]) => Ok(Type::Str),
+            (Builtin::Split, [Type::Str, Type::Str]) => Ok(Type::List(Box::new(Type::Str))),
+            (Builtin::Join, [Type::List(element), Type::Str]) if **element == Type::Str => {
+                Ok(Type::Str)
+            }
+            (
+                Builtin::Contains | Builtin::StartsWith | Builtin::EndsWith,
+                [Type::Str, Type::Str],
+            ) => Ok(Type::Bool),
+            (Builtin::IndexOf, [Type::Str, Type::Str]) => Ok(Type::Optional(Box::new(Type::Int))),
+            (Builtin::Replace, [Type::Str, Type::Str, Type::Str]) => Ok(Type::Str),
+            (Builtin::Slice, [Type::Str, Type::Int, Type::Int]) => Ok(Type::Str),
+            (Builtin::Replace | Builtin::Slice, [Type::Str, Type::Str | Type::Int, _]) => Err(2),
+            (
+                Builtin::Split
+                | Builtin::Contains
+                | Builtin::StartsWith
+                | Builtin::EndsWith
+                | Builtin::IndexOf
+                | Builtin::Replace
+                | Builtin::Slice,
+                [Type::Str, ..],
+            ) => Err(1),
+            (Builtin::Join, [Type::List(element), _]) if **element == Type::Str => Err(1),
             _ => Err(0),
         }
     }
@@ -173,6 +237,28 @@ impl Builtin {
             (Builtin::Upper, [Value::Str(s)]) => Ok(string_value(s.as_str().to_uppercase())),
             (Builtin::Lower, [Value::Str(s)]) => Ok(string_value(s.as_str().to_lowercase())),
             (Builtin::Trim, [Value::Str(s)]) => Ok(string_value(s.as_str().trim().to_string())),
+            (Builtin::Split, [Value::Str(s), Value::Str(sep)]) => {
+                Ok(split(s.as_str(), sep.as_str()))
+            }
+            (Builtin::Join, [Value::List(items), Value::Str(sep)]) => join(items, sep.as_str()),
+            (Builtin::Contains, [Value::Str(s), Value::Str(part)]) => {
+                Ok(Value::Bool(s.as_str().contains(part.as_str())))
+            }
+            (Builtin::StartsWith, [Value::Str(s), Value::Str(part)]) => {
+                Ok(Value::Bool(s.as_str().starts_with(part.as_str())))
+            }
+            (Builtin::EndsWith, [Value::Str(s), Value::Str(part)]) => {
+                Ok(Value::Bool(s.as_str().ends_with(part.as_str())))
+            }
+            (Builtin::Replace, [Value::Str(s), Value::Str(old), Value::Str(new)]) => {
+                Ok(replace(s, old.as_str(), new.as_str()))
+            }
+            (Builtin::Slice, [Value::Str(s), Value::Int(start), Value::Int(end)]) => {
+                slice_text(s, *start, *end)
+            }
+            (Builtin::IndexOf, [Value::Str(s), Value::Str(part)]) => {
+                Ok(index_of(s.as_str(), part.as_str()))
+            }
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()
@@ -184,6 +270,66 @@ impl Builtin {
 /// Returns a string value.
 fn string_value(s: String) -> Value {
     Value::Str(Rc::new(Text::new(s)))
+}
+
+/// Splits `s` at every `sep`, or into its characters if `sep` is empty.
+fn split(s: &str, sep: &str) -> Value {
+    let parts: Vec<Value> = if sep.is_empty() {
+        s.chars().map(|c| string_value(c.to_string())).collect()
+    } else {
+        s.split(sep)
+            .map(|part| string_value(part.to_string()))
+            .collect()
+    };
+    Value::List(Rc::new(parts))
+}
+
+/// Joins a list of strings with `sep` between them.
+fn join(items: &[Value], sep: &str) -> Result<Value, SomoniError> {
+    let parts = items
+        .iter()
+        .map(|item| match item {
+            Value::Str(s) => Ok(s.as_str()),
+            _ => Err(SomoniError::internal(
+                "'join' on a list that holds no strings",
+            )),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(string_value(parts.join(sep)))
+}
+
+/// Replaces every `old` in `s` with `new`; an empty `old` leaves `s` as it is.
+fn replace(s: &Rc<Text>, old: &str, new: &str) -> Value {
+    if old.is_empty() {
+        return Value::Str(Rc::clone(s));
+    }
+    string_value(s.as_str().replace(old, new))
+}
+
+/// Returns the characters of `s` from `start` up to `end`, or R009 if that is not inside `s`.
+fn slice_text(s: &Text, start: i64, end: i64) -> Result<Value, SomoniError> {
+    let length = s.char_count();
+    let (from, to) = slice_range(start, end, length)?;
+    let part: String = s.as_str().chars().skip(from).take(to - from).collect();
+    Ok(string_value(part))
+}
+
+/// Returns `start..end` as positions inside `length` values, or R009 if they are outside or backwards.
+fn slice_range(start: i64, end: i64, length: usize) -> Result<(usize, usize), SomoniError> {
+    let from = usize::try_from(start).ok();
+    let to = usize::try_from(end).ok().filter(|&to| to <= length);
+    match (from, to) {
+        (Some(from), Some(to)) if from <= to => Ok((from, to)),
+        _ => Err(ErrorCode::SliceOutOfRange { start, end, length }.into()),
+    }
+}
+
+/// Returns the place in characters of the first `part` in `s`, or `null`.
+fn index_of(s: &str, part: &str) -> Value {
+    match s.find(part) {
+        Some(byte) => Value::Int(s[..byte].chars().count() as i64),
+        None => Value::Null,
+    }
 }
 
 /// The first float that is too big for an int: 2 to the power of 63.
