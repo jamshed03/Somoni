@@ -1,0 +1,43 @@
+// a field with a function type is called like a method: k.aktion(x)
+fn zeige(text: string): void {
+    print("> " + text);
+}
+
+fn laut(text: string): void {
+    print(text + "!");
+}
+
+fn verdoppeln(n: int): int {
+    return n * 2;
+}
+
+struct Knopf {
+    name: string,
+    aktion: fn(string): void
+}
+
+class Zaehler {
+    stand: int;
+    schritt: fn(int): int;
+
+    constructor(schritt: fn(int): int) {
+        this.stand = 1;
+        this.schritt = schritt;
+    }
+
+    weiter(): int {
+        this.stand = this.schritt(this.stand);
+        return this.stand;
+    }
+}
+
+var k: Knopf = Knopf { name: "ok", aktion: zeige };
+k.aktion(k.name);
+k.aktion = laut;
+k.aktion(k.name);
+var knoepfe: list<Knopf> = [k, Knopf { name: "nein", aktion: zeige }];
+knoepfe[1].aktion(knoepfe[1].name);
+var z: Zaehler = new Zaehler(verdoppeln);
+z.weiter();
+print(z.weiter());
+print(z.schritt(10));

@@ -179,18 +179,6 @@ fn filled<T>(value: Option<T>, what: &str) -> Result<T, SomoniError> {
     value.ok_or_else(|| SomoniError::internal(format!("missing {what}")))
 }
 
-/// Returns the instruction for a method call with `args` values on the stack.
-fn method_op(call: MethodTarget, args: usize) -> Op {
-    match call {
-        MethodTarget::Virtual { slot } => Op::CallVirtual { slot, args },
-        MethodTarget::Interface { interface, method } => Op::CallInterface {
-            interface,
-            method,
-            args,
-        },
-    }
-}
-
 /// Writes the instructions of one chunk.
 #[derive(Default)]
 struct Compiler {
@@ -797,10 +785,21 @@ impl Compiler {
     /// Writes `target.name(args)`.
     fn compile_method_call(&mut self, call: &MethodCall, span: Span) -> Result<(), SomoniError> {
         self.compile_expr(&call.target)?;
+        let args = with_this(call.args.len());
+        let op = match filled(call.call, "method target")? {
+            MethodTarget::Virtual { slot } => Op::CallVirtual { slot, args },
+            MethodTarget::Interface { interface, method } => Op::CallInterface {
+                interface,
+                method,
+                args,
+            },
+            MethodTarget::Field { position } => {
+                self.chunk.push(Op::Field(position), call.name_span);
+                Op::CallValue(call.args.len())
+            }
+        };
         self.compile_args(&call.args)?;
-        let target = filled(call.call, "method target")?;
-        self.chunk
-            .push(method_op(target, with_this(call.args.len())), span);
+        self.chunk.push(op, span);
         Ok(())
     }
 

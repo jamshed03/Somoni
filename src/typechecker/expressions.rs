@@ -527,6 +527,9 @@ impl TypeChecker {
         match &target_type {
             Type::Interface(layout) => self.check_interface_call(layout, call, span),
             Type::Class(layout) => self.check_class_method_call(layout, call, span),
+            Type::Struct(_) if self.has_field(&target_type, &call.name) => {
+                self.check_field_call(&target_type, call, span)
+            }
             _ => Err(SomoniError::at(
                 call.target.span,
                 ErrorCode::NoMethods { found: target_type },
@@ -563,6 +566,10 @@ impl TypeChecker {
     ) -> Result<Type, SomoniError> {
         let info = self.class_info(layout)?;
         let Some(method) = info.methods.get(&call.name).cloned() else {
+            let object = Type::Class(layout.clone());
+            if self.has_field(&object, &call.name) {
+                return self.check_field_call(&object, call, span);
+            }
             if !info.statics.contains_key(&call.name) {
                 return Err(unknown_method(&layout.name, &call.name, call.name_span));
             }
@@ -576,6 +583,35 @@ impl TypeChecker {
         call.call = Some(MethodTarget::Virtual { slot: method.slot });
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)
+    }
+
+    /// Returns true if the struct or class has a field with this name.
+    fn has_field(&self, ty: &Type, name: &str) -> bool {
+        self.fields_of(ty)
+            .is_some_and(|fields| fields.iter().any(|(field, _)| field == name))
+    }
+
+    /// Checks `k.aktion(args)` for a field with a function type, or returns T091 for a field of another type.
+    fn check_field_call(
+        &mut self,
+        object: &Type,
+        call: &mut MethodCall,
+        span: Span,
+    ) -> Result<Type, SomoniError> {
+        let fields = self
+            .fields_of(object)
+            .ok_or_else(|| SomoniError::internal("field call without fields"))?;
+        let (position, ty) = field_of(fields, &object.to_string(), &call.name, call.name_span)?;
+        let Type::Function(function) = ty.clone() else {
+            let code = ErrorCode::NotCallable { found: ty.clone() };
+            return Err(SomoniError::at(call.name_span, code));
+        };
+        if let Type::Class(layout) = object {
+            self.check_access(layout, &call.name, call.name_span)?;
+        }
+        call.call = Some(MethodTarget::Field { position });
+        self.check_args(&call.name, &function.params, &mut call.args, span)?;
+        Ok(function.result.clone())
     }
 
     /// Checks `super(args)`.
