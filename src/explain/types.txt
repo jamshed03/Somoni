@@ -805,3 +805,1099 @@ Right:
             this.name = name;
         }
     }
+
+## T051 class written like a struct
+An object of a class is made with `new` and its constructor, not with `Name { ... }` like a struct.
+
+Wrong:
+
+    class Point {
+        x: int = 0;
+    }
+    var p = Point { x: 1 };
+
+Right:
+
+    class Point {
+        x: int = 0;
+    }
+    var p = new Point();
+    p.x = 1;
+
+## T052 struct made with new
+A struct value is written as `Name { field: value }`; `new` is only for classes.
+
+Wrong:
+
+    struct Point { x: int }
+    var p = new Point();
+
+Right:
+
+    struct Point { x: int }
+    var p = Point { x: 1 };
+
+## T053 this outside a class
+`this` is the object a method or constructor runs for, so it only exists inside them.
+
+Wrong:
+
+    print(this);
+
+Right:
+
+    class Greeter {
+        name: string = "Ali";
+        greet(): string {
+            return "Hello " + this.name;
+        }
+    }
+    print(new Greeter().greet());
+
+## T054 this before every field has a value
+In a constructor, `this` can only be used as a whole (for a method call, a lambda or to give it away) after every
+field has a value. Setting fields with `this.x = ...` is fine before.
+
+Wrong:
+
+    class User {
+        name: string;
+        age: int;
+        constructor() {
+            this.name = "Ali";
+            print(this.describe());
+            this.age = 30;
+        }
+        describe(): string {
+            return this.name;
+        }
+    }
+
+Right:
+
+    class User {
+        name: string;
+        age: int;
+        constructor() {
+            this.name = "Ali";
+            this.age = 30;
+            print(this.describe());
+        }
+        describe(): string {
+            return this.name;
+        }
+    }
+
+## T055 name already a field or method
+A class has two members with the same name, or a subclass declares a field with the name of an inherited one.
+
+Wrong:
+
+    class Counter {
+        count: int = 0;
+        count(): int {
+            return 1;
+        }
+    }
+
+Right:
+
+    class Counter {
+        count: int = 0;
+        current(): int {
+            return this.count;
+        }
+    }
+
+## T056 unknown method
+The class, interface or built-in type has no method of this name. For an object seen through a parent class or an
+interface, only their methods are known; check with `instanceof` first to use the methods of the subclass.
+
+Wrong:
+
+    abstract class Animal {
+    }
+    class Dog extends Animal {
+        bark(): string {
+            return "Woof";
+        }
+    }
+    var a: Animal = new Dog();
+    print(a.bark());
+
+Right:
+
+    abstract class Animal {
+    }
+    class Dog extends Animal {
+        bark(): string {
+            return "Woof";
+        }
+    }
+    var a: Animal = new Dog();
+    if (a instanceof Dog) {
+        print(a.bark());
+    }
+
+## T057 no methods on this type
+Methods exist on objects, strings, floats, lists and maps, not on ints, bools or structs. Use a function instead.
+
+Wrong:
+
+    var n = 5;
+    print(n.abs());
+
+Right:
+
+    var n = 5;
+    print(abs(n));
+
+## T058 private member
+A `private` field or method can only be used inside its own class.
+
+Wrong:
+
+    class Account {
+        private balance: int = 0;
+    }
+    var a = new Account();
+    print(a.balance);
+
+Right:
+
+    class Account {
+        private balance: int = 0;
+        current(): int {
+            return this.balance;
+        }
+    }
+    var a = new Account();
+    print(a.current());
+
+## T059 interface method missing
+A class that implements an interface must have every method of it.
+
+Wrong:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+    }
+
+Right:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        area(): float {
+            return 4.0;
+        }
+    }
+
+## T060 interface method with other types
+A method that implements an interface must have exactly its parameter types and its return type.
+
+Wrong:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        area(): int {
+            return 4;
+        }
+    }
+
+Right:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        area(): float {
+            return 4.0;
+        }
+    }
+
+## T061 interface method not public
+Everyone who has the interface may call its methods, so the methods that implement it are public.
+
+Wrong:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        private area(): float {
+            return 4.0;
+        }
+    }
+
+Right:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        area(): float {
+            return 4.0;
+        }
+    }
+
+## T062 implements a class
+After `implements` stand interfaces. To take over the fields and methods of a class, use `extends`.
+
+Wrong:
+
+    class Animal {
+    }
+    class Dog implements Animal {
+    }
+
+Right:
+
+    class Animal {
+    }
+    class Dog extends Animal {
+    }
+
+## T063 new for an interface
+An interface only promises methods and has no objects of its own. Make an object of a class that implements it.
+
+Wrong:
+
+    interface Shape {
+        area(): float;
+    }
+    var s = new Shape();
+
+Right:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        area(): float {
+            return 4.0;
+        }
+    }
+    var s: Shape = new Square();
+
+## T064 extends something that is no class
+Only a class can be extended, not a struct, an enum or an interface (an interface is implemented).
+
+Wrong:
+
+    struct Point { x: int }
+    class Spot extends Point {
+    }
+
+Right:
+
+    class Point {
+        x: int = 0;
+    }
+    class Spot extends Point {
+    }
+
+## T065 class inherits from itself
+Classes extend each other in a circle, so none of them could come first.
+
+Wrong:
+
+    class A extends B {
+    }
+    class B extends A {
+    }
+
+Right:
+
+    class A {
+    }
+    class B extends A {
+    }
+
+## T066 override missing
+A subclass has a method with the name of an inherited one, also an abstract one. Write `override` in front to show
+that it replaces it on purpose.
+
+Wrong:
+
+    abstract class Animal {
+        abstract sound(): string;
+    }
+    class Dog extends Animal {
+        sound(): string {
+            return "Woof";
+        }
+    }
+
+Right:
+
+    abstract class Animal {
+        abstract sound(): string;
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return "Woof";
+        }
+    }
+
+## T067 nothing to override
+A method has `override`, but no parent class has a method of this name. Check the spelling, or leave `override` out.
+
+Wrong:
+
+    class Animal {
+        sound(): string {
+            return "...";
+        }
+    }
+    class Dog extends Animal {
+        override sond(): string {
+            return "Woof";
+        }
+    }
+
+Right:
+
+    class Animal {
+        sound(): string {
+            return "...";
+        }
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return "Woof";
+        }
+    }
+
+## T068 override with other types or visibility
+A method that overrides must have the same parameter types, return type and visibility as the inherited one.
+
+Wrong:
+
+    class Animal {
+        sound(): string {
+            return "...";
+        }
+    }
+    class Dog extends Animal {
+        override sound(): int {
+            return 1;
+        }
+    }
+
+Right:
+
+    class Animal {
+        sound(): string {
+            return "...";
+        }
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return "Woof";
+        }
+    }
+
+## T069 super(...) missing
+The constructor of a subclass must start with `super(...)`, which runs the constructor of the parent class first.
+
+Wrong:
+
+    class Animal {
+        name: string;
+        constructor(name: string) {
+            this.name = name;
+        }
+    }
+    class Dog extends Animal {
+        constructor() {
+            print("new dog");
+        }
+    }
+
+Right:
+
+    class Animal {
+        name: string;
+        constructor(name: string) {
+            this.name = name;
+        }
+    }
+    class Dog extends Animal {
+        constructor() {
+            super("Rex");
+            print("new dog");
+        }
+    }
+
+## T070 super(...) in the wrong place
+`super(...)` is only the first statement of the constructor of a subclass. To call a method of the parent class,
+write `super.name(...)`.
+
+Wrong:
+
+    class Animal {
+    }
+    class Dog extends Animal {
+        bark(): void {
+            super();
+        }
+    }
+
+Right:
+
+    class Animal {
+        sound(): string {
+            return "...";
+        }
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return super.sound() + " Woof";
+        }
+    }
+
+## T071 super without a parent class
+`super` means the parent class, so it only works in a class that extends another one.
+
+Wrong:
+
+    class Animal {
+        sound(): string {
+            return super.sound();
+        }
+    }
+
+Right:
+
+    class Animal {
+        sound(): string {
+            return "...";
+        }
+    }
+
+## T072 protected member
+A `protected` field or method can only be used inside its class and its subclasses.
+
+Wrong:
+
+    class Animal {
+        protected species: string = "?";
+    }
+    var a = new Animal();
+    print(a.species);
+
+Right:
+
+    class Animal {
+        protected species: string = "?";
+        describe(): string {
+            return this.species;
+        }
+    }
+    var a = new Animal();
+    print(a.describe());
+
+## T073 readonly field changed
+A `readonly` field gets its value once: as a start value or in the constructor of its class.
+
+Wrong:
+
+    class Register {
+        readonly limit: int = 10;
+    }
+    var r = new Register();
+    r.limit = 20;
+
+Right:
+
+    class Register {
+        readonly limit: int;
+        constructor(limit: int) {
+            this.limit = limit;
+        }
+    }
+    var r = new Register(20);
+    print(r.limit);
+
+## T074 Class::name for something that is not static
+`Class::name` reaches static methods and fields. Other members belong to an object.
+
+Wrong:
+
+    class User {
+        name: string = "Ali";
+    }
+    print(User::name);
+
+Right:
+
+    class User {
+        name: string = "Ali";
+    }
+    print(new User().name);
+
+## T075 static method called on an object
+A static method belongs to the class, not to an object; call it as `Class::name(...)`.
+
+Wrong:
+
+    class Calculator {
+        static square(x: int): int {
+            return x * x;
+        }
+    }
+    var c = new Calculator();
+    print(c.square(2));
+
+Right:
+
+    class Calculator {
+        static square(x: int): int {
+            return x * x;
+        }
+    }
+    print(Calculator::square(2));
+
+## T076 new for an abstract class
+An abstract class has no objects of its own; make an object of a subclass.
+
+Wrong:
+
+    abstract class Shape {
+    }
+    var s = new Shape();
+
+Right:
+
+    abstract class Shape {
+    }
+    class Square extends Shape {
+    }
+    var s: Shape = new Square();
+
+## T077 abstract method not overridden
+A class that extends an abstract class must override each of its abstract methods, unless it is abstract itself.
+
+Wrong:
+
+    abstract class Animal {
+        abstract sound(): string;
+    }
+    class Dog extends Animal {
+    }
+
+Right:
+
+    abstract class Animal {
+        abstract sound(): string;
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return "Woof";
+        }
+    }
+
+## T078 super for an abstract method
+An abstract method has no body, so `super.name()` has nothing to call.
+
+Wrong:
+
+    abstract class Animal {
+        abstract sound(): string;
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return super.sound();
+        }
+    }
+
+Right:
+
+    abstract class Animal {
+        abstract sound(): string;
+    }
+    class Dog extends Animal {
+        override sound(): string {
+            return "Woof";
+        }
+    }
+
+## T079 instanceof on no object
+`instanceof` asks what class an object has; ints, strings and other values have none.
+
+Wrong:
+
+    class Dog {
+    }
+    var n = 5;
+    print(n instanceof Dog);
+
+Right:
+
+    class Dog {
+    }
+    var d = new Dog();
+    print(d instanceof Dog);
+
+## T080 instanceof that is never true
+The value can never be of this class, because the classes are not related; the check would always be false.
+
+Wrong:
+
+    class Animal {
+    }
+    class Dog extends Animal {
+    }
+    class Cat extends Animal {
+    }
+    var d = new Dog();
+    print(d instanceof Cat);
+
+Right:
+
+    class Animal {
+    }
+    class Dog extends Animal {
+    }
+    class Cat extends Animal {
+    }
+    var a: Animal = new Dog();
+    print(a instanceof Cat);
+
+## T081 instanceof with no class or interface
+After `instanceof` stands a class or an interface, not a struct or another type.
+
+Wrong:
+
+    struct Point { x: int }
+    class Dog {
+    }
+    var d = new Dog();
+    print(d instanceof Point);
+
+Right:
+
+    class Dog {
+    }
+    var d = new Dog();
+    print(d instanceof Dog);
+
+## T082 static field without a start value
+A static field belongs to the class and exists before any object, so it needs a start value.
+
+Wrong:
+
+    class Counter {
+        static count: int;
+    }
+
+Right:
+
+    class Counter {
+        static count: int = 0;
+    }
+
+## T083 start value of a static field not fixed
+The start value of a static field must be known when the program is written: a number, a string, a list of them and
+the like, without calls, `new` or variables.
+
+Wrong:
+
+    class User {
+        static first: User? = new User();
+    }
+
+Right:
+
+    class User {
+        static first: User? = null;
+    }
+
+## T084 static field used on an object
+A static field belongs to the class; use it as `Class::name`.
+
+Wrong:
+
+    class User {
+        static count: int = 0;
+    }
+    var u = new User();
+    print(u.count);
+
+Right:
+
+    class User {
+        static count: int = 0;
+    }
+    print(User::count);
+
+## T085 unknown static field
+The class has no static field of this name. Check the spelling.
+
+Wrong:
+
+    class User {
+        static count: int = 0;
+    }
+    print(User::total);
+
+Right:
+
+    class User {
+        static count: int = 0;
+    }
+    print(User::count);
+
+## T086 constant of an imported file not fixed
+A `const` in an imported file must be a fixed value, so that it is the same however the file is used.
+
+Wrong:
+
+    import { LIMIT } from "settings.smn";
+    print(LIMIT);
+
+File settings.smn:
+
+    export const LIMIT = len([1, 2, 3]);
+
+Right:
+
+    import { LIMIT } from "settings.smn";
+    print(LIMIT);
+
+File settings.smn:
+
+    export const LIMIT = 3;
+
+## T087 ? outside a function with a result
+`?` gives an `err` back at once, so it only works in a function that returns a `result` itself.
+
+Wrong:
+
+    fn read(): int {
+        return int("5")?;
+    }
+
+Right:
+
+    fn read(): result<int, string> {
+        var n = int("5")?;
+        return ok(n);
+    }
+    print(read());
+
+## T088 ? on no result
+`?` takes the value out of an `ok`, so it needs a `result`.
+
+Wrong:
+
+    fn next(n: int): result<int, string> {
+        return ok(n? + 1);
+    }
+
+Right:
+
+    fn next(n: int): result<int, string> {
+        return ok(n + 1);
+    }
+    print(next(1));
+
+## T089 ? with another error type
+`?` passes the `err` on unchanged, so its type must be the error type of the function.
+
+Wrong:
+
+    fn read(): result<int, int> {
+        var n = int("5")?;
+        return ok(n);
+    }
+
+Right:
+
+    fn read(): result<int, string> {
+        var n = int("5")?;
+        return ok(n);
+    }
+    print(read());
+
+## T090 built-in function as a value
+Only own functions can be stored as values; built-in functions like `print` cannot. Wrap one in a lambda.
+
+Wrong:
+
+    var show: fn(int): void = print;
+
+Right:
+
+    var show: fn(int): void = fn(n) => print(n);
+    show(3);
+
+## T091 value is no function
+Something is called with `(...)` that is no function, like a field that holds an int.
+
+Wrong:
+
+    struct Point { x: int }
+    var p = Point { x: 1 };
+    p.x(2);
+
+Right:
+
+    struct Button { action: fn(int): void }
+    var b = Button { action: fn(n) => print(n) };
+    b.action(2);
+
+## T092 copy in a lambda changed
+A lambda copies the outside variables it uses when it is made; it can read the copies but not change them, and it
+cannot set fields of `this`. Call a method of the object instead.
+
+Wrong:
+
+    var count = 0;
+    var add = fn() {
+        count += 1;
+    };
+
+Right:
+
+    var count = 0;
+    var next = fn() => count + 1;
+    count = next();
+    print(count);
+
+## T093 super inside a lambda
+`super` cannot be used inside a lambda. Call the method of the parent class before and use its result.
+
+Wrong:
+
+    class A {
+        m(): int {
+            return 1;
+        }
+    }
+    class B extends A {
+        override m(): int {
+            var f = fn(): int => super.m();
+            return f();
+        }
+    }
+
+Right:
+
+    class A {
+        m(): int {
+            return 1;
+        }
+    }
+    class B extends A {
+        override m(): int {
+            var first = super.m();
+            var f = fn(): int => first + 1;
+            return f();
+        }
+    }
+
+## T094 tuple with one element
+A tuple holds at least two values; for one value, use the value itself.
+
+Wrong:
+
+    var single: (int) = 1;
+
+Right:
+
+    var pair: (int, string) = (1, "one");
+    var single: int = 1;
+
+## T095 tuple element out of range
+A tuple with two elements has `.0` and `.1`; there is no `.2`.
+
+Wrong:
+
+    var pair = (1, "one");
+    print(pair.2);
+
+Right:
+
+    var pair = (1, "one");
+    print(pair.1);
+
+## T096 .0 on no tuple
+`.0`, `.1` and so on read the elements of a tuple; other values have none.
+
+Wrong:
+
+    var n = 5;
+    print(n.0);
+
+Right:
+
+    var pair = (5, 6);
+    print(pair.0);
+
+## T097 name of an imported module
+`import * as math` makes `math` the name of the module, so no variable, function or type may have it.
+
+Wrong:
+
+    import * as math from "math.smn";
+    var math = 1;
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+Right:
+
+    import * as math from "math.smn";
+    var result = math.square(2);
+    print(result);
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+## T098 module used as a value
+A module name is no value by itself; use a name in it, like `math.square`.
+
+Wrong:
+
+    import * as math from "math.smn";
+    print(math);
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+Right:
+
+    import * as math from "math.smn";
+    print(math.square(3));
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+## T099 match over values without _
+There are endless strings and ints, so a `match` over them needs `_` as the last branch for all other values.
+
+Wrong:
+
+    var answer = "yes";
+    match (answer) {
+        "yes" => {
+            print("good");
+        }
+    }
+
+Right:
+
+    var answer = "yes";
+    match (answer) {
+        "yes" => {
+            print("good");
+        }
+        _ => {
+            print("something else");
+        }
+    }
+
+## T100 if (var ...) with a value that is never null
+`if (var name = value)` runs only when the value is not null; for a value without `?`, it would always run. Use a
+normal `var`.
+
+Wrong:
+
+    if (var price = 2.5) {
+        print(price);
+    }
+
+Right:
+
+    var price = 2.5;
+    print(price);
+
+## T101 void stored in a variable
+The call gives no value (its type is `void`), so there is nothing to store.
+
+Wrong:
+
+    var shown = print(1);
+
+Right:
+
+    print(1);
+
+## T102 type of a constant known only later
+A `const` of the top level without a type, whose value is computed, has its type only from its own line on. A
+function above it that uses it cannot know the type yet. Write the type, or move the constant up.
+
+Wrong:
+
+    fn total(): int {
+        return BASE * 2;
+    }
+    const BASE = len([1, 2]);
+    print(total());
+
+Right:
+
+    const BASE = len([1, 2]);
+    fn total(): int {
+        return BASE * 2;
+    }
+    print(total());
+
+## T103 type of a lambda parameter unknown
+A lambda may leave out the types of its parameters only where a function type is expected, like an argument of
+`map` or a variable with a type.
+
+Wrong:
+
+    var next = fn(x) => x + 1;
+
+Right:
+
+    var next = fn(x: int) => x + 1;
+    var twice: fn(int): int = fn(x) => x * 2;
+    print(next(twice(3)));
+
+## T104 lambda with another number of parameters
+The expected function type has another number of parameters than the lambda.
+
+Wrong:
+
+    var f: fn(int): int = fn(x, y) => x;
+
+Right:
+
+    var f: fn(int): int = fn(x) => x;
+    print(f(1));
+
+## T105 value that cannot stand in a string
+In `"... {value} ..."` and in `{{ }}` of a template stand ints, floats, bools and strings. A list or an object needs
+to be turned into text first; a value with `?` needs a null check first.
+
+Wrong:
+
+    var names = ["Ali", "Bea"];
+    print("Names: {names}");
+
+Right:
+
+    var names = ["Ali", "Bea"];
+    print("Names: {names.join(", ")}");

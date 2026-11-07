@@ -72,7 +72,7 @@ mod tests {
     use super::*;
 
     /// The kinds of errors whose codes all have an explanation already.
-    const FINISHED: &str = "LPMR";
+    const FINISHED: &str = "LPMTR";
 
     /// Returns every code that `error.rs` gives to an error, like `L001`.
     fn codes_of_errors() -> Vec<String> {
