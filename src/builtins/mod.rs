@@ -1,4 +1,4 @@
-//! The functions and methods built into Somoni; the methods of strings and the conversions have files of their own.
+//! The functions and methods built into Somoni; the methods of strings, the conversions and the input have files of their own.
 
 use std::rc::Rc;
 
@@ -12,6 +12,7 @@ use strings::{Side, format_float, index_of, join, pad, repeat, replace, slice_te
 
 mod collections;
 mod convert;
+mod io;
 mod math;
 mod strings;
 
@@ -19,6 +20,7 @@ mod strings;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Builtin {
     Print,
+    Input,
     Int,
     Float,
     Str,
@@ -70,6 +72,7 @@ pub enum Builtin {
 /// Every built-in function and method, so that a name only has to be written in `name`.
 const ALL: &[Builtin] = &[
     Builtin::Print,
+    Builtin::Input,
     Builtin::Int,
     Builtin::Float,
     Builtin::Str,
@@ -166,6 +169,7 @@ impl Builtin {
             | Builtin::PadRight
             | Builtin::Repeat => true,
             Builtin::Print
+            | Builtin::Input
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -215,6 +219,7 @@ impl Builtin {
     pub fn name(self) -> &'static str {
         match self {
             Builtin::Print => "print",
+            Builtin::Input => "input",
             Builtin::Int => "int",
             Builtin::Float => "float",
             Builtin::Str => "string",
@@ -267,6 +272,7 @@ impl Builtin {
     /// Returns the number of arguments.
     pub fn arity(self) -> usize {
         match self {
+            Builtin::Input => 0,
             Builtin::Print
             | Builtin::Int
             | Builtin::Float
@@ -319,6 +325,7 @@ impl Builtin {
         match (self, args) {
             (Builtin::Print, [Type::Void | Type::Function(_)]) => Err(0),
             (Builtin::Print, [_]) => Ok(Type::Void),
+            (Builtin::Input, []) => Ok(Type::Optional(Box::new(Type::Str))),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
             (Builtin::Float, [Type::Int]) => Ok(Type::Float),
@@ -445,6 +452,7 @@ impl Builtin {
                 println!("{}", arg);
                 Ok(Value::Void)
             }
+            (Builtin::Input, []) => io::read_line(),
             (Builtin::Int, [Value::Float(f)]) => float_to_int(*f),
             (Builtin::Int, [Value::Str(s)]) => Ok(parse_int(s.as_str())),
             (Builtin::Float, [Value::Int(n)]) => Ok(Value::Float(*n as f64)),

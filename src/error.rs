@@ -429,6 +429,9 @@ pub enum ErrorCode {
     NoMathResult {
         function: &'static str,
     },
+    InputFailed {
+        reason: String,
+    },
     KeyNotFound {
         key: String,
     },
@@ -592,6 +595,7 @@ impl ErrorCode {
             ErrorCode::ConstBeforeValue { .. } => "R008",
             ErrorCode::SliceOutOfRange { .. } => "R009",
             ErrorCode::NoMathResult { .. } => "R010",
+            ErrorCode::InputFailed { .. } => "R011",
         }
     }
 
@@ -1051,6 +1055,7 @@ impl ErrorCode {
                 "cannot take {} to {} from a value with {} elements (0 <= start <= end <= length)",
                 start, end, length
             ),
+            ErrorCode::InputFailed { reason } => format!("cannot read the input: {}", reason),
             ErrorCode::NoMathResult { function } => format!(
                 "'{}' has no result for these arguments, like sqrt(-1.0) or pow(2, -1)",
                 function

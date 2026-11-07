@@ -1,0 +1,26 @@
+// input() reads one line without its line break, and null when the input has ended
+if (var name = input()) {
+    print("Hallo " + name + "!");
+}
+
+var total = 0;
+var count = 0;
+var line = input();
+while (line != null) {
+    if (line == "") {
+        print("(leere Zeile)");
+    } else {
+        match (int(line)) {
+            ok(n: int) => {
+                total += n;
+                count++;
+            }
+            err(message: string) => {
+                print(message);
+            }
+        }
+    }
+    line = input();
+}
+print(string(count) + " Zahlen, Summe " + string(total));
+print(input() == null);
