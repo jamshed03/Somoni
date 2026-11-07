@@ -754,7 +754,7 @@ impl ErrorCode {
                 "a '{' in this string is not closed with '}' (a '{' itself is written '\\{')".to_string()
             }
             ErrorCode::UnknownEscape { found } => format!(
-                "unknown escape '\\{}' in a string (known: \\n \\t \\\" \\\\ \\{{ \\}})",
+                "unknown escape '\\{}' in a string (known: \\n \\t \\r \\\" \\\\ \\{{ \\}})",
                 found
             ),
             ErrorCode::UnterminatedComment => "unterminated comment".to_string(),

@@ -148,6 +148,7 @@ fn escaped(s: &str) -> String {
             '"' => out.push_str("\\\""),
             '\n' => out.push_str("\\n"),
             '\t' => out.push_str("\\t"),
+            '\r' => out.push_str("\\r"),
             '{' => out.push_str("\\{"),
             '}' => out.push_str("\\}"),
             other => out.push(other),

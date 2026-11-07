@@ -305,7 +305,7 @@ impl Lexer {
         }
     }
 
-    /// Reads an escape `\n`, `\t`, `\"`, `\\`, `\{` or `\}` and returns its character, or L006 for another one.
+    /// Reads an escape `\n`, `\t`, `\r`, `\"`, `\\`, `\{` or `\}` and returns its character, or L006 for another one.
     fn read_escape(&mut self, string_start: Span) -> Result<char, SomoniError> {
         let place = Span::in_line(self.file, self.line, self.col(), 2);
         self.advance();
@@ -315,6 +315,7 @@ impl Lexer {
         let meant = match c {
             'n' => '\n',
             't' => '\t',
+            'r' => '\r',
             '"' => '"',
             '\\' => '\\',
             '{' => '{',
@@ -495,7 +496,7 @@ mod tests {
 
     #[test]
     fn escapes_become_their_characters() {
-        assert_eq!(string_text(r#""a\nb\tc\"d\\e""#), "a\nb\tc\"d\\e");
+        assert_eq!(string_text(r#""a\nb\tc\"d\\e\rf""#), "a\nb\tc\"d\\e\rf");
     }
 
     #[test]

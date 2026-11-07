@@ -14,3 +14,6 @@ print(["a\"b", "x\ny", "C:\\"]);
 print({"tab": "a\tb"});
 print(["a\{b\}"]);
 print("a\{b\}");
+print(len("a\r\nb"));
+print(["a\r\nb"]);
+print("x\ry" == "x" + "\r" + "y");

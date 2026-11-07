@@ -12,3 +12,6 @@ true
 {"tab": "a\tb"}
 ["a\{b\}"]
 a{b}
+4
+["a\r\nb"]
+true

@@ -21,7 +21,7 @@ fn add_entry(name: string?, message: string?): string? {
         set_status(422);
         return "Please fill in your name and a message.";
     }
-    var text = message.split("\n").map(fn(part) => part.trim()).join(" ").trim();
+    var text = message.replace("\r\n", " ").replace("\n", " ").trim();
     var all = entries() + ["{name.trim()}: {text}"];
     match (write_file(ENTRIES, all.join("\n") + "\n")) {
         ok(_) => {
