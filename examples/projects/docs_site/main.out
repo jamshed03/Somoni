@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Somoni 0.7.0</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
+        nav a { margin-right: 1rem; }
+        pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #1b1b1b; color: #eee; }
+            pre { background: #2a2a2a; }
+            a { color: #8ab4f8; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Somoni</h1>
+        <p>Version 0.7.0, gebaut mit Somoni selbst</p>
+        <nav>
+            <a href="#start">Was ist Somoni?</a>
+            <a href="#typen">Variablen und Typen</a>
+            <a href="#funktionen">Funktionen und Lambdas</a>
+            <a href="#klassen">Klassen und Interfaces</a>
+            <a href="#module">Module</a>
+            <a href="#templates">Templates wie Blade</a>
+        </nav>
+    </header>
+    <main>
+<section id="start">
+    <h2>Was ist Somoni?</h2>
+    <p>Somoni ist eine stark typisierte Sprache mit geschweiften Klammern. Ein Typchecker findet Fehler vor dem Lauf, eine VM führt den Bytecode aus.</p>
+    <pre><code>print(&quot;Hallo Somoni&quot;);
+
+var name = &quot;Ali&quot;;
+print(&quot;Hallo {name}!&quot;);</code></pre>
+    <ul>
+        <li>Aufruf: somoni datei.smn</li>
+        <li>Benannt nach Ismoil Somoni</li>
+        <li>Interpreter in Rust: Lexer, Parser, Typchecker, Compiler, VM</li>
+    </ul>
+</section>
+<section id="typen">
+    <h2>Variablen und Typen</h2>
+    <p>Jede Variable hat einen festen Typ. Er darf fehlen, dann ist es der Typ des Werts.</p>
+    <pre><code>var count = 0;              // int
+const pi: float = 3.14;
+var names = [&quot;Ali&quot;, &quot;Bea&quot;];    // list&lt;string&gt;
+var ages = {&quot;Ali&quot;: 30};       // map&lt;string, int&gt;
+var found: int? = null;       // int oder null
+
+if (found != null) {
+    print(found + 1);
+}</code></pre>
+    <ul>
+        <li>int, float, bool, string, list, map, tuple, struct, enum, result</li>
+        <li>Keine stille Umwandlung: &quot;5&quot; + 1 ist ein Fehler</li>
+        <li>Ein Wert mit ? muss vor der Nutzung auf null geprüft werden</li>
+    </ul>
+</section>
+<section id="funktionen">
+    <h2>Funktionen und Lambdas</h2>
+    <p>Funktionen haben Typen für Parameter und Rückgabe. Lambdas dürfen sie weglassen, wo sie bekannt sind.</p>
+    <pre><code>fn square(x: int): int {
+    return x * x;
+}
+
+var users = [User { name: &quot;Ali&quot;, age: 30 }];
+print(users.map(fn(u) =&gt; u.name));
+print(users.filter(fn(u) =&gt; u.age &gt; 18));</code></pre>
+    <ul>
+        <li>map, filter, reduce, any, all, sort_by geben dem Lambda seine Typen</li>
+        <li>Lambdas kopieren die Variablen von außen, die sie benutzen</li>
+    </ul>
+</section>
+<section id="klassen">
+    <h2>Klassen und Interfaces</h2>
+    <p>Klassen mit constructor, Sichtbarkeit, Vererbung und Interfaces, wie in TypeScript und PHP.</p>
+    <pre><code>interface Shape {
+    area(): float;
+}
+
+class Circle implements Shape {
+    private r: float;
+
+    constructor(r: float) {
+        this.r = r;
+    }
+
+    area(): float {
+        return 3.14 * this.r * this.r;
+    }
+}</code></pre>
+    <ul>
+        <li>public, private, protected, readonly, static, abstract</li>
+        <li>extends und super, override wird geprüft</li>
+        <li>instanceof mit Narrowing</li>
+    </ul>
+</section>
+<section id="module">
+    <h2>Module</h2>
+    <p>Was eine Datei hergibt, markiert sie mit export. Andere Dateien holen es mit import.</p>
+    <pre><code>import { square } from &quot;math.smn&quot;;
+import * as text from &quot;text.smn&quot;;
+
+print(square(4));</code></pre>
+    <ul>
+        <li>export vor fn, struct, enum, class, interface oder const</li>
+        <li>Jede Datei wird nur einmal gelesen, Kreise werden gemeldet</li>
+    </ul>
+</section>
+<section id="templates">
+    <h2>Templates wie Blade</h2>
+    <p>Dateien name.template.smn sind HTML mit Werten und Direktiven. Diese Seite ist selbst so gebaut.</p>
+    <pre><code>@props(title: string, pages: list&lt;Page&gt;)
+&lt;h1&gt;{{ title }}&lt;/h1&gt;
+&lt;ul&gt;
+@foreach (page: Page in pages)
+    &lt;li&gt;{{ page.title }}&lt;/li&gt;
+@endforeach
+&lt;/ul&gt;</code></pre>
+    <ul>
+        <li>{{ }} escapt immer, {!! !!} schreibt roh</li>
+        <li>@if, @elseif, @else, @foreach, @include</li>
+        <li>Ein Tippfehler im Template ist ein Fehler vor dem Lauf, mit Datei und Zeile</li>
+    </ul>
+</section>
+    </main>
+</body>
+</html>

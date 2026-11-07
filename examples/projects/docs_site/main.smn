@@ -1,0 +1,6 @@
+// Builds the documentation page of Somoni with Somoni: somoni main.smn > index.html
+
+import { sections } from "lib/content.smn";
+import { layout } from "lib/layout.template.smn";
+
+layout("0.7.0", sections());

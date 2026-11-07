@@ -1,0 +1,119 @@
+// The texts of the documentation site: one section per topic, each with an example in Somoni.
+
+export struct Section {
+    id: string,
+    title: string,
+    intro: string,
+    example: string,
+    notes: list<string>
+}
+
+// Returns all sections in the order of the page.
+export fn sections(): list<Section> {
+    return [
+        Section {
+            id: "start",
+            title: "Was ist Somoni?",
+            intro: "Somoni ist eine stark typisierte Sprache mit geschweiften Klammern. Ein Typchecker findet Fehler vor dem Lauf, eine VM führt den Bytecode aus.",
+            example: "print(\"Hallo Somoni\");
+
+var name = \"Ali\";
+print(\"Hallo \{name\}!\");",
+            notes: [
+                "Aufruf: somoni datei.smn",
+                "Benannt nach Ismoil Somoni",
+                "Interpreter in Rust: Lexer, Parser, Typchecker, Compiler, VM"
+            ]
+        },
+        Section {
+            id: "typen",
+            title: "Variablen und Typen",
+            intro: "Jede Variable hat einen festen Typ. Er darf fehlen, dann ist es der Typ des Werts.",
+            example: "var count = 0;              // int
+const pi: float = 3.14;
+var names = [\"Ali\", \"Bea\"];    // list<string>
+var ages = \{\"Ali\": 30\};       // map<string, int>
+var found: int? = null;       // int oder null
+
+if (found != null) \{
+    print(found + 1);
+\}",
+            notes: [
+                "int, float, bool, string, list, map, tuple, struct, enum, result",
+                "Keine stille Umwandlung: \"5\" + 1 ist ein Fehler",
+                "Ein Wert mit ? muss vor der Nutzung auf null geprüft werden"
+            ]
+        },
+        Section {
+            id: "funktionen",
+            title: "Funktionen und Lambdas",
+            intro: "Funktionen haben Typen für Parameter und Rückgabe. Lambdas dürfen sie weglassen, wo sie bekannt sind.",
+            example: "fn square(x: int): int \{
+    return x * x;
+\}
+
+var users = [User \{ name: \"Ali\", age: 30 \}];
+print(users.map(fn(u) => u.name));
+print(users.filter(fn(u) => u.age > 18));",
+            notes: [
+                "map, filter, reduce, any, all, sort_by geben dem Lambda seine Typen",
+                "Lambdas kopieren die Variablen von außen, die sie benutzen"
+            ]
+        },
+        Section {
+            id: "klassen",
+            title: "Klassen und Interfaces",
+            intro: "Klassen mit constructor, Sichtbarkeit, Vererbung und Interfaces, wie in TypeScript und PHP.",
+            example: "interface Shape \{
+    area(): float;
+\}
+
+class Circle implements Shape \{
+    private r: float;
+
+    constructor(r: float) \{
+        this.r = r;
+    \}
+
+    area(): float \{
+        return 3.14 * this.r * this.r;
+    \}
+\}",
+            notes: [
+                "public, private, protected, readonly, static, abstract",
+                "extends und super, override wird geprüft",
+                "instanceof mit Narrowing"
+            ]
+        },
+        Section {
+            id: "module",
+            title: "Module",
+            intro: "Was eine Datei hergibt, markiert sie mit export. Andere Dateien holen es mit import.",
+            example: "import \{ square \} from \"math.smn\";
+import * as text from \"text.smn\";
+
+print(square(4));",
+            notes: [
+                "export vor fn, struct, enum, class, interface oder const",
+                "Jede Datei wird nur einmal gelesen, Kreise werden gemeldet"
+            ]
+        },
+        Section {
+            id: "templates",
+            title: "Templates wie Blade",
+            intro: "Dateien name.template.smn sind HTML mit Werten und Direktiven. Diese Seite ist selbst so gebaut.",
+            example: "@props(title: string, pages: list<Page>)
+<h1>\{\{ title \}\}</h1>
+<ul>
+@foreach (page: Page in pages)
+    <li>\{\{ page.title \}\}</li>
+@endforeach
+</ul>",
+            notes: [
+                "\{\{ \}\} escapt immer, \{!! !!\} schreibt roh",
+                "@if, @elseif, @else, @foreach, @include",
+                "Ein Tippfehler im Template ist ein Fehler vor dem Lauf, mit Datei und Zeile"
+            ]
+        }
+    ];
+}

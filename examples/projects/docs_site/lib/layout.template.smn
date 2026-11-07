@@ -1,0 +1,38 @@
+{{-- The whole page: head with styles, a menu of all sections, then every section --}}
+@import { Section } from "content.smn"
+@import { section as show_section } from "section.template.smn"
+@props(version: string, sections: list<Section>)
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Somoni {{ version }}</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
+        nav a { margin-right: 1rem; }
+        pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #1b1b1b; color: #eee; }
+            pre { background: #2a2a2a; }
+            a { color: #8ab4f8; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Somoni</h1>
+        <p>Version {{ version }}, gebaut mit Somoni selbst</p>
+        <nav>
+            @foreach (section: Section in sections)
+            <a href="#{{ section.id }}">{{ section.title }}</a>
+            @endforeach
+        </nav>
+    </header>
+    <main>
+        @foreach (section: Section in sections)
+        @include(show_section(section))
+        @endforeach
+    </main>
+</body>
+</html>
