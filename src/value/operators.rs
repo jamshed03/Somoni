@@ -131,8 +131,25 @@ fn order<T: PartialOrd>(op: BinaryOp, a: T, b: T) -> Option<bool> {
     }
 }
 
-/// Compares two ints, floats or strings like `<` does, for `l.sort()` and `l.sort_by(...)`; other values count as equal.
-pub fn sort_order(a: &Value, b: &Value) -> Ordering {
+/// The direction of `l.sort()` and `l.sort_by(...)` (small to big) and their `_desc` forms (big to small).
+#[derive(Debug, Clone, Copy)]
+pub enum Order {
+    Ascending,
+    Descending,
+}
+
+impl Order {
+    /// Compares `a` and `b` in this direction; equal values stay equal, so a stable sort keeps their order.
+    pub fn compare(self, a: &Value, b: &Value) -> Ordering {
+        match self {
+            Order::Ascending => sort_order(a, b),
+            Order::Descending => sort_order(b, a),
+        }
+    }
+}
+
+/// Compares two ints, floats or strings like `<` does; other values count as equal.
+fn sort_order(a: &Value, b: &Value) -> Ordering {
     match (a, b) {
         (Value::Int(a), Value::Int(b)) => a.cmp(b),
         (Value::Float(a), Value::Float(b)) => a.total_cmp(b),

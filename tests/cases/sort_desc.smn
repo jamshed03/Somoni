@@ -1,0 +1,11 @@
+// sort_desc and sort_by_desc sort from big to small; items with the same key keep their order
+print([3, 1, 2].sort_desc());
+print(["b", "c", "a"].sort_desc());
+print([1.5, -2.0, 0.5].sort_desc());
+var leer: list<int> = [];
+print(leer.sort_desc());
+
+var counts: list<(string, int)> = [("katze", 1), ("der", 3), ("die", 1), ("hund", 2), ("und", 1)];
+print(counts.sort_by_desc(fn(p: (string, int)): int => p.1).map(fn(p: (string, int)): string => p.0));
+print(counts.sort_by(fn(p: (string, int)): int => p.1).reverse().map(fn(p: (string, int)): string => p.0));
+print(counts.sort_by_desc(fn(p: (string, int)): string => p.0).map(fn(p: (string, int)): string => p.0));

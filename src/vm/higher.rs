@@ -1,11 +1,11 @@
-//! The built-in methods that call a function for the elements of a list: `map`, `filter`, `reduce`, `any`, `all`, `sort_by`.
+//! The built-in methods that call a function for the elements of a list: `map`, `filter`, `reduce`, `any`, `all`, `sort_by`, `sort_by_desc`.
 
 use std::rc::Rc;
 
 use crate::builtins::Builtin;
 use crate::bytecode::Program;
 use crate::error::SomoniError;
-use crate::value::{Value, sort_order};
+use crate::value::{Order, Value};
 
 use super::{Frame, Vm};
 
@@ -32,7 +32,12 @@ impl<'p> Vm<'p> {
             (Builtin::All, [Value::List(items), f]) => {
                 Value::Bool(!self.find(items, f, false, frame, program)?)
             }
-            (Builtin::SortBy, [Value::List(items), f]) => self.sort_by(items, f, frame, program)?,
+            (Builtin::SortBy, [Value::List(items), f]) => {
+                self.sort_by(items, f, Order::Ascending, frame, program)?
+            }
+            (Builtin::SortByDesc, [Value::List(items), f]) => {
+                self.sort_by(items, f, Order::Descending, frame, program)?
+            }
             _ => {
                 return Err(SomoniError::internal(
                     "method with a function on wrong values",
@@ -108,11 +113,12 @@ impl<'p> Vm<'p> {
         Ok(false)
     }
 
-    /// Returns the items sorted by the key `f(item)`; items with the same key keep their order.
+    /// Returns the items sorted by the key `f(item)` in `order`; items with the same key keep their order.
     fn sort_by(
         &mut self,
         items: &[Value],
         f: &Value,
+        order: Order,
         frame: &mut Frame<'p>,
         program: &'p Program,
     ) -> Result<Value, SomoniError> {
@@ -121,7 +127,7 @@ impl<'p> Vm<'p> {
             let key = self.call_now(f, std::slice::from_ref(item), frame, program)?;
             keyed.push((key, item.clone()));
         }
-        keyed.sort_by(|(a, _), (b, _)| sort_order(a, b));
+        keyed.sort_by(|(a, _), (b, _)| order.compare(a, b));
         let sorted = keyed.into_iter().map(|(_, item)| item).collect();
         Ok(Value::List(Rc::new(sorted)))
     }

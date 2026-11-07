@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
-use crate::value::{Value, map_key, sort_order};
+use crate::value::{Order, Value, map_key};
 
 use super::slice_range;
 
@@ -27,10 +27,10 @@ pub(super) fn slice_list(items: &[Value], start: i64, end: i64) -> Result<Value,
     Ok(list(items[from..to].to_vec()))
 }
 
-/// Returns the items sorted from small to big; the type checker allows only ints, floats and strings.
-pub(super) fn sorted(items: &[Value]) -> Value {
+/// Returns the items sorted in `order`; the type checker allows only ints, floats and strings.
+pub(super) fn sorted(items: &[Value], order: Order) -> Value {
     let mut items = items.to_vec();
-    items.sort_by(sort_order);
+    items.sort_by(|a, b| order.compare(a, b));
     list(items)
 }
 

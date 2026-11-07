@@ -68,8 +68,8 @@ Version 0.6.0: the core of the language plus lists, structs, optional types, map
 -   Maps `map<string, int>` with `{"Ali": 30}`, `m["Ali"]`, `m["Tom"] = 40;`, `len`, `has(m, k)`, `keys(m)` (insertion order)
 -   Changing parts: `l[i] = x;`, `u.name = x;`, also nested like `lines[0].from.x = 3;` (copy-on-write, `const` protects the parts too)
 -   String methods `s.trim()`, `upper`, `lower`, `split`, `contains`, `starts_with`, `ends_with`, `replace`, `slice`, `index_of`, `pad_left`, `pad_right`, `repeat`, and `x.format(2)` on floats
--   List methods `l.contains(x)`, `index_of`, `reverse`, `slice`, `sort`, `remove`, `join`, map methods `m.values()`, `remove`, `get(k, default)` (all return a new value, see `docs/Bibliothek.md`)
--   With functions: `l.map(f)`, `filter`, `reduce(start, f)`, `any`, `all`, `sort_by(key)`, e.g. `users.sort_by(fn(u: User): int => u.alter)`
+-   List methods `l.contains(x)`, `index_of`, `reverse`, `slice`, `sort`, `sort_desc`, `remove`, `join`, map methods `m.values()`, `remove`, `get(k, default)` (all return a new value, see `docs/Bibliothek.md`)
+-   With functions: `l.map(f)`, `filter`, `reduce(start, f)`, `any`, `all`, `sort_by(key)`, `sort_by_desc(key)`, e.g. `users.sort_by(fn(u: User): int => u.alter)`
 -   Math functions `abs`, `min`, `max`, `sqrt`, `pow`, `floor`, `ceil`, `round`
 -   Built-in functions `print`, `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err`, `is_ok`, `is_err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value

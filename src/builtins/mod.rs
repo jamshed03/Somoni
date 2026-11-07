@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::error::{ErrorCode, SomoniError};
 use crate::text::Text;
 use crate::types::Type;
-use crate::value::{Value, map_key};
+use crate::value::{Order, Value, map_key};
 
 use convert::{conversion_result, float_to_int, parse_float, parse_int};
 use strings::{Side, format_float, index_of, join, pad, repeat, replace, slice_text, split};
@@ -50,6 +50,7 @@ pub enum Builtin {
     Round,
     Reverse,
     Sort,
+    SortDesc,
     Remove,
     Values,
     Map,
@@ -58,6 +59,7 @@ pub enum Builtin {
     Any,
     All,
     SortBy,
+    SortByDesc,
     Get,
     Format,
     PadLeft,
@@ -99,6 +101,7 @@ const ALL: &[Builtin] = &[
     Builtin::Round,
     Builtin::Reverse,
     Builtin::Sort,
+    Builtin::SortDesc,
     Builtin::Remove,
     Builtin::Values,
     Builtin::Map,
@@ -107,6 +110,7 @@ const ALL: &[Builtin] = &[
     Builtin::Any,
     Builtin::All,
     Builtin::SortBy,
+    Builtin::SortByDesc,
     Builtin::Get,
     Builtin::Format,
     Builtin::PadLeft,
@@ -146,6 +150,7 @@ impl Builtin {
             | Builtin::IndexOf
             | Builtin::Reverse
             | Builtin::Sort
+            | Builtin::SortDesc
             | Builtin::Remove
             | Builtin::Values
             | Builtin::Map
@@ -154,6 +159,7 @@ impl Builtin {
             | Builtin::Any
             | Builtin::All
             | Builtin::SortBy
+            | Builtin::SortByDesc
             | Builtin::Get
             | Builtin::Format
             | Builtin::PadLeft
@@ -191,6 +197,7 @@ impl Builtin {
                 | Builtin::Any
                 | Builtin::All
                 | Builtin::SortBy
+                | Builtin::SortByDesc
         )
     }
 
@@ -239,6 +246,7 @@ impl Builtin {
             Builtin::Round => "round",
             Builtin::Reverse => "reverse",
             Builtin::Sort => "sort",
+            Builtin::SortDesc => "sort_desc",
             Builtin::Remove => "remove",
             Builtin::Values => "values",
             Builtin::Map => "map",
@@ -247,6 +255,7 @@ impl Builtin {
             Builtin::Any => "any",
             Builtin::All => "all",
             Builtin::SortBy => "sort_by",
+            Builtin::SortByDesc => "sort_by_desc",
             Builtin::Get => "get",
             Builtin::Format => "format",
             Builtin::PadLeft => "pad_left",
@@ -278,6 +287,7 @@ impl Builtin {
             | Builtin::Round
             | Builtin::Reverse
             | Builtin::Sort
+            | Builtin::SortDesc
             | Builtin::Values => 1,
             Builtin::Has
             | Builtin::Split
@@ -295,6 +305,7 @@ impl Builtin {
             | Builtin::Any
             | Builtin::All
             | Builtin::SortBy
+            | Builtin::SortByDesc
             | Builtin::Format
             | Builtin::PadLeft
             | Builtin::PadRight
@@ -364,7 +375,7 @@ impl Builtin {
             }
             (Builtin::Contains | Builtin::IndexOf, [Type::List(_), _]) => Err(1),
             (Builtin::Reverse, [list @ Type::List(_)]) => Ok(list.clone()),
-            (Builtin::Sort, [list @ Type::List(element)])
+            (Builtin::Sort | Builtin::SortDesc, [list @ Type::List(element)])
                 if matches!(**element, Type::Int | Type::Float | Type::Str) =>
             {
                 Ok(list.clone())
@@ -400,9 +411,11 @@ impl Builtin {
             {
                 Ok(Type::Bool)
             }
-            (Builtin::SortBy, [list @ Type::List(element), Type::Function(f)])
-                if f.params == [(**element).clone()]
-                    && matches!(f.result, Type::Int | Type::Float | Type::Str) =>
+            (
+                Builtin::SortBy | Builtin::SortByDesc,
+                [list @ Type::List(element), Type::Function(f)],
+            ) if f.params == [(**element).clone()]
+                && matches!(f.result, Type::Int | Type::Float | Type::Str) =>
             {
                 Ok(list.clone())
             }
@@ -412,7 +425,12 @@ impl Builtin {
                 Ok(start.clone())
             }
             (
-                Builtin::Map | Builtin::Filter | Builtin::Any | Builtin::All | Builtin::SortBy,
+                Builtin::Map
+                | Builtin::Filter
+                | Builtin::Any
+                | Builtin::All
+                | Builtin::SortBy
+                | Builtin::SortByDesc,
                 [Type::List(_), _],
             ) => Err(1),
             (Builtin::Reduce, [Type::List(_), _, _]) => Err(2),
@@ -495,7 +513,12 @@ impl Builtin {
             (Builtin::Slice, [Value::List(items), Value::Int(start), Value::Int(end)]) => {
                 collections::slice_list(items, *start, *end)
             }
-            (Builtin::Sort, [Value::List(items)]) => Ok(collections::sorted(items)),
+            (Builtin::Sort, [Value::List(items)]) => {
+                Ok(collections::sorted(items, Order::Ascending))
+            }
+            (Builtin::SortDesc, [Value::List(items)]) => {
+                Ok(collections::sorted(items, Order::Descending))
+            }
             (Builtin::Remove, [Value::List(items), Value::Int(index)]) => {
                 collections::without_index(items, *index)
             }
