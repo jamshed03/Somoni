@@ -8,7 +8,9 @@ use crate::types::{FunctionHint, Type};
 use crate::value::{Order, Value, map_key};
 
 use convert::{conversion_result, float_to_int, parse_float, parse_int};
-use strings::{Side, format_float, index_of, join, pad, repeat, replace, slice_text, split};
+use strings::{
+    Side, escape_html, format_float, index_of, join, pad, repeat, replace, slice_text, split,
+};
 
 mod collections;
 mod convert;
@@ -68,6 +70,7 @@ pub enum Builtin {
     PadLeft,
     PadRight,
     Repeat,
+    EscapeHtml,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -121,6 +124,7 @@ const ALL: &[Builtin] = &[
     Builtin::PadLeft,
     Builtin::PadRight,
     Builtin::Repeat,
+    Builtin::EscapeHtml,
 ];
 
 impl Builtin {
@@ -169,7 +173,8 @@ impl Builtin {
             | Builtin::Format
             | Builtin::PadLeft
             | Builtin::PadRight
-            | Builtin::Repeat => true,
+            | Builtin::Repeat
+            | Builtin::EscapeHtml => true,
             Builtin::Print
             | Builtin::Write
             | Builtin::Input
@@ -288,6 +293,7 @@ impl Builtin {
             Builtin::PadLeft => "pad_left",
             Builtin::PadRight => "pad_right",
             Builtin::Repeat => "repeat",
+            Builtin::EscapeHtml => "escape_html",
         }
     }
 
@@ -309,6 +315,7 @@ impl Builtin {
             | Builtin::Upper
             | Builtin::Lower
             | Builtin::Trim
+            | Builtin::EscapeHtml
             | Builtin::Abs
             | Builtin::Sqrt
             | Builtin::Floor
@@ -359,7 +366,10 @@ impl Builtin {
             (Builtin::Has, [Type::Map(_, _), _]) => Err(1),
             (Builtin::Keys, [Type::Map(key, _)]) => Ok(Type::List(key.clone())),
             (Builtin::IsOk | Builtin::IsErr, [Type::Result(_, _)]) => Ok(Type::Bool),
-            (Builtin::Upper | Builtin::Lower | Builtin::Trim, [Type::Str]) => Ok(Type::Str),
+            (
+                Builtin::Upper | Builtin::Lower | Builtin::Trim | Builtin::EscapeHtml,
+                [Type::Str],
+            ) => Ok(Type::Str),
             (Builtin::Split, [Type::Str, Type::Str]) => Ok(Type::List(Box::new(Type::Str))),
             (Builtin::Join, [Type::List(element), Type::Str]) if **element == Type::Str => {
                 Ok(Type::Str)
@@ -497,6 +507,7 @@ impl Builtin {
             (Builtin::Upper, [Value::Str(s)]) => Ok(string_value(s.as_str().to_uppercase())),
             (Builtin::Lower, [Value::Str(s)]) => Ok(string_value(s.as_str().to_lowercase())),
             (Builtin::Trim, [Value::Str(s)]) => Ok(string_value(s.as_str().trim().to_string())),
+            (Builtin::EscapeHtml, [Value::Str(s)]) => Ok(escape_html(s)),
             (Builtin::Split, [Value::Str(s), Value::Str(sep)]) => {
                 Ok(split(s.as_str(), sep.as_str()))
             }

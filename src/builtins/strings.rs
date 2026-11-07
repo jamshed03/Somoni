@@ -94,3 +94,23 @@ pub(super) fn repeat(s: &str, times: i64) -> Result<Value, SomoniError> {
     }
     Ok(string_value(s.repeat(times)))
 }
+
+/// Returns `s` safe for HTML text and attributes: `&`, `<`, `>`, `"` and `'` become entities, like `htmlspecialchars` in PHP.
+pub(super) fn escape_html(s: &Rc<Text>) -> Value {
+    let text = s.as_str();
+    if !text.contains(['&', '<', '>', '"', '\'']) {
+        return Value::Str(Rc::clone(s));
+    }
+    let mut safe = String::with_capacity(text.len() + 16);
+    for c in text.chars() {
+        match c {
+            '&' => safe.push_str("&amp;"),
+            '<' => safe.push_str("&lt;"),
+            '>' => safe.push_str("&gt;"),
+            '"' => safe.push_str("&quot;"),
+            '\'' => safe.push_str("&#039;"),
+            other => safe.push(other),
+        }
+    }
+    string_value(safe)
+}
