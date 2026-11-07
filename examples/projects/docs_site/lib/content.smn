@@ -1,57 +1,46 @@
-// The sections of the documentation site, read from the text files in content/.
+// The sections of the documentation site, read from the Markdown files in content/.
+
+import { inline, to_html } from "markdown.smn";
 
 export struct Section {
     id: string,
     title: string,
+    // The first paragraph as HTML, also shown on the start page.
     intro: string,
-    example: string,
-    notes: list<string>
+    // Everything after the title as HTML.
+    html: string
 }
 
-// Returns the text after `prefix` if `line` starts with it.
-fn after(line: string, prefix: string): string? {
-    if (line.starts_with(prefix)) {
-        return line.slice(len(prefix), len(line));
-    }
-    return null;
-}
-
-// Reads a section from its text: lines "title: ", "intro: " and "note: ", then "---" and the example.
-export fn parse_section(id: string, text: string): result<Section, string> {
-    var title = "";
-    var intro = "";
-    var notes: list<string> = [];
-    var example: list<string> = [];
-    var in_example = false;
-    for (line: string in text.split("\n")) {
-        if (in_example) {
-            example += [line];
-        } else if (line == "---") {
-            in_example = true;
-        } else if (var value = after(line, "title: ")) {
-            title = value;
-        } else if (var value = after(line, "intro: ")) {
-            intro = value;
-        } else if (var value = after(line, "note: ")) {
-            notes += [value];
-        } else if (line.trim() != "") {
-            return err("{id}: unknown line '{line}'");
+// Returns the first paragraph of `lines`: the lines up to the first empty one after some text.
+fn first_paragraph(lines: list<string>): string {
+    var paragraph: list<string> = [];
+    for (line: string in lines) {
+        if (line.trim() != "") {
+            paragraph += [line.trim()];
+        } else if (len(paragraph) > 0) {
+            break;
         }
     }
-    if (title == "") {
-        return err("{id}: the line 'title: ' is missing");
+    return paragraph.join(" ");
+}
+
+// Reads a section from its Markdown: the title in the first line `# title`, then the text.
+export fn parse_section(id: string, text: string): result<Section, string> {
+    var lines = text.split("\n");
+    if (len(lines) == 0 || !lines[0].starts_with("# ")) {
+        return err("{id}: the first line must be the title, like '# Modules'");
     }
+    var body = lines.slice(1, len(lines));
     return ok(Section {
         id: id,
-        title: title,
-        intro: intro,
-        example: example.join("\n").trim(),
-        notes: notes
+        title: lines[0].slice(2, len(lines[0])).trim(),
+        intro: inline(first_paragraph(body)),
+        html: to_html(body.join("\n"))
     });
 }
 
-// Reads the section `id` from content/`id`.txt.
+// Reads the section `id` from content/`id`.md.
 export fn load_section(id: string): result<Section, string> {
-    var text = read_file("../content/{id}.txt")?;
+    var text = read_file("../content/{id}.md")?;
     return parse_section(id, text);
 }

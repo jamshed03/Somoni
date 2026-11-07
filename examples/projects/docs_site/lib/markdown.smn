@@ -1,0 +1,133 @@
+// A small Markdown reader: headings, paragraphs, lists, code blocks, `code` and [links](target), everything else is text.
+
+// Returns the earlier of two places, or the one that exists.
+fn earliest(a: int?, b: int?): int? {
+    if (a == null) {
+        return b;
+    }
+    if (b == null || a < b) {
+        return a;
+    }
+    return b;
+}
+
+// Returns `text` as HTML with `code` and [links](target); everything else is escaped.
+export fn inline(text: string): string {
+    var parts: list<string> = [];
+    var rest = text;
+    while (rest != "") {
+        var next = earliest(rest.index_of("`"), rest.index_of("["));
+        if (var at = next) {
+            parts += [rest.slice(0, at).escape_html()];
+            rest = rest.slice(at, len(rest));
+            var (html: string, taken: int) = special(rest);
+            parts += [html];
+            rest = rest.slice(taken, len(rest));
+        } else {
+            parts += [rest.escape_html()];
+            rest = "";
+        }
+    }
+    return parts.join("");
+}
+
+// Reads `code` or [text](target) at the start of `rest` as HTML and how many characters it takes;
+// a single ` or [ without its end is just text.
+fn special(rest: string): (string, int) {
+    if (rest.starts_with("`")) {
+        if (var end = rest.slice(1, len(rest)).index_of("`")) {
+            return ("<code>{rest.slice(1, end + 1).escape_html()}</code>", end + 2);
+        }
+        return ("`", 1);
+    }
+    if (var middle = rest.index_of("](")) {
+        if (var close = rest.slice(middle, len(rest)).index_of(")")) {
+            var label = rest.slice(1, middle);
+            var target = rest.slice(middle + 2, middle + close);
+            return ("<a href=\"{target.escape_html()}\">{inline(label)}</a>", middle + close + 1);
+        }
+    }
+    return ("[", 1);
+}
+
+// Turns Markdown lines into HTML blocks, keeping in mind what is open: a paragraph, a list or a code block.
+class Reader {
+    private blocks: list<string> = [];
+    private paragraph: list<string> = [];
+    private items: list<string> = [];
+    private code: list<string> = [];
+    private in_code: bool = false;
+    private language: string = "";
+
+    // Reads one line.
+    read(line: string): void {
+        if (this.in_code) {
+            this.read_code(line);
+        } else if (line.starts_with("```")) {
+            this.close_text();
+            this.in_code = true;
+            this.language = line.slice(3, len(line)).trim();
+        } else if (line.starts_with("## ")) {
+            this.close_text();
+            this.blocks += ["<h3>{inline(line.slice(3, len(line)))}</h3>"];
+        } else if (line.starts_with("- ")) {
+            this.close_paragraph();
+            this.items += [inline(line.slice(2, len(line)))];
+        } else if (line.trim() == "") {
+            this.close_text();
+        } else {
+            this.close_list();
+            this.paragraph += [line.trim()];
+        }
+    }
+
+    // Reads a line inside a code block, which ends with ```.
+    private read_code(line: string): void {
+        if (line.starts_with("```")) {
+            var text = this.code.join("\n").escape_html();
+            this.blocks += ["<pre><code class=\"language-{this.language}\">{text}</code></pre>"];
+            this.code = [];
+            this.in_code = false;
+            return;
+        }
+        this.code += [line];
+    }
+
+    // Closes an open paragraph and an open list.
+    private close_text(): void {
+        this.close_paragraph();
+        this.close_list();
+    }
+
+    // Closes an open paragraph.
+    private close_paragraph(): void {
+        if (len(this.paragraph) > 0) {
+            this.blocks += ["<p>{inline(this.paragraph.join(" "))}</p>"];
+            this.paragraph = [];
+        }
+    }
+
+    // Closes an open list.
+    private close_list(): void {
+        if (len(this.items) > 0) {
+            var items = this.items.map(fn(item) => "    <li>{item}</li>").join("\n");
+            this.blocks += ["<ul>\n{items}\n</ul>"];
+            this.items = [];
+        }
+    }
+
+    // Closes what is still open and returns all blocks as HTML.
+    html(): string {
+        this.close_text();
+        return this.blocks.join("\n");
+    }
+}
+
+// Returns the Markdown `text` as HTML.
+export fn to_html(text: string): string {
+    var reader = new Reader();
+    for (line: string in text.split("\n")) {
+        reader.read(line);
+    }
+    return reader.html();
+}
