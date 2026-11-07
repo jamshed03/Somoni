@@ -11,7 +11,7 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::types::{Decl, Type};
 
-use super::{ClassInfo, Constant, InterfaceInfo, Signature, StructInfo, TypeChecker};
+use super::{ClassInfo, Constant, InterfaceInfo, Signature, StructInfo, TypeChecker, written};
 
 impl TypeChecker {
     /// Collects all enums of a file.
@@ -235,7 +235,7 @@ impl TypeChecker {
         function: &Function,
         index: usize,
     ) -> Result<Signature, SomoniError> {
-        self.signature_from(index, &function.params, &function.return_type)
+        self.signature_from(index, &function.params, written(&function.return_type)?)
     }
 
     /// Returns the signature with this number, parameters and return type.
@@ -256,7 +256,7 @@ impl TypeChecker {
     pub(super) fn resolve_params(&self, params: &[Param]) -> Result<Vec<Type>, SomoniError> {
         params
             .iter()
-            .map(|param| self.resolve_type(&param.type_name, false))
+            .map(|param| self.resolve_type(written(&param.type_name)?, false))
             .collect()
     }
 

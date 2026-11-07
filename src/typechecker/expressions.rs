@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::ast::{
     BinaryOp, CLOSURE, CONSTRUCTOR, Call, CallTarget, CallValue, ClassLayout, Expr, ExprKind,
     FieldInit, InstanceOf, InstanceTarget, InterfaceLayout, Lambda, MethodCall, MethodTarget, New,
-    StaticAccess, StaticCall, SuperCall, THIS, UnaryOp,
+    Param, StaticAccess, StaticCall, SuperCall, THIS, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -16,7 +16,8 @@ use super::declarations::check_key_type;
 use crate::scope::Scopes;
 
 use super::{
-    Constant, LambdaScope, Signature, TypeChecker, check_arg_count, field_of, wrong_arg_type,
+    Constant, LambdaHint, LambdaScope, Returns, Signature, TypeChecker, check_arg_count, field_of,
+    wrong_arg_type,
 };
 
 impl TypeChecker {
@@ -42,6 +43,13 @@ impl TypeChecker {
                     self.check_assignable(item, ty)?;
                 }
                 Ok(wanted.clone())
+            }
+            (ExprKind::Lambda(lambda), Type::Function(function)) => {
+                let hint = LambdaHint {
+                    params: &function.params,
+                    result: Some(&function.result),
+                };
+                self.check_lambda(lambda, Some(hint))
             }
             (ExprKind::Null, _) if matches!(expected, Type::Optional(_)) => Ok(expected.clone()),
             (ExprKind::Null, _) => Err(SomoniError::at(
@@ -327,7 +335,7 @@ impl TypeChecker {
                 .map(Signature::function_type)
                 .ok_or_else(|| SomoniError::internal("function value without signature")),
             ExprKind::CallValue(call) => self.check_call_value(call, span),
-            ExprKind::Lambda(lambda) => self.check_lambda(lambda),
+            ExprKind::Lambda(lambda) => self.check_lambda(lambda, None),
             ExprKind::Captured { name, .. } => self
                 .lambda_scopes
                 .last()
@@ -425,12 +433,24 @@ impl TypeChecker {
     }
 
     /// Checks a lambda like a function of its own whose slot 0 holds its value, and collects the outside variables it copies.
-    fn check_lambda(&mut self, lambda: &mut Lambda) -> Result<Type, SomoniError> {
+    fn check_lambda(
+        &mut self,
+        lambda: &mut Lambda,
+        hint: Option<LambdaHint>,
+    ) -> Result<Type, SomoniError> {
         let index = self.lambda_count;
         self.lambda_count += 1;
         lambda.index = Some(index);
-        let signature = self.signature_of(&lambda.function, index)?;
-        let ty = signature.function_type();
+        let params = self.lambda_params(&lambda.function.params, hint.as_ref())?;
+        let returns = match (
+            &lambda.function.return_type,
+            hint.and_then(|hint| hint.result),
+        ) {
+            (Some(written), _) => Returns::Known(self.resolve_type(written, true)?),
+            (None, Some(result)) => Returns::Known(result.clone()),
+            (None, None) => Returns::FromBody,
+        };
+        let ty = Type::function(params.clone(), returns.returned_type());
         let outer = std::mem::replace(&mut self.scopes, Scopes::new());
         self.lambda_scopes.push(LambdaScope {
             outer,
@@ -438,19 +458,55 @@ impl TypeChecker {
         });
         let name = lambda.function.name.clone();
         let hidden = Some((CLOSURE, ty.clone()));
-        let checked = self.check_body(&mut lambda.function, &name, &signature, hidden);
+        let checked = self.check_body_with(&mut lambda.function, &name, &params, returns, hidden);
         let level = self
             .lambda_scopes
             .pop()
             .ok_or_else(|| SomoniError::internal("lambda scope missing"))?;
         self.scopes = level.outer;
-        checked?;
+        let return_type = checked?;
         lambda.captures = level
             .captures
             .into_iter()
             .map(|(capture, _)| capture)
             .collect();
-        Ok(ty)
+        Ok(Type::function(params, return_type))
+    }
+
+    /// Returns the types of the parameters of a lambda: as written, else from `hint`, else T103 (T104 if `hint` has another count).
+    fn lambda_params(
+        &self,
+        params: &[Param],
+        hint: Option<&LambdaHint>,
+    ) -> Result<Vec<Type>, SomoniError> {
+        let missing = params.iter().find(|param| param.type_name.is_none());
+        if let (Some(hint), Some(param)) = (hint, missing)
+            && hint.params.len() != params.len()
+        {
+            let code = ErrorCode::LambdaParamCount {
+                expected: hint.params.len(),
+                found: params.len(),
+            };
+            return Err(SomoniError::at(param.name_span, code));
+        }
+        params
+            .iter()
+            .enumerate()
+            .map(|(place, param)| match (&param.type_name, hint) {
+                (Some(written), _) => self.resolve_type(written, false),
+                (None, Some(hint)) => hint
+                    .params
+                    .get(place)
+                    .cloned()
+                    .ok_or_else(|| SomoniError::internal("lambda hint too short")),
+                (None, None) => Err(SomoniError::at(
+                    param.name_span,
+                    ErrorCode::LambdaParamType {
+                        name: param.name.clone(),
+                    },
+                )),
+            })
+            .collect()
     }
 
     /// Returns the copy number and type of an outside variable that a name inside a lambda means, copying it if needed.
@@ -867,7 +923,7 @@ impl TypeChecker {
                 ));
             }
         };
-        let Some(expected @ Type::Result(_, expected_err)) = &self.current_return else {
+        let Returns::Known(expected @ Type::Result(_, expected_err)) = &self.current_return else {
             return Err(SomoniError::at(span, ErrorCode::TryOutsideResultFunction));
         };
         if **expected_err != err_type {

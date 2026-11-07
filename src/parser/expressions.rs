@@ -173,8 +173,13 @@ impl Parser {
     fn parse_lambda(&mut self, start: Span) -> Result<Expr, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'fn'")?;
-        let params = self.parse_params()?;
-        let return_type = self.parse_return_type()?;
+        let params =
+            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_lambda_param())?;
+        let return_type = if self.eat(Token::Colon) {
+            Some(self.parse_type("return type")?)
+        } else {
+            None
+        };
         let body = if self.eat(Token::FatArrow) {
             let value = self.parse_expr()?;
             vec![Stmt::Return {

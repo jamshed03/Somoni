@@ -1,0 +1,3 @@
+Type error [T018]: Line 1: function must return int, got bool
+  1 | var f: fn(int): int = fn(x) => x > 0;
+    |                                ^^^^^

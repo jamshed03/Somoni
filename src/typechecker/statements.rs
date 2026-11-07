@@ -10,7 +10,7 @@ use crate::types::Type;
 
 use super::declarations::is_fixed_value;
 use super::patterns::{check_match, check_value_match};
-use super::{ObjectField, Signature, TypeChecker};
+use super::{ObjectField, Returns, Signature, TypeChecker, written};
 
 impl TypeChecker {
     /// Checks statements one after another.
@@ -58,7 +58,7 @@ impl TypeChecker {
         self.check_body(function, &name, &signature, None)
     }
 
-    /// Checks the body of a function or method and that it returns on every path; `hidden` is `this` or the value of a lambda in slot 0.
+    /// Checks the body of a function or method with its signature; `hidden` is `this` in slot 0.
     pub(super) fn check_body(
         &mut self,
         function: &mut Function,
@@ -66,25 +66,43 @@ impl TypeChecker {
         signature: &Signature,
         hidden: Option<(&str, Type)>,
     ) -> Result<(), SomoniError> {
-        let return_type = signature.return_type.clone();
-        self.in_function(Some(return_type.clone()), |this| {
+        let returns = Returns::Known(signature.return_type.clone());
+        self.check_body_with(function, name, &signature.params, returns, hidden)?;
+        Ok(())
+    }
+
+    /// Checks a body and that it returns on every path, and returns its return type; `hidden` is `this` or the value of a lambda in slot 0.
+    pub(super) fn check_body_with(
+        &mut self,
+        function: &mut Function,
+        name: &str,
+        params: &[Type],
+        returns: Returns,
+        hidden: Option<(&str, Type)>,
+    ) -> Result<Type, SomoniError> {
+        let return_type = self.in_function(returns, |this| {
             if let Some((name, ty)) = hidden {
                 this.declare(name, function.name_span, ty, false)?;
             }
-            this.declare_params(&function.params, &signature.params)?;
-            this.check_stmts(&mut function.body)
+            this.declare_params(&function.params, params)?;
+            this.check_stmts(&mut function.body)?;
+            Ok::<Type, SomoniError>(this.current_return.returned_type())
         })?;
 
         if return_type != Type::Void && !always_ends(&function.body, Exit::Return) {
+            let span = function
+                .return_type
+                .as_ref()
+                .map_or(function.name_span, |written| written.span);
             return Err(SomoniError::at(
-                function.return_type.span,
+                span,
                 ErrorCode::MissingReturn {
                     name: name.to_string(),
                     expected: return_type,
                 },
             ));
         }
-        Ok(())
+        Ok(return_type)
     }
 
     /// Checks one statement and writes slots and other results into it.
@@ -343,8 +361,19 @@ impl TypeChecker {
 
     /// Checks that `return` is inside a function and returns the right type.
     fn check_return(&mut self, value: Option<&mut Expr>, span: Span) -> Result<(), SomoniError> {
-        let Some(expected) = self.current_return.clone() else {
-            return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
+        let expected = match self.current_return.clone() {
+            Returns::Outside => {
+                return Err(SomoniError::at(span, ErrorCode::ReturnOutsideFunction));
+            }
+            Returns::FromBody => {
+                let found = match value {
+                    Some(value) => self.check_expr(value)?,
+                    None => Type::Void,
+                };
+                self.current_return = Returns::Known(found);
+                return Ok(());
+            }
+            Returns::Known(expected) => expected,
         };
         match value {
             Some(value) => {
@@ -403,10 +432,11 @@ impl TypeChecker {
     ) -> Result<Vec<usize>, SomoniError> {
         let mut slots = Vec::new();
         for (var, expected) in vars.iter().zip(expected) {
-            let declared = self.resolve_type(&var.type_name, false)?;
+            let type_name = written(&var.type_name)?;
+            let declared = self.resolve_type(type_name, false)?;
             if declared != expected {
                 return Err(SomoniError::at(
-                    var.type_name.span,
+                    type_name.span,
                     ErrorCode::BoundVarType {
                         name: var.name.clone(),
                         expected,

@@ -596,7 +596,8 @@ pub struct Function {
     pub name: String,
     pub name_span: Span,
     pub params: Vec<Param>,
-    pub return_type: TypeName,
+    /// `None` only for a lambda like `fn(u) => u.name`, whose return type comes from where it is used or from its body.
+    pub return_type: Option<TypeName>,
     pub body: Vec<Stmt>,
 }
 
@@ -636,7 +637,8 @@ impl ImportName {
 pub struct Param {
     pub name: String,
     pub name_span: Span,
-    pub type_name: TypeName,
+    /// `None` only for a parameter of a lambda like `fn(u) => u.name`, whose type comes from where it is used.
+    pub type_name: Option<TypeName>,
 }
 
 /// `struct Name { field: type, ... }`, `exported` with `export` in front.

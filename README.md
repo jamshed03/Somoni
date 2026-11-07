@@ -74,7 +74,7 @@ Version 0.7.0: the core of the language plus lists, structs, optional types, map
 -   Built-in functions `print`, `input` (one line, `null` at the end), `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err`, `is_ok`, `is_err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
 -   Functions as values with types like `fn(int): int`: `var f: fn(int): int = quadrat; f(3)`, also in lists and fields (`k.aktion(x)`)
--   Lambdas `fn(x: int): int => x * 2` or with a block; they copy the outside variables they use (and `this`) when they are made
+-   Lambdas `fn(x: int): int => x * 2` or with a block, also without types where they are known (`var twice: fn(int): int = fn(x) => x * 2;`); they copy the outside variables they use (and `this`) when they are made
 -   Comments `//` and `/* */`
 -   Classes: fields with start values, `constructor(...)` with `this`, methods (`u.greet()`), `public`/`private`, `readonly` fields, `static` methods and fields (`User::gast()`, `User::anzahl`, inherited by subclasses), `abstract` classes and methods, `instanceof` with narrowing, private and protected constructors, `interface` with `implements`, `extends` with `super`, `override` and `protected` (methods chosen at runtime), `new User("Ali", 30)`; objects are references (`==` is identity), structs stay copies
 -   Modules: `import { quadrat, Punkt as P } from "mathe.smn";` or `import * as mathe from "mathe.smn";` with `mathe.quadrat(3)`, and `export fn`/`struct`/`enum`/`class`/`interface`/`const` (imported files contain only declarations, their constants only fixed values)

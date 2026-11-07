@@ -216,7 +216,7 @@ impl Parser {
             name,
             name_span,
             params,
-            return_type,
+            return_type: Some(return_type),
             body: Vec::new(),
         })
     }

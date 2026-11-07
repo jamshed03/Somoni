@@ -1,0 +1,44 @@
+// a lambda may leave out its types: the parameters come from where it is used, the return type also from its body
+fn apply(f: fn(int): int, x: int): int {
+    return f(x);
+}
+
+fn make_adder(n: int): fn(int): int {
+    return fn(x) => x + n;
+}
+
+struct Button {
+    label: string,
+    on_click: fn(string): string
+}
+
+var twice: fn(int): int = fn(x) => x * 2;
+print(twice(21));
+print(apply(fn(x) => x - 1, 10));
+print(make_adder(5)(1));
+
+var button = Button { label: "OK", on_click: fn(text) => text + "!" };
+print(button.on_click(button.label));
+
+var sum: fn(int, int): int = fn(a, b: int) => a + b;
+print(sum(2, 3));
+
+var half = fn(x: float) => x / 2.0;
+print(half(3.0));
+
+var shout = fn(s: string) {
+    if (s == "") {
+        return "(leer)";
+    }
+    return s.upper() + "!";
+};
+print(shout("hallo"));
+print(shout(""));
+
+var log = fn(s: string) {
+    print("log: " + s);
+};
+log("ohne return ist es void");
+
+var nested = fn(n: int) => fn(m: int) => n * m;
+print(nested(6)(7));

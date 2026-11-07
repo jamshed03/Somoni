@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
     Capture, CaptureSource, ClassLayout, EnumDecl, Expr, InterfaceLayout, Param, StructDecl,
-    VTable, Visibility,
+    TypeName, VTable, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::loader::{MAIN_FILE, SourceFile};
@@ -50,6 +50,41 @@ impl Signature {
     fn same_types(&self, other: &Signature) -> bool {
         self.params == other.params && self.return_type == other.return_type
     }
+}
+
+/// What a `return` may give in the code that is being checked.
+#[derive(Debug, Clone)]
+enum Returns {
+    /// Code outside of any function, where `return` is not allowed.
+    Outside,
+    /// A function, method or lambda with this return type.
+    Known(Type),
+    /// A lambda without a written return type: the first `return` decides it, without one it is `void`.
+    FromBody,
+}
+
+impl Returns {
+    /// Returns the return type that the checked body ended up with.
+    fn returned_type(&self) -> Type {
+        match self {
+            Returns::Known(ty) => ty.clone(),
+            Returns::Outside | Returns::FromBody => Type::Void,
+        }
+    }
+}
+
+/// What the place of a lambda tells about its type, e.g. the parameters that `l.map(...)` gives it.
+pub(super) struct LambdaHint<'a> {
+    params: &'a [Type],
+    /// `None` where any result is fine, like for `map`.
+    result: Option<&'a Type>,
+}
+
+/// Returns the type written at a declaration; only lambdas may leave it out, which the parser makes sure of.
+fn written(type_name: &Option<TypeName>) -> Result<&TypeName, SomoniError> {
+    type_name
+        .as_ref()
+        .ok_or_else(|| SomoniError::internal("declaration without a type"))
 }
 
 /// The number and the fields of a struct.
@@ -299,7 +334,7 @@ pub struct TypeChecker {
     in_main: bool,
     /// True while a file other than the main file is checked, whose constants must have fixed values.
     in_module: bool,
-    current_return: Option<Type>,
+    current_return: Returns,
     next_slot: usize,
 }
 
@@ -322,7 +357,7 @@ impl TypeChecker {
             global_count: 0,
             in_main: false,
             in_module: false,
-            current_return: None,
+            current_return: Returns::Outside,
             next_slot: 0,
         }
     }
@@ -352,11 +387,7 @@ impl TypeChecker {
     }
 
     /// Runs `check` inside a new function with its own variables and return type.
-    fn in_function<T>(
-        &mut self,
-        return_type: Option<Type>,
-        check: impl FnOnce(&mut Self) -> T,
-    ) -> T {
+    fn in_function<T>(&mut self, return_type: Returns, check: impl FnOnce(&mut Self) -> T) -> T {
         let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());
         let outer_return = std::mem::replace(&mut self.current_return, return_type);
         let outer_next_slot = std::mem::replace(&mut self.next_slot, 0);

@@ -13,7 +13,7 @@ use crate::types::{Decl, Type};
 
 use super::declarations::is_fixed_value;
 use super::members::ClassMembers;
-use super::{ClassInfo, MemberKind, ObjectField, Signature, TypeChecker};
+use super::{ClassInfo, MemberKind, ObjectField, Returns, Signature, TypeChecker};
 
 impl TypeChecker {
     /// Finds the parent class of every class of a file and rejects cycles.
@@ -255,7 +255,7 @@ impl TypeChecker {
         info: &ClassInfo,
     ) -> Result<(), SomoniError> {
         let own_fields = &info.fields[info.first_own_field..];
-        self.in_function(None, |this| {
+        self.in_function(Returns::Outside, |this| {
             for (field, (_, ty)) in class.fields.iter_mut().zip(own_fields) {
                 if let Some(start) = &mut field.start {
                     this.check_assignable(start, ty)?;
@@ -292,7 +292,7 @@ impl TypeChecker {
             };
             return Err(SomoniError::at(field.field.name_span, code));
         };
-        self.in_function(None, |this| this.check_assignable(start, ty))?;
+        self.in_function(Returns::Outside, |this| this.check_assignable(start, ty))?;
         if !is_fixed_value(start) {
             return Err(SomoniError::at(start.span, ErrorCode::StaticStartNotFixed));
         }
@@ -316,7 +316,7 @@ impl TypeChecker {
             ));
         }
         self.in_constructor = true;
-        let result = self.in_function(Some(Type::Void), |this| {
+        let result = self.in_function(Returns::Known(Type::Void), |this| {
             let this_type = Type::Class(layout.clone());
             this.declare(THIS, constructor.span, this_type, false)?;
             this.declare_params(&constructor.params, &signature.params)?;

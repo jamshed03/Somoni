@@ -359,6 +359,13 @@ pub enum ErrorCode {
         found: Type,
     },
     VoidVariable,
+    LambdaParamType {
+        name: String,
+    },
+    LambdaParamCount {
+        expected: usize,
+        found: usize,
+    },
     ConstTypeLater {
         name: String,
         line: usize,
@@ -583,6 +590,8 @@ impl ErrorCode {
             ErrorCode::ValueMatchWithoutRest { .. } => "T099",
             ErrorCode::IfVarNotOptional { .. } => "T100",
             ErrorCode::VoidVariable => "T101",
+            ErrorCode::LambdaParamType { .. } => "T103",
+            ErrorCode::LambdaParamCount { .. } => "T104",
             ErrorCode::ConstTypeLater { .. } => "T102",
 
             ErrorCode::Internal { .. } => "R000",
@@ -992,6 +1001,14 @@ impl ErrorCode {
             ),
             ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
             ErrorCode::TupleTooShort => "a tuple needs at least two elements".to_string(),
+            ErrorCode::LambdaParamType { name } => format!(
+                "the type of parameter '{}' is unknown here; write it (fn({}: type) => ...) or use the lambda where a function type is expected",
+                name, name
+            ),
+            ErrorCode::LambdaParamCount { expected, found } => format!(
+                "this lambda has {} parameters, but a function with {} is expected here",
+                found, expected
+            ),
             ErrorCode::VoidVariable => {
                 "this gives no value (void), so it cannot be stored in a variable".to_string()
             }

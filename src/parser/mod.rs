@@ -165,6 +165,21 @@ impl Parser {
         Ok(Param {
             name,
             name_span,
+            type_name: Some(type_name),
+        })
+    }
+
+    /// Reads one parameter of a lambda, `x: int` or only `x`.
+    fn parse_lambda_param(&mut self) -> Result<Param, SomoniError> {
+        let (name, name_span) = self.expect_ident("parameter name")?;
+        let type_name = if self.eat(Token::Colon) {
+            Some(self.parse_type("parameter type")?)
+        } else {
+            None
+        };
+        Ok(Param {
+            name,
+            name_span,
             type_name,
         })
     }

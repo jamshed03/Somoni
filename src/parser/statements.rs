@@ -470,9 +470,13 @@ impl Parser {
         let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
         let hidden = format!("<tuple {}:{}>", start.line, start.col);
+        let args = names.iter().map(|name| name.type_name.clone()).collect();
+        let Some(args) = args else {
+            return Err(SomoniError::internal("variable of a tuple without a type"));
+        };
         let tuple_type = TypeName {
             name: TUPLE_TYPE.to_string(),
-            args: names.iter().map(|name| name.type_name.clone()).collect(),
+            args,
             optional: false,
             span,
         };
@@ -509,7 +513,7 @@ impl Parser {
                     },
                     name: name.name,
                     name_span: name.name_span,
-                    type_name: Some(name.type_name),
+                    type_name: name.type_name,
                     mutable,
                     slot: None,
                     global: None,

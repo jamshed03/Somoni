@@ -1,0 +1,5 @@
+var f = fn(n: int) {
+    if (n > 0) {
+        return 1;
+    }
+};
