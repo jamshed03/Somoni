@@ -1,0 +1,11 @@
+// built-in methods tell their arguments which type they expect, so [], {} and null need no variable with a type
+var groups: map<string, list<int>> = {"a": [1, 2]};
+print(groups.get("a", []));
+print(groups.get("b", []));
+
+var nested: map<string, map<string, int>> = {};
+print(len(nested.get("x", {})));
+
+var maybe: list<int?> = [1, null, 3];
+print(maybe.contains(null));
+print(maybe.index_of(null));

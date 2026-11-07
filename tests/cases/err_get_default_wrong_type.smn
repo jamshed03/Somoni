@@ -1,0 +1,2 @@
+var groups: map<string, list<int>> = {};
+print(groups.get("a", "none"));

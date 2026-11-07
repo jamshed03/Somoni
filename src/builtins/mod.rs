@@ -277,6 +277,19 @@ impl Builtin {
         matches!(self, Builtin::ReadFile | Builtin::WriteFile)
     }
 
+    /// Returns the type the next argument should have after the types `before`, so that `m.get("x", [])` or
+    /// `l.contains(null)` know the type of `[]` and `null`; None where any type is fine.
+    pub fn expected_arg(self, before: &[Type]) -> Option<Type> {
+        match (self, before) {
+            (Builtin::Get, [Type::Map(key, _)]) => Some((**key).clone()),
+            (Builtin::Get, [Type::Map(_, value), _]) => Some((**value).clone()),
+            (Builtin::Contains | Builtin::IndexOf, [Type::List(element)]) => {
+                Some((**element).clone())
+            }
+            _ => None,
+        }
+    }
+
     /// Returns true for `ok` and `err`, which take their result type from where they are used.
     pub fn builds_result(self) -> bool {
         matches!(self, Builtin::Ok | Builtin::Err)

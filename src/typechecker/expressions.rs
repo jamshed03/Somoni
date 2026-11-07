@@ -678,14 +678,7 @@ impl TypeChecker {
         }
         call.target = Some(CallTarget::Builtin(builtin));
         check_arg_count(&call.name, builtin.arity(), &call.args, span)?;
-        let mut arg_types = Vec::new();
-        for arg in call.args.iter_mut() {
-            let found = match (&mut arg.kind, builtin.function_hint(&arg_types)) {
-                (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
-                _ => self.check_expr(arg)?,
-            };
-            arg_types.push(found);
-        }
+        let arg_types = self.check_builtin_args(builtin, Vec::new(), &mut call.args)?;
         let result = builtin.result_type(&arg_types).map_err(|bad| {
             wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span)
         })?;
@@ -694,6 +687,27 @@ impl TypeChecker {
             call.args.insert(0, Expr { kind: dir, span });
         }
         Ok(result)
+    }
+
+    /// Checks the arguments of a built-in function or method after the types `before` (the value of a method) and returns
+    /// all their types; each argument gets the type the built-in expects there, a lambda its parameter types.
+    fn check_builtin_args(
+        &mut self,
+        builtin: Builtin,
+        mut types: Vec<Type>,
+        args: &mut [Expr],
+    ) -> Result<Vec<Type>, SomoniError> {
+        for arg in args.iter_mut() {
+            let found = match (&mut arg.kind, builtin.function_hint(&types)) {
+                (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
+                _ => match builtin.expected_arg(&types) {
+                    Some(expected) => self.check_expr_expecting(arg, &expected)?,
+                    None => self.check_expr(arg)?,
+                },
+            };
+            types.push(found);
+        }
+        Ok(types)
     }
 
     /// Checks `target.name(args)` on an object or an interface.
@@ -731,14 +745,7 @@ impl TypeChecker {
             return Err(unknown());
         };
         check_arg_count(&call.name, builtin.arity() - 1, &call.args, span)?;
-        let mut types = vec![target_type.clone()];
-        for arg in call.args.iter_mut() {
-            let found = match (&mut arg.kind, builtin.function_hint(&types)) {
-                (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
-                _ => self.check_expr(arg)?,
-            };
-            types.push(found);
-        }
+        let types = self.check_builtin_args(builtin, vec![target_type.clone()], &mut call.args)?;
         let result = match builtin.result_type(&types) {
             Ok(result) => result,
             Err(0) => return Err(unknown()),
