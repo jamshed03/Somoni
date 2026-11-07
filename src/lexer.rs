@@ -4,6 +4,9 @@ use crate::token::{SpannedToken, Token};
 
 pub use template::is_template;
 
+use raw_string::RAW_QUOTES;
+
+mod raw_string;
 mod template;
 
 /// The keywords of Somoni; every other word is a name.
@@ -199,6 +202,9 @@ impl Lexer {
         }
         if c.is_alphabetic() || c == '_' {
             return Ok(self.read_word());
+        }
+        if self.at(RAW_QUOTES) {
+            return self.read_raw_string();
         }
         if c == '"' {
             return self.read_string();

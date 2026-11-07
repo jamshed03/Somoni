@@ -1,0 +1,12 @@
+Er sagte "Hallo {name}" und \n bleibt
+class Circle {
+    area(): float {
+        return 3.14 * this.r * this.r;
+    }
+}
+
+print("fertig");
+3
+[]
+["a \"b\" c"]
+{name} und Ali
