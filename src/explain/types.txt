@@ -1,2 +1,807 @@
 The explanations of the type errors (T), shown by `somoni --explain T001`.
 A section starts with `## CODE title`; `Wrong:` and `Right:` are followed by an example indented by four spaces.
+
+## T001 unknown type
+A type name is used that Somoni does not know: no built-in type and no struct, enum, class or interface of this name
+in the file or its imports. Check the spelling, or import the type.
+
+Wrong:
+
+    var p: Pont = Point { x: 1 };
+    struct Point { x: int }
+
+Right:
+
+    struct Point { x: int }
+    var p: Point = Point { x: 1 };
+
+## T002 unknown variable
+A name is read that is no variable here. A variable exists from its line to the end of its block; functions see only
+their parameters, their own variables and the `const` of the top level.
+
+Wrong:
+
+    if (true) {
+        var inside = 1;
+    }
+    print(inside);
+
+Right:
+
+    var outside = 0;
+    if (true) {
+        outside = 1;
+    }
+    print(outside);
+
+## T003 value of the wrong type
+A value is given to a variable, an element or a field whose type is different. Somoni never converts on its own;
+convert the value yourself, like `string(n)` or `float(n)`.
+
+Wrong:
+
+    var count: int = "3";
+
+Right:
+
+    var count: int = 3;
+    var text: string = string(count);
+
+## T004 name declared twice
+A name is declared twice in the same block. An inner block may use the name again, the same block may not.
+
+Wrong:
+
+    var total = 1;
+    var total = 2;
+
+Right:
+
+    var total = 1;
+    total = 2;
+
+## T005 cannot change a constant
+A `const`, or a part of it like a field or an element, gets a new value. Use `var` if it should change.
+
+Wrong:
+
+    const limit = 10;
+    limit = 20;
+
+Right:
+
+    var limit = 10;
+    limit = 20;
+
+## T006 operator for these types
+An operator like `+`, `==` or `&&` gets two values whose types do not fit together, like an int and a bool. Both
+sides of `+` have the same type; `&&` and `||` take bools.
+
+Wrong:
+
+    print(1 + true);
+
+Right:
+
+    print(1 + 1);
+    print("1" + string(1));
+
+## T007 operator not for this type
+An operator is used with a type that does not have it, like `+=` on a bool or `-` on strings.
+
+Wrong:
+
+    var done = true;
+    done += true;
+
+Right:
+
+    var done = true;
+    done = !done;
+
+## T008 ! needs bool
+`!` turns a bool around; other types have no true or false.
+
+Wrong:
+
+    print(!5);
+
+Right:
+
+    print(!(5 > 3));
+
+## T009 - needs a number
+A minus in front of a value needs an int or a float.
+
+Wrong:
+
+    print(-true);
+
+Right:
+
+    print(-5);
+
+## T010 condition must be bool
+The condition of `if`, `while` or `for` must be a bool. A number or a string is never true or false by itself.
+
+Wrong:
+
+    var count = 3;
+    if (count) {
+        print("some");
+    }
+
+Right:
+
+    var count = 3;
+    if (count > 0) {
+        print("some");
+    }
+
+## T011 break or continue outside a loop
+`break` and `continue` only stand inside a `while` or `for` loop.
+
+Wrong:
+
+    print(1);
+    break;
+
+Right:
+
+    for (var i = 0; i < 3; i++) {
+        if (i == 1) {
+            break;
+        }
+        print(i);
+    }
+
+## T012 unknown function
+A function is called that does not exist: no own function, no imported one and no built-in one of this name.
+
+Wrong:
+
+    print(sqaure(3));
+
+Right:
+
+    fn square(x: int): int {
+        return x * x;
+    }
+    print(square(3));
+
+## T013 wrong number of arguments
+A function or method gets more or fewer arguments than it has parameters.
+
+Wrong:
+
+    fn add(a: int, b: int): int {
+        return a + b;
+    }
+    print(add(1));
+
+Right:
+
+    fn add(a: int, b: int): int {
+        return a + b;
+    }
+    print(add(1, 2));
+
+## T014 argument of the wrong type
+An argument has another type than its parameter. Somoni never converts on its own.
+
+Wrong:
+
+    fn twice(n: int): int {
+        return n * 2;
+    }
+    print(twice("4"));
+
+Right:
+
+    fn twice(n: int): int {
+        return n * 2;
+    }
+    print(twice(4));
+
+## T015 function declared twice
+Two functions have the same name. Somoni has no overloading by parameter types; give one another name.
+
+Wrong:
+
+    fn show(n: int): void {
+        print(n);
+    }
+    fn show(s: string): void {
+        print(s);
+    }
+
+Right:
+
+    fn show_int(n: int): void {
+        print(n);
+    }
+    fn show_text(s: string): void {
+        print(s);
+    }
+
+## T016 name of a built-in function
+An own function uses the name of a built-in function like `print` or `len`, which would hide it.
+
+Wrong:
+
+    fn print(n: int): void {
+    }
+
+Right:
+
+    fn show(n: int): void {
+        print(n);
+    }
+
+## T017 return outside a function
+`return` only stands inside a function, a method or a lambda.
+
+Wrong:
+
+    print(1);
+    return;
+
+Right:
+
+    fn first(): int {
+        return 1;
+    }
+    print(first());
+
+## T018 return of the wrong type
+A `return` gives a value of another type than the function returns, or no value where one is needed.
+
+Wrong:
+
+    fn name(): string {
+        return 42;
+    }
+
+Right:
+
+    fn name(): string {
+        return "Ali";
+    }
+
+## T019 not every path returns
+A function with a result type can end without `return` on some path, for example when an `if` has no `else`.
+
+Wrong:
+
+    fn sign(n: int): string {
+        if (n < 0) {
+            return "minus";
+        }
+    }
+
+Right:
+
+    fn sign(n: int): string {
+        if (n < 0) {
+            return "minus";
+        }
+        return "plus";
+    }
+
+## T020 list elements of different types
+All elements of a list have the same type.
+
+Wrong:
+
+    var mixed = [1, "two"];
+
+Right:
+
+    var numbers = [1, 2];
+    var texts = ["1", "two"];
+
+## T021 list index must be int
+A list is read at a place that is no int.
+
+Wrong:
+
+    var list = [10, 20];
+    print(list["0"]);
+
+Right:
+
+    var list = [10, 20];
+    print(list[0]);
+
+## T022 no [] on this type
+`[]` reads lists and maps, and not other values like an int.
+
+Wrong:
+
+    var n = 5;
+    print(n[0]);
+
+Right:
+
+    var digits = [5];
+    print(digits[0]);
+
+## T023 wrong number of type arguments
+A type like `list<int>` or `map<string, int>` gets the wrong number of types in `< >`; `int` and `string` take none.
+
+Wrong:
+
+    var names: list<string, int> = [];
+
+Right:
+
+    var names: list<string> = [];
+    var ages: map<string, int> = {};
+
+## T024 type of an empty list unknown
+`[]` alone does not say which list it is. Give it a place that knows its type, like a variable with a type.
+
+Wrong:
+
+    var list = [];
+
+Right:
+
+    var list: list<int> = [];
+
+## T025 type name taken
+Two types, like a struct and an enum, have the same name.
+
+Wrong:
+
+    struct Color { name: string }
+    enum Color { Red, Green }
+
+Right:
+
+    struct Paint { name: string }
+    enum Color { Red, Green }
+
+## T026 field declared twice
+A struct or class has two fields with the same name.
+
+Wrong:
+
+    struct Point { x: int, x: int }
+
+Right:
+
+    struct Point { x: int, y: int }
+
+## T027 unknown field
+A field is read or set that the struct or class does not have. Check the spelling.
+
+Wrong:
+
+    struct Point { x: int, y: int }
+    var p = Point { x: 1, y: 2 };
+    print(p.z);
+
+Right:
+
+    struct Point { x: int, y: int }
+    var p = Point { x: 1, y: 2 };
+    print(p.y);
+
+## T028 field missing in a struct value
+A struct value must give every field.
+
+Wrong:
+
+    struct Point { x: int, y: int }
+    var p = Point { x: 1 };
+
+Right:
+
+    struct Point { x: int, y: int }
+    var p = Point { x: 1, y: 0 };
+
+## T029 no fields on this type
+`.` reads fields, but the value has none: it is an int, a string, or an interface, which only promises methods.
+
+Wrong:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        side: float = 2.0;
+        area(): float {
+            return this.side * this.side;
+        }
+    }
+    var s: Shape = new Square();
+    print(s.side);
+
+Right:
+
+    interface Shape {
+        area(): float;
+    }
+    class Square implements Shape {
+        side: float = 2.0;
+        area(): float {
+            return this.side * this.side;
+        }
+    }
+    var s: Shape = new Square();
+    print(s.area());
+
+## T030 type contains itself
+A struct or class has a field of its own type without `?`, so every value would need another one inside it, without
+end. Make the field optional, like `next: Node?`.
+
+Wrong:
+
+    struct Node {
+        value: int,
+        next: Node
+    }
+
+Right:
+
+    struct Node {
+        value: int,
+        next: Node?
+    }
+    var last = Node { value: 1, next: null };
+    print(last.value);
+
+## T031 null for a type without ?
+`null` only fits a type with `?`, like `int?`.
+
+Wrong:
+
+    var found: int = null;
+
+Right:
+
+    var found: int? = null;
+
+## T032 type of null unknown
+`null` alone does not say which type it is. Give it a place that knows the type.
+
+Wrong:
+
+    var found = null;
+
+Right:
+
+    var found: int? = null;
+
+## T033 void cannot be optional
+`void` means no value at all, so `void?` has nothing that could be null.
+
+Wrong:
+
+    fn nothing(): void? {
+        return;
+    }
+
+Right:
+
+    fn nothing(): void {
+        return;
+    }
+
+## T034 map key of this type
+The keys of a map are strings or ints.
+
+Wrong:
+
+    var prices: map<float, string> = {};
+
+Right:
+
+    var prices: map<string, float> = {};
+
+## T035 type of an empty map unknown
+`{}` alone does not say which map it is. Give it a place that knows its type.
+
+Wrong:
+
+    var ages = {};
+
+Right:
+
+    var ages: map<string, int> = {};
+
+## T036 map values of different types
+All values of a map have the same type, and all keys too.
+
+Wrong:
+
+    var ages = {"Ali": 30, "Bea": "25"};
+
+Right:
+
+    var ages = {"Ali": 30, "Bea": 25};
+
+## T037 map key of the wrong type
+A map is read with a key of another type than its keys.
+
+Wrong:
+
+    var ages = {"Ali": 30};
+    print(ages[1]);
+
+Right:
+
+    var ages = {"Ali": 30};
+    print(ages["Ali"]);
+
+## T038 cannot loop over this
+A `for`-each loop runs over a list, a map or a string, not over other values.
+
+Wrong:
+
+    for (n: int in 5) {
+        print(n);
+    }
+
+Right:
+
+    for (n: int in [1, 2, 3, 4, 5]) {
+        print(n);
+    }
+
+## T039 loop variable of the wrong type
+A variable of a `for`-each loop has another type than what the loop gives: the element of a list, the key and the
+value of a map, or one character as string.
+
+Wrong:
+
+    for (name: string, age: string in {"Ali": 30}) {
+        print(name);
+    }
+
+Right:
+
+    for (name: string, age: int in {"Ali": 30}) {
+        print(name);
+    }
+
+## T040 unknown variant
+An enum is used with a variant it does not have. Check the spelling.
+
+Wrong:
+
+    enum Color { Red, Green }
+    var c = Color.Blue;
+
+Right:
+
+    enum Color { Red, Green, Blue }
+    var c = Color.Blue;
+
+## T041 match over this type
+`match` chooses a branch for an enum, a result, an int or a string. For a bool, use `if`.
+
+Wrong:
+
+    var done = true;
+    match (done) {
+        _ => {
+            print("any");
+        }
+    }
+
+Right:
+
+    var done = true;
+    if (done) {
+        print("yes");
+    }
+
+## T042 branch of another type
+A branch of `match` is a value or variant of another type than the value matched, like an int over an enum.
+
+Wrong:
+
+    enum Color { Red, Green }
+    var c = Color.Red;
+    match (c) {
+        1 => {
+            print("one");
+        }
+        _ => {
+            print("other");
+        }
+    }
+
+Right:
+
+    enum Color { Red, Green }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        _ => {
+            print("other");
+        }
+    }
+
+## T043 branch twice
+Two branches of `match` are for the same variant or value; the second would never run.
+
+Wrong:
+
+    enum Color { Red, Green }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        Color.Red => {
+            print("again");
+        }
+        Color.Green => {
+            print("green");
+        }
+    }
+
+Right:
+
+    enum Color { Red, Green }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        Color.Green => {
+            print("green");
+        }
+    }
+
+## T044 _ not last
+`_` takes everything else, so it is the last branch; branches after it would never run.
+
+Wrong:
+
+    var n = 1;
+    match (n) {
+        _ => {
+            print("other");
+        }
+        1 => {
+            print("one");
+        }
+    }
+
+Right:
+
+    var n = 1;
+    match (n) {
+        1 => {
+            print("one");
+        }
+        _ => {
+            print("other");
+        }
+    }
+
+## T045 _ would never run
+Every variant already has its own branch, so `_` would never run. Leave it out; then a new variant is reported where
+a branch is missing.
+
+Wrong:
+
+    enum Color { Red, Green }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        Color.Green => {
+            print("green");
+        }
+        _ => {
+            print("other");
+        }
+    }
+
+Right:
+
+    enum Color { Red, Green }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        Color.Green => {
+            print("green");
+        }
+    }
+
+## T046 branch missing
+A `match` over an enum or a result needs a branch for every variant, or `_` for the rest.
+
+Wrong:
+
+    enum Color { Red, Green, Blue }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        Color.Green => {
+            print("green");
+        }
+    }
+
+Right:
+
+    enum Color { Red, Green, Blue }
+    var c = Color.Red;
+    match (c) {
+        Color.Red => {
+            print("red");
+        }
+        _ => {
+            print("green or blue");
+        }
+    }
+
+## T047 variant twice
+An enum lists the same variant twice.
+
+Wrong:
+
+    enum Color { Red, Green, Red }
+
+Right:
+
+    enum Color { Red, Green }
+
+## T048 enum without variants
+An enum needs at least one variant, otherwise no value of it could exist.
+
+Wrong:
+
+    enum Nothing {}
+
+Right:
+
+    enum Answer { Yes, No }
+
+## T049 type of ok(...) or err(...) unknown
+`ok(...)` and `err(...)` build a result, but alone they do not say the other type: `ok(5)` could be
+`result<int, string>` or `result<int, bool>`. Give them a place that knows the type, like a return type.
+
+Wrong:
+
+    var answer = ok(5);
+
+Right:
+
+    var answer: result<int, string> = ok(5);
+    print(answer);
+
+## T050 field gets no value
+A field of a class has no start value and the `constructor` does not set it, so a new object would be incomplete.
+
+Wrong:
+
+    class User {
+        name: string;
+        age: int;
+        constructor(name: string) {
+            this.name = name;
+        }
+    }
+
+Right:
+
+    class User {
+        name: string;
+        age: int = 0;
+        constructor(name: string) {
+            this.name = name;
+        }
+    }
