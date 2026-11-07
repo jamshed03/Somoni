@@ -26,7 +26,7 @@ fn direction_of(sign: string): result<Direction, string> {
             return ok(Direction.Right);
         }
         _ => {
-            return err("unbekannter Befehl '{sign}'");
+            return err("unknown command '{sign}'");
         }
     }
 }
@@ -104,7 +104,7 @@ class Game {
         this.robot.energy--;
         var tile: Tile? = this.map.tile_at(this.robot.x + dx, this.robot.y + dy);
         if (tile == null || !tile.can_enter()) {
-            print("Rums, Wand bei {this.robot.x + dx},{this.robot.y + dy}");
+            print("Bump, wall at {this.robot.x + dx},{this.robot.y + dy}");
             return;
         }
         this.robot.x += dx;
@@ -117,7 +117,7 @@ class Game {
             }
             Effect.Hurt => {
                 this.robot.energy -= 3;
-                print("Autsch, eine Falle");
+                print("Ouch, a trap");
             }
             Effect.Finish => {
                 this.robot.finished = true;
@@ -132,13 +132,13 @@ class Game {
     }
 
     report(): string {
-        var state: string = "kein Strom mehr";
+        var state: string = "out of power";
         if (this.robot.finished) {
-            state = "am Ausgang";
+            state = "at the exit";
         } else if (this.robot.energy > 0) {
-            state = "unterwegs";
+            state = "on the way";
         }
-        return "Schmutz: {this.robot.collected}, Energie: {this.robot.energy}, {state}";
+        return "Dirt: {this.robot.collected}, energy: {this.robot.energy}, {state}";
     }
 }
 
@@ -152,7 +152,7 @@ var lines: list<string> = [
 match (level.Level::parse(lines)) {
     ok(map: level.Level) => {
         var game = new Game(map);
-        print("Steuern mit w, a, s, d (auch mehrere, z. B. dd), q beendet.");
+        print("Steer with w, a, s, d (also several, like dd), q quits.");
         game.show();
         var line = input();
         while (line != null && !game.is_over()) {
@@ -167,7 +167,7 @@ match (level.Level::parse(lines)) {
         print(game.report());
     }
     err(message: string) => {
-        print("Karte kaputt: {message}");
+        print("Broken map: {message}");
     }
 }
 
@@ -175,6 +175,6 @@ match (level.Level::parse(["#?#"])) {
     ok(_) => {
     }
     err(message: string) => {
-        print("Karte kaputt: {message}");
+        print("Broken map: {message}");
     }
 }

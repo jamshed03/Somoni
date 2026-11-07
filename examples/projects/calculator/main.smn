@@ -43,12 +43,12 @@ for (input: string in inputs) {
             print("{input} = {value.format(2)}");
         }
         err(message: string) => {
-            print("{input} -> Fehler: {message}");
+            print("{input} -> error: {message}");
         }
     }
 }
 
-print("Verlauf:");
+print("History:");
 for (entry: string in calculator.entries()) {
     print("  {entry}");
 }

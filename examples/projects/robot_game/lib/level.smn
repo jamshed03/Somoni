@@ -27,7 +27,7 @@ export class Level {
             rows += [row];
         }
         if (start == null) {
-            return err("die Karte hat kein Startfeld 'R'");
+            return err("the map has no start field 'R'");
         }
         return ok(new Level(rows, start));
     }

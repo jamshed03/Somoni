@@ -1,24 +1,24 @@
-# Algorithmen in Somoni
+# Algorithms in Somoni
 
 ```
 cargo run --release -- examples/algorithms/sorting/quick_sort.smn
 ```
 
-Jedes Beispiel hat eine `.out` mit seiner erwarteten Ausgabe, `cargo test` prüft alle (siehe `docs/Architektur.md`, Abschnitt 4).
-Ein neues Beispiel braucht deshalb auch eine `.out`. In `lib/` liegen nur Module, die die Beispiele importieren.
+Every example has a `.out` with its expected output, and `cargo test` checks all of them.
+A new example therefore needs a `.out` too. `lib/` only holds modules that the examples import.
 
-## Ordner
+## Folders
 
-| Ordner                 | Inhalt                                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `ciphers/`             | Atbash, Caesar, Mono-Alphabetic, Morse, Rail Fence, Vigenère                                                 |
-| `conversions/`         | Binär, Hex, Oktal, Geschwindigkeit, Temperatur                                                               |
-| `data_structures/`     | Stack, Queue, verkettete Listen, BST, AVL, Splay, Trie, Union-Find, Segment Tree                             |
-| `graphs/`              | BFS, DFS, Dijkstra, Bellman-Ford                                                                             |
-| `maths/`               | Primzahlen, Sieb, GCD, Fibonacci, Mean/Median/Mode, ...                                                      |
-| `maths/project_euler/` | Problem 1 bis 11                                                                                             |
-| `neural_networks/`     | Perceptron                                                                                                   |
-| `searches/`            | Binary, Exponential, Fibonacci, Interpolation, Jump, Ternary, ...                                            |
-| `sorting/`             | Bubble, Count, Gnome, Heap, Insertion, Merge, Quick, Radix, Selection, Shell, Array Keys                     |
-| `strings/`             | Anagramm, Palindrom, Vokale, Levenshtein, ...                                                                |
-| `lib/`                 | Hilfsfunktionen, die Somoni (noch) nicht eingebaut hat: `chars`, `split`, `lower`, `isqrt`, `exp`, `ln`, ... |
+| Folder                 | Content                                                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `ciphers/`             | Atbash, Caesar, mono-alphabetic, Morse, rail fence, Vigenère                                  |
+| `conversions/`         | Binary, hex, octal, speed, temperature                                                        |
+| `data_structures/`     | Stack, queue, linked lists, BST, AVL, splay, trie, union-find, segment tree                   |
+| `graphs/`              | BFS, DFS, Dijkstra, Bellman-Ford                                                              |
+| `maths/`               | Primes, sieve, GCD, Fibonacci, mean/median/mode, ...                                          |
+| `maths/project_euler/` | Problems 1 to 11                                                                              |
+| `neural_networks/`     | Perceptron                                                                                    |
+| `searches/`            | Binary, exponential, Fibonacci, interpolation, jump, ternary, ...                             |
+| `sorting/`             | Bubble, count, gnome, heap, insertion, merge, quick, radix, selection, shell, array keys      |
+| `strings/`             | Anagram, palindrome, vowels, Levenshtein, ...                                                 |
+| `lib/`                 | Helpers that Somoni does not have built in (yet): `chars`, `split`, `lower`, `isqrt`, `exp`, `ln`, ... |

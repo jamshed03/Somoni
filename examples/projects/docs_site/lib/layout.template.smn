@@ -3,7 +3,7 @@
 @import { section as show_section } from "section.template.smn"
 @props(version: string, sections: list<Section>)
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,7 +22,7 @@
 <body>
     <header>
         <h1>Somoni</h1>
-        <p>Version {{ version }}, gebaut mit Somoni selbst</p>
+        <p>Version {{ version }}, built with Somoni itself</p>
         <nav>
             @foreach (section: Section in sections)
             <a href="#{{ section.id }}">{{ section.title }}</a>

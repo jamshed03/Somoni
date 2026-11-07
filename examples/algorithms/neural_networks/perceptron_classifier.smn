@@ -14,7 +14,7 @@ struct TrainingSet {
     labels: list<float>
 }
 
-// A small pseudo random generator, so every run gives the same numbers (PHP uses random_int).
+// A small pseudo random generator, so every run gives the same numbers.
 class Random {
     private seed: int;
 

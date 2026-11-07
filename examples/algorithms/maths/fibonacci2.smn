@@ -1,6 +1,6 @@
 // Fibonacci with a generator object: every call of next() gives the next number.
 
-// Produces Fibonacci numbers one after another, like the PHP generator with yield.
+// Produces Fibonacci numbers one after another.
 class FibonacciGenerator {
     private current: int = 0;
     private following: int = 1;

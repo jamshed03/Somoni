@@ -63,7 +63,7 @@ export fn tokenize(text: string): result<list<string>, string> {
             continue;
         }
         if (!OperationFactory::is_operator(c) && c != "(" && c != ")") {
-            return err("unbekanntes Zeichen '{c}'");
+            return err("unknown character '{c}'");
         }
         tokens += [c];
     }
@@ -86,7 +86,7 @@ export class Parser {
     parse(): result<Node, string> {
         var tree: Node = this.expression(1)?;
         if (this.pos < len(this.tokens)) {
-            return err("unerwartet: '{this.tokens[this.pos]}'");
+            return err("unexpected: '{this.tokens[this.pos]}'");
         }
         return ok(tree);
     }
@@ -111,14 +111,14 @@ export class Parser {
 
     private primary(): result<Node, string> {
         if (this.pos >= len(this.tokens)) {
-            return err("am Ende fehlt eine Zahl");
+            return err("a number is missing at the end");
         }
         var token: string = this.tokens[this.pos];
         this.pos++;
         if (token == "(") {
             var inner: Node = this.expression(1)?;
             if (this.pos >= len(this.tokens) || this.tokens[this.pos] != ")") {
-                return err("')' fehlt");
+                return err("')' is missing");
             }
             this.pos++;
             return ok(inner);
@@ -132,7 +132,7 @@ export class Parser {
                 return ok(new NumberNode(n));
             }
             err(_) => {
-                return err("keine Zahl: '{token}'");
+                return err("not a number: '{token}'");
             }
         }
     }

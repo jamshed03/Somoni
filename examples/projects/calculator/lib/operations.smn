@@ -70,7 +70,7 @@ export class Divide extends BinaryOperation {
 
     override apply(a: float, b: float): result<float, string> {
         if (b == 0.0) {
-            return err("Division durch 0");
+            return err("division by 0");
         }
         return ok(a / b);
     }
@@ -87,7 +87,7 @@ export class Power extends BinaryOperation {
 
     override apply(a: float, b: float): result<float, string> {
         if (a < 0.0 && floor(b) != ceil(b)) {
-            return err("keine Wurzel aus einer negativen Zahl");
+            return err("no root of a negative number");
         }
         return ok(pow(a, b));
     }
@@ -120,7 +120,7 @@ export class OperationFactory {
                 return ok(new Power());
             }
             _ => {
-                return err("unbekannter Operator '{sign}'");
+                return err("unknown operator '{sign}'");
             }
         }
     }

@@ -1,4 +1,4 @@
-Steuern mit w, a, s, d (auch mehrere, z. B. dd), q beendet.
+Steer with w, a, s, d (also several, like dd), q quits.
 #######
 #R.*.^#
 #.#*#.#
@@ -10,7 +10,7 @@ Steuern mit w, a, s, d (auch mehrere, z. B. dd), q beendet.
 #.#*#.#
 #*...E#
 #######
-Rums, Wand bei 3,0
+Bump, wall at 3,0
 
 #######
 #..R.^#
@@ -23,7 +23,7 @@ Rums, Wand bei 3,0
 #.#.#.#
 #R...E#
 #######
-Rums, Wand bei 1,4
+Bump, wall at 1,4
 
 #######
 #....^#
@@ -36,7 +36,7 @@ Rums, Wand bei 1,4
 #.#.#.#
 #...RE#
 #######
-unbekannter Befehl 'x'
+unknown command 'x'
 
 #######
 #....^#
@@ -49,5 +49,5 @@ unbekannter Befehl 'x'
 #.#.#.#
 #....R#
 #######
-Schmutz: 3, Energie: 0, am Ausgang
-Karte kaputt: unbekanntes Feld '?'
+Dirt: 3, energy: 0, at the exit
+Broken map: unknown field '?'

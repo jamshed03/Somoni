@@ -1,6 +1,6 @@
 // Segment tree: answers sum, min or max over any range and supports updates, both in O(log n).
 
-// How two parts are combined; PHP passes a callback, Somoni has no function values yet.
+// How two parts are combined.
 enum Operation {
     Sum,
     Min,

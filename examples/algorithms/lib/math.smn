@@ -18,7 +18,7 @@ export fn isqrt(n: int): int {
     return low;
 }
 
-// Rounds a float to the given number of decimal places, like round in PHP.
+// Rounds a float to the given number of decimal places.
 export fn round_to(x: float, places: int): float {
     var factor: float = 1.0;
     for (var i: int = 0; i < places; i += 1) {
@@ -73,7 +73,7 @@ export fn ln(x: float): float {
     return 2.0 * total + float(power) * ln2;
 }
 
-// Returns the sum of all numbers in the list, like array_sum in PHP.
+// Returns the sum of all numbers in the list.
 export fn sum(numbers: list<int>): int {
     var total: int = 0;
     for (n: int in numbers) {

@@ -9,7 +9,7 @@ export fn chars(text: string): list<string> {
     return result;
 }
 
-// Joins the parts with the separator between them, like implode in PHP.
+// Joins the parts with the separator between them.
 export fn join(parts: list<string>, separator: string): string {
     var result: string = "";
     for (i: int, part: string in parts) {
@@ -21,7 +21,7 @@ export fn join(parts: list<string>, separator: string): string {
     return result;
 }
 
-// Splits a string at every separator character, like explode in PHP.
+// Splits a string at every separator character.
 export fn split(text: string, separator: string): list<string> {
     var parts: list<string> = [];
     var current: string = "";
@@ -36,7 +36,7 @@ export fn split(text: string, separator: string): list<string> {
     return parts + [current];
 }
 
-// Returns the part of the list from start with the given length, like array_slice in PHP.
+// Returns the part of the list from start with the given length.
 export fn slice(items: list<string>, start: int, length: int): list<string> {
     var result: list<string> = [];
     for (var i: int = start; i < start + length && i < len(items); i += 1) {
@@ -45,12 +45,12 @@ export fn slice(items: list<string>, start: int, length: int): list<string> {
     return result;
 }
 
-// Returns the part of the string from start with the given length, like substr in PHP.
+// Returns the part of the string from start with the given length.
 export fn substring(text: string, start: int, length: int): string {
     return join(slice(chars(text), start, length), "");
 }
 
-// Returns the string without spaces at the start and the end, like trim in PHP.
+// Returns the string without spaces at the start and the end.
 export fn trim(text: string): string {
     const letters: list<string> = chars(text);
     var start: int = 0;
@@ -131,7 +131,7 @@ export fn upper_char(c: string): string {
     return chars(uppercase_letters())[position];
 }
 
-// Returns the string in lowercase, like strtolower in PHP.
+// Returns the string in lowercase.
 export fn lower(text: string): string {
     var result: string = "";
     for (c: string in text) {
@@ -140,7 +140,7 @@ export fn lower(text: string): string {
     return result;
 }
 
-// Returns the string in uppercase, like strtoupper in PHP.
+// Returns the string in uppercase.
 export fn upper(text: string): string {
     var result: string = "";
     for (c: string in text) {

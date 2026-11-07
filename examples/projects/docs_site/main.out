@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,51 +18,51 @@
 <body>
     <header>
         <h1>Somoni</h1>
-        <p>Version 0.8.0, gebaut mit Somoni selbst</p>
+        <p>Version 0.8.0, built with Somoni itself</p>
         <nav>
-            <a href="#start">Was ist Somoni?</a>
-            <a href="#typen">Variablen und Typen</a>
-            <a href="#funktionen">Funktionen und Lambdas</a>
-            <a href="#klassen">Klassen und Interfaces</a>
+            <a href="#start">What is Somoni?</a>
+            <a href="#typen">Variables and types</a>
+            <a href="#funktionen">Functions and lambdas</a>
+            <a href="#klassen">Classes and interfaces</a>
             <a href="#module">Module</a>
-            <a href="#templates">Templates wie Blade</a>
+            <a href="#templates">Templates</a>
         </nav>
     </header>
     <main>
 <section id="start">
-    <h2>Was ist Somoni?</h2>
-    <p>Somoni ist eine stark typisierte Sprache mit geschweiften Klammern. Ein Typchecker findet Fehler vor dem Lauf, eine VM führt den Bytecode aus.</p>
-    <pre><code>print(&quot;Hallo Somoni&quot;);
+    <h2>What is Somoni?</h2>
+    <p>Somoni is a strongly typed language with curly braces. A type checker finds errors before the program runs, a VM runs the bytecode.</p>
+    <pre><code>print(&quot;Hello Somoni&quot;);
 
 var name = &quot;Ali&quot;;
-print(&quot;Hallo {name}!&quot;);</code></pre>
+print(&quot;Hello {name}!&quot;);</code></pre>
     <ul>
-        <li>Aufruf: somoni datei.smn</li>
-        <li>Benannt nach Ismoil Somoni</li>
-        <li>Interpreter in Rust: Lexer, Parser, Typchecker, Compiler, VM</li>
+        <li>Run a program: somoni file.smn</li>
+        <li>Named after Ismoil Somoni</li>
+        <li>Interpreter written in Rust: lexer, parser, type checker, compiler, VM</li>
     </ul>
 </section>
 <section id="typen">
-    <h2>Variablen und Typen</h2>
-    <p>Jede Variable hat einen festen Typ. Er darf fehlen, dann ist es der Typ des Werts.</p>
+    <h2>Variables and types</h2>
+    <p>Every variable has a fixed type. It may be left out, then it is the type of the value.</p>
     <pre><code>var count = 0;              // int
 const pi: float = 3.14;
 var names = [&quot;Ali&quot;, &quot;Bea&quot;];    // list&lt;string&gt;
 var ages = {&quot;Ali&quot;: 30};       // map&lt;string, int&gt;
-var found: int? = null;       // int oder null
+var found: int? = null;       // int or null
 
 if (found != null) {
     print(found + 1);
 }</code></pre>
     <ul>
         <li>int, float, bool, string, list, map, tuple, struct, enum, result</li>
-        <li>Keine stille Umwandlung: &quot;5&quot; + 1 ist ein Fehler</li>
-        <li>Ein Wert mit ? muss vor der Nutzung auf null geprüft werden</li>
+        <li>No silent conversion: &quot;5&quot; + 1 is an error</li>
+        <li>A value with ? must be checked for null before it is used</li>
     </ul>
 </section>
 <section id="funktionen">
-    <h2>Funktionen und Lambdas</h2>
-    <p>Funktionen haben Typen für Parameter und Rückgabe. Lambdas dürfen sie weglassen, wo sie bekannt sind.</p>
+    <h2>Functions and lambdas</h2>
+    <p>Functions have types for their parameters and their result. Lambdas may leave them out where they are known.</p>
     <pre><code>fn square(x: int): int {
     return x * x;
 }
@@ -71,13 +71,13 @@ var users = [User { name: &quot;Ali&quot;, age: 30 }];
 print(users.map(fn(u) =&gt; u.name));
 print(users.filter(fn(u) =&gt; u.age &gt; 18));</code></pre>
     <ul>
-        <li>map, filter, reduce, any, all, sort_by geben dem Lambda seine Typen</li>
-        <li>Lambdas kopieren die Variablen von außen, die sie benutzen</li>
+        <li>map, filter, reduce, any, all and sort_by give the lambda its types</li>
+        <li>Lambdas copy the outside variables they use</li>
     </ul>
 </section>
 <section id="klassen">
-    <h2>Klassen und Interfaces</h2>
-    <p>Klassen mit constructor, Sichtbarkeit, Vererbung und Interfaces, wie in TypeScript und PHP.</p>
+    <h2>Classes and interfaces</h2>
+    <p>Classes with a constructor, visibility, inheritance and interfaces.</p>
     <pre><code>interface Shape {
     area(): float;
 }
@@ -95,25 +95,25 @@ class Circle implements Shape {
 }</code></pre>
     <ul>
         <li>public, private, protected, readonly, static, abstract</li>
-        <li>extends und super, override wird geprüft</li>
-        <li>instanceof mit Narrowing</li>
+        <li>extends and super, override is checked</li>
+        <li>instanceof narrows the type</li>
     </ul>
 </section>
 <section id="module">
     <h2>Module</h2>
-    <p>Was eine Datei hergibt, markiert sie mit export. Andere Dateien holen es mit import.</p>
+    <p>A file marks what it shares with export. Other files get it with import.</p>
     <pre><code>import { square } from &quot;math.smn&quot;;
 import * as text from &quot;text.smn&quot;;
 
 print(square(4));</code></pre>
     <ul>
-        <li>export vor fn, struct, enum, class, interface oder const</li>
-        <li>Jede Datei wird nur einmal gelesen, Kreise werden gemeldet</li>
+        <li>export before fn, struct, enum, class, interface or const</li>
+        <li>Every file is read once, import cycles are reported</li>
     </ul>
 </section>
 <section id="templates">
-    <h2>Templates wie Blade</h2>
-    <p>Dateien name.template.smn sind HTML mit Werten und Direktiven. Diese Seite ist selbst so gebaut.</p>
+    <h2>Templates</h2>
+    <p>Files name.template.smn are HTML with values and directives. This page is built that way.</p>
     <pre><code>@props(title: string, pages: list&lt;Page&gt;)
 &lt;h1&gt;{{ title }}&lt;/h1&gt;
 &lt;ul&gt;
@@ -122,9 +122,9 @@ print(square(4));</code></pre>
 @endforeach
 &lt;/ul&gt;</code></pre>
     <ul>
-        <li>{{ }} escapt immer, {!! !!} schreibt roh</li>
+        <li>{{ }} always escapes, {!! !!} writes raw HTML</li>
         <li>@if, @elseif, @else, @foreach, @include</li>
-        <li>Ein Tippfehler im Template ist ein Fehler vor dem Lauf, mit Datei und Zeile</li>
+        <li>A typo in a template is an error before the program runs, with file and line</li>
     </ul>
 </section>
     </main>
