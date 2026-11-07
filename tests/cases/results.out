@@ -1,17 +1,17 @@
 6
-Fehler: Division durch 0
+Error: Division by 0
 ok(5)
-err("Division durch 0")
+err("Division by 0")
 true
 true
 true
-err("neu")
+err("fresh")
 3
 0
-kein Ergebnis
+no result
 ok([])
-Antwort { wert: err(false) }
-zwei
+Answer { wert: err(false) }
+two
 4
 42
 ok(null)

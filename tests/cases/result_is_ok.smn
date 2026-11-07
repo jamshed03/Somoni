@@ -1,18 +1,18 @@
 // is_ok and is_err tell which variant a result is, without match
-fn teilen(a: int, b: int): result<int, string> {
+fn divide(a: int, b: int): result<int, string> {
     if (b == 0) {
-        return err("Division durch 0");
+        return err("Division by 0");
     }
     return ok(a / b);
 }
 
-print(is_ok(teilen(10, 2)));
-print(is_err(teilen(10, 2)));
-print(is_ok(teilen(1, 0)));
-print(is_err(teilen(1, 0)));
+print(is_ok(divide(10, 2)));
+print(is_err(divide(10, 2)));
+print(is_ok(divide(1, 0)));
+print(is_err(divide(1, 0)));
 print(is_ok(int("42")));
 print(is_err(int("abc")));
 var r: result<string, int> = err(7);
 if (is_err(r)) {
-    print("Fehler");
+    print("Error");
 }

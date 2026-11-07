@@ -1,0 +1,5 @@
+import { number } from "../numbers.smn";
+
+export fn brackets(s: string): string {
+    return "(" + s + string(number()) + ")";
+}

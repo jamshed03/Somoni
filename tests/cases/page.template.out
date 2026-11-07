@@ -4,11 +4,11 @@
     <title>Somoni &amp; Templates</title>
 </head>
 <body>
-    <h1>&lt;Willkommen&gt;</h1>
-    <p>42 ist die Antwort, 2.5 ist ein float, true ein bool.</p>
-    <p>a | b | c und Map</p>
-    <em>roh, nicht escaped</em>
-    <p>E-Mail: info@somoni.dev, CSS: a { color: red; }, einzelne } bleiben</p>
-    <p>verschachtelt innen }}</p>
+    <h1>&lt;Welcome&gt;</h1>
+    <p>42 is a Answer, 2.5 is a float, true a bool.</p>
+    <p>a | b | c and Map</p>
+    <em>raw, not escaped</em>
+    <p>E-Mail: info@somoni.dev, CSS: a { color: red; }, single } stay</p>
+    <p>nested inner }}</p>
 </body>
 </html>

@@ -1,2 +1,2 @@
-class A extends Gibts {
+class A extends Exists {
 }

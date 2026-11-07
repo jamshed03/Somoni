@@ -1,12 +1,12 @@
-Rex der Hund sagt wuffwuff
-Katze sagt miau
-Bello der Hund sagt wiwuffwuff
-Fisch sagt ...
-Hund { art: "Hund", geheim: 7, rufname: "Rex" }
+Rex the Dog says woofwoof
+Cat says meow
+Bello the Dog says wiwoofwoof
+Fish says ...
+Dog { species: "Dog", secret: 7, nickname: "Rex" }
 9
-Fips der Hund
+Fips the Dog
 true
-A: Startwerte
+A: StartValues
 A: constructor
-B: Startwerte
+B: StartValues
 B: constructor

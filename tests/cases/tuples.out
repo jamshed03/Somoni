@@ -1,6 +1,6 @@
-(1, "eins")
+(1, "one")
 2
-eins
+one
 3
 2
 a
@@ -8,9 +8,9 @@ a
 null
 (null, [])
 3
-Eintrag { name: "x", position: (2, 3) }
+Entry { name: "x", position: (2, 3) }
 2
 true
 true
-(1, "eins")
-(2, "zwei")
+(1, "one")
+(2, "two")

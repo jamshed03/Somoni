@@ -1,16 +1,16 @@
-Hallo Ali!
-3 Zahlen, 2.5 Euro, fertig: false
-4 ist mehr, 2.50 mit zwei Stellen
-Bea ist 30
-Ali ist 30, Tom ist 0
-Map in der Klammer: 1
-verschachtelt: innen Ali
+Hello Ali!
+3 Numbers, 2.5 Euro, done: false
+4 is more, 2.50 with two Places
+Bea is 30
+Ali is 30, Tom is 0
+Map inside the braces: 1
+nested: inner Ali
 Ali3
 Ali
-{ geschweift } und } allein
+{ curly } and } alone
 Wert 7
-2 Zeilen:
+2 Lines:
 - a
 - b
-Guten Tag, CEM
-21 mal 2 ist 42
+Good Tag, CEM
+21 times 2 is 42

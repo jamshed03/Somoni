@@ -1,7 +1,7 @@
-enum Farbe {
-    Rot
+enum Color {
+    Red
 }
-match (Farbe.Rot) {
+match (Color.Red) {
     ok(n: int) => {
         print(n);
     }

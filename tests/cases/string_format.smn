@@ -16,7 +16,7 @@ print("-".repeat(5));
 print("[" + "ab".repeat(0) + "]");
 print("ab".repeat(3));
 
-const names: list<string> = ["Apfel", "Kiwi", "Birne"];
+const names: list<string> = ["Apple", "Kiwi", "Pear"];
 const prices: list<float> = [1.5, 0.333, 12.0];
 print("-".repeat(16));
 for (var i: int = 0; i < len(names); i++) {

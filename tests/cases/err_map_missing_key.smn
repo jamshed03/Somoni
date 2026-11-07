@@ -1,2 +1,2 @@
-var alter: map<string, int> = {"Ali": 30};
-print(alter["Tom"]);
+var age: map<string, int> = {"Ali": 30};
+print(age["Tom"]);

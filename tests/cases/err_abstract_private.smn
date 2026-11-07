@@ -1,3 +1,3 @@
-abstract class Tier {
-    private abstract laut(): string;
+abstract class Animal {
+    private abstract sound(): string;
 }

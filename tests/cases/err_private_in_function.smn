@@ -1,10 +1,10 @@
 class User {
-    private passwort: string = "geheim";
+    private password: string = "secret";
 
-    private zaehlen(): void {
+    private count(): void {
     }
 }
 var u: User = new User();
-fn zeigen(x: User): void {
-    print(x.passwort);
+fn show(x: User): void {
+    print(x.password);
 }

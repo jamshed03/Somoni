@@ -1,5 +1,5 @@
 // """...""" is a raw string: no escapes and no {...}, and the indentation of the closing """ goes away
-print("""Er sagte "Hallo {name}" und \n bleibt""");
+print("""He said "Hello {name}" and \n stays""");
 
 fn example(): string {
     return """
@@ -9,7 +9,7 @@ fn example(): string {
             }
         }
 
-        print("fertig");
+        print("done");
         """;
 }
 print(example());
@@ -20,4 +20,4 @@ print("[" + """
     """ + "]");
 print(["""a "b" c"""]);
 var name = "Ali";
-print("""{name}""" + " und {name}");
+print("""{name}""" + " and {name}");

@@ -9,14 +9,14 @@ class Node {
     }
 }
 
-fn summe(n: Node?): int {
+fn sum(n: Node?): int {
     if (n == null) {
         return 0;
     }
-    return n.wert + summe(n.next);
+    return n.wert + sum(n.next);
 }
 
-fn erster(l: list<int?>): int {
+fn first(l: list<int?>): int {
     for (x: int? in l) {
         if (x == null) {
             continue;
@@ -27,28 +27,28 @@ fn erster(l: list<int?>): int {
 }
 
 fn bis_null(l: list<int?>): int {
-    var ergebnis: int = 0;
+    var outcome: int = 0;
     for (x: int? in l) {
         if (x != null) {
-            print("gefunden");
+            print("found");
         } else {
             break;
         }
-        ergebnis += x;
+        outcome += x;
     }
-    return ergebnis;
+    return outcome;
 }
 
-fn mit_block(a: int?): int {
+fn with_block(a: int?): int {
     if (a == null) {
-        print("leer");
+        print("empty");
         return 0;
     }
     return a + 1;
 }
 
-print(summe(new Node(1, new Node(2, null))));
-print(erster([null, null, 4]));
+print(sum(new Node(1, new Node(2, null))));
+print(first([null, null, 4]));
 print(bis_null([1, 2, null, 5]));
-print(mit_block(null));
-print(mit_block(41));
+print(with_block(null));
+print(with_block(41));

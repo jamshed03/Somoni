@@ -1,8 +1,8 @@
-abstract class Tier {
-    abstract laut(): string;
+abstract class Animal {
+    abstract sound(): string;
 }
-class Hund extends Tier {
-    override laut(): string {
-        return super.laut();
+class Dog extends Animal {
+    override sound(): string {
+        return super.sound();
     }
 }

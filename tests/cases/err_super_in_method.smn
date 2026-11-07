@@ -1,6 +1,6 @@
-class Tier {
+class Animal {
 }
-class Hund extends Tier {
+class Dog extends Animal {
     f(): void {
         super();
     }

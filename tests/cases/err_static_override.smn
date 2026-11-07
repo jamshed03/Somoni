@@ -1,10 +1,10 @@
-class Tier {
-    laut(): string {
+class Animal {
+    sound(): string {
         return "...";
     }
 }
-class Hund extends Tier {
-    static override laut(): string {
-        return "Wuff";
+class Dog extends Animal {
+    static override sound(): string {
+        return "Woof";
     }
 }

@@ -1,0 +1,33 @@
+import { number } from "numbers.smn";
+
+export fn quadrat(x: int): int {
+    return times(x, x);
+}
+
+// private: only visible in this file
+fn times(a: int, b: int): int {
+    return a * b;
+}
+
+export struct Point {
+    x: int,
+    y: int
+}
+
+export fn move(p: Point, dx: int): Point {
+    return Point { x: p.x + dx, y: p.y };
+}
+
+export enum Direction {
+    Links,
+    Right
+}
+
+// an exported function may return a private struct
+struct Secret {
+    wert: int
+}
+
+export fn secret(): Secret {
+    return Secret { wert: number() * 6 };
+}

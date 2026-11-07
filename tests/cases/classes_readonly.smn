@@ -1,51 +1,51 @@
 // readonly fields: set in the constructor of their class, read everywhere,
 // objects behind them stay changeable
-class Konto {
+class Account {
     stand: int = 0;
 }
 
-class Kasse {
-    readonly preise: list<int>;
+class Register {
+    readonly prices: list<int>;
     readonly max: int = 10;
-    private readonly name: string = "Kasse";
-    readonly konto: Konto;
-    readonly alle: list<Konto>;
+    private readonly name: string = "Register";
+    readonly account: Account;
+    readonly alle: list<Account>;
 
     constructor(p: list<int>) {
-        this.preise = p;
+        this.prices = p;
         this.max = 20;
-        this.konto = new Konto();
-        this.alle = [new Konto()];
-        this.preise[0] = 5;
+        this.account = new Account();
+        this.alle = [new Account()];
+        this.prices[0] = 5;
     }
 
-    summe(): int {
-        return this.preise[0] + this.preise[1] + this.max;
+    sum(): int {
+        return this.prices[0] + this.prices[1] + this.max;
     }
 
-    titel(): string {
+    title(): string {
         return this.name;
     }
 }
 
-class Laden extends Kasse {
+class Laden extends Register {
     constructor() {
         super([1, 1]);
     }
 
-    doppelt(): int {
+    doubled(): int {
         return this.max * 2;
     }
 }
 
-var k: Kasse = new Kasse([1, 2]);
-print(k.preise);
+var k: Register = new Register([1, 2]);
+print(k.prices);
 print(k.max);
-print(k.summe());
-print(k.titel());
-k.konto.stand = 7;
-print(k.konto.stand);
+print(k.sum());
+print(k.title());
+k.account.stand = 7;
+print(k.account.stand);
 k.alle[0].stand = 3;
 print(k.alle[0].stand);
 const l: Laden = new Laden();
-print(l.doppelt());
+print(l.doubled());

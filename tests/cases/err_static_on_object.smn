@@ -1,7 +1,7 @@
-class Mathe {
+class Math {
     static quadrat(x: int): int {
         return x * x;
     }
 }
-var m: Mathe = new Mathe();
+var m: Math = new Math();
 print(m.quadrat(2));

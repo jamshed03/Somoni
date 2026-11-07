@@ -1,5 +1,5 @@
-import { geheim } from "modules/mathe.smn";
-struct Geheim {
+import { secret } from "modules/math.smn";
+struct Secret {
     wert: int
 }
-print(geheim() == Geheim { wert: 42 });
+print(secret() == Secret { wert: 42 });

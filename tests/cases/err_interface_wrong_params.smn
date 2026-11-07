@@ -1,8 +1,8 @@
 interface Form {
-    flaeche(): float;
+    area(): float;
 }
 class K implements Form {
-    flaeche(genau: int): float {
+    area(exactly: int): float {
         return 1.0;
     }
 }

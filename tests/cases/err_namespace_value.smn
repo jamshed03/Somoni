@@ -1,2 +1,2 @@
-import * as mathe from "modules/mathe.smn";
-print(mathe);
+import * as math from "modules/math.smn";
+print(math);

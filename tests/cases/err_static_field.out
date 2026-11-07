@@ -1,3 +1,3 @@
-Type error [T082]: Line 2: static field 'anzahl' needs a start value
-  2 |     static anzahl: int;
-    |            ^^^^^^
+Type error [T082]: Line 2: static field 'quantity' needs a start value
+  2 |     static quantity: int;
+    |            ^^^^^^^^

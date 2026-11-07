@@ -1,5 +1,5 @@
-struct Punkt { x: int }
-class Hund {
+struct Point { x: int }
+class Dog {
 }
-var h: Hund = new Hund();
-print(h instanceof Punkt);
+var h: Dog = new Dog();
+print(h instanceof Point);

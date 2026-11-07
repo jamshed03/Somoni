@@ -6,13 +6,13 @@ print(name.trim().lower());
 print("äöü".upper());
 print(name);
 
-var namen: list<string> = ["ali", "bea"];
-print(namen[1].upper());
+var names: list<string> = ["ali", "bea"];
+print(names[1].upper());
 
 fn upper(n: int): int {
     return n * 2;
 }
 print(upper(21));
 
-const GRUSS: string = "hallo";
+const GRUSS: string = "hello";
 print(GRUSS.upper());

@@ -1,4 +1,4 @@
-import { a } from "kreis_a.smn";
+import { a } from "circle_a.smn";
 
 export fn b(): int {
     return 2;

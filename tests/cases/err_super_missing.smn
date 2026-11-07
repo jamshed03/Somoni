@@ -1,8 +1,8 @@
-class Tier {
-    constructor(art: string) {
+class Animal {
+    constructor(species: string) {
     }
 }
-class Hund extends Tier {
+class Dog extends Animal {
     constructor() {
         print(1);
     }

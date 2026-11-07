@@ -1,8 +1,8 @@
-User { name: "Ali", alter: 30, besuche: 11 }
-User { name: "Opa", alter: 70, besuche: 1 }
+User { name: "Ali", age: 30, visits: 11 }
+User { name: "Grandpa", age: 70, visits: 1 }
 0
 false
 99
 true
 2
-Leer {}
+Empty {}

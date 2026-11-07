@@ -1,12 +1,12 @@
-abstract class Tier {
+abstract class Animal {
 }
-class Hund extends Tier {
-    bellen(): string {
-        return "Wuff";
+class Dog extends Animal {
+    bark(): string {
+        return "Woof";
     }
 }
-var t: Tier = new Hund();
-if (t instanceof Hund) {
-    print(t.bellen());
+var t: Animal = new Dog();
+if (t instanceof Dog) {
+    print(t.bark());
 }
-print(t.bellen());
+print(t.bark());

@@ -1,17 +1,17 @@
 // a lambda copies the outside variables it uses when it is made; later changes outside do not reach it
-fn mal(faktor: int): fn(int): int {
-    return fn(x: int): int => x * faktor;
+fn times(factor: int): fn(int): int {
+    return fn(x: int): int => x * factor;
 }
 
-fn alle(zahlen: list<int>, f: fn(int): int): list<int> {
-    var ergebnis: list<int> = [];
-    for (n: int in zahlen) {
-        ergebnis += [f(n)];
+fn alle(numbers: list<int>, f: fn(int): int): list<int> {
+    var outcome: list<int> = [];
+    for (n: int in numbers) {
+        outcome += [f(n)];
     }
-    return ergebnis;
+    return outcome;
 }
 
-fn zaehler_liste(): list<fn(): int> {
+fn counter_entries(): list<fn(): int> {
     var fs: list<fn(): int> = [];
     for (var i: int = 0; i < 3; i = i + 1) {
         fs += [fn(): int => i * 10];
@@ -19,35 +19,35 @@ fn zaehler_liste(): list<fn(): int> {
     return fs;
 }
 
-fn addierer(a: int): fn(int): fn(int): int {
+fn adder(a: int): fn(int): fn(int): int {
     return fn(b: int): fn(int): int => fn(c: int): int => a + b + c;
 }
 
-class Konto {
+class Account {
     stand: int;
 
     constructor(stand: int) {
         this.stand = stand;
     }
 
-    einzahlen(betrag: int): void {
-        this.stand += betrag;
+    deposit(amount: int): void {
+        this.stand += amount;
     }
 
-    spaeter(betrag: int): fn(): void {
+    later(amount: int): fn(): void {
         return fn(): void {
-            this.einzahlen(betrag);
+            this.deposit(amount);
         };
     }
 
-    zeiger(): fn(): int {
+    pointer(): fn(): int {
         return fn(): int => this.stand;
     }
 }
 
-var dreifach: fn(int): int = mal(3);
-print(dreifach(5));
-print(alle([1, 2, 3], mal(10)));
+var triple: fn(int): int = times(3);
+print(triple(5));
+print(alle([1, 2, 3], times(10)));
 
 var n: int = 2;
 var plus_n: fn(int): int = fn(x: int): int => x + n;
@@ -56,27 +56,27 @@ print(plus_n(1));
 
 var name: string = "Ali";
 var gruss: fn(): string = fn(): string {
-    var text: string = "Hallo " + name;
+    var text: string = "Hello " + name;
     return text + "!";
 };
 name = "Bea";
 print(gruss());
 
-for (f: fn(): int in zaehler_liste()) {
+for (f: fn(): int in counter_entries()) {
     print(f());
 }
 
-print(addierer(1)(20)(300));
+print(adder(1)(20)(300));
 
-var k: Konto = new Konto(5);
-var auszahlung: fn(): void = k.spaeter(10);
-var stand: fn(): int = k.zeiger();
-auszahlung();
-auszahlung();
+var k: Account = new Account(5);
+var payout: fn(): void = k.later(10);
+var stand: fn(): int = k.pointer();
+payout();
+payout();
 print(stand());
 print(k.stand);
 
-var liste: list<int> = [1, 2];
-var laenge: fn(): int = fn(): int => len(liste);
-liste += [3];
-print(laenge());
+var entries: list<int> = [1, 2];
+var length: fn(): int = fn(): int => len(entries);
+entries += [3];
+print(length());

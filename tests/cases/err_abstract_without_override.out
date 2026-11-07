@@ -1,3 +1,3 @@
-Type error [T066]: Line 5: 'laut' is inherited from 'Tier', write 'override' in front to replace it
-  5 |     laut(): string {
-    |     ^^^^
+Type error [T066]: Line 5: 'sound' is inherited from 'Animal', write 'override' in front to replace it
+  5 |     sound(): string {
+    |     ^^^^^

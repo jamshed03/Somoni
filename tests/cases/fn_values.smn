@@ -3,54 +3,54 @@ fn quadrat(n: int): int {
     return n * n;
 }
 
-fn doppelt(n: int): int {
+fn doubled(n: int): int {
     return n * 2;
 }
 
-fn anwenden(f: fn(int): int, n: int): int {
+fn apply(f: fn(int): int, n: int): int {
     return f(n);
 }
 
-fn waehle(gross: bool): fn(int): int {
+fn choose(gross: bool): fn(int): int {
     if (gross) {
         return quadrat;
     }
-    return doppelt;
+    return doubled;
 }
 
 fn alle(fs: list<fn(int): int>, n: int): list<int> {
-    var ergebnisse: list<int> = [];
+    var outcomes: list<int> = [];
     for (f: fn(int): int in fs) {
-        ergebnisse += [f(n)];
+        outcomes += [f(n)];
     }
-    return ergebnisse;
+    return outcomes;
 }
 
 var f: fn(int): int = quadrat;
 print(f(3));
-f = doppelt;
+f = doubled;
 print(f(3));
-print(anwenden(quadrat, 4));
-print(waehle(true)(5));
-print(waehle(false)(5));
-var fs: list<fn(int): int> = [quadrat, doppelt];
+print(apply(quadrat, 4));
+print(choose(true)(5));
+print(choose(false)(5));
+var fs: list<fn(int): int> = [quadrat, doubled];
 print(fs[1](10));
 print(alle(fs, 7));
-var leer: fn(): void = fn_ohne;
-leer();
+var empty: fn(): void = fn_without;
+empty();
 
-fn fn_ohne(): void {
-    print("ohne Parameter");
+fn fn_without(): void {
+    print("without Parameter");
 }
 
 fn melder(): fn(): void {
-    return fn_ohne;
+    return fn_without;
 }
 
 melder()();
 
 {
-    var quadrat: fn(int): int = doppelt;
+    var quadrat: fn(int): int = doubled;
     print(quadrat(6));
 }
 print(quadrat(6));

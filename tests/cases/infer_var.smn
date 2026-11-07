@@ -23,12 +23,12 @@ fn find(items: list<string>, wanted: string): int? {
 
 var count = 0;
 count += 5;
-const title = "Liste";
+const title = "Entries";
 var done = false;
 var ratio = 1.0 / 4.0;
 var names = ["Ali", "Bea"];
 var ages = {"Ali": 30};
-var pair = ("eins", 1);
+var pair = ("one", 1);
 var color = Color.Green;
 var animal = new Animal("Rex");
 var twice = fn(n: int): int => n * 2;

@@ -1,5 +1,5 @@
-class Kasse {
+class Register {
     readonly max: int = 10;
 }
-var k: Kasse = new Kasse();
+var k: Register = new Register();
 k.max = 20;

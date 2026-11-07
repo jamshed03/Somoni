@@ -1,1 +1,1 @@
-import { quadrat as q, verschieben as q } from "modules/mathe.smn";
+import { quadrat as q, move as q } from "modules/math.smn";

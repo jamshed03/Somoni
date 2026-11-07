@@ -1,39 +1,39 @@
 // static fields change with Class::name = value, also their parts
-class Zaehler {
-    static anzahl: int = 0;
-    static namen: list<string> = ["a", "b"];
-    static tabelle: map<string, int> = {"x": 1};
+class Counter {
+    static quantity: int = 0;
+    static names: list<string> = ["a", "b"];
+    static table: map<string, int> = {"x": 1};
     static text: string = "";
 
     constructor(name: string) {
-        Zaehler::anzahl += 1;
-        Zaehler::text += name;
+        Counter::quantity += 1;
+        Counter::text += name;
     }
 }
 
-class Konto {
+class Account {
     stand: int = 0;
 }
 
 class Bank {
-    static konten: list<Konto> = [];
+    static accounts: list<Account> = [];
 }
 
-new Zaehler("A");
-new Zaehler("B");
-print(Zaehler::anzahl);
-print(Zaehler::text);
-Zaehler::anzahl = 10;
-print(Zaehler::anzahl);
-Zaehler::namen[0] = "z";
-Zaehler::namen += ["c"];
-print(Zaehler::namen);
-Zaehler::tabelle["y"] = 2;
-Zaehler::tabelle["x"] += 5;
-print(Zaehler::tabelle);
-var kopie: list<string> = Zaehler::namen;
-kopie[0] = "k";
-print(Zaehler::namen[0]);
-Bank::konten += [new Konto()];
-Bank::konten[0].stand = 5;
-print(Bank::konten[0].stand);
+new Counter("A");
+new Counter("B");
+print(Counter::quantity);
+print(Counter::text);
+Counter::quantity = 10;
+print(Counter::quantity);
+Counter::names[0] = "z";
+Counter::names += ["c"];
+print(Counter::names);
+Counter::table["y"] = 2;
+Counter::table["x"] += 5;
+print(Counter::table);
+var copy: list<string> = Counter::names;
+copy[0] = "k";
+print(Counter::names[0]);
+Bank::accounts += [new Account()];
+Bank::accounts[0].stand = 5;
+print(Bank::accounts[0].stand);

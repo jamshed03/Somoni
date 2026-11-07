@@ -1,4 +1,4 @@
-import { quadrat } from "modules/mathe.smn";
+import { quadrat } from "modules/math.smn";
 fn quadrat(x: int): int {
     return x;
 }

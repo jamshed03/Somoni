@@ -2,10 +2,10 @@
 print([3, 1, 2].sort_desc());
 print(["b", "c", "a"].sort_desc());
 print([1.5, -2.0, 0.5].sort_desc());
-var leer: list<int> = [];
-print(leer.sort_desc());
+var empty: list<int> = [];
+print(empty.sort_desc());
 
-var counts: list<(string, int)> = [("katze", 1), ("der", 3), ("die", 1), ("hund", 2), ("und", 1)];
+var counts: list<(string, int)> = [("cat", 1), ("the", 3), ("a", 1), ("dog", 2), ("and", 1)];
 print(counts.sort_by_desc(fn(p: (string, int)): int => p.1).map(fn(p: (string, int)): string => p.0));
 print(counts.sort_by(fn(p: (string, int)): int => p.1).reverse().map(fn(p: (string, int)): string => p.0));
 print(counts.sort_by_desc(fn(p: (string, int)): string => p.0).map(fn(p: (string, int)): string => p.0));

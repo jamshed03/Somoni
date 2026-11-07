@@ -3,7 +3,7 @@ fn add(a: int, b: int): int {
 }
 
 fn greet(name: string): void {
-    print("Hallo " + name);
+    print("Hello " + name);
 }
 
 // called before its declaration: the order of functions does not matter

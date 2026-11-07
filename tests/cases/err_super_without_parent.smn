@@ -1,4 +1,4 @@
-class Tier {
+class Animal {
     f(): void {
         super.f();
     }

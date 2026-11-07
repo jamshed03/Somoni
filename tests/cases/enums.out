@@ -1,13 +1,13 @@
-Farbe.Gruen
+Color.Green
 true
 true
-rot
-grün
-blau
-kalt
-Ampel { farbe: Farbe.Rot, an: true }
-Farbe.Blau
-{"Tag": Farbe.Blau}
-Richtung.Rechts
+red
+green
+blue
+cold
+Signal { color: Color.Red, an: true }
+Color.Blue
+{"Tag": Color.Blue}
+Direction.Right
 <
 >

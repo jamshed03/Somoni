@@ -1,6 +1,6 @@
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau
+enum Color {
+    Red,
+    Green,
+    Blue
 }
-print(Farbe.Rot < Farbe.Blau);
+print(Color.Red < Color.Blue);

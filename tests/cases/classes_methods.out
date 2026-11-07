@@ -1,6 +1,6 @@
 Ali: 100
 ok(70)
-err("zu wenig Geld")
+err("not enough money")
 [100, -30]
 75
 Sara: 0
@@ -9,4 +9,4 @@ true
 120
 1
 14
-gebaut
+built

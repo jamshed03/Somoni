@@ -1,4 +1,4 @@
-class Hund {
+class Dog {
 }
 var n: int = 5;
-print(n instanceof Hund);
+print(n instanceof Dog);

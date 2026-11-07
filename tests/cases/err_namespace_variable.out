@@ -1,3 +1,3 @@
-Type error [T097]: Line 2: 'mathe' is the name of an imported module
-  2 | var mathe: int = 1;
-    |     ^^^^^
+Type error [T097]: Line 2: 'math' is the name of an imported module
+  2 | var math: int = 1;
+    |     ^^^^

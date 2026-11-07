@@ -1,17 +1,17 @@
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau
+enum Color {
+    Red,
+    Green,
+    Blue
 }
-var f: Farbe = Farbe.Rot;
+var f: Color = Color.Red;
 match (f) {
-    Farbe.Rot => {
+    Color.Red => {
         print(1);
     }
-    Farbe.Gruen => {
+    Color.Green => {
         print(2);
     }
-    Farbe.Blau => {
+    Color.Blue => {
         print(3);
     }
     _ => {

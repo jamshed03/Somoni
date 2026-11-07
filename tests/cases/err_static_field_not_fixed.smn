@@ -1,6 +1,6 @@
-fn zeit(): int {
+fn time(): int {
     return 5;
 }
-class Uhr {
-    static jetzt: int = zeit();
+class Clock {
+    static now: int = time();
 }

@@ -1,10 +1,10 @@
-class Tier {
-    static erzeugen(): int {
+class Animal {
+    static create(): int {
         return 1;
     }
 }
-class Hund extends Tier {
-    static erzeugen(): int {
+class Dog extends Animal {
+    static create(): int {
         return 2;
     }
 }

@@ -8,7 +8,7 @@ fn name_of(sign: string): string {
             return "minus";
         }
         _ => {
-            return "unbekannt";
+            return "unknown";
         }
     }
 }
@@ -19,13 +19,13 @@ fn size(n: int): string {
             return "null";
         }
         -1 => {
-            return "minus eins";
+            return "minus one";
         }
         1 => {
-            return "eins";
+            return "one";
         }
         _ => {
-            return "viele";
+            return "many";
         }
     }
 }
@@ -41,7 +41,7 @@ print(size(42));
 for (word: string in ["Ali", "Bea", "äöü"]) {
     match (word) {
         "äöü" => {
-            print("Umlaute");
+            print("Umlauts");
         }
         _ => {
             print("Name " + word);
@@ -51,10 +51,10 @@ for (word: string in ["Ali", "Bea", "äöü"]) {
 
 match (int("12")) {
     ok(_) => {
-        print("eine Zahl");
+        print("a number");
     }
     err(_) => {
-        print("keine Zahl");
+        print("not a number");
     }
 }
 match (int("x")) {
@@ -62,6 +62,6 @@ match (int("x")) {
         print(n);
     }
     err(_) => {
-        print("keine Zahl");
+        print("not a number");
     }
 }

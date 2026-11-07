@@ -1,3 +1,3 @@
-Type error [T086]: modules/const_berechnet.smn: Line 4: a const in an imported file must be a fixed value (no calls, new or variables)
-  4 | export const N: int = rechne();
-    |                       ^^^^^^^^
+Type error [T086]: modules/const_computed.smn: Line 4: a const in an imported file must be a fixed value (no calls, new or variables)
+  4 | export const N: int = compute();
+    |                       ^^^^^^^^^

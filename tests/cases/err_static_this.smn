@@ -1,7 +1,7 @@
 class User {
     name: string = "Ali";
 
-    static name_von(): string {
+    static name_of(): string {
         return this.name;
     }
 }

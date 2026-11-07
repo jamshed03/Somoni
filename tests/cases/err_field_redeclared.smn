@@ -1,14 +1,14 @@
-class Tier {
-    protected art: string = "?";
-    private geheim: int = 1;
+class Animal {
+    protected species: string = "?";
+    private secret: int = 1;
 
-    laut(): string {
+    sound(): string {
         return "...";
     }
 
     private intern(): void {
     }
 }
-class Hund extends Tier {
-    art: string = "Hund";
+class Dog extends Animal {
+    species: string = "Dog";
 }

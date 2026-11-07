@@ -5,7 +5,7 @@ true
 true
 ["Ali", "Bea", "Cem"]
 ["Cem", "Ali", "Bea"]
-["der=3", "hund=2", "und=1"]
+["the=3", "dog=2", "and=1"]
 [0.5, 1.0, 1.5]
-["ungerade", "gerade", "ungerade"]
+["odd", "even", "odd"]
 AB

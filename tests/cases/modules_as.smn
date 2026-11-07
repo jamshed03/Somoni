@@ -1,7 +1,7 @@
 // import { a as b } gives an imported name another name in this file
-import { quadrat as q, Punkt as P, verschieben, Richtung as R } from "modules/mathe.smn";
-import { Konto as Bankkonto } from "modules/konto.smn";
-import { PI as KREISZAHL } from "modules/konstanten.smn";
+import { quadrat as q, Point as P, move, Direction as R } from "modules/math.smn";
+import { Account as BankAccount } from "modules/account.smn";
+import { PI as CIRCLE_NUMBER } from "modules/constants.smn";
 
 fn quadrat(n: int): int {
     return n + 1000;
@@ -10,11 +10,11 @@ fn quadrat(n: int): int {
 print(q(4));
 print(quadrat(4));
 var p: P = P { x: 1, y: 2 };
-print(verschieben(p, 10).x);
+print(move(p, 10).x);
 var r: R = R.Links;
 print(r == R.Links);
-var k: Bankkonto = new Bankkonto();
+var k: BankAccount = new BankAccount();
 print(k.stand);
-print(KREISZAHL);
+print(CIRCLE_NUMBER);
 var f: fn(int): int = q;
 print(f(5));

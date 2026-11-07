@@ -1,8 +1,8 @@
-enum Farbe {
-    Rot,
-    Blau
+enum Color {
+    Red,
+    Blue
 }
-var f: Farbe = Farbe.Rot;
+var f: Color = Color.Red;
 match (f) {
     1 => {
     }

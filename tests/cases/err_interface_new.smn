@@ -1,4 +1,4 @@
 interface Form {
-    flaeche(): float;
+    area(): float;
 }
 var f: Form = new Form();

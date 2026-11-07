@@ -1,7 +1,7 @@
 &lt;b&gt;Tom &amp; Jerry&lt;/b&gt;
-Er sagte &quot;Hallo&quot; und &#039;Tschüss&#039;
-&amp;amp; wird nochmal escaped
-ohne besondere Zeichen
+He said &quot;Hello&quot; and &#039;Bye, Zoë&#039;
+&amp;amp; is escaped again
+without special Characters
 true
-<p>Hallo &lt;script&gt;alert(1)&lt;/script&gt;</p>
-<a href="/suche?a=1&amp;b=2">Suche</a>
+<p>Hello &lt;script&gt;alert(1)&lt;/script&gt;</p>
+<a href="/search?a=1&amp;b=2">Search</a>

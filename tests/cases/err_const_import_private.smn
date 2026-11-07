@@ -1,1 +1,1 @@
-import { GEHEIM } from "modules/konstanten.smn";
+import { SECRET } from "modules/constants.smn";

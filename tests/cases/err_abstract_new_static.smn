@@ -1,5 +1,5 @@
 abstract class Form {
-    static erzeugen(): Form {
+    static create(): Form {
         return new Form();
     }
 }

@@ -1,36 +1,36 @@
 // split, join, contains, starts_with, ends_with, replace, slice and index_of on strings
-var zeile: string = "Ali,Bea,,Cem";
-var teile: list<string> = zeile.split(",");
-print(teile);
-print(len(teile));
-print(teile.join(" / "));
+var line: string = "Ali,Bea,,Cem";
+var parts: list<string> = line.split(",");
+print(parts);
+print(len(parts));
+print(parts.join(" / "));
 print("abc".split(""));
 print(["x"].join("-"));
-var leer: list<string> = [];
-print(leer.join(",") == "");
+var empty: list<string> = [];
+print(empty.join(",") == "");
 
-print("Hallo Welt".contains("lo W"));
-print("Hallo".contains("x"));
-print("Hallo".starts_with("Ha"));
-print("Hallo".ends_with("lo"));
-print("Hallo".ends_with("La"));
+print("Hello World".contains("lo W"));
+print("Hello".contains("x"));
+print("Hello".starts_with("He"));
+print("Hello".ends_with("lo"));
+print("Hello".ends_with("La"));
 
 print("a-b-c".replace("-", " + "));
 print("aaa".replace("a", "bb"));
 print("abc".replace("", "x"));
 
-print("Grüße".slice(1, 4));
+print("Crème".slice(1, 4));
 print("abc".slice(0, 0) == "");
 print("abc".slice(0, 3));
 
-print("Grüße aus Wien".index_of("aus"));
+print("Crème from Paris".index_of("from"));
 print("abc".index_of("x"));
-var stelle: int? = "abc".index_of("c");
-if (stelle != null) {
-    print(stelle + 1);
+var place: int? = "abc".index_of("c");
+if (place != null) {
+    print(place + 1);
 }
 
-var csv: string = "  name ; alter ";
-for (feld: string in csv.split(";")) {
-    print("[" + feld.trim().upper() + "]");
+var csv: string = "  name ; age ";
+for (field: string in csv.split(";")) {
+    print("[" + field.trim().upper() + "]");
 }

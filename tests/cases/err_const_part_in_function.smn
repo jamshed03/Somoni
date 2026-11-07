@@ -1,4 +1,4 @@
-const NAMEN: list<string> = ["a"];
-fn aendern(): void {
-    NAMEN[0] = "b";
+const NAMES: list<string> = ["a"];
+fn change(): void {
+    NAMES[0] = "b";
 }

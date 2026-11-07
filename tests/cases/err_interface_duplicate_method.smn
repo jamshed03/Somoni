@@ -1,4 +1,4 @@
 interface Form {
-    flaeche(): float;
-    flaeche(): float;
+    area(): float;
+    area(): float;
 }

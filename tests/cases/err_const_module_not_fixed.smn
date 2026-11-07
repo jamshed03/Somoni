@@ -1,2 +1,2 @@
-import { N } from "modules/const_berechnet.smn";
+import { N } from "modules/const_computed.smn";
 print(N);

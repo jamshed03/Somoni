@@ -1,4 +1,4 @@
 class User {
-    static anzahl: int = 0;
+    static quantity: int = 0;
 }
-print(User::wieviel);
+print(User::how_much);

@@ -1,3 +1,3 @@
-Type error [T073]: Line 5: 'preise' is readonly in 'Kasse' and can only be set in its constructor
-  5 |         this.preise = [];
+Type error [T073]: Line 5: 'prices' is readonly in 'Register' and can only be set in its constructor
+  5 |         this.prices = [];
     |              ^^^^^^

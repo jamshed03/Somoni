@@ -1,8 +1,8 @@
-abstract class Tier {
-    abstract laut(): string;
+abstract class Animal {
+    abstract sound(): string;
 }
-class Hund extends Tier {
-    laut(): string {
-        return "Wuff";
+class Dog extends Animal {
+    sound(): string {
+        return "Woof";
     }
 }

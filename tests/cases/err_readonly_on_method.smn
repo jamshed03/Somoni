@@ -1,5 +1,5 @@
-class Kasse {
-    readonly summe(): int {
+class Register {
+    readonly sum(): int {
         return 0;
     }
 }

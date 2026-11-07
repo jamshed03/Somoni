@@ -1,12 +1,12 @@
-var alter: map<string, int> = {"Ali": 30};
-alter["Sara"] = 25;
-alter["Ali"] = 31;
-print(alter);
+var age: map<string, int> = {"Ali": 30};
+age["Sara"] = 25;
+age["Ali"] = 31;
+print(age);
 
 // a copy is a map of its own
-var copy: map<string, int> = alter;
+var copy: map<string, int> = age;
 copy["Tom"] = 40;
-print(len(alter));
+print(len(age));
 print(len(copy));
 
 // nested: a list in a map, a map in a struct

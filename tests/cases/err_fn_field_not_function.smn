@@ -1,5 +1,5 @@
-struct Punkt {
+struct Point {
     x: int
 }
-var p: Punkt = Punkt { x: 1 };
+var p: Point = Point { x: 1 };
 p.x(2);

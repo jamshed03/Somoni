@@ -1,3 +1,3 @@
-Type error [T085]: Line 4: 'User' has no static field 'wieviel'
-  4 | print(User::wieviel);
-    |             ^^^^^^^
+Type error [T085]: Line 4: 'User' has no static field 'how_much'
+  4 | print(User::how_much);
+    |             ^^^^^^^^

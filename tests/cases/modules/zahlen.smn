@@ -1,3 +1,0 @@
-export fn zahl(): int {
-    return 7;
-}

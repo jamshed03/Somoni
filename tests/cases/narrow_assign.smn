@@ -10,12 +10,12 @@ class Node {
 }
 
 var n: Node? = new Node(1, new Node(2, new Node(3, null)));
-var summe: int = 0;
+var sum: int = 0;
 while (n != null) {
-    summe += n.wert;
+    sum += n.wert;
     n = n.next;
 }
-print(summe);
+print(sum);
 
 var a: int? = 5;
 if (a != null) {

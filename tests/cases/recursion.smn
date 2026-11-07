@@ -1,11 +1,11 @@
-fn fakultaet(n: int): int {
+fn factorial(n: int): int {
     if (n <= 1) {
         return 1;
     }
-    return n * fakultaet(n - 1);
+    return n * factorial(n - 1);
 }
-print(fakultaet(5));
-print(fakultaet(20));
+print(factorial(5));
+print(factorial(20));
 
 fn fib(n: int): int {
     if (n < 2) {

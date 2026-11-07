@@ -4,7 +4,7 @@ import { card as link } from "modules/card.template.smn";
 
 var pages = [
     Page { title: "Start", url: "/" },
-    Page { title: "Typen & Werte", url: "/typen?a=1&b=2" },
+    Page { title: "Types & Values", url: "/types?a=1&b=2" },
     Page { title: "<Templates>", url: "/templates" }
 ];
 print("<ul>");

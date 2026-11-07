@@ -1,1 +1,1 @@
-var p: (int, string) = ("eins", 1);
+var p: (int, string) = ("one", 1);

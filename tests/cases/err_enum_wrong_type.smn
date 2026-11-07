@@ -1,9 +1,9 @@
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau
+enum Color {
+    Red,
+    Green,
+    Blue
 }
-enum Richtung {
+enum Direction {
     Links
 }
-var f: Farbe = Richtung.Links;
+var f: Color = Direction.Links;

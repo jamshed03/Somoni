@@ -1,5 +1,5 @@
-fn zeigen(): int {
-    return SPAETER;
+fn show(): int {
+    return LATER;
 }
-print(zeigen());
-const SPAETER: int = 1;
+print(show());
+const LATER: int = 1;

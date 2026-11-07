@@ -28,17 +28,17 @@ print(half(3.0));
 
 var shout = fn(s: string) {
     if (s == "") {
-        return "(leer)";
+        return "(empty)";
     }
     return s.upper() + "!";
 };
-print(shout("hallo"));
+print(shout("hello"));
 print(shout(""));
 
 var log = fn(s: string) {
     print("log: " + s);
 };
-log("ohne return ist es void");
+log("without return it is void");
 
 var nested = fn(n: int) => fn(m: int) => n * m;
 print(nested(6)(7));

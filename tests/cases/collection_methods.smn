@@ -1,34 +1,34 @@
 // methods on lists and maps; like all methods they return a new value and leave the old one as it is
-var zahlen: list<int> = [3, 1, 2, 3];
-print(zahlen.contains(2));
-print(zahlen.contains(7));
-print(zahlen.index_of(3));
-print(zahlen.index_of(7));
-print(zahlen.reverse());
-print(zahlen.slice(1, 3));
-print(zahlen.sort());
-print(zahlen.remove(0));
-print(zahlen);
+var numbers: list<int> = [3, 1, 2, 3];
+print(numbers.contains(2));
+print(numbers.contains(7));
+print(numbers.index_of(3));
+print(numbers.index_of(7));
+print(numbers.reverse());
+print(numbers.slice(1, 3));
+print(numbers.sort());
+print(numbers.remove(0));
+print(numbers);
 
 print([2.5, -1.0, 0.5].sort());
 print(["bea", "Ali", "cem", "ali"].sort());
-var leer: list<int> = [];
-print(leer.sort());
-print(leer.reverse());
+var empty: list<int> = [];
+print(empty.sort());
+print(empty.reverse());
 
-struct Punkt {
+struct Point {
     x: int,
     y: int
 }
-var punkte: list<Punkt> = [Punkt { x: 1, y: 2 }, Punkt { x: 3, y: 4 }];
-print(punkte.contains(Punkt { x: 3, y: 4 }));
-print(punkte.reverse()[0].x);
+var points: list<Point> = [Point { x: 1, y: 2 }, Point { x: 3, y: 4 }];
+print(points.contains(Point { x: 3, y: 4 }));
+print(points.reverse()[0].x);
 
-var alter: map<string, int> = {"Ali": 30, "Bea": 25, "Cem": 41};
-print(alter.values());
-print(alter.remove("Bea"));
-print(alter.remove("Zoe"));
-print(len(alter));
+var age: map<string, int> = {"Ali": 30, "Bea": 25, "Cem": 41};
+print(age.values());
+print(age.remove("Bea"));
+print(age.remove("Zoe"));
+print(len(age));
 
-var top: list<int> = alter.values().sort().reverse().slice(0, 2);
+var top: list<int> = age.values().sort().reverse().slice(0, 2);
 print(top);

@@ -1,2 +1,2 @@
-import { quadrat } from "modules/mathe.smn";
-print(zahl());
+import { quadrat } from "modules/math.smn";
+print(number());

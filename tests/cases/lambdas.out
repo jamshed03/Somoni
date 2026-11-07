@@ -3,8 +3,8 @@
 [1, 4, 9]
 5
 7
-Hallo Ali
+Hello Ali
 15
 12
 ok(5)
-err("Division durch 0")
+err("Division by 0")

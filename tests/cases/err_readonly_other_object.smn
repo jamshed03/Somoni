@@ -1,7 +1,7 @@
-class Kasse {
+class Register {
     readonly max: int = 10;
 
-    constructor(other: Kasse?) {
+    constructor(other: Register?) {
         if (other != null) {
             other.max = 5;
         }

@@ -1,3 +1,3 @@
-Type error [T003]: Line 5: cannot assign Katze to Hund
-  5 | t = new Katze();
-    |     ^^^^^^^^^^^
+Type error [T003]: Line 5: cannot assign Cat to Dog
+  5 | t = new Cat();
+    |     ^^^^^^^^^

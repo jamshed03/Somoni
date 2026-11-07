@@ -1,0 +1,4 @@
+export fn one(): int {
+    return 1;
+}
+print(one());

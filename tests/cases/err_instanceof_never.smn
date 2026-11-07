@@ -1,8 +1,8 @@
-class Tier {
+class Animal {
 }
-class Hund extends Tier {
+class Dog extends Animal {
 }
-class Katze extends Tier {
+class Cat extends Animal {
 }
-var h: Hund = new Hund();
-print(h instanceof Katze);
+var h: Dog = new Dog();
+print(h instanceof Cat);

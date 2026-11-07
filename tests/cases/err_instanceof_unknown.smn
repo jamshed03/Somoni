@@ -1,4 +1,4 @@
-class Hund {
+class Dog {
 }
-var h: Hund = new Hund();
-print(h instanceof Vogel);
+var h: Dog = new Dog();
+print(h instanceof Bird);

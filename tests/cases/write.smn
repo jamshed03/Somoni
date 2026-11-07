@@ -12,6 +12,6 @@ write([1, 2]);
 print("");
 write("Name? ");
 if (var name = input()) {
-    print("Hallo " + name);
+    print("Hello " + name);
 }
-write("ohne Zeilenumbruch am Ende");
+write("without a line break at the end");

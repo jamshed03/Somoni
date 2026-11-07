@@ -1,5 +1,5 @@
-abstract class Tier {
-    abstract laut(): string {
+abstract class Animal {
+    abstract sound(): string {
         return "";
     }
 }

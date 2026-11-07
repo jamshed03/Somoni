@@ -1,4 +1,4 @@
 class User {
-    private static geheim: int = 1;
+    private static secret: int = 1;
 }
-User::geheim = 2;
+User::secret = 2;

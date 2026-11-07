@@ -1,93 +1,93 @@
-import { Benannt } from "modules/benannt.smn";
+import { Named } from "modules/named.smn";
 
-class Tier implements Benannt {
-    protected art: string;
-    private geheim: int = 7;
+class Animal implements Named {
+    protected species: string;
+    private secret: int = 7;
 
-    constructor(art: string) {
-        this.art = art;
+    constructor(species: string) {
+        this.species = species;
     }
 
-    laut(): string {
+    sound(): string {
         return "...";
     }
 
-    // calls laut() of the class of the object, also from here
-    vorstellen(): string {
-        return this.name() + " sagt " + this.laut();
+    // calls sound() of the class of the object, also from here
+    introduce(): string {
+        return this.name() + " says " + this.sound();
     }
 
     name(): string {
-        return this.art;
+        return this.species;
     }
 
-    protected doppelt(s: string): string {
+    protected doubled(s: string): string {
         return s + s;
     }
 }
 
-class Hund extends Tier {
-    rufname: string;
+class Dog extends Animal {
+    nickname: string;
 
-    constructor(rufname: string) {
-        super("Hund");
-        this.rufname = rufname;
+    constructor(nickname: string) {
+        super("Dog");
+        this.nickname = nickname;
     }
 
-    override laut(): string {
-        return this.doppelt("wuff");
+    override sound(): string {
+        return this.doubled("woof");
     }
 
     override name(): string {
-        return this.rufname + " der " + super.name();
+        return this.nickname + " the " + super.name();
     }
 }
 
-// no constructor: takes the one of Tier
-class Katze extends Tier {
-    leben: int = 9;
+// no constructor: takes the one of Animal
+class Cat extends Animal {
+    life: int = 9;
 
-    override laut(): string {
-        return "miau";
+    override sound(): string {
+        return "meow";
     }
 }
 
 // more than one level
-class Welpe extends Hund {
-    override laut(): string {
-        return "wi" + super.laut();
+class Puppy extends Dog {
+    override sound(): string {
+        return "wi" + super.sound();
     }
 }
 
-var tiere: list<Tier> = [new Hund("Rex"), new Katze("Katze"), new Welpe("Bello"), new Tier("Fisch")];
-for (t: Tier in tiere) {
-    print(t.vorstellen());
+var animals: list<Animal> = [new Dog("Rex"), new Cat("Cat"), new Puppy("Bello"), new Animal("Fish")];
+for (t: Animal in animals) {
+    print(t.introduce());
 }
 
-// print shows the fields of Tier first
-print(tiere[0]);
-print(new Katze("Katze").leben);
+// print shows the fields of Animal first
+print(animals[0]);
+print(new Cat("Cat").life);
 
-// a Hund fits where a Tier or an interface of Tier is wanted
-var b: Benannt = new Welpe("Fips");
+// a Dog fits where an Animal or an interface of Animal is wanted
+var b: Named = new Puppy("Fips");
 print(b.name());
-var t: Tier = tiere[2];
-print(t == tiere[2]);
+var t: Animal = animals[2];
+print(t == animals[2]);
 
 // the order: start values and constructor of the parent first
-fn zeige(s: string): string {
+fn display(s: string): string {
     print(s);
     return s;
 }
 class A {
-    a: string = zeige("A: Startwerte");
+    a: string = display("A: StartValues");
 
     constructor() {
         print("A: constructor");
     }
 }
 class B extends A {
-    b: string = zeige("B: Startwerte");
+    b: string = display("B: StartValues");
 
     constructor() {
         super();

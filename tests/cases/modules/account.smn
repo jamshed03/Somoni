@@ -1,0 +1,7 @@
+export class Account {
+    stand: int = 100;
+
+    static fresh(): Account {
+        return new Account();
+    }
+}

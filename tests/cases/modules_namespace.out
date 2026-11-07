@@ -1,6 +1,6 @@
 25
 0
-Punkt { x: 4, y: 2 }
+Point { x: 4, y: 2 }
 true
 3.14159
 4

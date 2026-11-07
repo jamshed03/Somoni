@@ -1,5 +1,5 @@
-class Tier { }
-class Hund extends Tier { }
-class Katze extends Tier { }
-var t = new Hund();
-t = new Katze();
+class Animal { }
+class Dog extends Animal { }
+class Cat extends Animal { }
+var t = new Dog();
+t = new Cat();

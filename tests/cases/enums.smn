@@ -1,75 +1,75 @@
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau
+enum Color {
+    Red,
+    Green,
+    Blue
 }
-var f: Farbe = Farbe.Gruen;
+var f: Color = Color.Green;
 print(f);
-print(f == Farbe.Gruen);
-print(f != Farbe.Rot);
+print(f == Color.Green);
+print(f != Color.Red);
 
 // every branch returns, so the function returns on every path
-fn name(f: Farbe): string {
+fn name(f: Color): string {
     match (f) {
-        Farbe.Rot => {
-            return "rot";
+        Color.Red => {
+            return "red";
         }
-        Farbe.Gruen => {
-            return "grün";
+        Color.Green => {
+            return "green";
         }
-        Farbe.Blau => {
-            return "blau";
+        Color.Blue => {
+            return "blue";
         }
     }
 }
-for (c: Farbe in [Farbe.Rot, Farbe.Gruen, Farbe.Blau]) {
+for (c: Color in [Color.Red, Color.Green, Color.Blue]) {
     print(name(c));
 }
 
 // _ catches the rest
 match (f) {
-    Farbe.Rot => {
+    Color.Red => {
         print("warm");
     }
     _ => {
-        print("kalt");
+        print("cold");
     }
 }
 
 // in structs and maps
-struct Ampel {
-    farbe: Farbe,
+struct Signal {
+    color: Color,
     an: bool
 }
-var a: Ampel = Ampel { farbe: Farbe.Rot, an: true };
+var a: Signal = Signal { color: Color.Red, an: true };
 print(a);
-a.farbe = Farbe.Blau;
-print(a.farbe);
-var himmel: map<string, Farbe> = {"Tag": Farbe.Blau};
-print(himmel);
+a.color = Color.Blue;
+print(a.color);
+var sky: map<string, Color> = {"Tag": Color.Blue};
+print(sky);
 
 // an enum used before its declaration; break inside a branch
-fn umkehren(r: Richtung): Richtung {
+fn reverse(r: Direction): Direction {
     match (r) {
-        Richtung.Links => {
-            return Richtung.Rechts;
+        Direction.Links => {
+            return Direction.Right;
         }
-        Richtung.Rechts => {
-            return Richtung.Links;
+        Direction.Right => {
+            return Direction.Links;
         }
     }
 }
-enum Richtung {
+enum Direction {
     Links,
-    Rechts
+    Right
 }
-print(umkehren(Richtung.Links));
-for (r: Richtung in [Richtung.Links, Richtung.Rechts, Richtung.Links]) {
+print(reverse(Direction.Links));
+for (r: Direction in [Direction.Links, Direction.Right, Direction.Links]) {
     match (r) {
-        Richtung.Links => {
+        Direction.Links => {
             print("<");
         }
-        Richtung.Rechts => {
+        Direction.Right => {
             print(">");
             break;
         }

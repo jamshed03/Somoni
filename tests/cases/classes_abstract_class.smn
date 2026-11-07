@@ -6,24 +6,24 @@ abstract class Form {
         this.name = name;
     }
 
-    beschreibung(): string {
+    description(): string {
         return "Form " + this.name;
     }
 
-    static einheit(): string {
+    static unit(): string {
         return "cm";
     }
 }
 
 class Quadrat extends Form {
-    seite: int;
+    side: int;
 
-    constructor(seite: int) {
+    constructor(side: int) {
         super("Quadrat");
-        this.seite = seite;
+        this.side = side;
     }
 }
 
 var f: Form = new Quadrat(3);
-print(f.beschreibung());
-print(Form::einheit());
+print(f.description());
+print(Form::unit());

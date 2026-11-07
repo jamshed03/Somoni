@@ -1,12 +1,12 @@
-erster Schritt fertig
+first Step done
 ok(11)
-err("Division durch 0")
-erster Schritt fertig
-err("Division durch 0")
+err("Division by 0")
+first Step done
+err("Division by 0")
 ok(6)
 err("cannot convert 'x' to int")
 ok(3)
-err("negativ: -2")
+err("negative: -2")
 ok(12)
 err("cannot convert 'vier' to int")
 err("cannot convert 'a' to int")

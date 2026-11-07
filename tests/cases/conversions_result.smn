@@ -9,7 +9,7 @@ print(float("inf"));
 print(int("5") == ok(5));
 
 // typical use: a number or a default
-fn zahl_oder(text: string, standard: int): int {
+fn number_or(text: string, standard: int): int {
     match (int(text)) {
         ok(n: int) => {
             return n;
@@ -20,8 +20,8 @@ fn zahl_oder(text: string, standard: int): int {
     }
 }
 const s: string = "7";
-print(zahl_oder(s, 0) * 2);
-print(zahl_oder("sieben", 0));
+print(number_or(s, 0) * 2);
+print(number_or("seven", 0));
 
 var r: result<float, string> = float("2.5");
 match (r) {

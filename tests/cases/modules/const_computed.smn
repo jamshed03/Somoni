@@ -1,0 +1,4 @@
+fn compute(): int {
+    return 1;
+}
+export const N: int = compute();

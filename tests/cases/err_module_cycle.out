@@ -1,3 +1,3 @@
-Import error [M002]: modules/kreis_b.smn: Line 1: files import each other: modules/kreis_a.smn -> modules/kreis_b.smn -> modules/kreis_a.smn
-  1 | import { a } from "kreis_a.smn";
-    |                   ^^^^^^^^^^^^^
+Import error [M002]: modules/circle_b.smn: Line 1: files import each other: modules/circle_a.smn -> modules/circle_b.smn -> modules/circle_a.smn
+  1 | import { a } from "circle_a.smn";
+    |                   ^^^^^^^^^^^^^^

@@ -1,41 +1,41 @@
 // a tuple holds a fixed number of values of fixed types, read with p.0, p.1, ...
-fn teilen(a: int, b: int): (int, int) {
+fn divide(a: int, b: int): (int, int) {
     return (a / b, a % b);
 }
 
-fn min_max(zahlen: list<int>): (int, int)? {
-    if (len(zahlen) == 0) {
+fn min_max(numbers: list<int>): (int, int)? {
+    if (len(numbers) == 0) {
         return null;
     }
-    var klein: int = zahlen[0];
-    var gross: int = zahlen[0];
-    for (n: int in zahlen) {
-        if (n < klein) {
-            klein = n;
+    var small: int = numbers[0];
+    var gross: int = numbers[0];
+    for (n: int in numbers) {
+        if (n < small) {
+            small = n;
         }
         if (n > gross) {
             gross = n;
         }
     }
-    return (klein, gross);
+    return (small, gross);
 }
 
-struct Eintrag {
+struct Entry {
     name: string,
     position: (int, int)
 }
 
-var p: (int, string) = (1, "eins");
+var p: (int, string) = (1, "one");
 print(p);
 print(p.0 + 1);
 print(p.1);
 
-var ergebnis: (int, int) = teilen(17, 5);
-print(ergebnis.0);
-print(ergebnis.1);
+var outcome: (int, int) = divide(17, 5);
+print(outcome.0);
+print(outcome.1);
 
-var paare: list<(string, bool)> = [("a", true), ("b", false)];
-for (paar: (string, bool) in paare) {
+var pairs: list<(string, bool)> = [("a", true), ("b", false)];
+for (paar: (string, bool) in pairs) {
     if (paar.1) {
         print(paar.0);
     }
@@ -44,20 +44,20 @@ for (paar: (string, bool) in paare) {
 print(min_max([3, 9, 1]));
 print(min_max([]));
 
-var leer: (int?, list<int>) = (null, []);
-print(leer);
+var empty: (int?, list<int>) = (null, []);
+print(empty);
 
-var e: Eintrag = Eintrag { name: "x", position: (2, 3) };
+var e: Entry = Entry { name: "x", position: (2, 3) };
 print(e.position.1);
 print(e);
 
-var tief: ((int, int), string) = ((1, 2), "z");
-print((tief.0).1);
+var deep: ((int, int), string) = ((1, 2), "z");
+print((deep.0).1);
 
 print((1, "a") == (1, "a"));
 print((1, "a") != (1, "b"));
 
-var kopie: (int, string) = p;
-p = (2, "zwei");
-print(kopie);
+var copy: (int, string) = p;
+p = (2, "two");
+print(copy);
 print(p);

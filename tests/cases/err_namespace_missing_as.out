@@ -1,3 +1,3 @@
 Parse error [P001]: Line 1: expected 'as' after 'import *'
-  1 | import * from "modules/mathe.smn";
+  1 | import * from "modules/math.smn";
     |         ^

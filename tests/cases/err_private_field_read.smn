@@ -1,8 +1,8 @@
 class User {
-    private passwort: string = "geheim";
+    private password: string = "secret";
 
-    private zaehlen(): void {
+    private count(): void {
     }
 }
 var u: User = new User();
-print(u.passwort);
+print(u.password);

@@ -1,59 +1,59 @@
 class User {
     name: string;
-    alter: int;
-    besuche: int = 0;
+    age: int;
+    visits: int = 0;
 
-    constructor(name: string, alter: int) {
+    constructor(name: string, age: int) {
         // local work first, this only to set fields until all have a value
-        var sauber: int = alter;
-        if (sauber < 0) {
-            sauber = 0;
+        var clean: int = age;
+        if (clean < 0) {
+            clean = 0;
         }
         this.name = name;
-        this.alter = sauber;
+        this.age = clean;
         // now this may be used freely
-        this.besuche += 1;
-        if (this.alter > 60) {
+        this.visits += 1;
+        if (this.age > 60) {
             return;
         }
-        this.besuche += 10;
+        this.visits += 10;
     }
 }
 
 var u: User = new User("Ali", 30);
 print(u);
-print(new User("Opa", 70));
-print(new User("Neg", -5).alter);
+print(new User("Grandpa", 70));
+print(new User("Neg", -5).age);
 print(new User("A", 1) == new User("A", 1));
 
 // objects as arguments are references
 class Team {
     chef: User;
-    mitglieder: list<User> = [];
+    members: list<User> = [];
 
     constructor(chef: User) {
         this.chef = chef;
-        this.mitglieder = [chef];
+        this.members = [chef];
     }
 }
 var t: Team = new Team(u);
-u.besuche = 99;
-print(t.chef.besuche);
-print(t.mitglieder[0] == u);
+u.visits = 99;
+print(t.chef.visits);
+print(t.members[0] == u);
 
 // new inside a constructor
 class Paar {
     links: User;
-    rechts: User;
+    right: User;
 
     constructor(name: string) {
         this.links = new User(name, 1);
-        this.rechts = new User(name, 2);
+        this.right = new User(name, 2);
     }
 }
-print(new Paar("x").rechts.alter);
+print(new Paar("x").right.age);
 
 // a class without fields and without constructor
-class Leer {
+class Empty {
 }
-print(new Leer());
+print(new Empty());

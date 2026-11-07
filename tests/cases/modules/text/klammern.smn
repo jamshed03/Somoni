@@ -1,5 +1,0 @@
-import { zahl } from "../zahlen.smn";
-
-export fn klammern(s: string): string {
-    return "(" + s + string(zahl()) + ")";
-}

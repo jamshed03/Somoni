@@ -1,14 +1,14 @@
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau
+enum Color {
+    Red,
+    Green,
+    Blue
 }
-enum Richtung {
+enum Direction {
     Links
 }
-var f: Farbe = Farbe.Rot;
+var f: Color = Color.Red;
 match (f) {
-    Richtung.Links => {
+    Direction.Links => {
         print(1);
     }
     _ => {

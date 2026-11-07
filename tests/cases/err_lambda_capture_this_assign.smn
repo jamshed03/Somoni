@@ -5,7 +5,7 @@ class A {
         this.n = 1;
     }
 
-    setzer(): fn(): void {
+    setter(): fn(): void {
         return fn(): void {
             this.n = 2;
         };

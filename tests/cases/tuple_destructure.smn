@@ -1,28 +1,28 @@
 // var (a: int, b: string) = tuple; gives every element its own variable
-fn teilen(a: int, b: int): (int, int) {
+fn divide(a: int, b: int): (int, int) {
     return (a / b, a % b);
 }
 
-fn zeige(): string {
-    return NAME + " ist " + string(ALTER);
+fn display(): string {
+    return NAME + " is " + string(AGE);
 }
 
-const (NAME: string, ALTER: int) = ("Ali", 30);
+const (NAME: string, AGE: int) = ("Ali", 30);
 
-var (q: int, r: int) = teilen(17, 5);
+var (q: int, r: int) = divide(17, 5);
 print(q);
 print(r);
 q = q * 10;
 print(q);
 
-print(zeige());
+print(display());
 
-var (zahl: int?, liste: list<int>) = (null, [1]);
-print(zahl);
-print(liste);
+var (number: int?, entries: list<int>) = (null, [1]);
+print(number);
+print(entries);
 
 {
-    var (q: int, r: string) = (1, "innen");
+    var (q: int, r: string) = (1, "inner");
     print(r);
 }
 print(q);

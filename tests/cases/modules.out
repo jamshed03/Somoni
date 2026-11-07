@@ -1,9 +1,9 @@
 16
-Punkt { x: 4, y: 2 }
-rechts
+Point { x: 4, y: 2 }
+right
 (a7)
-Geheim { wert: 42 }
+Secret { wert: 42 }
 true
 105
-Geheim { text: "meins" }
-hallo
+Secret { text: "mine" }
+hello

@@ -1,2 +1,2 @@
-import * as mathe from "modules/mathe.smn";
-print(mathe.mal(2, 3));
+import * as math from "modules/math.smn";
+print(math.times(2, 3));

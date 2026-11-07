@@ -1,6 +1,6 @@
 class User {
     greet(): string {
-        return "Hallo";
+        return "Hello";
     }
 }
 print(User::greet());

@@ -1,44 +1,44 @@
 // static methods and fields are inherited; an inherited static field is the same field
-class Tier {
-    static anzahl: int = 0;
-    protected static einheit: string = "Stück";
-    private static geheim: int = 7;
+class Animal {
+    static quantity: int = 0;
+    protected static unit: string = "piece";
+    private static secret: int = 7;
 
     constructor() {
-        Tier::anzahl += 1;
+        Animal::quantity += 1;
     }
 
-    static erzeugen(): Tier {
-        return new Tier();
+    static create(): Animal {
+        return new Animal();
     }
 
-    static beschreiben(): string {
-        return string(Tier::anzahl) + " " + Tier::einheit + ", geheim " + string(Tier::geheim);
+    static describe(): string {
+        return string(Animal::quantity) + " " + Animal::unit + ", secret " + string(Animal::secret);
     }
 }
 
-class Hund extends Tier {
+class Dog extends Animal {
     constructor() {
         super();
-        Hund::anzahl += 10;
+        Dog::quantity += 10;
     }
 
-    static zaehlen(): string {
-        return string(Hund::anzahl) + " " + Hund::einheit;
+    static count(): string {
+        return string(Dog::quantity) + " " + Dog::unit;
     }
 }
 
-class Welpe extends Hund {
+class Puppy extends Dog {
 }
 
-Tier::erzeugen();
-var h: Hund = new Hund();
-print(Tier::anzahl);
-print(Hund::anzahl);
-print(Welpe::anzahl);
-print(Hund::beschreiben());
-print(Welpe::zaehlen());
-Welpe::anzahl = 100;
-print(Tier::anzahl);
-var t: Tier = Welpe::erzeugen();
-print(Tier::anzahl);
+Animal::create();
+var h: Dog = new Dog();
+print(Animal::quantity);
+print(Dog::quantity);
+print(Puppy::quantity);
+print(Dog::describe());
+print(Puppy::count());
+Puppy::quantity = 100;
+print(Animal::quantity);
+var t: Animal = Puppy::create();
+print(Animal::quantity);

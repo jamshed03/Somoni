@@ -1,6 +1,6 @@
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau
+enum Color {
+    Red,
+    Green,
+    Blue
 }
-var f: Farbe = Farbe.Lila;
+var f: Color = Color.Lila;

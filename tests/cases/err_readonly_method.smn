@@ -1,7 +1,7 @@
-class Kasse {
-    readonly preise: list<int> = [];
+class Register {
+    readonly prices: list<int> = [];
 
-    leeren(): void {
-        this.preise = [];
+    empty(): void {
+        this.prices = [];
     }
 }

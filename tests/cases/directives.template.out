@@ -1,6 +1,6 @@
 <ul>
     <li>
-        <b>Ali</b> (erster)
+        <b>Ali</b> (first)
     </li>
     <li>
         <i>Bea</i>
@@ -11,5 +11,5 @@
 </ul>
 <p>[10][20]</p>
 <p>[30]</p>
-<p>Kontakt: info@somoni.dev, @if bleibt Text, {{ x }} auch</p>
-<p>kurz in einer Zeile</p>
+<p>Contact: info@somoni.dev, @if stays Text, {{ x }} also</p>
+<p>short in one Line</p>

@@ -1,12 +1,12 @@
-fn zeige(n: int): void {
+fn display(n: int): void {
     print(n);
 }
-class Geheim {
+class Secret {
     private f: fn(int): void;
 
     constructor() {
-        this.f = zeige;
+        this.f = display;
     }
 }
-var g: Geheim = new Geheim();
+var g: Secret = new Secret();
 g.f(1);

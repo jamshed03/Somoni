@@ -2,4 +2,4 @@ false
 true
 2
 true
-User { name: "Ali B.", passwort: "geheim", versuche: 2 }
+User { name: "Ali B.", password: "secret", attempts: 2 }

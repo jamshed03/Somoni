@@ -3,7 +3,7 @@
     @foreach (name: string in ["Ali", "Bea", "Cem"])
     <li>
         @if (name == "Ali")
-        <b>{{ name }}</b> (erster)
+        <b>{{ name }}</b> (first)
         @elseif (len(name) == 3 && name != "Cem")
         <i>{{ name }}</i>
         @else
@@ -16,7 +16,7 @@
 <p>@foreach (n: int in row)[{{ n * 10 }}]@endforeach</p>
 @endforeach
 @if (false)
-nie
+never
 @endif
-<p>Kontakt: info@somoni.dev, @@if bleibt Text, @{{ x }} auch</p>
-<p>@if ("a" == "a")kurz in einer Zeile@endif</p>
+<p>Contact: info@somoni.dev, @@if stays Text, @{{ x }} also</p>
+<p>@if ("a" == "a")short in one Line@endif</p>

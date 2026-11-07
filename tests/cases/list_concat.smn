@@ -1,14 +1,14 @@
-var zahlen: list<int> = [1, 2];
-zahlen = zahlen + [3];
-print(zahlen);
+var numbers: list<int> = [1, 2];
+numbers = numbers + [3];
+print(numbers);
 print([1] + [2, 3] + [4]);
 
 // the empty list takes its type from the other side
-print(zahlen + []);
-print([] + zahlen);
-print(zahlen == []);
-var leer: list<int> = [];
-print(leer + leer);
+print(numbers + []);
+print([] + numbers);
+print(numbers == []);
+var empty: list<int> = [];
+print(empty + empty);
 
 // growing in a loop: appended in place, not copied every round
 var squares: list<int> = [];

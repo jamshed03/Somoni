@@ -1,2 +1,2 @@
-import * as mathe from "modules/mathe.smn";
-var mathe: int = 1;
+import * as math from "modules/math.smn";
+var math: int = 1;

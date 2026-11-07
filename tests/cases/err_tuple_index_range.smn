@@ -1,2 +1,2 @@
-var p: (int, string) = (1, "eins");
+var p: (int, string) = (1, "one");
 print(p.2);

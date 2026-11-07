@@ -1,86 +1,86 @@
-import { Konto } from "modules/konto.smn";
+import { Account } from "modules/account.smn";
 
-class Zaehler {
+class Counter {
     stand: int = 0;
-    name: string = "zähler";
-    schritte: list<int> = [];
+    name: string = "counter";
+    steps: list<int> = [];
 }
 
-var a: Zaehler = new Zaehler();
+var a: Counter = new Counter();
 print(a);
 a.stand += 1;
 print(a.stand);
 
 // b is the same object, not a copy
-var b: Zaehler = a;
+var b: Counter = a;
 b.stand = 10;
 print(a.stand);
 print(a == b);
-print(a == new Zaehler());
-print(a != new Zaehler());
+print(a == new Counter());
+print(a != new Counter());
 
 // every new computes the start values again
-var c: Zaehler = new Zaehler();
-c.schritte = c.schritte + [1];
-print(new Zaehler().schritte);
+var c: Counter = new Counter();
+c.steps = c.steps + [1];
+print(new Counter().steps);
 
 // a function can change the object of the caller
-fn erhoehen(z: Zaehler): void {
+fn increase(z: Counter): void {
     z.stand += 5;
 }
-erhoehen(a);
+increase(a);
 print(a.stand);
 
 // const keeps the variable, not the fields
-const k: Zaehler = new Zaehler();
+const k: Counter = new Counter();
 k.stand = 3;
 print(k.stand);
 
 // objects in lists are references too
-var liste: list<Zaehler> = [a, a];
-liste[0].stand = 99;
+var entries: list<Counter> = [a, a];
+entries[0].stand = 99;
 print(a.stand);
-print(liste[1].stand);
+print(entries[1].stand);
 
 // a struct stays a copy, also inside an object
-struct Punkt {
+struct Point {
     x: int
 }
-var p: Punkt = Punkt { x: 1 };
-var q: Punkt = p;
+var p: Point = Point { x: 1 };
+var q: Point = p;
 q.x = 2;
 print(p.x);
 
-class Knoten {
+class Node {
     wert: int = 1;
-    next: Knoten? = null;
-    ort: Punkt = Punkt { x: 7 };
+    next: Node? = null;
+    ort: Point = Point { x: 7 };
 }
-var n: Knoten = new Knoten();
-n.next = new Knoten();
+var n: Node = new Node();
+n.next = new Node();
 print(n);
 n.ort.x = 8;
 print(n.ort.x);
-const m: Knoten = n;
+const m: Node = n;
 m.ort.x = 9;
 print(n.ort);
 
 // objects that know each other in a circle
-var eins: Knoten = new Knoten();
-eins.next = eins;
-print(eins);
+var one: Node = new Node();
+one.next = one;
+print(one);
 
 // a class from another file
-var konto: Konto = new Konto();
-konto.stand -= 30;
-print(konto.stand);
+var account: Account = new Account();
+account.stand -= 30;
+print(account.stand);
 
 // the same object twice on one path
-class Selbst {
+class Self {
     x: int = 0;
-    alle: list<Selbst> = [];
+    alle: list<Self> = [];
 }
-var s: Selbst = new Selbst();
+var s: Self = new Self();
 s.alle = [s];
 s.alle[0].x = 5;
 s.alle[0].x += 1;

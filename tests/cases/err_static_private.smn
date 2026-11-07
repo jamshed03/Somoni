@@ -1,6 +1,6 @@
-class Mathe {
-    private static geheim(): int {
+class Math {
+    private static secret(): int {
         return 42;
     }
 }
-print(Mathe::geheim());
+print(Math::secret());

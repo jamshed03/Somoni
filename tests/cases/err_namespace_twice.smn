@@ -1,2 +1,2 @@
-import * as mathe from "modules/mathe.smn";
-import * as mathe from "modules/konstanten.smn";
+import * as math from "modules/math.smn";
+import * as math from "modules/constants.smn";

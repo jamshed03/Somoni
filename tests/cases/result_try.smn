@@ -1,65 +1,65 @@
 // '?' gives the value of an ok, or returns the err from the function at once
-fn teilen(a: int, b: int): result<int, string> {
+fn divide(a: int, b: int): result<int, string> {
     if (b == 0) {
-        return err("Division durch 0");
+        return err("Division by 0");
     }
     return ok(a / b);
 }
 
-fn rechne(a: int, b: int, c: int): result<int, string> {
-    var x: int = teilen(a, b)?;
-    print("erster Schritt fertig");
-    return ok(teilen(x, c)? + 1);
+fn compute(a: int, b: int, c: int): result<int, string> {
+    var x: int = divide(a, b)?;
+    print("first Step done");
+    return ok(divide(x, c)? + 1);
 }
 
-fn summe(texte: list<string>): result<int, string> {
+fn sum(texts: list<string>): result<int, string> {
     var s: int = 0;
-    for (t: string in texte) {
+    for (t: string in texts) {
         s += int(t)?;
     }
     return ok(s);
 }
 
-fn pruefe(n: int): result<bool, string> {
+fn check(n: int): result<bool, string> {
     if (n < 0) {
-        return err("negativ: " + string(n));
+        return err("negative: " + string(n));
     }
     return ok(true);
 }
 
-fn alle(zahlen: list<int>): result<int, string> {
-    for (n: int in zahlen) {
-        pruefe(n)?;
+fn alle(numbers: list<int>): result<int, string> {
+    for (n: int in numbers) {
+        check(n)?;
     }
-    return ok(len(zahlen));
+    return ok(len(numbers));
 }
 
-class Rechner {
-    faktor: int;
+class Calculator {
+    factor: int;
 
-    constructor(faktor: int) {
-        this.faktor = faktor;
+    constructor(factor: int) {
+        this.factor = factor;
     }
 
-    mal(text: string): result<int, string> {
-        return ok(int(text)? * this.faktor);
+    times(text: string): result<int, string> {
+        return ok(int(text)? * this.factor);
     }
 
-    beide(a: string, b: string): result<int, string> {
-        this.mal(a)?;
-        return this.mal(b);
+    both(a: string, b: string): result<int, string> {
+        this.times(a)?;
+        return this.times(b);
     }
 }
 
-print(rechne(100, 5, 2));
-print(rechne(100, 0, 2));
-print(rechne(100, 5, 0));
-print(summe(["1", "2", "3"]));
-print(summe(["1", "x", "3"]));
+print(compute(100, 5, 2));
+print(compute(100, 0, 2));
+print(compute(100, 5, 0));
+print(sum(["1", "2", "3"]));
+print(sum(["1", "x", "3"]));
 print(alle([1, 2, 3]));
 print(alle([1, -2, -3]));
-var r: Rechner = new Rechner(3);
-print(r.mal("4"));
-print(r.mal("vier"));
-print(r.beide("a", "2"));
-print(r.beide("1", "2"));
+var r: Calculator = new Calculator(3);
+print(r.times("4"));
+print(r.times("vier"));
+print(r.both("a", "2"));
+print(r.both("1", "2"));

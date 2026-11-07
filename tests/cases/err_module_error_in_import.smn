@@ -1,1 +1,1 @@
-import { kaputt } from "modules/kaputt.smn";
+import { broken } from "modules/broken.smn";

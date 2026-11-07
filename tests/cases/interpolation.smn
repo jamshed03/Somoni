@@ -1,4 +1,4 @@
-// "Hallo {name}" puts values into a string, turned into text like string(...)
+// "Hello {name}" puts values into a string, turned into text like string(...)
 struct User {
     name: string,
     age: int
@@ -8,20 +8,20 @@ var name = "Ali";
 var count = 3;
 var price = 2.5;
 var done = false;
-print("Hallo {name}!");
-print("{count} Zahlen, {price} Euro, fertig: {done}");
-print("{count + 1} ist mehr, {price.format(2)} mit zwei Stellen");
+print("Hello {name}!");
+print("{count} Numbers, {price} Euro, done: {done}");
+print("{count + 1} is more, {price.format(2)} with two Places");
 
 var user = User { name: "Bea", age: 30 };
-print("{user.name} ist {user.age}");
+print("{user.name} is {user.age}");
 
 var ages = {"Ali": 30};
-print("Ali ist {ages.get("Ali", 0)}, Tom ist {ages.get("Tom", 0)}");
-print("Map in der Klammer: { {"k": 1}["k"] }");
-print("verschachtelt: {"innen {name}"}");
+print("Ali is {ages.get("Ali", 0)}, Tom is {ages.get("Tom", 0)}");
+print("Map inside the braces: { {"k": 1}["k"] }");
+print("nested: {"inner {name}"}");
 print("{name}{count}");
 print("{name}");
-print("\{ geschweift \} und } allein");
+print("\{ curly \} and } alone");
 
 var maybe: int? = 7;
 if (maybe != null) {
@@ -29,13 +29,13 @@ if (maybe != null) {
 }
 
 var lines = ["a", "b"];
-print("{len(lines)} Zeilen:
+print("{len(lines)} Lines:
 - {lines[0]}
 - {lines[1]}");
 
 fn greet(who: string): string {
-    return "Guten Tag, {who.upper()}";
+    return "Good Tag, {who.upper()}";
 }
 print(greet("cem"));
-var twice = fn(n: int) => "{n} mal 2 ist {n * 2}";
+var twice = fn(n: int) => "{n} times 2 is {n * 2}";
 print(twice(21));

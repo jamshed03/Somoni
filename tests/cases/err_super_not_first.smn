@@ -1,6 +1,6 @@
-class Tier {
+class Animal {
 }
-class Hund extends Tier {
+class Dog extends Animal {
     constructor() {
         print(1);
         super();

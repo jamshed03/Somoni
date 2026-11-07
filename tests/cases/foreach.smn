@@ -1,18 +1,18 @@
-var namen: list<string> = ["Ali", "Sara", "Tom"];
-for (name: string in namen) {
+var names: list<string> = ["Ali", "Sara", "Tom"];
+for (name: string in names) {
     print(name);
 }
-for (i: int, name: string in namen) {
+for (i: int, name: string in names) {
     print(string(i) + ": " + name);
 }
 
 // maps: in the order the keys were added
-var alter: map<string, int> = {"Ali": 30, "Sara": 25};
-for (name: string in alter) {
+var age: map<string, int> = {"Ali": 30, "Sara": 25};
+for (name: string in age) {
     print(name);
 }
-for (name: string, jahre: int in alter) {
-    print(name + " ist " + string(jahre));
+for (name: string, years: int in age) {
+    print(name + " is " + string(years));
 }
 
 // strings: characters, not bytes
@@ -40,8 +40,8 @@ for (x: int in l) {
 }
 print(l);
 
-var leer: list<int> = [];
-for (x: int in leer) {
+var empty: list<int> = [];
+for (x: int in empty) {
     print("never");
 }
 

@@ -1,37 +1,37 @@
 class User {
     public name: string;
-    private passwort: string;
-    private versuche: int = 0;
+    private password: string;
+    private attempts: int = 0;
 
-    public constructor(name: string, passwort: string) {
+    public constructor(name: string, password: string) {
         this.name = name;
-        this.passwort = passwort;
+        this.password = password;
     }
 
-    public anmelden(eingabe: string): bool {
-        this.zaehlen();
-        return this.passwort == eingabe;
+    public login(entered: string): bool {
+        this.count();
+        return this.password == entered;
     }
 
-    private zaehlen(): void {
-        this.versuche += 1;
+    private count(): void {
+        this.attempts += 1;
     }
 
     // private works for other objects of the same class too
-    gleichesPasswort(other: User): bool {
-        return this.passwort == other.passwort;
+    samePassword(other: User): bool {
+        return this.password == other.password;
     }
 
-    versucheBisher(): int {
-        return this.versuche;
+    attemptsSoFar(): int {
+        return this.attempts;
     }
 }
 
-var u: User = new User("Ali", "geheim");
-print(u.anmelden("falsch"));
-print(u.anmelden("geheim"));
-print(u.versucheBisher());
-print(u.gleichesPasswort(new User("Sara", "geheim")));
+var u: User = new User("Ali", "secret");
+print(u.login("wrong"));
+print(u.login("secret"));
+print(u.attemptsSoFar());
+print(u.samePassword(new User("Sara", "secret")));
 
 // public fields can be changed from outside
 u.name = "Ali B.";

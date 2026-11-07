@@ -3,7 +3,7 @@
     <b>Start</b>
 </li>
 <li>
-    <a href="/typen?a=1&amp;b=2">Typen &amp; Werte</a>
+    <a href="/types?a=1&amp;b=2">Types &amp; Values</a>
 </li>
 <li>
     <a href="/templates">&lt;Templates&gt;</a>

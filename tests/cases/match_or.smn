@@ -1,32 +1,32 @@
 // several values or variants in one branch of match, joined with |
-enum Farbe {
-    Rot,
-    Gruen,
-    Blau,
-    Gelb
+enum Color {
+    Red,
+    Green,
+    Blue,
+    Yellow
 }
 
-fn warm(f: Farbe): bool {
+fn warm(f: Color): bool {
     match (f) {
-        Farbe.Rot | Farbe.Gelb => {
+        Color.Red | Color.Yellow => {
             return true;
         }
-        Farbe.Gruen | Farbe.Blau => {
+        Color.Green | Color.Blue => {
             return false;
         }
     }
 }
 
-fn art(c: string): string {
+fn species(c: string): string {
     match (c) {
         "a" | "e" | "i" | "o" | "u" => {
-            return "Vokal";
+            return "Vowel";
         }
         " " => {
-            return "Leer";
+            return "Empty";
         }
         _ => {
-            return "anderes";
+            return "other";
         }
     }
 }
@@ -34,28 +34,28 @@ fn art(c: string): string {
 fn tag(n: int): string {
     match (n) {
         6 | 7 => {
-            return "Wochenende";
+            return "Weekend";
         }
         _ => {
-            return "Werktag";
+            return "Weekday";
         }
     }
 }
 
-print(warm(Farbe.Rot));
-print(warm(Farbe.Blau));
-print(warm(Farbe.Gelb));
-print(art("e"));
-print(art(" "));
-print(art("x"));
+print(warm(Color.Red));
+print(warm(Color.Blue));
+print(warm(Color.Yellow));
+print(species("e"));
+print(species(" "));
+print(species("x"));
 print(tag(7));
 print(tag(3));
 
-match (Farbe.Gruen) {
-    Farbe.Rot | Farbe.Blau => {
-        print("rot oder blau");
+match (Color.Green) {
+    Color.Red | Color.Blue => {
+        print("red or blue");
     }
     _ => {
-        print("etwas anderes");
+        print("something other");
     }
 }

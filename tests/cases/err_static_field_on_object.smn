@@ -1,5 +1,5 @@
 class User {
-    static anzahl: int = 0;
+    static quantity: int = 0;
 }
 var u: User = new User();
-print(u.anzahl);
+print(u.quantity);

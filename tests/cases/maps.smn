@@ -1,34 +1,34 @@
-var alter: map<string, int> = {"Ali": 30, "Sara": 25};
-print(alter);
-print(alter["Sara"]);
-print(alter["Ali"] + 1);
-print(len(alter));
+var age: map<string, int> = {"Ali": 30, "Sara": 25};
+print(age);
+print(age["Sara"]);
+print(age["Ali"] + 1);
+print(len(age));
 
 // has checks for a key before reading it
-print(has(alter, "Ali"));
-print(has(alter, "Tom"));
-if (has(alter, "Tom")) {
-    print(alter["Tom"]);
+print(has(age, "Ali"));
+print(has(age, "Tom"));
+if (has(age, "Tom")) {
+    print(age["Tom"]);
 }
 
 // keys in the order they were added
-var namen: list<string> = keys(alter);
-for (var i: int = 0; i < len(namen); i = i + 1) {
-    print(namen[i] + ": " + string(alter[namen[i]]));
+var names: list<string> = keys(age);
+for (var i: int = 0; i < len(names); i = i + 1) {
+    print(names[i] + ": " + string(age[names[i]]));
 }
 
 // int keys, list values, the empty map
 var squares: map<int, list<int>> = {2: [4], 3: [9]};
 print(squares);
 print(squares[3][0]);
-var leer: map<string, bool> = {};
-print(leer);
-print(len(leer));
+var empty: map<string, bool> = {};
+print(empty);
+print(len(empty));
 
 // == does not care about the order
-print(alter == {"Sara": 25, "Ali": 30});
-print(alter == {"Ali": 30});
-print(leer == {});
+print(age == {"Sara": 25, "Ali": 30});
+print(age == {"Ali": 30});
+print(empty == {});
 
 // a map in a struct and as a parameter
 struct Team {

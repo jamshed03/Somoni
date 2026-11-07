@@ -1,43 +1,43 @@
-import { Benannt } from "modules/benannt.smn";
+import { Named } from "modules/named.smn";
 
 interface Form {
-    flaeche(): float;
-    skalieren(faktor: float): void;
+    area(): float;
+    scale(factor: float): void;
 }
 
-class Kreis implements Form, Benannt {
+class Circle implements Form, Named {
     r: float;
 
     constructor(r: float) {
         this.r = r;
     }
 
-    flaeche(): float {
+    area(): float {
         return 3.0 * this.r * this.r;
     }
 
-    skalieren(faktor: float): void {
-        this.r = this.r * faktor;
+    scale(factor: float): void {
+        this.r = this.r * factor;
     }
 
     name(): string {
-        return "Kreis";
+        return "Circle";
     }
 }
 
-class Quadrat implements Form, Benannt {
-    seite: float;
+class Quadrat implements Form, Named {
+    side: float;
 
-    constructor(seite: float) {
-        this.seite = seite;
+    constructor(side: float) {
+        this.side = side;
     }
 
-    flaeche(): float {
-        return this.seite * this.seite;
+    area(): float {
+        return this.side * this.side;
     }
 
-    skalieren(faktor: float): void {
-        this.seite = this.seite * faktor;
+    scale(factor: float): void {
+        this.side = this.side * factor;
     }
 
     name(): string {
@@ -45,55 +45,55 @@ class Quadrat implements Form, Benannt {
     }
 
     // more methods than the interface needs are fine
-    umfang(): float {
-        return 4.0 * this.seite;
+    perimeter(): float {
+        return 4.0 * this.side;
     }
 }
 
 // the same call runs the method of the class of each object
-var formen: list<Form> = [new Kreis(1.0), new Quadrat(2.0)];
-for (f: Form in formen) {
-    print(f.flaeche());
+var shapes: list<Form> = [new Circle(1.0), new Quadrat(2.0)];
+for (f: Form in shapes) {
+    print(f.area());
 }
 
 // an interface as parameter and return type
-fn summe(alle: list<Form>): float {
+fn sum(alle: list<Form>): float {
     var s: float = 0.0;
     for (f: Form in alle) {
-        s = s + f.flaeche();
+        s = s + f.area();
     }
     return s;
 }
-print(summe(formen));
+print(sum(shapes));
 
-fn groessere(a: Form, b: Form): Form {
-    if (a.flaeche() > b.flaeche()) {
+fn larger(a: Form, b: Form): Form {
+    if (a.area() > b.area()) {
         return a;
     }
     return b;
 }
 var q: Quadrat = new Quadrat(3.0);
-var g: Form = groessere(new Kreis(1.0), q);
+var g: Form = larger(new Circle(1.0), q);
 print(g);
 print(g == q);
 
 // a method through an interface changes the object (it is a reference)
-for (f: Form in formen) {
-    f.skalieren(2.0);
+for (f: Form in shapes) {
+    f.scale(2.0);
 }
-print(formen);
+print(shapes);
 
 // one class, two interfaces
-var namen: list<Benannt> = [new Kreis(1.0), q];
-for (n: Benannt in namen) {
+var names: list<Named> = [new Circle(1.0), q];
+for (n: Named in names) {
     print(n.name());
 }
-print(q.umfang());
+print(q.perimeter());
 
 // an interface in a field and as optional
-class Zeichnung {
-    haupt: Form? = null;
+class Drawing {
+    main: Form? = null;
 }
-var z: Zeichnung = new Zeichnung();
-z.haupt = new Kreis(2.0);
+var z: Drawing = new Drawing();
+z.main = new Circle(2.0);
 print(z);

@@ -1,6 +1,6 @@
-class Mathe {
+class Math {
     static quadrat(x: int): int {
         return x * x;
     }
 }
-print(Mathe::wurzel(2));
+print(Math::wurzel(2));

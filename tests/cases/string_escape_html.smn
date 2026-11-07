@@ -1,10 +1,10 @@
 // s.escape_html() makes text safe for HTML: & < > " and ' become entities
 print("<b>Tom & Jerry</b>".escape_html());
-print("Er sagte \"Hallo\" und 'Tschüss'".escape_html());
-print("&amp; wird nochmal escaped".escape_html());
-print("ohne besondere Zeichen".escape_html());
+print("He said \"Hello\" and 'Bye, Zoë'".escape_html());
+print("&amp; is escaped again".escape_html());
+print("without special Characters".escape_html());
 print("".escape_html() == "");
 
 var name = "<script>alert(1)</script>";
-print("<p>Hallo {name.escape_html()}</p>");
-print("<a href=\"{"/suche?a=1&b=2".escape_html()}\">Suche</a>");
+print("<p>Hello {name.escape_html()}</p>");
+print("<a href=\"{"/search?a=1&b=2".escape_html()}\">Search</a>");

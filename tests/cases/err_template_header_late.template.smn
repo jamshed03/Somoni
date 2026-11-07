@@ -1,2 +1,2 @@
-<p>zuerst Text</p>
+<p>first Text</p>
 @props(a: int)

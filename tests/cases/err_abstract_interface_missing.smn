@@ -1,5 +1,5 @@
 interface Form {
-    flaeche(): int;
+    area(): int;
 }
 abstract class Basis implements Form {
 }

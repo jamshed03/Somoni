@@ -1,1 +1,1 @@
-import { eins } from "modules/mit_code.smn";
+import { one } from "modules/with_code.smn";

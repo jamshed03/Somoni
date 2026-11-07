@@ -1,4 +1,4 @@
-fn betrag(n: int): int {
+fn amount(n: int): int {
     if (n < 0) {
         return -n;
     } else {
@@ -8,11 +8,11 @@ fn betrag(n: int): int {
 
 fn grade(points: int): string {
     if (points >= 90) {
-        return "sehr gut";
+        return "very gut";
     } else if (points >= 50) {
-        return "bestanden";
+        return "passed";
     } else {
-        return "nicht bestanden";
+        return "failed";
     }
 }
 
@@ -26,8 +26,8 @@ fn void_without_return(): void {
     print("void needs no return");
 }
 
-print(betrag(-4));
-print(betrag(4));
+print(amount(-4));
+print(amount(4));
 print(grade(95));
 print(grade(60));
 print(grade(10));

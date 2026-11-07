@@ -1,4 +1,0 @@
-fn rechne(): int {
-    return 1;
-}
-export const N: int = rechne();
