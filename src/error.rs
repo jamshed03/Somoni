@@ -36,6 +36,7 @@ pub enum ErrorCode {
     },
     UnterminatedString,
     OrPatternNotAllowed,
+    IfVarOptionalType,
     UnknownEscape {
         found: char,
     },
@@ -354,6 +355,9 @@ pub enum ErrorCode {
     ValueMatchWithoutRest {
         ty: Type,
     },
+    IfVarNotOptional {
+        found: Type,
+    },
     TupleIndexOutOfRange {
         found: Type,
         index: usize,
@@ -460,6 +464,7 @@ impl ErrorCode {
             ErrorCode::AbstractNotAllowed => "P017",
             ErrorCode::PrivateAbstract => "P018",
             ErrorCode::OrPatternNotAllowed => "P019",
+            ErrorCode::IfVarOptionalType => "P020",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -568,6 +573,7 @@ impl ErrorCode {
             ErrorCode::ModuleNameTaken { .. } => "T097",
             ErrorCode::ModuleNotValue { .. } => "T098",
             ErrorCode::ValueMatchWithoutRest { .. } => "T099",
+            ErrorCode::IfVarNotOptional { .. } => "T100",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -631,6 +637,9 @@ impl ErrorCode {
             ErrorCode::UnterminatedString => "unterminated string".to_string(),
             ErrorCode::OrPatternNotAllowed => {
                 "'|' joins only values and variants, not '_', ok(...) or err(...)".to_string()
+            }
+            ErrorCode::IfVarOptionalType => {
+                "the type in 'if (var name: type = ...)' has no '?', the block only runs when the value is not null".to_string()
             }
             ErrorCode::UnknownEscape { found } => format!(
                 "unknown escape '\\{}' in a string (known: \\n \\t \\\" \\\\)",
@@ -972,6 +981,10 @@ impl ErrorCode {
             ),
             ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
             ErrorCode::TupleTooShort => "a tuple needs at least two elements".to_string(),
+            ErrorCode::IfVarNotOptional { found } => format!(
+                "'if (var ...)' needs a value that can be null, but this is {}; use a normal 'var' instead",
+                found
+            ),
             ErrorCode::ValueMatchWithoutRest { ty } => format!(
                 "a match over {} needs a branch '_' for all other values",
                 ty

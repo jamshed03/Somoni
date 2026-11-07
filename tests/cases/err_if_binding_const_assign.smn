@@ -1,0 +1,4 @@
+const a: int? = 1;
+if (const x: int = a) {
+    x = 2;
+}

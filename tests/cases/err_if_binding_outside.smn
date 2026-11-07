@@ -1,0 +1,5 @@
+const x: float? = 1.5;
+if (var y: float = x) {
+    print(y);
+}
+print(y);

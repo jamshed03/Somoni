@@ -3,8 +3,8 @@
 use std::rc::Rc;
 
 use crate::ast::{
-    Assign, BinaryOp, Destructure, Expr, ExprKind, ForEach, Literal, Match, MatchArm, Pattern,
-    Stmt, TUPLE_TYPE, TypeName, VarDecl,
+    Assign, BinaryOp, Destructure, Expr, ExprKind, ForEach, IfVar, Literal, Match, MatchArm,
+    Pattern, Stmt, TUPLE_TYPE, TypeName, VarDecl,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -206,6 +206,9 @@ impl Parser {
     fn parse_if(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'if'")?;
+        if matches!(self.peek(), Token::Var | Token::Const) {
+            return self.parse_if_var(start);
+        }
         let condition = self.parse_expr()?;
         self.expect(Token::RParen, "')' after if condition")?;
         let then_branch = self.expect_block("after if condition")?;
@@ -216,6 +219,65 @@ impl Parser {
             else_branch,
             span: start,
         })
+    }
+
+    /// Reads the rest of `if (var name: type = value) { ... }`: a hidden variable of type `type?` holds the value,
+    /// and after `!= null` the block declares `name` from it, so the value is computed only once.
+    fn parse_if_var(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        let mutable = *self.peek() == Token::Var;
+        let binding_start = self.current_span();
+        let mut binding = self.parse_var_head(mutable, binding_start)?;
+        if binding.type_name.optional {
+            return Err(SomoniError::at(
+                binding.type_name.span,
+                ErrorCode::IfVarOptionalType,
+            ));
+        }
+        self.expect(Token::RParen, "')' after if condition")?;
+        let mut then_stmts = self.expect_block_stmts("after if condition")?;
+        let else_branch = self.parse_else()?;
+
+        let hidden_name = format!("<if {}:{}>", start.line, start.col);
+        let read_hidden = Expr {
+            kind: ExprKind::Ident {
+                name: hidden_name.clone(),
+                slot: None,
+            },
+            span: binding.value.span,
+        };
+        let hidden = VarDecl {
+            name: hidden_name,
+            type_name: TypeName {
+                optional: true,
+                ..binding.type_name.clone()
+            },
+            value: std::mem::replace(&mut binding.value, read_hidden.clone()),
+            mutable: false,
+            ..binding.clone()
+        };
+        let not_null = Expr {
+            kind: ExprKind::Binary {
+                left: Box::new(read_hidden),
+                op: BinaryOp::NotEq,
+                op_span: binding.name_span,
+                right: Box::new(Expr {
+                    kind: ExprKind::Null,
+                    span: binding.name_span,
+                }),
+            },
+            span: binding.span,
+        };
+        then_stmts.insert(0, Stmt::VarDecl(binding));
+        let branch = Stmt::If {
+            condition: not_null,
+            then_branch: Box::new(Stmt::Block(then_stmts)),
+            else_branch,
+            span: start,
+        };
+        Ok(Stmt::IfVar(IfVar {
+            hidden,
+            branch: Box::new(branch),
+        }))
     }
 
     /// Reads `else if ...` or `else { ... }` after an `if`, if there is one.
@@ -464,6 +526,13 @@ impl Parser {
         mutable: bool,
         start: Span,
     ) -> Result<VarDecl, SomoniError> {
+        let decl = self.parse_var_head(mutable, start)?;
+        self.expect(Token::Semicolon, "';'")?;
+        Ok(decl)
+    }
+
+    /// Reads `var name: type = value` without the `;`, also used inside `if (...)`.
+    fn parse_var_head(&mut self, mutable: bool, start: Span) -> Result<VarDecl, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("variable name")?;
         self.expect(Token::Colon, "':'")?;
@@ -471,7 +540,6 @@ impl Parser {
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
         let span = self.since(start);
-        self.expect(Token::Semicolon, "';'")?;
         Ok(VarDecl {
             exported: false,
             name,

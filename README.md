@@ -79,6 +79,6 @@ Version 0.6.0: the core of the language plus lists, structs, optional types, map
 -   Classes: fields with start values, `constructor(...)` with `this`, methods (`u.greet()`), `public`/`private`, `readonly` fields, `static` methods and fields (`User::gast()`, `User::anzahl`, inherited by subclasses), `abstract` classes and methods, `instanceof` with narrowing, private and protected constructors, `interface` with `implements`, `extends` with `super`, `override` and `protected` (methods chosen at runtime), `new User("Ali", 30)`; objects are references (`==` is identity), structs stay copies
 -   Modules: `import { quadrat, Punkt as P } from "mathe.smn";` or `import * as mathe from "mathe.smn";` with `mathe.quadrat(3)`, and `export fn`/`struct`/`enum`/`class`/`interface`/`const` (imported files contain only declarations, their constants only fixed values)
 
--   Null checks: after `if (a != null)` the value of `a` can be used
+-   Null checks: after `if (a != null)` the value of `a` can be used; `if (var avg: float = s.average()) { ... }` checks a value without an extra variable
 
 Next: see `docs/Checkliste.md`.

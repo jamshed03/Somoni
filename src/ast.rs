@@ -382,6 +382,8 @@ pub enum Stmt {
     VarDecl(VarDecl),
     /// `var (q: int, r: int) = value;`, kept as a hidden variable with the tuple and one variable per element.
     Destructure(Destructure),
+    /// `if (var name: type = value) { ... }`, built by the parser from a hidden variable and an `if`.
+    IfVar(IfVar),
     /// A call as a statement, e.g. `print(x);`
     Expr {
         expr: Expr,
@@ -433,6 +435,14 @@ pub enum Stmt {
 pub struct Destructure {
     pub tuple: VarDecl,
     pub parts: Vec<VarDecl>,
+}
+
+/// `if (var name: type = value) { ... } else { ... }`, which runs the block only if `value` is not null.
+/// `hidden` is `const <if line:col>: type? = value;`, `branch` is `if (<if line:col> != null) { var name: type = <if line:col>; ... }`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IfVar {
+    pub hidden: VarDecl,
+    pub branch: Box<Stmt>,
 }
 
 /// `var name: type = value;` or `const name: type = value;`.
@@ -526,6 +536,11 @@ impl Stmt {
         match self {
             Stmt::VarDecl(decl) => decl.value.find_this(),
             Stmt::Destructure(d) => d.tuple.value.find_this(),
+            Stmt::IfVar(if_var) => if_var
+                .hidden
+                .value
+                .find_this()
+                .or_else(|| if_var.branch.find_this()),
             Stmt::Expr { expr, .. } => expr.find_this(),
             Stmt::Assign(assign) => assign
                 .target

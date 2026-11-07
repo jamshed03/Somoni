@@ -345,6 +345,10 @@ impl Compiler {
                     self.compile_var_decl(decl)?;
                 }
             }
+            Stmt::IfVar(if_var) => {
+                self.compile_var_decl(&if_var.hidden)?;
+                self.compile_stmt(&if_var.branch)?;
+            }
             Stmt::Assign(assign) => self.compile_assign(assign)?,
             Stmt::Expr { expr, span } => {
                 self.compile_expr(expr)?;

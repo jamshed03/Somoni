@@ -1,8 +1,8 @@
 //! Checking statements and function bodies: variables, assignments, loops, `return`.
 
 use crate::ast::{
-    Assign, AssignRoot, BinaryOp, Expr, ExprKind, ForEach, Function, IterKind, Match, Param, Stmt,
-    THIS, VarDecl,
+    Assign, AssignRoot, BinaryOp, Expr, ExprKind, ForEach, Function, IfVar, IterKind, Match, Param,
+    Stmt, THIS, VarDecl,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -90,13 +90,14 @@ impl TypeChecker {
     /// Checks one statement and writes slots and other results into it.
     pub(super) fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
         match stmt {
-            Stmt::VarDecl(decl) => self.check_var_decl(decl),
+            Stmt::VarDecl(decl) => self.check_var_decl(decl).map(|_| ()),
             Stmt::Destructure(_) => {
                 for decl in stmt.var_decls_mut() {
                     self.check_var_decl(decl)?;
                 }
                 Ok(())
             }
+            Stmt::IfVar(if_var) => self.in_scope(|this| this.check_if_var(if_var)),
             Stmt::Assign(assign) => self.check_assign(assign),
             Stmt::Expr { expr, .. } => {
                 self.check_expr(expr)?;
@@ -135,10 +136,10 @@ impl TypeChecker {
         }
     }
 
-    /// Checks `var` or `const` and gives the variable its slot.
-    fn check_var_decl(&mut self, decl: &mut VarDecl) -> Result<(), SomoniError> {
+    /// Checks `var` or `const`, gives the variable its slot and returns the type of the value.
+    fn check_var_decl(&mut self, decl: &mut VarDecl) -> Result<Type, SomoniError> {
         let declared = self.resolve_type(&decl.type_name, false)?;
-        self.check_assignable(&mut decl.value, &declared)?;
+        let found = self.check_assignable(&mut decl.value, &declared)?;
         if self.in_module && decl.global.is_some() && !is_fixed_value(&decl.value) {
             return Err(SomoniError::at(
                 decl.value.span,
@@ -147,7 +148,19 @@ impl TypeChecker {
         }
         let slot = self.declare(&decl.name, decl.name_span, declared, decl.mutable)?;
         decl.slot = Some(slot);
-        Ok(())
+        Ok(found)
+    }
+
+    /// Checks `if (var name: type = value)`, whose value must be able to be null, or T100.
+    fn check_if_var(&mut self, if_var: &mut IfVar) -> Result<(), SomoniError> {
+        let found = self.check_var_decl(&mut if_var.hidden)?;
+        if !matches!(found, Type::Optional(_)) {
+            return Err(SomoniError::at(
+                if_var.hidden.value.span,
+                ErrorCode::IfVarNotOptional { found },
+            ));
+        }
+        self.check_stmt(&mut if_var.branch)
     }
 
     /// Checks `if`, each branch with the variables its condition proves not to be null.
@@ -456,6 +469,7 @@ fn stmt_always_ends(stmt: &Stmt, exit: Exit) -> bool {
         Stmt::Return { .. } => true,
         Stmt::Break { .. } | Stmt::Continue { .. } => exit == Exit::ReturnOrJump,
         Stmt::Block(stmts) => always_ends(stmts, exit),
+        Stmt::IfVar(if_var) => stmt_always_ends(&if_var.branch, exit),
         Stmt::If {
             then_branch,
             else_branch,

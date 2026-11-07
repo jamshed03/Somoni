@@ -1,0 +1,66 @@
+// if (var name: type = value) runs the block only if value is not null; the value is computed once
+class Stats {
+    private values: list<float>;
+    public calls: int = 0;
+
+    constructor(values: list<float>) {
+        this.values = values;
+    }
+
+    average(): float? {
+        this.calls += 1;
+        if (len(this.values) == 0) {
+            return null;
+        }
+        return this.values.reduce(0.0, fn(sum: float, x: float): float => sum + x) / float(len(this.values));
+    }
+}
+
+var full: Stats = new Stats([1.0, 2.0, 6.0]);
+if (var average: float = full.average()) {
+    print("average " + average.format(1));
+    average = average * 2.0;
+    print(average);
+}
+print(full.calls);
+
+var empty: Stats = new Stats([]);
+if (const average: float = empty.average()) {
+    print("not printed " + string(average));
+} else {
+    print("no values");
+}
+
+const ages: map<string, int> = {"ali": 30};
+const names: list<string> = ["bea", "ali"];
+for (name: string in names) {
+    var found: int? = null;
+    if (has(ages, name)) {
+        found = ages[name];
+    }
+    if (var age: int = found) {
+        print(name + " is " + string(age));
+    } else if (var index: int = name.index_of("e")) {
+        print(name + " has e at " + string(index));
+    }
+}
+
+fn first_even(items: list<int>): int? {
+    for (n: int in items) {
+        if (n % 2 == 0) {
+            return n;
+        }
+    }
+    return null;
+}
+
+fn describe(items: list<int>): string {
+    if (var even: int = first_even(items)) {
+        const twice: fn(int): int = fn(n: int): int => n * even;
+        return "first even " + string(even) + ", times itself " + string(twice(even));
+    } else {
+        return "no even number";
+    }
+}
+print(describe([3, 4, 5]));
+print(describe([1, 3]));

@@ -1,0 +1,3 @@
+Type error [T100]: Line 1: 'if (var ...)' needs a value that can be null, but this is float; use a normal 'var' instead
+  1 | if (var x: float = 2.5) {
+    |                    ^^^
