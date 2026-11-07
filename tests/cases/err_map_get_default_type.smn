@@ -1,0 +1,2 @@
+var m: map<string, int> = {};
+print(m.get("a", "null"));

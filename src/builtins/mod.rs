@@ -58,6 +58,7 @@ pub enum Builtin {
     Any,
     All,
     SortBy,
+    Get,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -102,6 +103,7 @@ const ALL: &[Builtin] = &[
     Builtin::Any,
     Builtin::All,
     Builtin::SortBy,
+    Builtin::Get,
 ];
 
 impl Builtin {
@@ -143,7 +145,8 @@ impl Builtin {
             | Builtin::Reduce
             | Builtin::Any
             | Builtin::All
-            | Builtin::SortBy => true,
+            | Builtin::SortBy
+            | Builtin::Get => true,
             Builtin::Print
             | Builtin::Int
             | Builtin::Float
@@ -232,6 +235,7 @@ impl Builtin {
             Builtin::Any => "any",
             Builtin::All => "all",
             Builtin::SortBy => "sort_by",
+            Builtin::Get => "get",
         }
     }
 
@@ -275,7 +279,7 @@ impl Builtin {
             | Builtin::Any
             | Builtin::All
             | Builtin::SortBy => 2,
-            Builtin::Replace | Builtin::Slice | Builtin::Reduce => 3,
+            Builtin::Replace | Builtin::Slice | Builtin::Reduce | Builtin::Get => 3,
         }
     }
 
@@ -346,6 +350,13 @@ impl Builtin {
             }
             (Builtin::Remove, [Type::List(_) | Type::Map(_, _), _]) => Err(1),
             (Builtin::Values, [Type::Map(_, value)]) => Ok(Type::List(value.clone())),
+            (Builtin::Get, [Type::Map(key, value), found, default])
+                if **key == *found && **value == *default =>
+            {
+                Ok((**value).clone())
+            }
+            (Builtin::Get, [Type::Map(key, _), found, _]) if **key == *found => Err(2),
+            (Builtin::Get, [Type::Map(_, _), _, _]) => Err(1),
             (Builtin::Map, [Type::List(element), Type::Function(f)])
                 if f.params == [(**element).clone()] && f.result != Type::Void =>
             {
@@ -454,6 +465,9 @@ impl Builtin {
             }
             (Builtin::Remove, [Value::Map(map), key]) => collections::without_key(map, key),
             (Builtin::Values, [Value::Map(map)]) => Ok(collections::values(map)),
+            (Builtin::Get, [Value::Map(map), key, default]) => {
+                collections::get_or(map, key, default)
+            }
             (builtin, _) => Err(SomoniError::internal(format!(
                 "'{}' cannot take these arguments",
                 builtin.name()

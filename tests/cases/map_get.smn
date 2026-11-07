@@ -1,0 +1,18 @@
+// m.get(key, default) gives the value of a key, or the default if the map does not have it
+var counts: map<string, int> = {};
+for (word: string in "der hund und der vogel und der".split(" ")) {
+    counts[word] = counts.get(word, 0) + 1;
+}
+print(counts);
+print(counts.get("der", 0));
+print(counts.get("katze", 0));
+print(len(counts));
+
+var namen: map<int, string> = {1: "Ali"};
+print(namen.get(1, "?"));
+print(namen.get(2, "?"));
+
+var leer: list<int> = [];
+var gruppen: map<string, list<int>> = {"a": [1, 2]};
+print(gruppen.get("a", leer));
+print(gruppen.get("b", leer));

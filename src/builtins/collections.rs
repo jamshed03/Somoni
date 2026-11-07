@@ -59,6 +59,12 @@ pub(super) fn without_key(map: &Rc<MapValue>, key: &Value) -> Result<Value, Somo
     Ok(Value::Map(Rc::new(rest)))
 }
 
+/// Returns the value of `key`, or `default` if the map does not have the key.
+pub(super) fn get_or(map: &MapValue, key: &Value, default: &Value) -> Result<Value, SomoniError> {
+    let key = map_key(key)?;
+    Ok(map.get(&key).unwrap_or(default).clone())
+}
+
 /// Returns the values of the map in the order they were added.
 pub(super) fn values(map: &MapValue) -> Value {
     list(map.entries().map(|(_, value)| value.clone()).collect())
