@@ -1,0 +1,3 @@
+Lex error [L011]: Line 2: this '@foreach' is not closed with '@endforeach'
+  2 | @foreach (n: int in [1])
+    | ^^^^^^^^

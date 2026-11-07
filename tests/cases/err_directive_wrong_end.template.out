@@ -1,0 +1,3 @@
+Lex error [L013]: Line 2: '@endif' cannot stand here: '@foreach' from line 1 is still open and needs '@endforeach' first
+  2 | @endif
+    | ^^^^^^

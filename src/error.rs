@@ -45,6 +45,23 @@ pub enum ErrorCode {
         close: &'static str,
     },
     TemplateEmpty,
+    DirectiveWithoutOpen {
+        found: &'static str,
+        needs: &'static str,
+    },
+    DirectiveNotClosed {
+        open: &'static str,
+        close: &'static str,
+    },
+    DirectiveCondition {
+        directive: &'static str,
+    },
+    DirectiveWrongEnd {
+        found: &'static str,
+        open: &'static str,
+        line: usize,
+        close: &'static str,
+    },
     UnterminatedComment,
     IntegerTooLarge {
         text: String,
@@ -474,6 +491,10 @@ impl ErrorCode {
             ErrorCode::InterpolationNotClosed => "L007",
             ErrorCode::TemplateNotClosed { .. } => "L008",
             ErrorCode::TemplateEmpty => "L009",
+            ErrorCode::DirectiveWithoutOpen { .. } => "L010",
+            ErrorCode::DirectiveNotClosed { .. } => "L011",
+            ErrorCode::DirectiveCondition { .. } => "L012",
+            ErrorCode::DirectiveWrongEnd { .. } => "L013",
 
             ErrorCode::Expected { .. } => "P001",
             ErrorCode::UnexpectedToken { .. } => "P002",
@@ -681,6 +702,25 @@ impl ErrorCode {
                 format!("this is not closed with '{}' in the template", close)
             }
             ErrorCode::TemplateEmpty => "'{{ }}' in a template needs a value to show".to_string(),
+            ErrorCode::DirectiveWithoutOpen { found, needs } => {
+                format!("'{}' has no open '{}' before it", found, needs)
+            }
+            ErrorCode::DirectiveNotClosed { open, close } => {
+                format!("this '{}' is not closed with '{}'", open, close)
+            }
+            ErrorCode::DirectiveWrongEnd {
+                found,
+                open,
+                line,
+                close,
+            } => format!(
+                "'{}' cannot stand here: '{}' from line {} is still open and needs '{}' first",
+                found, open, line, close
+            ),
+            ErrorCode::DirectiveCondition { directive } => format!(
+                "'{}' needs its condition in '( )', like {} (x > 0)",
+                directive, directive
+            ),
             ErrorCode::InterpolationNotClosed => {
                 "a '{' in this string is not closed with '}' (a '{' itself is written '\\{')".to_string()
             }

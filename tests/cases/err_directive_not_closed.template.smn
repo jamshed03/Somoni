@@ -1,0 +1,4 @@
+<ul>
+@foreach (n: int in [1])
+<li>{{ n }}</li>
+</ul>

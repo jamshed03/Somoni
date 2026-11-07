@@ -1,0 +1,22 @@
+{{-- @if, @elseif, @else and @foreach; a line with only a directive or a comment disappears --}}
+<ul>
+    @foreach (name: string in ["Ali", "Bea", "Cem"])
+    <li>
+        @if (name == "Ali")
+        <b>{{ name }}</b> (erster)
+        @elseif (len(name) == 3 && name != "Cem")
+        <i>{{ name }}</i>
+        @else
+        {{ name.upper() }}
+        @endif
+    </li>
+    @endforeach
+</ul>
+@foreach (row: list<int> in [[1, 2], [3]])
+<p>@foreach (n: int in row)[{{ n * 10 }}]@endforeach</p>
+@endforeach
+@if (false)
+nie
+@endif
+<p>Kontakt: info@somoni.dev, @@if bleibt Text, @{{ x }} auch</p>
+<p>@if ("a" == "a")kurz in einer Zeile@endif</p>

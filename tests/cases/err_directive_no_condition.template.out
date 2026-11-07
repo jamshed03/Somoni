@@ -1,0 +1,3 @@
+Lex error [L012]: Line 1: '@if' needs its condition in '( )', like @if (x > 0)
+  1 | @if true
+    | ^^^

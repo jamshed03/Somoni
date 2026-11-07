@@ -1,0 +1,3 @@
+Lex error [L010]: Line 2: '@endif' has no open '@if' before it
+  2 | @endif
+    | ^^^^^^
