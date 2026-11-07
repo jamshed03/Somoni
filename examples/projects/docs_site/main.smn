@@ -3,4 +3,4 @@
 import { sections } from "lib/content.smn";
 import { layout } from "lib/layout.template.smn";
 
-layout("0.7.0", sections());
+layout("0.8.0", sections());

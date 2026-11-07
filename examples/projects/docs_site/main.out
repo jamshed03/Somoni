@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Somoni 0.7.0</title>
+    <title>Somoni 0.8.0</title>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
         nav a { margin-right: 1rem; }
@@ -18,7 +18,7 @@
 <body>
     <header>
         <h1>Somoni</h1>
-        <p>Version 0.7.0, gebaut mit Somoni selbst</p>
+        <p>Version 0.8.0, gebaut mit Somoni selbst</p>
         <nav>
             <a href="#start">Was ist Somoni?</a>
             <a href="#typen">Variablen und Typen</a>
