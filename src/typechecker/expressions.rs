@@ -680,11 +680,15 @@ impl TypeChecker {
         check_arg_count(&call.name, builtin.arity(), &call.args, span)?;
         let mut arg_types = Vec::new();
         for arg in call.args.iter_mut() {
-            arg_types.push(self.check_expr(arg)?);
+            let found = match (&mut arg.kind, builtin.function_hint(&arg_types)) {
+                (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
+                _ => self.check_expr(arg)?,
+            };
+            arg_types.push(found);
         }
-        let result = builtin
-            .result_type(&arg_types)
-            .map_err(|bad| wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span))?;
+        let result = builtin.result_type(&arg_types).map_err(|bad| {
+            wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span)
+        })?;
         if builtin.needs_dir() {
             let dir = ExprKind::Str(Rc::new(Text::new(self.current_dir.clone())));
             call.args.insert(0, Expr { kind: dir, span });

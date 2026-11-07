@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::builtins::Builtin;
 use crate::bytecode::Program;
 use crate::error::SomoniError;
+use crate::text::Text;
 use crate::value::{Order, Value};
 
 use super::{Frame, Vm};
@@ -32,6 +33,7 @@ impl<'p> Vm<'p> {
             (Builtin::All, [Value::List(items), f]) => {
                 Value::Bool(!self.find(items, f, false, frame, program)?)
             }
+            (Builtin::Capture, [f]) => self.capture(f, frame, program)?,
             (Builtin::SortBy, [Value::List(items), f]) => {
                 self.sort_by(items, f, Order::Ascending, frame, program)?
             }
@@ -46,6 +48,20 @@ impl<'p> Vm<'p> {
         };
         self.stack.push(result);
         Ok(())
+    }
+
+    /// Runs `f` and returns everything it writes with `print`, `write` or a template as one string.
+    fn capture(
+        &mut self,
+        f: &Value,
+        frame: &mut Frame<'p>,
+        program: &'p Program,
+    ) -> Result<Value, SomoniError> {
+        self.output.start_capture();
+        let called = self.call_now(f, &[], frame, program);
+        let text = self.output.end_capture();
+        called?;
+        Ok(Value::Str(Rc::new(Text::new(text))))
     }
 
     /// Returns `f(item)` for every item.

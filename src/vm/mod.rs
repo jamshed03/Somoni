@@ -9,6 +9,9 @@ use crate::text::Text;
 use crate::value::{self, Closure, Object, Step, StructValue, Value, Way, map_key, show_key};
 
 mod higher;
+mod output;
+
+use output::Output;
 
 /// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
@@ -49,6 +52,8 @@ struct Vm<'p> {
     callers: Vec<Frame<'p>>,
     /// The values of the static fields, by their global number.
     globals: Vec<Value>,
+    /// Where `print` and `write` go.
+    output: Output,
 }
 
 impl<'p> Vm<'p> {
@@ -235,7 +240,13 @@ impl<'p> Vm<'p> {
     /// Calls a built-in function with the `count` values on top of the stack and pushes its result.
     fn call_builtin(&mut self, builtin: Builtin, count: usize) -> Result<(), SomoniError> {
         let start = self.top_start(count);
-        let result = builtin.call(&self.stack[start..])?;
+        let result = match builtin.output_text(&self.stack[start..]) {
+            Some(text) => {
+                self.output.write(&text)?;
+                Value::Void
+            }
+            None => builtin.call(&self.stack[start..])?,
+        };
         self.stack.truncate(start);
         self.stack.push(result);
         Ok(())

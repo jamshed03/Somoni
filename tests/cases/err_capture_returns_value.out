@@ -1,0 +1,3 @@
+Type error [T018]: Line 1: function must return void, got int
+  1 | print(capture(fn() => 5));
+    |                       ^

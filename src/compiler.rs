@@ -932,6 +932,9 @@ impl Compiler {
         self.compile_args(&call.args)?;
         let count = call.args.len();
         let op = match filled(call.target, "call target")? {
+            CallTarget::Builtin(builtin) if builtin.calls_functions() => {
+                Op::CallHigher(builtin, count)
+            }
             CallTarget::Builtin(builtin) => Op::CallBuiltin(builtin, count),
             CallTarget::Function(i) => Op::Call(i, count),
         };

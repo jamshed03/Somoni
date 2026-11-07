@@ -23,6 +23,7 @@ mod strings;
 pub enum Builtin {
     Print,
     Write,
+    Capture,
     Input,
     ReadFile,
     WriteFile,
@@ -79,6 +80,7 @@ pub enum Builtin {
 const ALL: &[Builtin] = &[
     Builtin::Print,
     Builtin::Write,
+    Builtin::Capture,
     Builtin::Input,
     Builtin::ReadFile,
     Builtin::WriteFile,
@@ -181,6 +183,7 @@ impl Builtin {
             | Builtin::EscapeHtml => true,
             Builtin::Print
             | Builtin::Write
+            | Builtin::Capture
             | Builtin::Input
             | Builtin::ReadFile
             | Builtin::WriteFile
@@ -209,7 +212,8 @@ impl Builtin {
     pub fn calls_functions(self) -> bool {
         matches!(
             self,
-            Builtin::Map
+            Builtin::Capture
+                | Builtin::Map
                 | Builtin::Filter
                 | Builtin::Reduce
                 | Builtin::Any
@@ -223,6 +227,7 @@ impl Builtin {
     pub fn function_hint(self, before: &[Type]) -> Option<FunctionHint> {
         let hint = |params: Vec<Type>, result: Option<Type>| Some(FunctionHint { params, result });
         match (self, before) {
+            (Builtin::Capture, []) => hint(Vec::new(), Some(Type::Void)),
             (Builtin::Map | Builtin::SortBy | Builtin::SortByDesc, [Type::List(element)]) => {
                 hint(vec![(**element).clone()], None)
             }
@@ -233,6 +238,15 @@ impl Builtin {
                 vec![start.clone(), (**element).clone()],
                 Some(start.clone()),
             ),
+            _ => None,
+        }
+    }
+
+    /// Returns the text that `print(x)` or `write(x)` puts out, which the VM writes; None for other functions.
+    pub fn output_text(self, args: &[Value]) -> Option<String> {
+        match (self, args) {
+            (Builtin::Print, [arg]) => Some(format!("{}\n", arg)),
+            (Builtin::Write, [arg]) => Some(arg.to_string()),
             _ => None,
         }
     }
@@ -258,6 +272,7 @@ impl Builtin {
         match self {
             Builtin::Print => "print",
             Builtin::Write => "write",
+            Builtin::Capture => "capture",
             Builtin::Input => "input",
             Builtin::ReadFile => "read_file",
             Builtin::WriteFile => "write_file",
@@ -319,6 +334,7 @@ impl Builtin {
             Builtin::WriteFile => 2,
             Builtin::Print
             | Builtin::Write
+            | Builtin::Capture
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -371,6 +387,11 @@ impl Builtin {
         match (self, args) {
             (Builtin::Print | Builtin::Write, [Type::Void | Type::Function(_)]) => Err(0),
             (Builtin::Print | Builtin::Write, [_]) => Ok(Type::Void),
+            (Builtin::Capture, [Type::Function(f)])
+                if f.params.is_empty() && f.result == Type::Void =>
+            {
+                Ok(Type::Str)
+            }
             (Builtin::Input, []) => Ok(Type::Optional(Box::new(Type::Str))),
             (Builtin::ReadFile, [Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)))
@@ -504,11 +525,6 @@ impl Builtin {
     /// Runs the function with its arguments.
     pub fn call(self, args: &[Value]) -> Result<Value, SomoniError> {
         match (self, args) {
-            (Builtin::Print, [arg]) => {
-                println!("{}", arg);
-                Ok(Value::Void)
-            }
-            (Builtin::Write, [arg]) => io::write_text(arg),
             (Builtin::Input, []) => io::read_line(),
             (Builtin::ReadFile, [Value::Str(dir), Value::Str(path)]) => {
                 Ok(io::read_file(dir.as_str(), path.as_str()))

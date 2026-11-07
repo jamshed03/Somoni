@@ -1,0 +1,27 @@
+// capture(f) runs f and gives back everything it writes as a string, instead of writing it out
+import { Page } from "modules/pages.smn";
+import { card } from "modules/card.template.smn";
+
+var text = capture(fn() {
+    print("first");
+    write("second");
+});
+print(len(text));
+print([text]);
+
+var html = capture(fn() => card(Page { title: "Start", url: "/" }, true));
+print(html.trim());
+
+var outer = capture(fn() {
+    write("<");
+    var inner = capture(fn() => write("inner"));
+    write(inner.upper());
+    write(">");
+});
+print(outer);
+
+fn shout(): void {
+    print("loud");
+}
+print(capture(shout) == "loud\n");
+print(capture(fn() { }) == "");

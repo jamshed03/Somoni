@@ -1,0 +1,4 @@
+var result = capture(fn() {
+    write("lost");
+    var n = 1 / 0;
+});
