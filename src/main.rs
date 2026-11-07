@@ -8,6 +8,7 @@ mod loader;
 mod map;
 mod parser;
 mod scope;
+mod serve;
 mod span;
 mod text;
 mod token;
@@ -20,40 +21,91 @@ use std::env;
 use std::fs;
 use std::process;
 
+use bytecode::Program;
 use error::SomoniError;
 use loader::{Loader, MAIN_FILE, SourceFile};
 use typechecker::TypeChecker;
 
-/// What the command line asks for: the file to run and whether to show its bytecode instead.
-struct Options {
-    path: String,
-    show_bytecode: bool,
+/// The port of `somoni serve` without `--port`.
+const DEFAULT_PORT: u16 = 8000;
+
+/// What the command line asks for.
+enum Command {
+    /// `somoni [--bytecode] file.smn`: run the file, or show its bytecode.
+    Run { path: String, show_bytecode: bool },
+    /// `somoni serve [folder] [--port 8000]`: answer requests from the browser with the files of `dir`.
+    Serve { dir: String, port: u16 },
 }
 
-/// Runs the file from the command line, or shows its bytecode with `--bytecode`.
+/// Runs what the command line asks for.
 fn main() {
-    let options = read_options(env::args().collect());
-    let source = fs::read_to_string(&options.path)
-        .unwrap_or_else(|err| fail(&format!("Cannot read '{}': {}", options.path, err)));
-    let mut loader = Loader::default();
-    let result = loader
-        .load(&options.path, source)
-        .and_then(|order| run(&mut loader.files, &order, options.show_bytecode));
-    if let Err(error) = result {
-        fail(&render(&error, &loader.files));
+    match read_command(env::args().skip(1).collect()) {
+        Command::Run {
+            path,
+            show_bytecode,
+        } => run(&path, show_bytecode),
+        Command::Serve { dir, port } => {
+            serve::serve(&dir, port).unwrap_or_else(|message| fail(&message))
+        }
     }
 }
 
-/// Reads the options from the command line, or stops with the usage.
-fn read_options(args: Vec<String>) -> Options {
-    let (show_bytecode, path) = match args.as_slice() {
-        [_, path] => (false, path),
-        [_, flag, path] if flag == "--bytecode" => (true, path),
-        _ => fail("Usage: somoni [--bytecode] <file.smn>"),
+/// Reads the command from the arguments after the program name, or stops with the usage.
+fn read_command(args: Vec<String>) -> Command {
+    let usage = "Usage: somoni [--bytecode] <file.smn>\n       somoni serve [folder] [--port 8000]";
+    match args.as_slice() {
+        [path] if path != "serve" => Command::Run {
+            path: path.clone(),
+            show_bytecode: false,
+        },
+        [flag, path] if flag == "--bytecode" => Command::Run {
+            path: path.clone(),
+            show_bytecode: true,
+        },
+        [serve, rest @ ..] if serve == "serve" => read_serve(rest).unwrap_or_else(|| fail(usage)),
+        _ => fail(usage),
+    }
+}
+
+/// Reads `[folder] [--port N]` after `serve`, or None if they do not fit.
+fn read_serve(args: &[String]) -> Option<Command> {
+    let (dir, rest) = match args {
+        [first, rest @ ..] if first != "--port" => (first.clone(), rest),
+        rest => (".".to_string(), rest),
     };
-    Options {
-        path: path.clone(),
-        show_bytecode,
+    let port = match rest {
+        [] => DEFAULT_PORT,
+        [flag, port] if flag == "--port" => port.parse().ok()?,
+        _ => return None,
+    };
+    Some(Command::Serve { dir, port })
+}
+
+/// Runs the file `path`, or shows its bytecode, and stops with exit code 1 on an error.
+fn run(path: &str, show_bytecode: bool) {
+    let (program, files) = build(path).unwrap_or_else(|message| fail(&message));
+    if show_bytecode {
+        print!("{}", bytecode::disassemble(&program));
+        return;
+    }
+    if let Err(error) = vm::run(&program) {
+        fail(&render(&error, &files));
+    }
+}
+
+/// Reads, checks and compiles the program that starts in `path`, with its files for later error messages,
+/// or returns the error ready to show.
+fn build(path: &str) -> Result<(Program, Vec<SourceFile>), String> {
+    let source =
+        fs::read_to_string(path).map_err(|err| format!("Cannot read '{}': {}", path, err))?;
+    let mut loader = Loader::default();
+    let compiled = loader.load(path, source).and_then(|order| {
+        TypeChecker::new().check(&mut loader.files, &order)?;
+        compiler::compile(&loader.files, &order)
+    });
+    match compiled {
+        Ok(program) => Ok((program, loader.files)),
+        Err(error) => Err(render(&error, &loader.files)),
     }
 }
 
@@ -61,17 +113,6 @@ fn read_options(args: Vec<String>) -> Options {
 fn fail(message: &str) -> ! {
     eprintln!("{}", message);
     process::exit(1);
-}
-
-/// Runs the rest of the pipeline on the loaded files: type checker, compiler, VM.
-fn run(files: &mut [SourceFile], order: &[usize], show_bytecode: bool) -> Result<(), SomoniError> {
-    TypeChecker::new().check(files, order)?;
-    let program = compiler::compile(files, order)?;
-    if show_bytecode {
-        print!("{}", bytecode::disassemble(&program));
-        return Ok(());
-    }
-    vm::run(&program)
 }
 
 /// Returns the message of an error with its source line, and the file name outside the main file.

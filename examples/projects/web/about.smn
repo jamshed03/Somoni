@@ -1,0 +1,14 @@
+// A page written by a normal program: everything it prints is the page.
+const features = ["templates", "string interpolation", "read_file and write_file"];
+
+print("<!doctype html>");
+print("<html lang=\"en\"><head><meta charset=\"utf-8\"><title>About</title></head><body>");
+print("<h1>About</h1>");
+print("<p>This page comes from about.smn and uses {len(features)} features:</p>");
+print("<ul>");
+for (feature: string in features) {
+    print("<li>{feature.escape_html()}</li>");
+}
+print("</ul>");
+print("<p><a href=\"/\">Back</a></p>");
+print("</body></html>");

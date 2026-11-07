@@ -12,6 +12,8 @@ use strings::{
     Side, escape_html, format_float, index_of, join, pad, repeat, replace, slice_text, split,
 };
 
+pub(crate) use strings::html_safe;
+
 mod collections;
 mod convert;
 mod io;

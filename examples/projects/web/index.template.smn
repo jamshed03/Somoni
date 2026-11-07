@@ -1,0 +1,18 @@
+{{-- The start page of a small site; start it with: somoni serve examples/projects/web --}}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Somoni on the web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Hello from Somoni</h1>
+    <ul>
+        @foreach (n: int in [1, 2, 3])
+        <li>{{ n }} squared is {{ n * n }}</li>
+        @endforeach
+    </ul>
+    <p><a href="about">About this site</a></p>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Somoni on the web</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Hello from Somoni</h1>
+    <ul>
+        <li>1 squared is 1</li>
+        <li>2 squared is 4</li>
+        <li>3 squared is 9</li>
+    </ul>
+    <p><a href="about">About this site</a></p>
+</body>
+</html>

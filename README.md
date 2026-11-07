@@ -18,6 +18,7 @@ print(x % 3);
     cargo run -- examples/hello.smn              # run it
     cargo run -- --bytecode examples/hello.smn   # show the bytecode instead of running it
     cargo run -- examples/projects/docs_site/main.smn   # build the documentation site into examples/projects/docs_site/site/
+    cargo run -- serve examples/projects/web            # serve a folder on http://localhost:8000 (--port to change it)
 
 ## Tests
 

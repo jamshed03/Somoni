@@ -1,5 +1,6 @@
 //! The built-in methods of strings, like `s.split(",")`.
 
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
@@ -95,11 +96,19 @@ pub(super) fn repeat(s: &str, times: i64) -> Result<Value, SomoniError> {
     Ok(string_value(s.repeat(times)))
 }
 
-/// Returns `s` safe for HTML text and attributes: `&`, `<`, `>`, `"` and `'` become entities.
+/// Returns `s` safe for HTML, the same string without a copy if nothing has to change (see `html_safe`).
 pub(super) fn escape_html(s: &Rc<Text>) -> Value {
-    let text = s.as_str();
+    match html_safe(s.as_str()) {
+        Cow::Borrowed(_) => Value::Str(Rc::clone(s)),
+        Cow::Owned(safe) => string_value(safe),
+    }
+}
+
+/// Returns `text` safe for HTML text and attributes: `&`, `<`, `>`, `"` and `'` become entities;
+/// borrowed if there is none of them.
+pub(crate) fn html_safe(text: &str) -> Cow<'_, str> {
     if !text.contains(['&', '<', '>', '"', '\'']) {
-        return Value::Str(Rc::clone(s));
+        return Cow::Borrowed(text);
     }
     let mut safe = String::with_capacity(text.len() + 16);
     for c in text.chars() {
@@ -112,5 +121,5 @@ pub(super) fn escape_html(s: &Rc<Text>) -> Value {
             other => safe.push(other),
         }
     }
-    string_value(safe)
+    Cow::Owned(safe)
 }

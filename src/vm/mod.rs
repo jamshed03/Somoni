@@ -21,6 +21,14 @@ pub fn run(program: &Program) -> Result<(), SomoniError> {
     Vm::default().run(program)
 }
 
+/// Runs a compiled program and returns what it writes instead of writing it out, and how it ended.
+pub fn run_captured(program: &Program) -> (String, Result<(), SomoniError>) {
+    let mut vm = Vm::default();
+    vm.output.start_capture();
+    let ended = vm.run(program);
+    (vm.output.end_capture(), ended)
+}
+
 /// One running function: its chunk, its next instruction `ip` and the stack place `base` of its first variable.
 struct Frame<'p> {
     chunk: &'p Chunk,
