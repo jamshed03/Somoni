@@ -43,7 +43,7 @@ impl<'a, 'b> Writer<'a, 'b> {
     fn show(&mut self, value: &Value, quoted: bool) -> fmt::Result {
         match value {
             Value::Int(n) => write!(self.f, "{}", n),
-            Value::Float(x) => write!(self.f, "{}", x),
+            Value::Float(x) => write!(self.f, "{:?}", x),
             Value::Bool(b) => write!(self.f, "{}", b),
             Value::Str(s) if quoted => write!(self.f, "\"{}\"", escaped(s.as_str())),
             Value::Str(s) => write!(self.f, "{}", s),

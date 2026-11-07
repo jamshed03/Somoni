@@ -1,0 +1,9 @@
+// a float always shows a place after the point, so 2.0 and the int 2 look different
+print(2.0);
+print(2);
+print(-0.5);
+print(string(3.0));
+print([1.0, 1.5]);
+print(1.0 / 3.0);
+print(0.1 + 0.2);
+print(float(7));
