@@ -165,10 +165,28 @@ struct InterfaceInfo {
 /// A `const` of the top level that functions can read: its type and its global number.
 #[derive(Clone)]
 struct Constant {
-    ty: Type,
+    /// `None` while a `const` without a type is not checked yet, e.g. `const users = load();` further down.
+    ty: Option<Type>,
+    /// The line of the declaration, for the error when the type is not known yet.
+    line: usize,
     global: usize,
     /// True if the constant is declared in this file, false if it is imported.
     own: bool,
+}
+
+impl Constant {
+    /// Returns the type of the constant `name`, or T102 at `span` if it is computed further down and not checked yet.
+    fn known_type(&self, name: &str, span: Span) -> Result<Type, SomoniError> {
+        self.ty.clone().ok_or_else(|| {
+            SomoniError::at(
+                span,
+                ErrorCode::ConstTypeLater {
+                    name: name.to_string(),
+                    line: self.line,
+                },
+            )
+        })
+    }
 }
 
 /// A lambda being checked: the variables around it when it is made and the ones it copies so far.

@@ -251,11 +251,12 @@ impl TypeChecker {
             return Ok(ty);
         }
         if let Some((name, constant)) = self.global_constant(expr) {
+            let ty = constant.known_type(&name, expr.span)?;
             expr.kind = ExprKind::Constant {
                 name,
                 global: constant.global,
             };
-            return Ok(constant.ty);
+            return Ok(ty);
         }
         if let Some((name, signature)) = self.function_value(expr)? {
             expr.kind = ExprKind::FunctionRef {
@@ -277,8 +278,8 @@ impl TypeChecker {
                 .names
                 .constants
                 .get(name)
-                .map(|constant| constant.ty.clone())
-                .ok_or_else(|| SomoniError::internal("constant without type")),
+                .ok_or_else(|| SomoniError::internal("unknown constant"))?
+                .known_type(name, span),
             ExprKind::Float(_) => Ok(Type::Float),
             ExprKind::Bool(_) => Ok(Type::Bool),
             ExprKind::Str(_) => Ok(Type::Str),

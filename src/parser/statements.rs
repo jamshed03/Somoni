@@ -227,9 +227,9 @@ impl Parser {
         let mutable = *self.peek() == Token::Var;
         let binding_start = self.current_span();
         let mut binding = self.parse_var_head(mutable, binding_start)?;
-        if binding.type_name.optional {
+        if let Some(type_name) = binding.type_name.as_ref().filter(|t| t.optional) {
             return Err(SomoniError::at(
-                binding.type_name.span,
+                type_name.span,
                 ErrorCode::IfVarOptionalType,
             ));
         }
@@ -247,10 +247,10 @@ impl Parser {
         };
         let hidden = VarDecl {
             name: hidden_name,
-            type_name: TypeName {
+            type_name: binding.type_name.clone().map(|type_name| TypeName {
                 optional: true,
-                ..binding.type_name.clone()
-            },
+                ..type_name
+            }),
             value: std::mem::replace(&mut binding.value, read_hidden.clone()),
             mutable: false,
             ..binding.clone()
@@ -480,7 +480,7 @@ impl Parser {
             exported: false,
             name: hidden.clone(),
             name_span: start,
-            type_name: tuple_type,
+            type_name: Some(tuple_type),
             value,
             mutable: true,
             slot: None,
@@ -509,7 +509,7 @@ impl Parser {
                     },
                     name: name.name,
                     name_span: name.name_span,
-                    type_name: name.type_name,
+                    type_name: Some(name.type_name),
                     mutable,
                     slot: None,
                     global: None,
@@ -531,13 +531,21 @@ impl Parser {
         Ok(decl)
     }
 
-    /// Reads `var name: type = value` without the `;`, also used inside `if (...)`.
+    /// Reads `var name: type = value` or `var name = value` without the `;`, also used inside `if (...)`.
     fn parse_var_head(&mut self, mutable: bool, start: Span) -> Result<VarDecl, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("variable name")?;
-        self.expect(Token::Colon, "':'")?;
-        let type_name = self.parse_type("type name")?;
-        self.expect(Token::Equal, "'='")?;
+        let type_name = if self.eat(Token::Colon) {
+            Some(self.parse_type("type name")?)
+        } else {
+            None
+        };
+        let missing = if type_name.is_some() {
+            "'='"
+        } else {
+            "':' or '='"
+        };
+        self.expect(Token::Equal, missing)?;
         let value = self.parse_expr()?;
         let span = self.since(start);
         Ok(VarDecl {

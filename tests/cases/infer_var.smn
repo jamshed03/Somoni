@@ -1,0 +1,71 @@
+// var and const without a type take the type of their value, which then stays fixed
+import { PI_FROM_MODULE } from "modules/infer_constants.smn";
+
+fn area(r: float): float {
+    return PI * r * r;
+}
+
+const PI = 3.14159;
+const NEGATIVE = -2;
+
+enum Color { Red, Green }
+
+class Animal {
+    public name: string;
+    constructor(name: string) {
+        this.name = name;
+    }
+}
+
+fn find(items: list<string>, wanted: string): int? {
+    return items.index_of(wanted);
+}
+
+var count = 0;
+count += 5;
+const title = "Liste";
+var done = false;
+var ratio = 1.0 / 4.0;
+var names = ["Ali", "Bea"];
+var ages = {"Ali": 30};
+var pair = ("eins", 1);
+var color = Color.Green;
+var animal = new Animal("Rex");
+var twice = fn(n: int): int => n * 2;
+var position = find(names, "Bea");
+
+print(count);
+print(title.upper());
+print(!done);
+print(ratio.format(2));
+print(len(names));
+print(ages["Ali"] + 1);
+print(pair.0);
+print(color == Color.Green);
+print(animal.name);
+print(twice(21));
+print(area(1.0).format(2));
+print(NEGATIVE * 3);
+print(PI_FROM_MODULE);
+
+if (position != null) {
+    print(position + 1);
+}
+if (var where = find(names, "Ali")) {
+    print(where);
+}
+for (var i = 0; i < 2; i++) {
+    print(names[i]);
+}
+
+fn uses_later(): int {
+    return LATER_BUT_LITERAL + 1;
+}
+const LATER_BUT_LITERAL = 41;
+print(uses_later());
+
+const computed = len(names) * 10;
+fn after_computed(): int {
+    return computed;
+}
+print(after_computed());

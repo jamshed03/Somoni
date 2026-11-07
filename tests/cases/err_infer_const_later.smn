@@ -1,0 +1,5 @@
+fn total(): int {
+    return base * 2;
+}
+const base = len([1, 2]);
+print(total());

@@ -1,0 +1,2 @@
+// a constant without a type that other files import
+export const PI_FROM_MODULE = 3.0;

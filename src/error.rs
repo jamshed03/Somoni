@@ -358,6 +358,11 @@ pub enum ErrorCode {
     IfVarNotOptional {
         found: Type,
     },
+    VoidVariable,
+    ConstTypeLater {
+        name: String,
+        line: usize,
+    },
     TupleIndexOutOfRange {
         found: Type,
         index: usize,
@@ -574,6 +579,8 @@ impl ErrorCode {
             ErrorCode::ModuleNotValue { .. } => "T098",
             ErrorCode::ValueMatchWithoutRest { .. } => "T099",
             ErrorCode::IfVarNotOptional { .. } => "T100",
+            ErrorCode::VoidVariable => "T101",
+            ErrorCode::ConstTypeLater { .. } => "T102",
 
             ErrorCode::Internal { .. } => "R000",
             ErrorCode::DivisionByZero => "R001",
@@ -981,6 +988,13 @@ impl ErrorCode {
             ),
             ErrorCode::SuperInLambda => "'super' cannot be used inside a lambda".to_string(),
             ErrorCode::TupleTooShort => "a tuple needs at least two elements".to_string(),
+            ErrorCode::VoidVariable => {
+                "this gives no value (void), so it cannot be stored in a variable".to_string()
+            }
+            ErrorCode::ConstTypeLater { name, line } => format!(
+                "the type of '{}' is only known from line {} on, where its value is computed; write its type there (const {}: type = ...) or move it up",
+                name, line, name
+            ),
             ErrorCode::IfVarNotOptional { found } => format!(
                 "'if (var ...)' needs a value that can be null, but this is {}; use a normal 'var' instead",
                 found

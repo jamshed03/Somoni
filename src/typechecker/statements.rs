@@ -138,17 +138,40 @@ impl TypeChecker {
 
     /// Checks `var` or `const`, gives the variable its slot and returns the type of the value.
     fn check_var_decl(&mut self, decl: &mut VarDecl) -> Result<Type, SomoniError> {
-        let declared = self.resolve_type(&decl.type_name, false)?;
-        let found = self.check_assignable(&mut decl.value, &declared)?;
+        let (declared, found) = self.var_types(decl)?;
         if self.in_module && decl.global.is_some() && !is_fixed_value(&decl.value) {
             return Err(SomoniError::at(
                 decl.value.span,
                 ErrorCode::ModuleConstNotFixed,
             ));
         }
+        if decl.global.is_some() {
+            self.know_constant_type(&decl.name, &declared);
+        }
         let slot = self.declare(&decl.name, decl.name_span, declared, decl.mutable)?;
         decl.slot = Some(slot);
         Ok(found)
+    }
+
+    /// Returns the type of the variable and the type of its value; without a written type both are the type of the value.
+    fn var_types(&mut self, decl: &mut VarDecl) -> Result<(Type, Type), SomoniError> {
+        let Some(type_name) = &decl.type_name else {
+            let found = self.check_expr(&mut decl.value)?;
+            if found == Type::Void {
+                return Err(SomoniError::at(decl.value.span, ErrorCode::VoidVariable));
+            }
+            return Ok((found.clone(), found));
+        };
+        let declared = self.resolve_type(type_name, false)?;
+        let found = self.check_assignable(&mut decl.value, &declared)?;
+        Ok((declared, found))
+    }
+
+    /// Gives a `const` of the top level its type, which functions further down then can use.
+    fn know_constant_type(&mut self, name: &str, ty: &Type) {
+        if let Some(constant) = self.names.constants.get_mut(name) {
+            constant.ty = Some(ty.clone());
+        }
     }
 
     /// Checks `if (var name: type = value)`, whose value must be able to be null, or T100.

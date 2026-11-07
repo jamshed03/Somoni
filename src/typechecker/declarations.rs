@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::ast::{
     self, EnumDecl, Expr, ExprKind, FN_TYPE, Field, Function, Param, Stmt, StructDecl, TUPLE_TYPE,
-    TypeName,
+    TypeName, UnaryOp,
 };
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
@@ -32,10 +32,14 @@ impl TypeChecker {
             if decl.mutable {
                 continue;
             }
-            let ty = self.resolve_type(&decl.type_name, false)?;
+            let ty = match &decl.type_name {
+                Some(type_name) => Some(self.resolve_type(type_name, false)?),
+                None => literal_type(&decl.value),
+            };
             decl.global = Some(self.global_count);
             let constant = Constant {
                 ty,
+                line: decl.span.line,
                 global: self.global_count,
                 own: true,
             };
@@ -411,6 +415,22 @@ fn check_variants(decl: &EnumDecl) -> Result<(), SomoniError> {
 }
 
 /// Returns true for a value that is known before the program runs, like `60 * 60` or `["a", "b"]`.
+/// Returns the type of a plain value like `3.14`, `"a"`, `true` or `-1`, which is known before the code is checked.
+fn literal_type(expr: &Expr) -> Option<Type> {
+    match &expr.kind {
+        ExprKind::Int(_) => Some(Type::Int),
+        ExprKind::Float(_) => Some(Type::Float),
+        ExprKind::Str(_) => Some(Type::Str),
+        ExprKind::Bool(_) => Some(Type::Bool),
+        ExprKind::Unary {
+            op: UnaryOp::Neg,
+            operand,
+        } => literal_type(operand).filter(|ty| matches!(ty, Type::Int | Type::Float)),
+        _ => None,
+    }
+}
+
+/// Returns true for a value that is known when the program is written, like `3`, `[1, 2]` or `Farbe.Rot`.
 pub(super) fn is_fixed_value(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::Int(_)

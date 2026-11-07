@@ -452,7 +452,8 @@ pub struct VarDecl {
     pub exported: bool,
     pub name: String,
     pub name_span: Span,
-    pub type_name: TypeName,
+    /// `None` for `var name = value;`, whose type is the type of the value.
+    pub type_name: Option<TypeName>,
     pub value: Expr,
     pub mutable: bool,
     /// Filled in by the type checker: the slot of the variable.
