@@ -1,6 +1,6 @@
 {{-- A template: HTML text with {{ }} (escaped), {!! !!} (raw) and comments like this one --}}
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
     <title>{{ "Somoni & Templates" }}</title>
 </head>

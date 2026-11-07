@@ -3,7 +3,7 @@
 @import { card } from "card.template.smn"
 @props(title: string, pages: list<Page>)
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <body>
 <h1>{{ title }}</h1>
 <ul>
