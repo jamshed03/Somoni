@@ -44,7 +44,7 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 
 ## Status
 
-Version 0.8.0: the core of the language plus lists, structs, optional types, maps, enums, results, tuples, classes, modules, function values, lambdas, type inference, a standard library, input, string interpolation and templates, compiled to bytecode and run in a VM:
+Version 0.9.0: the core of the language plus lists, structs, optional types, maps, enums, results, tuples, classes, modules, function values, lambdas, type inference, a standard library, files, string interpolation, templates and a small web server, compiled to bytecode and run in a VM:
 
 -   Types `int`, `float`, `bool`, `string` (with `\n`, `\t`, `\"`, `\\`, `\{`, `\}` and interpolation `"Hallo {name}"`, raw strings `"""..."""` without escapes); `var` and `const`, with or without a type (`var count = 0;` is an `int`); assignment; `print`; a top-level `const` is visible in functions and methods
 -   Operators `+ - * / %`, `== != < > <= >=` (also for strings), `&& || !` (short-circuit), unary `-`; `+= -= *= /= %=`, `i++` and `i--` as statements
