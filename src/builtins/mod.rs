@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::text::Text;
-use crate::types::Type;
+use crate::types::{FunctionHint, Type};
 use crate::value::{Order, Value, map_key};
 
 use convert::{conversion_result, float_to_int, parse_float, parse_int};
@@ -203,6 +203,24 @@ impl Builtin {
                 | Builtin::SortBy
                 | Builtin::SortByDesc
         )
+    }
+
+    /// Returns what a lambda as the next argument gets as its type, from the types of the value and the arguments before it.
+    pub fn function_hint(self, before: &[Type]) -> Option<FunctionHint> {
+        let hint = |params: Vec<Type>, result: Option<Type>| Some(FunctionHint { params, result });
+        match (self, before) {
+            (Builtin::Map | Builtin::SortBy | Builtin::SortByDesc, [Type::List(element)]) => {
+                hint(vec![(**element).clone()], None)
+            }
+            (Builtin::Filter | Builtin::Any | Builtin::All, [Type::List(element)]) => {
+                hint(vec![(**element).clone()], Some(Type::Bool))
+            }
+            (Builtin::Reduce, [Type::List(element), start]) => hint(
+                vec![start.clone(), (**element).clone()],
+                Some(start.clone()),
+            ),
+            _ => None,
+        }
     }
 
     /// Returns true for `ok` and `err`, which take their result type from where they are used.

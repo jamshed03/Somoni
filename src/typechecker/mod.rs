@@ -73,13 +73,6 @@ impl Returns {
     }
 }
 
-/// What the place of a lambda tells about its type, e.g. the parameters that `l.map(...)` gives it.
-pub(super) struct LambdaHint<'a> {
-    params: &'a [Type],
-    /// `None` where any result is fine, like for `map`.
-    result: Option<&'a Type>,
-}
-
 /// Returns the type written at a declaration; only lambdas may leave it out, which the parser makes sure of.
 fn written(type_name: &Option<TypeName>) -> Result<&TypeName, SomoniError> {
     type_name

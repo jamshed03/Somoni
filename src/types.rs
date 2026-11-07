@@ -70,6 +70,14 @@ pub enum Type {
     Tuple(Rc<[Type]>),
 }
 
+/// What the place of a lambda tells about its type, e.g. the parameter type that `l.map(...)` gives it.
+#[derive(Debug, Clone)]
+pub struct FunctionHint {
+    pub params: Vec<Type>,
+    /// `None` where any result is fine, like for `map`.
+    pub result: Option<Type>,
+}
+
 /// The parameter types and the result type of a function type.
 #[derive(Debug, PartialEq)]
 pub struct FunctionType {

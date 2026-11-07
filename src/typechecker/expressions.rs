@@ -10,13 +10,13 @@ use crate::ast::{
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
-use crate::types::{Decl, Type};
+use crate::types::{Decl, FunctionHint, Type};
 
 use super::declarations::check_key_type;
 use crate::scope::Scopes;
 
 use super::{
-    Constant, LambdaHint, LambdaScope, Returns, Signature, TypeChecker, check_arg_count, field_of,
+    Constant, LambdaScope, Returns, Signature, TypeChecker, check_arg_count, field_of,
     wrong_arg_type,
 };
 
@@ -45,9 +45,9 @@ impl TypeChecker {
                 Ok(wanted.clone())
             }
             (ExprKind::Lambda(lambda), Type::Function(function)) => {
-                let hint = LambdaHint {
-                    params: &function.params,
-                    result: Some(&function.result),
+                let hint = FunctionHint {
+                    params: function.params.clone(),
+                    result: Some(function.result.clone()),
                 };
                 self.check_lambda(lambda, Some(hint))
             }
@@ -436,7 +436,7 @@ impl TypeChecker {
     fn check_lambda(
         &mut self,
         lambda: &mut Lambda,
-        hint: Option<LambdaHint>,
+        hint: Option<FunctionHint>,
     ) -> Result<Type, SomoniError> {
         let index = self.lambda_count;
         self.lambda_count += 1;
@@ -447,7 +447,7 @@ impl TypeChecker {
             hint.and_then(|hint| hint.result),
         ) {
             (Some(written), _) => Returns::Known(self.resolve_type(written, true)?),
-            (None, Some(result)) => Returns::Known(result.clone()),
+            (None, Some(result)) => Returns::Known(result),
             (None, None) => Returns::FromBody,
         };
         let ty = Type::function(params.clone(), returns.returned_type());
@@ -477,7 +477,7 @@ impl TypeChecker {
     fn lambda_params(
         &self,
         params: &[Param],
-        hint: Option<&LambdaHint>,
+        hint: Option<&FunctionHint>,
     ) -> Result<Vec<Type>, SomoniError> {
         let missing = params.iter().find(|param| param.type_name.is_none());
         if let (Some(hint), Some(param)) = (hint, missing)
@@ -710,7 +710,11 @@ impl TypeChecker {
         check_arg_count(&call.name, builtin.arity() - 1, &call.args, span)?;
         let mut types = vec![target_type.clone()];
         for arg in call.args.iter_mut() {
-            types.push(self.check_expr(arg)?);
+            let found = match (&mut arg.kind, builtin.function_hint(&types)) {
+                (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
+                _ => self.check_expr(arg)?,
+            };
+            types.push(found);
         }
         let result = match builtin.result_type(&types) {
             Ok(result) => result,

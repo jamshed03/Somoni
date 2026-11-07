@@ -1,0 +1,29 @@
+// map, filter, reduce, any, all, sort_by and sort_by_desc give their lambdas the types
+struct User {
+    name: string,
+    age: int
+}
+
+var users = [
+    User { name: "Cem", age: 41 },
+    User { name: "Ali", age: 30 },
+    User { name: "Bea", age: 30 }
+];
+print(users.map(fn(u) => u.name));
+print(users.filter(fn(u) => u.age > 35).map(fn(u) => u.name));
+print(users.reduce(0, fn(sum, u) => sum + u.age));
+print(users.any(fn(u) => u.name == "Bea"));
+print(users.all(fn(u) => u.age >= 30));
+print(users.sort_by(fn(u) => u.name).map(fn(u) => u.name));
+print(users.sort_by_desc(fn(u) => u.age).map(fn(u) => u.name));
+
+var counts: list<(string, int)> = [("der", 3), ("hund", 2), ("und", 1)];
+print(counts.sort_by_desc(fn(p) => p.1).map(fn(p) => p.0 + "=" + string(p.1)));
+print([1, 2, 3].map(fn(n) => float(n) / 2.0));
+print([1, 2, 3].map(fn(n) {
+    if (n % 2 == 0) {
+        return "gerade";
+    }
+    return "ungerade";
+}));
+print(["a", "b"].reduce("", fn(text, s) => text + s.upper()));
