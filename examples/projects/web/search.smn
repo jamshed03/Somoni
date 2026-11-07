@@ -1,0 +1,20 @@
+// A page that reads ?q= from the address, like /search?q=lambda; without somoni serve, query("q") is null.
+const topics = ["templates", "lambdas", "string interpolation", "read_file and write_file", "capture", "raw strings"];
+
+print("<!doctype html>");
+print("<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Search</title></head><body>");
+print("<h1>Search</h1>");
+print("<form action=\"search\"><input name=\"q\"> <button>Search</button></form>");
+if (var q = query("q")) {
+    var found = topics.filter(fn(topic) => topic.contains(q.lower()));
+    print("<p>Found {len(found)} for '{q.escape_html()}' on {request_path()}:</p>");
+    print("<ul>");
+    for (topic: string in found) {
+        print("<li>{topic.escape_html()}</li>");
+    }
+    print("</ul>");
+} else {
+    print("<p>Type a word, like lambda or string.</p>");
+}
+print("<p><a href=\"/\">Back</a></p>");
+print("</body></html>");

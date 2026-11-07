@@ -12,6 +12,6 @@
         <li>2 squared is 4</li>
         <li>3 squared is 9</li>
     </ul>
-    <p><a href="about">About this site</a></p>
+    <p><a href="about">About this site</a> - <a href="search?q=string">Search for string</a></p>
 </body>
 </html>

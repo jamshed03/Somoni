@@ -29,6 +29,8 @@ pub enum Builtin {
     Input,
     ReadFile,
     WriteFile,
+    Query,
+    RequestPath,
     Int,
     Float,
     Str,
@@ -86,6 +88,8 @@ const ALL: &[Builtin] = &[
     Builtin::Input,
     Builtin::ReadFile,
     Builtin::WriteFile,
+    Builtin::Query,
+    Builtin::RequestPath,
     Builtin::Int,
     Builtin::Float,
     Builtin::Str,
@@ -189,6 +193,8 @@ impl Builtin {
             | Builtin::Input
             | Builtin::ReadFile
             | Builtin::WriteFile
+            | Builtin::Query
+            | Builtin::RequestPath
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -278,6 +284,8 @@ impl Builtin {
             Builtin::Input => "input",
             Builtin::ReadFile => "read_file",
             Builtin::WriteFile => "write_file",
+            Builtin::Query => "query",
+            Builtin::RequestPath => "request_path",
             Builtin::Int => "int",
             Builtin::Float => "float",
             Builtin::Str => "string",
@@ -332,8 +340,9 @@ impl Builtin {
     pub fn arity(self) -> usize {
         match self {
             Builtin::Input => 0,
-            Builtin::ReadFile => 1,
+            Builtin::ReadFile | Builtin::Query => 1,
             Builtin::WriteFile => 2,
+            Builtin::RequestPath => 0,
             Builtin::Print
             | Builtin::Write
             | Builtin::Capture
@@ -402,6 +411,8 @@ impl Builtin {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
             (Builtin::WriteFile, [Type::Str, _]) => Err(1),
+            (Builtin::Query, [Type::Str]) => Ok(Type::Optional(Box::new(Type::Str))),
+            (Builtin::RequestPath, []) => Ok(Type::Str),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
             (Builtin::Float, [Type::Int]) => Ok(Type::Float),

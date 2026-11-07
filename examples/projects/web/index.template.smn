@@ -13,6 +13,6 @@
         <li>{{ n }} squared is {{ n * n }}</li>
         @endforeach
     </ul>
-    <p><a href="about">About this site</a></p>
+    <p><a href="about">About this site</a> - <a href="search?q=string">Search for string</a></p>
 </body>
 </html>

@@ -21,9 +21,29 @@ pub fn run(program: &Program) -> Result<(), SomoniError> {
     Vm::default().run(program)
 }
 
-/// Runs a compiled program and returns what it writes instead of writing it out, and how it ended.
-pub fn run_captured(program: &Program) -> (String, Result<(), SomoniError>) {
-    let mut vm = Vm::default();
+/// The request that `somoni serve` answers with a program: its decoded path and the pairs of its query.
+#[derive(Debug, Default)]
+pub struct Request {
+    pub path: String,
+    pub query: Vec<(String, String)>,
+}
+
+impl Request {
+    /// Returns the first value of `name` in the query, like `a` for `?q=a`.
+    fn value(&self, name: &str) -> Option<&str> {
+        self.query
+            .iter()
+            .find(|(found, _)| found == name)
+            .map(|(_, value)| value.as_str())
+    }
+}
+
+/// Runs a compiled program for `request` and returns what it writes instead of writing it out, and how it ended.
+pub fn run_captured(program: &Program, request: Request) -> (String, Result<(), SomoniError>) {
+    let mut vm = Vm {
+        request: Some(request),
+        ..Vm::default()
+    };
     vm.output.start_capture();
     let ended = vm.run(program);
     (vm.output.end_capture(), ended)
@@ -62,6 +82,8 @@ struct Vm<'p> {
     globals: Vec<Value>,
     /// Where `print` and `write` go.
     output: Output,
+    /// The request of `somoni serve`, which `query` and `request_path` read; None outside of it.
+    request: Option<Request>,
 }
 
 impl<'p> Vm<'p> {
@@ -248,16 +270,41 @@ impl<'p> Vm<'p> {
     /// Calls a built-in function with the `count` values on top of the stack and pushes its result.
     fn call_builtin(&mut self, builtin: Builtin, count: usize) -> Result<(), SomoniError> {
         let start = self.top_start(count);
-        let result = match builtin.output_text(&self.stack[start..]) {
-            Some(text) => {
-                self.output.write(&text)?;
-                Value::Void
-            }
-            None => builtin.call(&self.stack[start..])?,
+        let args = &self.stack[start..];
+        let result = if let Some(value) = self.request_value(builtin, args) {
+            value
+        } else if let Some(text) = builtin.output_text(args) {
+            self.output.write(&text)?;
+            Value::Void
+        } else {
+            builtin.call(args)?
         };
         self.stack.truncate(start);
         self.stack.push(result);
         Ok(())
+    }
+
+    /// Returns the value of `query(name)` or `request_path()` for the request being answered, None for other functions;
+    /// without a request, `query` gives null and `request_path` an empty string.
+    fn request_value(&self, builtin: Builtin, args: &[Value]) -> Option<Value> {
+        let text = |text: &str| Value::Str(Rc::new(Text::new(text.to_string())));
+        match (builtin, args) {
+            (Builtin::Query, [Value::Str(name)]) => {
+                let found = self
+                    .request
+                    .as_ref()
+                    .and_then(|request| request.value(name.as_str()));
+                Some(found.map_or(Value::Null, text))
+            }
+            (Builtin::RequestPath, []) => {
+                let path = self
+                    .request
+                    .as_ref()
+                    .map_or("", |request| request.path.as_str());
+                Some(text(path))
+            }
+            _ => None,
+        }
     }
 
     /// Starts a call of `chunk` whose `count` arguments are on top of the stack, while `frame` waits in `callers`.

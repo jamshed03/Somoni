@@ -7,7 +7,12 @@ use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 
 use crate::builtins::html_safe;
-use crate::{build, render, vm};
+use crate::vm::{self, Request};
+use crate::{build, render};
+
+use url::{decode, parse_query, split_target};
+
+mod url;
 
 /// The endings that make a file a program, tried in this order for a path like `/about`.
 const PROGRAM_ENDINGS: &[&str] = &[".smn", ".template.smn"];
@@ -82,10 +87,15 @@ fn request_path(first_line: &str) -> Option<&str> {
     (method == "GET").then_some(path)
 }
 
-/// Returns the answer for the path `url`: the output of a program, a file, or a page for 404 or 500.
-fn respond(root: &Path, url: &str) -> Response {
-    match resolve(root, url) {
-        Target::Program(path) => run_page(&path),
+/// Returns the answer for the request `target` like `/search?q=a`: the output of a program, a file, or a page for
+/// 400, 404 or 500.
+fn respond(root: &Path, target: &str) -> Response {
+    let (raw_path, raw_query) = split_target(target);
+    let (Some(url), Some(query)) = (decode(raw_path, false), parse_query(raw_query)) else {
+        return page(400, &format!("The address {} cannot be read.", target));
+    };
+    match resolve(root, &url) {
+        Target::Program(path) => run_page(&path, Request { path: url, query }),
         Target::File(path) => match fs::read(&path) {
             Ok(body) => Response {
                 status: 200,
@@ -98,10 +108,9 @@ fn respond(root: &Path, url: &str) -> Response {
     }
 }
 
-/// Finds what `url` stands for in `root`: `/` and `/docs/` look for `index`, `/about` for `about.smn` or
-/// `about.template.smn` or a file `about`; `.smn` files are never sent, and no path leaves `root`.
-fn resolve(root: &Path, url: &str) -> Target {
-    let path = url.split(['?', '#']).next().unwrap_or_default();
+/// Finds what the decoded `path` stands for in `root`: `/` and `/docs/` look for `index`, `/about` for `about.smn`
+/// or `about.template.smn` or a file `about`; `.smn` files are never sent, and no path leaves `root`.
+fn resolve(root: &Path, path: &str) -> Target {
     let mut relative = PathBuf::new();
     for part in path.split('/').filter(|part| !part.is_empty()) {
         if part == ".." || part == "." {
@@ -148,11 +157,11 @@ fn inside(root: &Path, path: &Path) -> bool {
     path.canonicalize().is_ok_and(|real| real.starts_with(root))
 }
 
-/// Runs the program `path` and returns what it writes as the page, or a page 500 with its error.
-fn run_page(path: &Path) -> Response {
+/// Runs the program `path` for `request` and returns what it writes as the page, or a page 500 with its error.
+fn run_page(path: &Path, request: Request) -> Response {
     let built = build(&path.to_string_lossy());
     let output = built.and_then(|(program, files)| {
-        let (output, ended) = vm::run_captured(&program);
+        let (output, ended) = vm::run_captured(&program, request);
         ended
             .map(|()| output)
             .map_err(|error| render(&error, &files))
@@ -187,6 +196,7 @@ fn page(status: u16, message: &str) -> Response {
 fn reason(status: u16) -> &'static str {
     match status {
         200 => "OK",
+        400 => "Bad Request",
         404 => "Not Found",
         405 => "Method Not Allowed",
         _ => "Internal Server Error",
@@ -257,7 +267,7 @@ mod tests {
             Target::Program(root.join("index.template.smn"))
         );
         assert_eq!(
-            resolve(&root, "/about?x=1"),
+            resolve(&root, "/about"),
             Target::Program(root.join("about.smn"))
         );
         assert_eq!(
