@@ -232,7 +232,7 @@ struct Names {
     enums: HashMap<String, Decl<EnumDecl>>,
     classes: HashMap<String, Decl<ClassLayout>>,
     interfaces: HashMap<String, Decl<InterfaceLayout>>,
-    /// The names after `import * as`, like `mathe`.
+    /// The names after `import * as`, like `math`.
     modules: HashSet<String>,
 }
 

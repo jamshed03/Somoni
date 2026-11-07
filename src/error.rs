@@ -1236,7 +1236,7 @@ impl SomoniError {
         self
     }
 
-    /// The first line of the message, e.g. `Type error [T002]: mathe.smn: Line 4: unknown variable 'y'`.
+    /// The first line of the message, e.g. `Type error [T002]: math.smn: Line 4: unknown variable 'y'`.
     fn header(&self, file_name: Option<&str>) -> String {
         let kind = self.code.kind().label();
         let place = match (file_name, self.span) {

@@ -273,7 +273,7 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Checks the target of an assignment and returns its type, or T005 for an enum variant like `Farbe.Rot`.
+    /// Checks the target of an assignment and returns its type, or T005 for an enum variant like `Color.Red`.
     fn check_assign_target(&mut self, target: &mut Expr) -> Result<Type, SomoniError> {
         if let Some((decl, variant)) = self.enum_variant(target)? {
             return Err(SomoniError::at(

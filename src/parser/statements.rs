@@ -60,7 +60,7 @@ impl Parser {
         Ok(Stmt::Return { value, span })
     }
 
-    /// Reads `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
+    /// Reads `match (subject) { Color.Red => { ... } _ => { ... } }`.
     fn parse_match(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'match'")?;
@@ -105,7 +105,7 @@ impl Parser {
         Ok(Pattern::Or(patterns))
     }
 
-    /// Reads what a branch of `match` stands for: `Farbe.Rot`, `ok(n: int)`, `err(e: string)`, `"+"`, `42` or `_`.
+    /// Reads what a branch of `match` stands for: `Color.Red`, `ok(n: int)`, `err(e: string)`, `"+"`, `42` or `_`.
     fn parse_pattern(&mut self) -> Result<Pattern, SomoniError> {
         if self.at_word("_") {
             let span = self.current_span();
@@ -163,10 +163,10 @@ impl Parser {
         })
     }
 
-    /// Reads a variant like `Farbe.Rot` in a branch of `match`.
+    /// Reads a variant like `Color.Red` in a branch of `match`.
     fn parse_variant_pattern(&mut self) -> Result<Pattern, SomoniError> {
         let (enum_name, enum_span) =
-            self.expect_ident("a branch like 'Farbe.Rot', 'ok(n: int)' or '_'")?;
+            self.expect_ident("a branch like 'Color.Red', 'ok(n: int)' or '_'")?;
         self.expect(Token::Dot, "'.' after enum name")?;
         let (name, name_span) = self.expect_ident("variant name")?;
         Ok(Pattern::Variant {

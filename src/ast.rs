@@ -71,7 +71,7 @@ pub enum ExprKind {
         fields: Vec<FieldInit>,
         index: Option<usize>,
     },
-    /// A variant like `Farbe.Rot`, which the type checker makes from a field when `Farbe` is an enum.
+    /// A variant like `Color.Red`, which the type checker makes from a field when `Color` is an enum.
     EnumValue {
         decl: Rc<EnumDecl>,
         variant: usize,
@@ -87,7 +87,7 @@ pub enum ExprKind {
     CallValue(CallValue),
     /// `fn(x: int): int => x * 2` or `fn(x: int): int { ... }`, a function without a name.
     Lambda(Box<Lambda>),
-    /// `"Hallo {name}!"`: the texts as `ExprKind::Str` and the expressions between them, in their order.
+    /// `"Hello {name}!"`: the texts as `ExprKind::Str` and the expressions between them, in their order.
     Interpolation(Vec<Expr>),
     /// A variable from outside a lambda, read from its copy number `index`, which the type checker makes from a name.
     Captured {
@@ -501,7 +501,7 @@ impl ForEach {
     }
 }
 
-/// `match (subject) { Farbe.Rot => { ... } _ => { ... } }`.
+/// `match (subject) { Color.Red => { ... } _ => { ... } }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Match {
     pub subject: Expr,
@@ -605,11 +605,11 @@ pub struct Function {
     pub body: Vec<Stmt>,
 }
 
-/// `import { quadrat, Punkt } from "mathe.smn";`
+/// `import { square, Point } from "math.smn";`
 #[derive(Debug, Clone, PartialEq)]
 pub struct Import {
     pub names: Vec<ImportName>,
-    /// The name after `import * as`, under which all exports of the file are used, e.g. `mathe.quadrat`.
+    /// The name after `import * as`, under which all exports of the file are used, e.g. `math.square`.
     pub namespace: Option<(String, Span)>,
     pub path: String,
     pub path_span: Span,
@@ -817,7 +817,7 @@ pub struct EnumDecl {
     pub variants: Vec<(String, Span)>,
 }
 
-/// One branch of a `match`: `Farbe.Rot => { ... }` or `_ => { ... }`.
+/// One branch of a `match`: `Color.Red => { ... }` or `_ => { ... }`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: Pattern,
@@ -833,7 +833,7 @@ pub const ERR_VARIANT: usize = 1;
 /// What a branch of `match` stands for.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern {
-    /// `Farbe.Rot`
+    /// `Color.Red`
     Variant {
         enum_name: String,
         enum_span: Span,
@@ -849,7 +849,7 @@ pub enum Pattern {
     },
     /// `"+"`, `42` or `-1` in a `match` over a string or an int.
     Literal { value: Literal, span: Span },
-    /// `"." | "R"` or `Farbe.Rot | Farbe.Gelb`: values or variants that share one branch.
+    /// `"." | "R"` or `Color.Red | Color.Yellow`: values or variants that share one branch.
     Or(Vec<Pattern>),
     /// `_`: all variants that have no branch of their own
     Rest(Span),

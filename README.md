@@ -30,15 +30,6 @@ Programs that should fail start with `err_` and must exit with code 1, all other
 -   New features need new tests (one that works, one `err_` case per new error).
 -   If a change modifies an output on purpose, update the affected `.out` files and check them by hand.
 
-## Benchmarks
-
-    bench/run.sh
-
-Runs the programs in `bench/` in Somoni, PHP, Node.js and Python and compares them with
-[hyperfine](https://github.com/sharkdp/hyperfine). Somoni runs bytecode in a VM: as fast as PHP and
-Python for function calls, slower than PHP for plain loops, and far behind Node.js, which compiles hot code
-to machine code (JIT).
-
 ## How it works
 
 Pipeline: source text, lexer (tokens), parser (AST), type checker, compiler (bytecode), VM.
@@ -52,7 +43,7 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 
 ## Status
 
-Version 0.8.0: the core of the language plus lists, structs, optional types, maps, enums, results, tuples, classes, modules, function values, lambdas, type inference, a standard library, input, string interpolation and templates like Blade, compiled to bytecode and run in a VM:
+Version 0.8.0: the core of the language plus lists, structs, optional types, maps, enums, results, tuples, classes, modules, function values, lambdas, type inference, a standard library, input, string interpolation and templates, compiled to bytecode and run in a VM:
 
 -   Types `int`, `float`, `bool`, `string` (with `\n`, `\t`, `\"`, `\\`, `\{`, `\}` and interpolation `"Hallo {name}"`, raw strings `"""..."""` without escapes); `var` and `const`, with or without a type (`var count = 0;` is an `int`); assignment; `print`; a top-level `const` is visible in functions and methods
 -   Operators `+ - * / %`, `== != < > <= >=` (also for strings), `&& || !` (short-circuit), unary `-`; `+= -= *= /= %=`, `i++` and `i--` as statements
@@ -60,7 +51,7 @@ Version 0.8.0: the core of the language plus lists, structs, optional types, map
 -   Blocks `{ }` with their own scope (inner blocks may shadow outer names)
 -   `if`, `else if`, `else` (condition must be `bool`, braces required)
 -   `while`, `for` and `for (x: int in list)` over lists, maps and strings, with `break` and `continue`
--   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)`, joined with `l + [4]` (values are copied like PHP arrays)
+-   Lists `list<int>` with `[1, 2, 3]`, `l[i]`, `len(l)`, joined with `l + [4]` (values are copied, a change never reaches another variable)
 -   Structs `struct User { name: string, age: int }` with `User { name: "Ali", age: 30 }` and `u.name` (copied like lists)
 -   Optional types `int?` with `null`; an `int` fits where an `int?` is expected
 -   Enums `enum Farbe { Rot, Gruen }` with `match` that must cover every variant (or use `_`); `match` also over ints and strings (`"+" => { ... }`, `_` required), several values in one branch (`"a" | "e" => { ... }`)
@@ -73,7 +64,7 @@ Version 0.8.0: the core of the language plus lists, structs, optional types, map
 -   With functions: `l.map(f)`, `filter`, `reduce(start, f)`, `any`, `all`, `sort_by(key)`, `sort_by_desc(key)`, e.g. `users.sort_by(fn(u) => u.alter)` (the lambda gets its types from the method)
 -   Math functions `abs`, `min`, `max`, `sqrt`, `pow`, `floor`, `ceil`, `round`
 -   Built-in functions `print`, `write` (without a line break), `input` (one line, `null` at the end), `int`, `float`, `string`, `len`, `has`, `keys`, `ok`, `err`, `is_ok`, `is_err` (conversions are always explicit; `int("5")` gives a `result` because a text may not be a number)
--   Templates `page.template.smn` like Blade: HTML text with `{{ value }}` (escaped), `{!! html !!}` (raw) and `{{-- comments --}}`; run with `somoni page.template.smn > page.html` and `@if`/`@elseif`/`@else`/`@endif`, `@foreach`/`@endforeach`; with `@import` and `@props(page: Page)` a template is a function that other files import and call (`card(page)`), also from another template with `@include(card(page))`
+-   Templates `page.template.smn`: HTML text with `{{ value }}` (escaped), `{!! html !!}` (raw), `{{-- comments --}}`, `@if`/`@elseif`/`@else`/`@endif` and `@foreach`/`@endforeach`; run with `somoni page.template.smn > page.html`. With `@import` and `@props(page: Page)` a template is a function that other files import and call (`card(page)`), also from another template with `@include(card(page))`
 -   Own functions with `fn name(a: int): int { ... }`, `return` and recursion; functions see only their parameters, every path must return a value
 -   Functions as values with types like `fn(int): int`: `var f: fn(int): int = quadrat; f(3)`, also in lists and fields (`k.aktion(x)`)
 -   Lambdas `fn(x: int): int => x * 2` or with a block, also without types where they are known (`var twice: fn(int): int = fn(x) => x * 2;`); they copy the outside variables they use (and `this`) when they are made

@@ -13,7 +13,7 @@ use crate::token::{SpannedToken, Token};
 use super::Parser;
 
 impl Parser {
-    /// Reads `import { quadrat, Punkt } from "mathe.smn";`.
+    /// Reads `import { square, Point } from "math.smn";`.
     pub(super) fn parse_import(&mut self) -> Result<Stmt, SomoniError> {
         let start = self.current_span();
         self.advance();
@@ -30,7 +30,7 @@ impl Parser {
         self.expect_word("from", "'from' after the imported names")?;
         let path_span = self.current_span();
         let Token::Str(path) = self.peek().clone() else {
-            return Err(self.expected("a file name like \"mathe.smn\" after 'from'"));
+            return Err(self.expected("a file name like \"math.smn\" after 'from'"));
         };
         self.advance();
         let span = self.since(start);
@@ -65,7 +65,7 @@ impl Parser {
         }
     }
 
-    /// Reads one name in the `{ ... }` of an import, like `quadrat` or `quadrat as q`.
+    /// Reads one name in the `{ ... }` of an import, like `square` or `square as q`.
     fn parse_import_name(&mut self) -> Result<ImportName, SomoniError> {
         let (name, span) = self.expect_ident("name to import")?;
         let alias = if self.at_word("as") {
@@ -188,7 +188,7 @@ impl Parser {
         })
     }
 
-    /// Reads `enum Farbe { Rot, Gruen, Blau }`.
+    /// Reads `enum Color { Red, Green, Blue }`.
     pub(super) fn parse_enum(&mut self, exported: bool) -> Result<Stmt, SomoniError> {
         self.advance();
         let (name, name_span) = self.expect_ident("enum name")?;

@@ -474,7 +474,7 @@ impl TypeChecker {
         Ok(Type::function(params, return_type))
     }
 
-    /// Checks the expressions of `"Hallo {name}"`, which must be values that `string(...)` turns into text, or T105.
+    /// Checks the expressions of `"Hello {name}"`, which must be values that `string(...)` turns into text, or T105.
     fn check_interpolation(&mut self, parts: &mut [Expr]) -> Result<Type, SomoniError> {
         for part in parts {
             let found = self.check_expr(part)?;

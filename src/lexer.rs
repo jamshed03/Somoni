@@ -96,7 +96,7 @@ pub struct Lexer {
     open_strings: Vec<OpenString>,
 }
 
-/// A string inside whose `{...}` the lexer is, like `"Hallo {name` before the `}`.
+/// A string inside whose `{...}` the lexer is, like `"Hello {name` before the `}`.
 struct OpenString {
     /// The place of the opening `"`, for L003 if the string is never closed.
     start: Span,
@@ -241,7 +241,7 @@ impl Lexer {
         keyword(&word).unwrap_or(Token::Ident(word))
     }
 
-    /// Reads a string `"..."`, or its start up to the first `{` of `"Hallo {name}"`.
+    /// Reads a string `"..."`, or its start up to the first `{` of `"Hello {name}"`.
     fn read_string(&mut self) -> Result<Token, SomoniError> {
         let start = Span::in_line(self.file, self.line, self.col(), 1);
         self.advance();

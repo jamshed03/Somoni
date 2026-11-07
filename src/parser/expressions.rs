@@ -247,7 +247,7 @@ impl Parser {
         Ok(Expr { kind, span })
     }
 
-    /// Reads `"Hallo {name}!"` as its parts: the texts and the expressions between them.
+    /// Reads `"Hello {name}!"` as its parts: the texts and the expressions between them.
     fn parse_interpolation(&mut self, first: String, start: Span) -> Result<Expr, SomoniError> {
         self.advance();
         let mut parts: Vec<Expr> = text_part(first, start).into_iter().collect();

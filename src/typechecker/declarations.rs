@@ -430,7 +430,7 @@ fn literal_type(expr: &Expr) -> Option<Type> {
     }
 }
 
-/// Returns true for a value that is known when the program is written, like `3`, `[1, 2]` or `Farbe.Rot`.
+/// Returns true for a value that is known when the program is written, like `3`, `[1, 2]` or `Color.Red`.
 pub(super) fn is_fixed_value(expr: &Expr) -> bool {
     match &expr.kind {
         ExprKind::Int(_)

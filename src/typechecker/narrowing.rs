@@ -1,4 +1,4 @@
-//! Narrowing: which variables have a narrower type after a condition, like `a != null` or `a instanceof Hund`.
+//! Narrowing: which variables have a narrower type after a condition, like `a != null` or `a instanceof Dog`.
 
 use crate::ast::{BinaryOp, Expr, ExprKind, InstanceOf, UnaryOp};
 use crate::types::Type;

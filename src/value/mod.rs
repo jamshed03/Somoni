@@ -77,7 +77,7 @@ impl PartialEq for EnumValue {
     }
 }
 
-/// An object of a class that all its copies share, like an object in TypeScript.
+/// An object of a class that all its copies share.
 #[derive(Debug, Clone)]
 pub struct Object(pub Rc<RefCell<ObjectValue>>);
 

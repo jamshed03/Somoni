@@ -11,7 +11,7 @@ use directive::Directive;
 
 mod directive;
 
-/// The ending of a template file, like `.blade.php` in Laravel.
+/// The ending of a template file.
 const TEMPLATE_ENDING: &str = ".template.smn";
 
 /// What starts at a place in the HTML text of a template.

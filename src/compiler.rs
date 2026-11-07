@@ -889,7 +889,7 @@ impl Compiler {
         Ok(())
     }
 
-    /// Writes `"Hallo {name}"` as its parts, each expression turned into text like `string(...)`, joined with `+`.
+    /// Writes `"Hello {name}"` as its parts, each expression turned into text like `string(...)`, joined with `+`.
     fn compile_interpolation(&mut self, parts: &[Expr], span: Span) -> Result<(), SomoniError> {
         for (place, part) in parts.iter().enumerate() {
             self.compile_expr(part)?;

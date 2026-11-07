@@ -95,7 +95,7 @@ pub(super) fn repeat(s: &str, times: i64) -> Result<Value, SomoniError> {
     Ok(string_value(s.repeat(times)))
 }
 
-/// Returns `s` safe for HTML text and attributes: `&`, `<`, `>`, `"` and `'` become entities, like `htmlspecialchars` in PHP.
+/// Returns `s` safe for HTML text and attributes: `&`, `<`, `>`, `"` and `'` become entities.
 pub(super) fn escape_html(s: &Rc<Text>) -> Value {
     let text = s.as_str();
     if !text.contains(['&', '<', '>', '"', '\'']) {

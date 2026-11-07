@@ -39,7 +39,7 @@ impl TypeChecker {
         })
     }
 
-    /// Returns the enum and variant number if `expr` is a variant like `Farbe.Rot`.
+    /// Returns the enum and variant number if `expr` is a variant like `Color.Red`.
     pub(super) fn enum_variant(
         &self,
         expr: &Expr,
