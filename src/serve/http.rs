@@ -1,6 +1,6 @@
 //! The HTTP part of `somoni serve`: reading a request, the status words, content types and writing an answer.
 
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
 use std::path::Path;
 
@@ -13,24 +13,56 @@ pub(super) struct Response {
     pub(super) body: Vec<u8>,
 }
 
-/// Reads the request and returns its first line, like `GET /about HTTP/1.1`; the headers after it are skipped.
-pub(super) fn read_request(stream: &TcpStream) -> io::Result<String> {
-    let mut reader = BufReader::new(stream);
-    let mut first_line = String::new();
-    reader.read_line(&mut first_line)?;
-    let mut header = String::new();
-    while reader.read_line(&mut header)? > 0 && header.trim() != "" {
-        header.clear();
-    }
-    Ok(first_line)
+/// The most bytes the body of a request may have, like the fields of a form.
+const MAX_BODY: usize = 1 << 20;
+
+/// A request as it came in.
+pub(super) struct Incoming {
+    /// The first line, like `POST /guestbook HTTP/1.1`, for the log.
+    pub(super) line: String,
+    pub(super) method: String,
+    /// The path with its query, like `/search?q=a`, still encoded.
+    pub(super) target: String,
+    /// The header `Content-Type`, like `application/x-www-form-urlencoded`.
+    pub(super) content_type: String,
+    pub(super) body: Vec<u8>,
 }
 
-/// Returns the path of a GET request line, like `/about` for `GET /about HTTP/1.1`.
-pub(super) fn request_path(first_line: &str) -> Option<&str> {
-    let mut parts = first_line.split_whitespace();
-    let method = parts.next()?;
-    let path = parts.next()?;
-    (method == "GET").then_some(path)
+/// Reads a request: its first line, the headers `Content-Length` and `Content-Type`, and its body;
+/// None if the first line has no method and target or the body is bigger than 1 MiB.
+pub(super) fn read_request(reader: &mut impl BufRead) -> io::Result<Option<Incoming>> {
+    let mut line = String::new();
+    reader.read_line(&mut line)?;
+    let mut length = 0;
+    let mut content_type = String::new();
+    let mut header = String::new();
+    while reader.read_line(&mut header)? > 0 && !header.trim().is_empty() {
+        if let Some((name, value)) = header.split_once(':') {
+            match name.trim().to_ascii_lowercase().as_str() {
+                "content-length" => length = value.trim().parse().unwrap_or(0),
+                "content-type" => content_type = value.trim().to_string(),
+                _ => {}
+            }
+        }
+        header.clear();
+    }
+    let mut parts = line.split_whitespace();
+    let (Some(method), Some(target)) = (parts.next(), parts.next()) else {
+        return Ok(None);
+    };
+    if length > MAX_BODY {
+        return Ok(None);
+    }
+    let (method, target) = (method.to_string(), target.to_string());
+    let mut body = vec![0; length];
+    reader.read_exact(&mut body)?;
+    Ok(Some(Incoming {
+        line: line.trim().to_string(),
+        method,
+        target,
+        content_type,
+        body,
+    }))
 }
 
 /// Returns a small HTML page for `status` that shows `message`.
@@ -49,15 +81,41 @@ pub(super) fn page(status: u16, message: &str) -> Response {
     }
 }
 
-/// Returns the words after the number of a status, like `Not Found` for 404.
+/// Returns the words after the number of a status, like `Not Found` for 404, or the words of its class.
 fn reason(status: u16) -> &'static str {
-    match status {
+    known_reason(status).unwrap_or(match status {
+        100..=199 => "Informational",
+        200..=299 => "Success",
+        300..=399 => "Redirection",
+        400..=499 => "Client Error",
+        _ => "Server Error",
+    })
+}
+
+/// Returns the words of a status that has its own, like `Not Found` for 404.
+fn known_reason(status: u16) -> Option<&'static str> {
+    let words = match status {
         200 => "OK",
+        201 => "Created",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        303 => "See Other",
+        304 => "Not Modified",
         400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
-        _ => "Internal Server Error",
-    }
+        409 => "Conflict",
+        410 => "Gone",
+        413 => "Content Too Large",
+        422 => "Unprocessable Content",
+        500 => "Internal Server Error",
+        503 => "Service Unavailable",
+        _ => return None,
+    };
+    Some(words)
 }
 
 /// Returns the type of a file from its ending, which the browser needs to show it.
@@ -98,11 +156,40 @@ pub(super) fn write_response(stream: &mut TcpStream, response: &Response) -> io:
 mod tests {
     use super::*;
 
+    /// Returns the request read from `text`.
+    fn read(text: &str) -> Option<Incoming> {
+        read_request(&mut io::Cursor::new(text.as_bytes())).unwrap()
+    }
+
     #[test]
-    fn only_get_requests_have_a_path() {
-        assert_eq!(request_path("GET /about HTTP/1.1\r\n"), Some("/about"));
-        assert_eq!(request_path("POST /about HTTP/1.1\r\n"), None);
-        assert_eq!(request_path(""), None);
+    fn a_get_request_has_method_and_target() {
+        let request = read("GET /search?q=a HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
+        assert_eq!(
+            (request.method.as_str(), request.target.as_str()),
+            ("GET", "/search?q=a")
+        );
+        assert!(request.body.is_empty());
+    }
+
+    #[test]
+    fn a_post_request_has_its_body() {
+        let text = "POST /guestbook HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\ncontent-length: 7\r\n\r\nname=Al";
+        let request = read(text).unwrap();
+        assert_eq!(request.content_type, "application/x-www-form-urlencoded");
+        assert_eq!(request.body, b"name=Al");
+    }
+
+    #[test]
+    fn a_broken_or_too_big_request_is_none() {
+        assert!(read("\r\n").is_none());
+        assert!(read("POST / HTTP/1.1\r\nContent-Length: 99999999\r\n\r\n").is_none());
+    }
+
+    #[test]
+    fn statuses_have_their_words_or_those_of_their_class() {
+        assert_eq!(reason(422), "Unprocessable Content");
+        assert_eq!(reason(299), "Success");
+        assert_eq!(reason(599), "Server Error");
     }
 
     #[test]

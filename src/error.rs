@@ -476,6 +476,9 @@ pub enum ErrorCode {
     OutputFailed {
         reason: String,
     },
+    InvalidStatus {
+        status: i64,
+    },
     KeyNotFound {
         key: String,
     },
@@ -655,6 +658,7 @@ impl ErrorCode {
             ErrorCode::NoMathResult { .. } => "R010",
             ErrorCode::InputFailed { .. } => "R011",
             ErrorCode::OutputFailed { .. } => "R012",
+            ErrorCode::InvalidStatus { .. } => "R013",
         }
     }
 
@@ -1166,6 +1170,9 @@ impl ErrorCode {
             ),
             ErrorCode::InputFailed { reason } => format!("cannot read the input: {}", reason),
             ErrorCode::OutputFailed { reason } => format!("cannot write the output: {}", reason),
+            ErrorCode::InvalidStatus { status } => {
+                format!("{} is no HTTP status, set_status takes 100 to 599", status)
+            }
             ErrorCode::NoMathResult { function } => format!(
                 "'{}' has no result for these arguments, like sqrt(-1.0) or pow(2, -1)",
                 function

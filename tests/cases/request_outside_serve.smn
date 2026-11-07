@@ -1,0 +1,6 @@
+// outside of somoni serve there is no request: query and form give null, the others an empty string
+print(query("q") == null);
+print(form("name") == null);
+print([request_path(), request_method()]);
+set_status(404);
+print("set_status has nothing to change here");

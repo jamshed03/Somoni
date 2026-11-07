@@ -1,0 +1,61 @@
+// A guestbook: a form sends a name and a message with POST, the entries are kept in data/guestbook.txt.
+// It only works under somoni serve; as a normal program it shows how to start it.
+
+const ENTRIES = "data/guestbook.txt";
+
+// Returns the saved entries, one per line, or none if there is no file yet.
+fn entries(): list<string> {
+    match (read_file(ENTRIES)) {
+        ok(text: string) => {
+            return text.split("\n").filter(fn(line) => line != "");
+        }
+        err(_) => {
+            return [];
+        }
+    }
+}
+
+// Saves a new entry and returns a problem to show, or null if it worked.
+fn add_entry(name: string?, message: string?): string? {
+    if (name == null || message == null || name.trim() == "" || message.trim() == "") {
+        set_status(422);
+        return "Please fill in your name and a message.";
+    }
+    var text = message.split("\n").map(fn(part) => part.trim()).join(" ").trim();
+    var all = entries() + ["{name.trim()}: {text}"];
+    match (write_file(ENTRIES, all.join("\n") + "\n")) {
+        ok(_) => {
+            set_status(201);
+            return null;
+        }
+        err(reason: string) => {
+            set_status(500);
+            return reason;
+        }
+    }
+}
+
+print("<!doctype html>");
+print("<html lang=\"en\"><head><meta charset=\"utf-8\"><title>Guestbook</title></head><body>");
+print("<h1>Guestbook</h1>");
+if (request_method() == "") {
+    print("<p>Start it with: somoni serve examples/projects/web, then open /guestbook.</p>");
+} else {
+    if (request_method() == "POST") {
+        if (var problem = add_entry(form("name"), form("message"))) {
+            print("<p><strong>{problem.escape_html()}</strong></p>");
+        }
+    }
+    print("<form method=\"post\" action=\"guestbook\">");
+    print("<p><input name=\"name\" placeholder=\"Name\"></p>");
+    print("<p><textarea name=\"message\" placeholder=\"Message\"></textarea></p>");
+    print("<p><button>Send</button></p>");
+    print("</form>");
+    print("<ul>");
+    for (entry: string in entries()) {
+        print("<li>{entry.escape_html()}</li>");
+    }
+    print("</ul>");
+}
+print("<p><a href=\"/\">Back</a></p>");
+print("</body></html>");

@@ -31,6 +31,9 @@ pub enum Builtin {
     WriteFile,
     Query,
     RequestPath,
+    Form,
+    RequestMethod,
+    SetStatus,
     Int,
     Float,
     Str,
@@ -90,6 +93,9 @@ const ALL: &[Builtin] = &[
     Builtin::WriteFile,
     Builtin::Query,
     Builtin::RequestPath,
+    Builtin::Form,
+    Builtin::RequestMethod,
+    Builtin::SetStatus,
     Builtin::Int,
     Builtin::Float,
     Builtin::Str,
@@ -195,6 +201,9 @@ impl Builtin {
             | Builtin::WriteFile
             | Builtin::Query
             | Builtin::RequestPath
+            | Builtin::Form
+            | Builtin::RequestMethod
+            | Builtin::SetStatus
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -286,6 +295,9 @@ impl Builtin {
             Builtin::WriteFile => "write_file",
             Builtin::Query => "query",
             Builtin::RequestPath => "request_path",
+            Builtin::Form => "form",
+            Builtin::RequestMethod => "request_method",
+            Builtin::SetStatus => "set_status",
             Builtin::Int => "int",
             Builtin::Float => "float",
             Builtin::Str => "string",
@@ -340,9 +352,9 @@ impl Builtin {
     pub fn arity(self) -> usize {
         match self {
             Builtin::Input => 0,
-            Builtin::ReadFile | Builtin::Query => 1,
+            Builtin::ReadFile | Builtin::Query | Builtin::Form | Builtin::SetStatus => 1,
             Builtin::WriteFile => 2,
-            Builtin::RequestPath => 0,
+            Builtin::RequestPath | Builtin::RequestMethod => 0,
             Builtin::Print
             | Builtin::Write
             | Builtin::Capture
@@ -411,8 +423,11 @@ impl Builtin {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
             (Builtin::WriteFile, [Type::Str, _]) => Err(1),
-            (Builtin::Query, [Type::Str]) => Ok(Type::Optional(Box::new(Type::Str))),
-            (Builtin::RequestPath, []) => Ok(Type::Str),
+            (Builtin::Query | Builtin::Form, [Type::Str]) => {
+                Ok(Type::Optional(Box::new(Type::Str)))
+            }
+            (Builtin::RequestPath | Builtin::RequestMethod, []) => Ok(Type::Str),
+            (Builtin::SetStatus, [Type::Int]) => Ok(Type::Void),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
             (Builtin::Float, [Type::Int]) => Ok(Type::Float),

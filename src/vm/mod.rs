@@ -21,32 +21,47 @@ pub fn run(program: &Program) -> Result<(), SomoniError> {
     Vm::default().run(program)
 }
 
-/// The request that `somoni serve` answers with a program: its decoded path and the pairs of its query.
+/// The request that `somoni serve` answers with a program: its method, decoded path, query and form.
 #[derive(Debug, Default)]
 pub struct Request {
+    pub method: String,
     pub path: String,
     pub query: Vec<(String, String)>,
+    /// The fields of a form sent with POST.
+    pub form: Vec<(String, String)>,
 }
 
-impl Request {
-    /// Returns the first value of `name` in the query, like `a` for `?q=a`.
-    fn value(&self, name: &str) -> Option<&str> {
-        self.query
-            .iter()
-            .find(|(found, _)| found == name)
-            .map(|(_, value)| value.as_str())
-    }
+/// What a program run for a request gives back: what it wrote, the status it set, and how it ended.
+pub struct Page {
+    pub output: String,
+    pub status: u16,
+    pub ended: Result<(), SomoniError>,
 }
 
-/// Runs a compiled program for `request` and returns what it writes instead of writing it out, and how it ended.
-pub fn run_captured(program: &Program, request: Request) -> (String, Result<(), SomoniError>) {
+/// The status of a page that does not call `set_status`.
+const STATUS_OK: u16 = 200;
+
+/// Runs a compiled program for `request` and returns what it writes instead of writing it out, with its status.
+pub fn run_captured(program: &Program, request: Request) -> Page {
     let mut vm = Vm {
         request: Some(request),
         ..Vm::default()
     };
     vm.output.start_capture();
     let ended = vm.run(program);
-    (vm.output.end_capture(), ended)
+    Page {
+        output: vm.output.end_capture(),
+        status: vm.status.unwrap_or(STATUS_OK),
+        ended,
+    }
+}
+
+/// Returns the first value of `name` in `pairs`, like `a` for the query `q=a`.
+fn first_value<'r>(pairs: &'r [(String, String)], name: &str) -> Option<&'r str> {
+    pairs
+        .iter()
+        .find(|(found, _)| found == name)
+        .map(|(_, value)| value.as_str())
 }
 
 /// One running function: its chunk, its next instruction `ip` and the stack place `base` of its first variable.
@@ -82,8 +97,10 @@ struct Vm<'p> {
     globals: Vec<Value>,
     /// Where `print` and `write` go.
     output: Output,
-    /// The request of `somoni serve`, which `query` and `request_path` read; None outside of it.
+    /// The request of `somoni serve`, which `query`, `form`, `request_path` and `request_method` read; None outside of it.
     request: Option<Request>,
+    /// The status that `set_status` chose for the page.
+    status: Option<u16>,
 }
 
 impl<'p> Vm<'p> {
@@ -270,41 +287,63 @@ impl<'p> Vm<'p> {
     /// Calls a built-in function with the `count` values on top of the stack and pushes its result.
     fn call_builtin(&mut self, builtin: Builtin, count: usize) -> Result<(), SomoniError> {
         let start = self.top_start(count);
-        let args = &self.stack[start..];
-        let result = if let Some(value) = self.request_value(builtin, args) {
-            value
-        } else if let Some(text) = builtin.output_text(args) {
+        let result = if let Some(value) = self.server_call(builtin, start) {
+            value?
+        } else if let Some(text) = builtin.output_text(&self.stack[start..]) {
             self.output.write(&text)?;
             Value::Void
         } else {
-            builtin.call(args)?
+            builtin.call(&self.stack[start..])?
         };
         self.stack.truncate(start);
         self.stack.push(result);
         Ok(())
     }
 
-    /// Returns the value of `query(name)` or `request_path()` for the request being answered, None for other functions;
-    /// without a request, `query` gives null and `request_path` an empty string.
-    fn request_value(&self, builtin: Builtin, args: &[Value]) -> Option<Value> {
+    /// Runs `query`, `form`, `request_path`, `request_method` or `set_status` with the arguments from `start` on,
+    /// None for other functions; without a request, `query` and `form` give null and the others an empty string.
+    fn server_call(
+        &mut self,
+        builtin: Builtin,
+        start: usize,
+    ) -> Option<Result<Value, SomoniError>> {
         let text = |text: &str| Value::Str(Rc::new(Text::new(text.to_string())));
-        match (builtin, args) {
-            (Builtin::Query, [Value::Str(name)]) => {
-                let found = self
-                    .request
-                    .as_ref()
-                    .and_then(|request| request.value(name.as_str()));
-                Some(found.map_or(Value::Null, text))
+        let request = self.request.as_ref();
+        let value = match (builtin, &self.stack[start..]) {
+            (Builtin::Query | Builtin::Form, [Value::Str(name)]) => {
+                let found = request.and_then(|request| {
+                    let pairs = if builtin == Builtin::Query {
+                        &request.query
+                    } else {
+                        &request.form
+                    };
+                    first_value(pairs, name.as_str())
+                });
+                found.map_or(Value::Null, text)
             }
-            (Builtin::RequestPath, []) => {
-                let path = self
-                    .request
-                    .as_ref()
-                    .map_or("", |request| request.path.as_str());
-                Some(text(path))
+            (Builtin::RequestPath, []) => text(request.map_or("", |request| request.path.as_str())),
+            (Builtin::RequestMethod, []) => {
+                text(request.map_or("", |request| request.method.as_str()))
             }
-            _ => None,
-        }
+            (Builtin::SetStatus, [Value::Int(status)]) => {
+                let status = *status;
+                return Some(self.set_status(status));
+            }
+            _ => return None,
+        };
+        Some(Ok(value))
+    }
+
+    /// Sets the status of the page, or returns R013 for a number that is no HTTP status (100 to 599).
+    fn set_status(&mut self, status: i64) -> Result<Value, SomoniError> {
+        let valid = u16::try_from(status)
+            .ok()
+            .filter(|status| (100..=599).contains(status));
+        let Some(status) = valid else {
+            return Err(ErrorCode::InvalidStatus { status }.into());
+        };
+        self.status = Some(status);
+        Ok(Value::Void)
     }
 
     /// Starts a call of `chunk` whose `count` arguments are on top of the stack, while `frame` waits in `callers`.

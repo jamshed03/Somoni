@@ -2,14 +2,14 @@
 //! A Somoni program runs and what it writes is the page; any other file is sent as it is.
 
 use std::fs;
-use std::io;
+use std::io::{self, BufReader};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 
 use crate::vm::{self, Request};
 use crate::{build, render};
 
-use http::{Response, content_type, page, read_request, request_path, write_response};
+use http::{Incoming, Response, content_type, page, read_request, write_response};
 use url::{decode, parse_query, split_target};
 
 mod http;
@@ -52,24 +52,47 @@ pub fn serve(dir: &str, port: u16) -> Result<(), String> {
 
 /// Reads one request from `stream`, writes the answer and logs it, like `GET /about 200`.
 fn answer(mut stream: TcpStream, root: &Path) -> io::Result<()> {
-    let first_line = read_request(&stream)?;
-    let response = match request_path(&first_line) {
-        Some(path) => respond(root, path),
-        None => page(405, "Only GET requests are answered."),
+    let (line, response) = match read_request(&mut BufReader::new(&stream))? {
+        Some(request) => (request.line.clone(), respond(root, &request)),
+        None => (
+            "(unreadable request)".to_string(),
+            page(400, "The request cannot be read."),
+        ),
     };
-    println!("{} {}", first_line.trim(), response.status);
+    println!("{} {}", line, response.status);
     write_response(&mut stream, &response)
 }
 
-/// Returns the answer for the request `target` like `/search?q=a`: the output of a program, a file, or a page for
-/// 400, 404 or 500.
-fn respond(root: &Path, target: &str) -> Response {
-    let (raw_path, raw_query) = split_target(target);
-    let (Some(url), Some(query)) = (decode(raw_path, false), parse_query(raw_query)) else {
-        return page(400, &format!("The address {} cannot be read.", target));
+/// Returns the answer for a GET or POST `request`: the output of a program, a file, or a page for an error.
+fn respond(root: &Path, request: &Incoming) -> Response {
+    let method = request.method.as_str();
+    if method != "GET" && method != "POST" {
+        return page(405, "Only GET and POST requests are answered.");
+    }
+    let (raw_path, raw_query) = split_target(&request.target);
+    let parts = (
+        decode(raw_path, false),
+        parse_query(raw_query),
+        form_fields(request),
+    );
+    let (Some(url), Some(query), Some(form)) = parts else {
+        return page(
+            400,
+            &format!("The request for {} cannot be read.", request.target),
+        );
     };
     match resolve(root, &url) {
-        Target::Program(path) => run_page(&path, Request { path: url, query }),
+        Target::Program(path) => {
+            let method = method.to_string();
+            let data = Request {
+                method,
+                path: url,
+                query,
+                form,
+            };
+            run_page(&path, data)
+        }
+        Target::File(_) if method == "POST" => page(405, "A file cannot take a POST."),
         Target::File(path) => match fs::read(&path) {
             Ok(body) => Response {
                 status: 200,
@@ -80,6 +103,17 @@ fn respond(root: &Path, target: &str) -> Response {
         },
         Target::Missing => page(404, &format!("There is nothing at {}.", url)),
     }
+}
+
+/// Returns the fields of a form sent with POST, none for other requests and bodies; None if they cannot be read.
+fn form_fields(request: &Incoming) -> Option<Vec<(String, String)>> {
+    let is_form = request
+        .content_type
+        .starts_with("application/x-www-form-urlencoded");
+    if request.method != "POST" || !is_form {
+        return Some(Vec::new());
+    }
+    parse_query(std::str::from_utf8(&request.body).ok()?)
 }
 
 /// Finds what the decoded `path` stands for in `root`: `/` and `/docs/` look for `index`, `/about` for `about.smn`
@@ -135,14 +169,14 @@ fn inside(root: &Path, path: &Path) -> bool {
 fn run_page(path: &Path, request: Request) -> Response {
     let built = build(&path.to_string_lossy());
     let output = built.and_then(|(program, files)| {
-        let (output, ended) = vm::run_captured(&program, request);
-        ended
-            .map(|()| output)
+        let ran = vm::run_captured(&program, request);
+        ran.ended
+            .map(|()| (ran.status, ran.output))
             .map_err(|error| render(&error, &files))
     });
     match output {
-        Ok(html) => Response {
-            status: 200,
+        Ok((status, html)) => Response {
+            status,
             content_type: "text/html; charset=utf-8",
             body: html.into_bytes(),
         },
