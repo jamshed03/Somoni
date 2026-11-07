@@ -2,16 +2,17 @@
 //! A Somoni program runs and what it writes is the page; any other file is sent as it is.
 
 use std::fs;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io;
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 
-use crate::builtins::html_safe;
 use crate::vm::{self, Request};
 use crate::{build, render};
 
+use http::{Response, content_type, page, read_request, request_path, write_response};
 use url::{decode, parse_query, split_target};
 
+mod http;
 mod url;
 
 /// The endings that make a file a program, tried in this order for a path like `/about`.
@@ -26,13 +27,6 @@ enum Target {
     File(PathBuf),
     /// Nothing, or a path that would leave the folder.
     Missing,
-}
-
-/// An answer to a request.
-struct Response {
-    status: u16,
-    content_type: &'static str,
-    body: Vec<u8>,
 }
 
 /// Answers the requests on localhost:`port` with the files of `dir`, until the user stops it with Ctrl+C.
@@ -65,26 +59,6 @@ fn answer(mut stream: TcpStream, root: &Path) -> io::Result<()> {
     };
     println!("{} {}", first_line.trim(), response.status);
     write_response(&mut stream, &response)
-}
-
-/// Reads the request and returns its first line, like `GET /about HTTP/1.1`; the headers after it are skipped.
-fn read_request(stream: &TcpStream) -> io::Result<String> {
-    let mut reader = BufReader::new(stream);
-    let mut first_line = String::new();
-    reader.read_line(&mut first_line)?;
-    let mut header = String::new();
-    while reader.read_line(&mut header)? > 0 && header.trim() != "" {
-        header.clear();
-    }
-    Ok(first_line)
-}
-
-/// Returns the path of a GET request line, like `/about` for `GET /about HTTP/1.1`.
-fn request_path(first_line: &str) -> Option<&str> {
-    let mut parts = first_line.split_whitespace();
-    let method = parts.next()?;
-    let path = parts.next()?;
-    (method == "GET").then_some(path)
 }
 
 /// Returns the answer for the request `target` like `/search?q=a`: the output of a program, a file, or a page for
@@ -176,67 +150,6 @@ fn run_page(path: &Path, request: Request) -> Response {
     }
 }
 
-/// Returns a small HTML page for `status` that shows `message`.
-fn page(status: u16, message: &str) -> Response {
-    let title = format!("{} {}", status, reason(status));
-    let html = format!(
-        "<!doctype html>\n<html lang=\"en\">\n<head><meta charset=\"utf-8\"><title>{}</title></head>\n<body>\n<h1>{}</h1>\n<pre>{}</pre>\n</body>\n</html>\n",
-        title,
-        title,
-        html_safe(message)
-    );
-    Response {
-        status,
-        content_type: "text/html; charset=utf-8",
-        body: html.into_bytes(),
-    }
-}
-
-/// Returns the words after the number of a status, like `Not Found` for 404.
-fn reason(status: u16) -> &'static str {
-    match status {
-        200 => "OK",
-        400 => "Bad Request",
-        404 => "Not Found",
-        405 => "Method Not Allowed",
-        _ => "Internal Server Error",
-    }
-}
-
-/// Returns the type of a file from its ending, which the browser needs to show it.
-fn content_type(path: &Path) -> &'static str {
-    let ending = path
-        .extension()
-        .and_then(|ending| ending.to_str())
-        .unwrap_or_default();
-    match ending.to_ascii_lowercase().as_str() {
-        "html" | "htm" => "text/html; charset=utf-8",
-        "css" => "text/css; charset=utf-8",
-        "js" => "text/javascript; charset=utf-8",
-        "txt" => "text/plain; charset=utf-8",
-        "json" => "application/json",
-        "svg" => "image/svg+xml",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "ico" => "image/x-icon",
-        _ => "application/octet-stream",
-    }
-}
-
-/// Writes the status line, the headers and the body of `response`.
-fn write_response(stream: &mut TcpStream, response: &Response) -> io::Result<()> {
-    let head = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        response.status,
-        reason(response.status),
-        response.content_type,
-        response.body.len()
-    );
-    stream.write_all(head.as_bytes())?;
-    stream.write_all(&response.body)?;
-    stream.flush()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,25 +200,5 @@ mod tests {
         assert_eq!(resolve(&root, "/about.smn"), Target::Missing);
         assert_eq!(resolve(&root, "/../etc/passwd"), Target::Missing);
         assert_eq!(resolve(&root, "/docs/../about"), Target::Missing);
-    }
-
-    #[test]
-    fn only_get_requests_have_a_path() {
-        assert_eq!(request_path("GET /about HTTP/1.1\r\n"), Some("/about"));
-        assert_eq!(request_path("POST /about HTTP/1.1\r\n"), None);
-        assert_eq!(request_path(""), None);
-    }
-
-    #[test]
-    fn content_types_come_from_the_ending() {
-        assert_eq!(content_type(Path::new("a/b.SVG")), "image/svg+xml");
-        assert_eq!(
-            content_type(Path::new("page.html")),
-            "text/html; charset=utf-8"
-        );
-        assert_eq!(
-            content_type(Path::new("data.bin")),
-            "application/octet-stream"
-        );
     }
 }
