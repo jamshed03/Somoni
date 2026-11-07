@@ -1,0 +1,3 @@
+Runtime error [R014]: Line 1: redirect needs a target without line breaks, like "/guestbook", not "/a\nSet-Cookie: x=1"
+  1 | redirect("/a\nSet-Cookie: x=1");
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

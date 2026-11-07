@@ -34,6 +34,7 @@ pub enum Builtin {
     Form,
     RequestMethod,
     SetStatus,
+    Redirect,
     Int,
     Float,
     Str,
@@ -96,6 +97,7 @@ const ALL: &[Builtin] = &[
     Builtin::Form,
     Builtin::RequestMethod,
     Builtin::SetStatus,
+    Builtin::Redirect,
     Builtin::Int,
     Builtin::Float,
     Builtin::Str,
@@ -204,6 +206,7 @@ impl Builtin {
             | Builtin::Form
             | Builtin::RequestMethod
             | Builtin::SetStatus
+            | Builtin::Redirect
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -298,6 +301,7 @@ impl Builtin {
             Builtin::Form => "form",
             Builtin::RequestMethod => "request_method",
             Builtin::SetStatus => "set_status",
+            Builtin::Redirect => "redirect",
             Builtin::Int => "int",
             Builtin::Float => "float",
             Builtin::Str => "string",
@@ -352,7 +356,11 @@ impl Builtin {
     pub fn arity(self) -> usize {
         match self {
             Builtin::Input => 0,
-            Builtin::ReadFile | Builtin::Query | Builtin::Form | Builtin::SetStatus => 1,
+            Builtin::ReadFile
+            | Builtin::Query
+            | Builtin::Form
+            | Builtin::SetStatus
+            | Builtin::Redirect => 1,
             Builtin::WriteFile => 2,
             Builtin::RequestPath | Builtin::RequestMethod => 0,
             Builtin::Print
@@ -428,6 +436,7 @@ impl Builtin {
             }
             (Builtin::RequestPath | Builtin::RequestMethod, []) => Ok(Type::Str),
             (Builtin::SetStatus, [Type::Int]) => Ok(Type::Void),
+            (Builtin::Redirect, [Type::Str]) => Ok(Type::Void),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
             (Builtin::Float, [Type::Int]) => Ok(Type::Float),

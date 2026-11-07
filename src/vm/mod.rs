@@ -35,11 +35,16 @@ pub struct Request {
 pub struct Page {
     pub output: String,
     pub status: u16,
+    /// Where `redirect` sends the browser, for the header `Location`.
+    pub location: Option<String>,
     pub ended: Result<(), SomoniError>,
 }
 
 /// The status of a page that does not call `set_status`.
 const STATUS_OK: u16 = 200;
+
+/// The status of `redirect`, which makes the browser get the new page with GET.
+const STATUS_SEE_OTHER: u16 = 303;
 
 /// Runs a compiled program for `request` and returns what it writes instead of writing it out, with its status.
 pub fn run_captured(program: &Program, request: Request) -> Page {
@@ -52,6 +57,7 @@ pub fn run_captured(program: &Program, request: Request) -> Page {
     Page {
         output: vm.output.end_capture(),
         status: vm.status.unwrap_or(STATUS_OK),
+        location: vm.location,
         ended,
     }
 }
@@ -101,6 +107,8 @@ struct Vm<'p> {
     request: Option<Request>,
     /// The status that `set_status` chose for the page.
     status: Option<u16>,
+    /// Where `redirect` sends the browser.
+    location: Option<String>,
 }
 
 impl<'p> Vm<'p> {
@@ -329,9 +337,24 @@ impl<'p> Vm<'p> {
                 let status = *status;
                 return Some(self.set_status(status));
             }
+            (Builtin::Redirect, [Value::Str(target)]) => {
+                let target = target.as_str().to_string();
+                return Some(self.redirect(target));
+            }
             _ => return None,
         };
         Some(Ok(value))
+    }
+
+    /// Sends the browser on to `target` with status 303, or returns R014 for an empty target or one with a line break,
+    /// which could add headers of its own.
+    fn redirect(&mut self, target: String) -> Result<Value, SomoniError> {
+        if target.is_empty() || target.contains(['\r', '\n']) {
+            return Err(ErrorCode::InvalidRedirect { target }.into());
+        }
+        self.status = Some(STATUS_SEE_OTHER);
+        self.location = Some(target);
+        Ok(Value::Void)
     }
 
     /// Sets the status of the page, or returns R013 for a number that is no HTTP status (100 to 599).

@@ -15,7 +15,7 @@ fn entries(): list<string> {
     }
 }
 
-// Saves a new entry and returns a problem to show, or null if it worked.
+// Saves a new entry and sends the browser back to the list, or returns a problem to show.
 fn add_entry(name: string?, message: string?): string? {
     if (name == null || message == null || name.trim() == "" || message.trim() == "") {
         set_status(422);
@@ -25,7 +25,7 @@ fn add_entry(name: string?, message: string?): string? {
     var all = entries() + ["{name.trim()}: {text}"];
     match (write_file(ENTRIES, all.join("\n") + "\n")) {
         ok(_) => {
-            set_status(201);
+            redirect("/guestbook");
             return null;
         }
         err(reason: string) => {

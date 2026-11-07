@@ -3,4 +3,5 @@ print(query("q") == null);
 print(form("name") == null);
 print([request_path(), request_method()]);
 set_status(404);
-print("set_status has nothing to change here");
+redirect("/elsewhere");
+print("set_status and redirect have nothing to change here");

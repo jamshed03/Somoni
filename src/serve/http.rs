@@ -1,7 +1,6 @@
 //! The HTTP part of `somoni serve`: reading a request, the status words, content types and writing an answer.
 
 use std::io::{self, BufRead, Write};
-use std::net::TcpStream;
 use std::path::Path;
 
 use crate::builtins::html_safe;
@@ -10,6 +9,8 @@ use crate::builtins::html_safe;
 pub(super) struct Response {
     pub(super) status: u16,
     pub(super) content_type: &'static str,
+    /// The header `Location` of a redirect, like `/guestbook`.
+    pub(super) location: Option<String>,
     pub(super) body: Vec<u8>,
 }
 
@@ -77,6 +78,7 @@ pub(super) fn page(status: u16, message: &str) -> Response {
     Response {
         status,
         content_type: "text/html; charset=utf-8",
+        location: None,
         body: html.into_bytes(),
     }
 }
@@ -139,17 +141,23 @@ pub(super) fn content_type(path: &Path) -> &'static str {
 }
 
 /// Writes the status line, the headers and the body of `response`.
-pub(super) fn write_response(stream: &mut TcpStream, response: &Response) -> io::Result<()> {
+pub(super) fn write_response(out: &mut impl Write, response: &Response) -> io::Result<()> {
+    let location = response
+        .location
+        .as_ref()
+        .map(|location| format!("Location: {}\r\n", location))
+        .unwrap_or_default();
     let head = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}Connection: close\r\n\r\n",
         response.status,
         reason(response.status),
         response.content_type,
-        response.body.len()
+        response.body.len(),
+        location
     );
-    stream.write_all(head.as_bytes())?;
-    stream.write_all(&response.body)?;
-    stream.flush()
+    out.write_all(head.as_bytes())?;
+    out.write_all(&response.body)?;
+    out.flush()
 }
 
 #[cfg(test)]
@@ -183,6 +191,22 @@ mod tests {
     fn a_broken_or_too_big_request_is_none() {
         assert!(read("\r\n").is_none());
         assert!(read("POST / HTTP/1.1\r\nContent-Length: 99999999\r\n\r\n").is_none());
+    }
+
+    #[test]
+    fn a_redirect_has_its_location_header() {
+        let response = Response {
+            status: 303,
+            content_type: "text/html; charset=utf-8",
+            location: Some("/guestbook".to_string()),
+            body: b"x".to_vec(),
+        };
+        let mut written = Vec::new();
+        write_response(&mut written, &response).unwrap();
+        let text = String::from_utf8(written).unwrap();
+        assert!(text.starts_with("HTTP/1.1 303 See Other\r\n"), "{}", text);
+        assert!(text.contains("\r\nLocation: /guestbook\r\n"), "{}", text);
+        assert!(text.ends_with("\r\n\r\nx"), "{}", text);
     }
 
     #[test]

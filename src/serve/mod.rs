@@ -97,6 +97,7 @@ fn respond(root: &Path, request: &Incoming) -> Response {
             Ok(body) => Response {
                 status: 200,
                 content_type: content_type(&path),
+                location: None,
                 body,
             },
             Err(err) => page(500, &format!("Cannot read {}: {}", url, err)),
@@ -171,13 +172,14 @@ fn run_page(path: &Path, request: Request) -> Response {
     let output = built.and_then(|(program, files)| {
         let ran = vm::run_captured(&program, request);
         ran.ended
-            .map(|()| (ran.status, ran.output))
+            .map(|()| (ran.status, ran.location, ran.output))
             .map_err(|error| render(&error, &files))
     });
     match output {
-        Ok((status, html)) => Response {
+        Ok((status, location, html)) => Response {
             status,
             content_type: "text/html; charset=utf-8",
+            location,
             body: html.into_bytes(),
         },
         Err(message) => page(500, &message),
