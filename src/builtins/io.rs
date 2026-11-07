@@ -1,8 +1,12 @@
-//! Talking to the outside of the program: `input()` reads a line that the user types, `write(...)` writes without a line break.
+//! Talking to the outside of the program: `input()` reads a line that the user types, `write(...)` writes without a
+//! line break, `read_file` and `write_file` read and write whole files.
 
-use std::io::{BufRead, Write};
+use std::io::{BufRead, ErrorKind, Write};
+use std::path::Path;
+use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
+use crate::text::Text;
 use crate::value::Value;
 
 use super::string_value;
@@ -33,4 +37,33 @@ pub(super) fn write_text(value: &Value) -> Result<Value, SomoniError> {
             reason: error.to_string(),
         })?;
     Ok(Value::Void)
+}
+
+/// Reads the file `path`, which starts at the folder `dir`, as `ok(text)`, or `err(reason)` if that is not possible.
+pub(super) fn read_file(dir: &str, path: &str) -> Value {
+    match std::fs::read_to_string(Path::new(dir).join(path)) {
+        Ok(text) => Value::Ok(Rc::new(string_value(text))),
+        Err(error) => failed("read", path, error.kind()),
+    }
+}
+
+/// Writes `text` into the file `path`, which starts at the folder `dir`, as `ok(characters)`, or `err(reason)`.
+pub(super) fn write_file(dir: &str, path: &str, text: &Text) -> Value {
+    match std::fs::write(Path::new(dir).join(path), text.as_str()) {
+        Ok(()) => Value::Ok(Rc::new(Value::Int(text.char_count() as i64))),
+        Err(error) => failed("write", path, error.kind()),
+    }
+}
+
+/// Returns `err("cannot read 'path': not found")` and the like, with a reason that is the same on every system.
+fn failed(action: &str, path: &str, kind: ErrorKind) -> Value {
+    let reason = match kind {
+        ErrorKind::NotFound => "not found",
+        ErrorKind::PermissionDenied => "no permission",
+        ErrorKind::InvalidData => "not UTF-8 text",
+        ErrorKind::IsADirectory => "it is a folder",
+        _ => "the system refused",
+    };
+    let message = format!("cannot {} '{}': {}", action, path, reason);
+    Value::Err(Rc::new(string_value(message)))
 }

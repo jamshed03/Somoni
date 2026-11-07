@@ -10,6 +10,7 @@ use crate::ast::{
 use crate::builtins::Builtin;
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
+use crate::text::Text;
 use crate::types::{Decl, FunctionHint, Type};
 
 use super::declarations::check_key_type;
@@ -681,9 +682,14 @@ impl TypeChecker {
         for arg in call.args.iter_mut() {
             arg_types.push(self.check_expr(arg)?);
         }
-        builtin
+        let result = builtin
             .result_type(&arg_types)
-            .map_err(|bad| wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span))
+            .map_err(|bad| wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span))?;
+        if builtin.needs_dir() {
+            let dir = ExprKind::Str(Rc::new(Text::new(self.current_dir.clone())));
+            call.args.insert(0, Expr { kind: dir, span });
+        }
+        Ok(result)
     }
 
     /// Checks `target.name(args)` on an object or an interface.

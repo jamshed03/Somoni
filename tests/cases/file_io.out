@@ -1,0 +1,7 @@
+["first line", "second line with ü", ""]
+30
+cannot read 'files/missing.txt': not found
+wrote 12 characters
+ok("Crème\nbrûlée")
+err("cannot write 'no/such/folder/x.txt': not found")
+true

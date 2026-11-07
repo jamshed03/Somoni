@@ -11,9 +11,10 @@ use crate::span::Span;
 /// The number of the main file, where the program starts.
 pub const MAIN_FILE: usize = 0;
 
-/// One file of the program: its name for messages, its text and its statements.
+/// One file of the program: its name for messages, its folder for `read_file`, its text and its statements.
 pub struct SourceFile {
     pub name: String,
+    pub dir: PathBuf,
     pub source: String,
     pub stmts: Vec<Stmt>,
 }
@@ -53,9 +54,11 @@ impl Loader {
     /// Adds a file without statements yet and returns its number.
     fn register(&mut self, path: PathBuf, name: String, source: String) -> usize {
         let number = self.files.len();
+        let dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
         self.number_by_path.insert(path, number);
         self.files.push(SourceFile {
             name,
+            dir,
             source,
             stmts: Vec::new(),
         });

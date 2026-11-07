@@ -24,6 +24,8 @@ pub enum Builtin {
     Print,
     Write,
     Input,
+    ReadFile,
+    WriteFile,
     Int,
     Float,
     Str,
@@ -78,6 +80,8 @@ const ALL: &[Builtin] = &[
     Builtin::Print,
     Builtin::Write,
     Builtin::Input,
+    Builtin::ReadFile,
+    Builtin::WriteFile,
     Builtin::Int,
     Builtin::Float,
     Builtin::Str,
@@ -178,6 +182,8 @@ impl Builtin {
             Builtin::Print
             | Builtin::Write
             | Builtin::Input
+            | Builtin::ReadFile
+            | Builtin::WriteFile
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -231,6 +237,12 @@ impl Builtin {
         }
     }
 
+    /// Returns true for `read_file` and `write_file`, whose paths start at the folder of the file with the call;
+    /// the type checker puts that folder before the arguments.
+    pub fn needs_dir(self) -> bool {
+        matches!(self, Builtin::ReadFile | Builtin::WriteFile)
+    }
+
     /// Returns true for `ok` and `err`, which take their result type from where they are used.
     pub fn builds_result(self) -> bool {
         matches!(self, Builtin::Ok | Builtin::Err)
@@ -247,6 +259,8 @@ impl Builtin {
             Builtin::Print => "print",
             Builtin::Write => "write",
             Builtin::Input => "input",
+            Builtin::ReadFile => "read_file",
+            Builtin::WriteFile => "write_file",
             Builtin::Int => "int",
             Builtin::Float => "float",
             Builtin::Str => "string",
@@ -301,6 +315,8 @@ impl Builtin {
     pub fn arity(self) -> usize {
         match self {
             Builtin::Input => 0,
+            Builtin::ReadFile => 1,
+            Builtin::WriteFile => 2,
             Builtin::Print
             | Builtin::Write
             | Builtin::Int
@@ -356,6 +372,13 @@ impl Builtin {
             (Builtin::Print | Builtin::Write, [Type::Void | Type::Function(_)]) => Err(0),
             (Builtin::Print | Builtin::Write, [_]) => Ok(Type::Void),
             (Builtin::Input, []) => Ok(Type::Optional(Box::new(Type::Str))),
+            (Builtin::ReadFile, [Type::Str]) => {
+                Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)))
+            }
+            (Builtin::WriteFile, [Type::Str, Type::Str]) => {
+                Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
+            }
+            (Builtin::WriteFile, [Type::Str, _]) => Err(1),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
             (Builtin::Float, [Type::Int]) => Ok(Type::Float),
@@ -487,6 +510,12 @@ impl Builtin {
             }
             (Builtin::Write, [arg]) => io::write_text(arg),
             (Builtin::Input, []) => io::read_line(),
+            (Builtin::ReadFile, [Value::Str(dir), Value::Str(path)]) => {
+                Ok(io::read_file(dir.as_str(), path.as_str()))
+            }
+            (Builtin::WriteFile, [Value::Str(dir), Value::Str(path), Value::Str(text)]) => {
+                Ok(io::write_file(dir.as_str(), path.as_str(), text))
+            }
             (Builtin::Int, [Value::Float(f)]) => float_to_int(*f),
             (Builtin::Int, [Value::Str(s)]) => Ok(parse_int(s.as_str())),
             (Builtin::Float, [Value::Int(n)]) => Ok(Value::Float(*n as f64)),

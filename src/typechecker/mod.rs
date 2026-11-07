@@ -308,6 +308,8 @@ struct Exports {
 /// Checks the types of a program and writes into the tree what the compiler needs.
 pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
+    /// The folder of the file being checked, which `read_file` and `write_file` get as a hidden first argument.
+    current_dir: String,
     loop_depth: usize,
     names: Names,
     exports_by_file: HashMap<usize, Exports>,
@@ -344,6 +346,7 @@ impl TypeChecker {
             current_class: None,
             in_constructor: false,
             super_init_allowed: false,
+            current_dir: String::new(),
             function_count: 0,
             lambda_count: 0,
             lambda_scopes: Vec::new(),
@@ -358,6 +361,7 @@ impl TypeChecker {
     /// Checks the whole program, every file after the files it imports.
     pub fn check(&mut self, files: &mut [SourceFile], order: &[usize]) -> Result<(), SomoniError> {
         for &number in order {
+            self.current_dir = files[number].dir.to_string_lossy().into_owned();
             let stmts = &mut files[number].stmts;
             self.names = Names::default();
             self.scopes = Scopes::new();

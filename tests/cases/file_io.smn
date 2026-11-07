@@ -1,0 +1,27 @@
+// read_file and write_file give a result; paths start at the folder of this file
+match (read_file("files/hello.txt")) {
+    ok(text: string) => {
+        print(text.split("\n"));
+        print(len(text));
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}
+match (read_file("files/missing.txt")) {
+    ok(_) => {
+        print("unexpected");
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}
+
+fn save_and_read(path: string, text: string): result<string, string> {
+    var written = write_file(path, text)?;
+    print("wrote {written} characters");
+    return read_file(path);
+}
+print(save_and_read("../../target/file_io_test.txt", "Crème\nbrûlée"));
+print(write_file("no/such/folder/x.txt", "x"));
+print(is_err(read_file("files")));
