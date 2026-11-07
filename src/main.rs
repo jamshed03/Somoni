@@ -3,6 +3,7 @@ mod builtins;
 mod bytecode;
 mod compiler;
 mod error;
+mod explain;
 mod lexer;
 mod loader;
 mod map;
@@ -35,6 +36,8 @@ enum Command {
     Run { path: String, show_bytecode: bool },
     /// `somoni serve [folder] [--port 8000]`: answer requests from the browser with the files of `dir`.
     Serve { dir: String, port: u16 },
+    /// `somoni --explain T003`: show what an error code means, with an example.
+    Explain { code: String },
 }
 
 /// Runs what the command line asks for.
@@ -47,12 +50,16 @@ fn main() {
         Command::Serve { dir, port } => {
             serve::serve(&dir, port).unwrap_or_else(|message| fail(&message))
         }
+        Command::Explain { code } => match explain::explain(&code) {
+            Ok(text) => print!("{}", text),
+            Err(message) => fail(&message),
+        },
     }
 }
 
 /// Reads the command from the arguments after the program name, or stops with the usage.
 fn read_command(args: Vec<String>) -> Command {
-    let usage = "Usage: somoni [--bytecode] <file.smn>\n       somoni serve [folder] [--port 8000]";
+    let usage = "Usage: somoni [--bytecode] <file.smn>\n       somoni serve [folder] [--port 8000]\n       somoni --explain <code>";
     match args.as_slice() {
         [path] if path != "serve" => Command::Run {
             path: path.clone(),
@@ -62,6 +69,7 @@ fn read_command(args: Vec<String>) -> Command {
             path: path.clone(),
             show_bytecode: true,
         },
+        [flag, code] if flag == "--explain" => Command::Explain { code: code.clone() },
         [serve, rest @ ..] if serve == "serve" => read_serve(rest).unwrap_or_else(|| fail(usage)),
         _ => fail(usage),
     }

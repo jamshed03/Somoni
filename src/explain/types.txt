@@ -1,0 +1,2 @@
+The explanations of the type errors (T), shown by `somoni --explain T001`.
+A section starts with `## CODE title`; `Wrong:` and `Right:` are followed by an example indented by four spaces.

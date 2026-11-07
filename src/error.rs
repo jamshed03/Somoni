@@ -15,8 +15,20 @@ pub enum ErrorKind {
 }
 
 impl ErrorKind {
+    /// Returns the kind of the codes that start with `letter`: `L`, `P`, `M`, `T` or `R`.
+    pub fn from_letter(letter: char) -> Option<ErrorKind> {
+        match letter {
+            'L' => Some(ErrorKind::Lex),
+            'P' => Some(ErrorKind::Parse),
+            'M' => Some(ErrorKind::Import),
+            'T' => Some(ErrorKind::Type),
+            'R' => Some(ErrorKind::Runtime),
+            _ => None,
+        }
+    }
+
     /// Returns how the kind starts a message, e.g. `Type error`.
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             ErrorKind::Lex => "Lex error",
             ErrorKind::Parse => "Parse error",
@@ -668,13 +680,11 @@ impl ErrorCode {
 
     /// Returns the part of the pipeline from the first letter of the code: `L`, `P`, `M`, `T` or `R`.
     pub fn kind(&self) -> ErrorKind {
-        match self.code().chars().next() {
-            Some('L') => ErrorKind::Lex,
-            Some('P') => ErrorKind::Parse,
-            Some('M') => ErrorKind::Import,
-            Some('T') => ErrorKind::Type,
-            _ => ErrorKind::Runtime,
-        }
+        self.code()
+            .chars()
+            .next()
+            .and_then(ErrorKind::from_letter)
+            .unwrap_or(ErrorKind::Runtime)
     }
 
     /// Returns the message, in lowercase, e.g. `unknown variable 'y'`, with a tip for a value with `?` that is not checked.

@@ -1,0 +1,231 @@
+The explanations of the lex errors (L), shown by `somoni --explain L001`.
+A section starts with `## CODE title`; `Wrong:` and `Right:` are followed by an example indented by four spaces,
+`(in name.smn)` names the file the example is in, and `File name.smn:` gives another file it needs.
+
+## L001 unexpected character
+A character that Somoni does not know stands outside of a string, like `@` or `$`.
+
+Wrong:
+
+    print(1 @ 2);
+
+Right:
+
+    print(1 + 2);
+    print("1 @ 2");
+
+## L002 unterminated string
+A string starts with `"` but never ends: the closing `"` is missing before the end of the file.
+
+Wrong:
+
+    print("abc);
+
+Right:
+
+    print("abc");
+
+## L003 unterminated comment
+A comment `/* ...` (or `{{-- ...` in a template) is never closed.
+
+Wrong:
+
+    /* this comment never ends
+    print(1);
+
+Right:
+
+    /* this comment ends */
+    print(1);
+
+## L004 integer too large
+An int is bigger than the largest int, 9223372036854775807. Use a float for bigger numbers.
+
+Wrong:
+
+    var big = 99999999999999999999;
+
+Right:
+
+    var big = 9223372036854775807;
+    var bigger = 99999999999999999999.0;
+
+## L005 invalid float
+A number with a point could not be read as a float. Numbers written as digits, a point and digits (like `1.5`)
+are always valid, so this error means that Somoni itself has a bug; please report the program that shows it.
+
+## L006 unknown escape
+A backslash in a string starts an escape that Somoni does not know. Known are `\n`, `\t`, `\r`, `\"`, `\\`, `\{` and
+`\}`. A backslash itself is written `\\`; for text full of backslashes, a raw string `"""..."""` has no escapes at all.
+
+Wrong:
+
+    print("a\qb");
+
+Right:
+
+    print("a\\qb");
+    print("""a\qb""");
+
+## L007 interpolation not closed
+A `{` in a string starts an interpolation like `"Hello {name}"`, but its `}` is missing. A `{` that is just text is
+written `\{`.
+
+Wrong:
+
+    var name = "Ali";
+    print("Hello {name");
+
+Right:
+
+    var name = "Ali";
+    print("Hello {name}");
+    print("a \{ brace");
+
+## L008 template value not closed
+In a template, `{{` or `{!!` starts a value, but its `}}` or `!!}` is missing.
+
+Wrong (in page.template.smn):
+
+    <p>{{ "title" </p>
+
+Right (in page.template.smn):
+
+    <p>{{ "title" }}</p>
+
+## L009 empty template value
+In a template, `{{ }}` has no value to show.
+
+Wrong (in page.template.smn):
+
+    <p>{{ }}</p>
+
+Right (in page.template.smn):
+
+    <p>{{ "text" }}</p>
+
+## L010 directive without its start
+A directive like `@endif`, `@else` or `@endforeach` stands in a template, but no `@if` or `@foreach` is open.
+
+Wrong (in page.template.smn):
+
+    <p>text</p>
+    @endif
+
+Right (in page.template.smn):
+
+    @if (true)
+    <p>text</p>
+    @endif
+
+## L011 directive not closed
+An `@if` or `@foreach` in a template has no `@endif` or `@endforeach` before the end of the file.
+
+Wrong (in page.template.smn):
+
+    <ul>
+    @foreach (n: int in [1, 2])
+    <li>{{ n }}</li>
+    </ul>
+
+Right (in page.template.smn):
+
+    <ul>
+    @foreach (n: int in [1, 2])
+    <li>{{ n }}</li>
+    @endforeach
+    </ul>
+
+## L012 directive without parentheses
+`@if`, `@elseif`, `@foreach`, `@include` and `@props` need their condition, loop or parameters in `( )`.
+
+Wrong (in page.template.smn):
+
+    @if true
+    <p>yes</p>
+    @endif
+
+Right (in page.template.smn):
+
+    @if (true)
+    <p>yes</p>
+    @endif
+
+## L013 directive closes the wrong block
+An `@endif` stands where an `@foreach` is still open, or an `@endforeach` where an `@if` is open. Close the inner
+block first.
+
+Wrong (in page.template.smn):
+
+    @foreach (n: int in [1])
+    <p>{{ n }}</p>
+    @endif
+
+Right (in page.template.smn):
+
+    @foreach (n: int in [1])
+    <p>{{ n }}</p>
+    @endforeach
+
+## L014 template name is no valid name
+A template with `@props` becomes a function named after its file, so the file name must be a valid name: letters,
+digits and `_`, not starting with a digit. `my-card.template.smn` would be a function `my-card`.
+
+Wrong (in my-card.template.smn):
+
+    @props(title: string)
+    <h1>{{ title }}</h1>
+
+Right (in my_card.template.smn):
+
+    @props(title: string)
+    <h1>{{ title }}</h1>
+
+## L015 @props or @import too late
+`@import` and `@props` must stand at the top of a template, before any text, value or other directive. Only empty
+lines and `{{-- comments --}}` may come before them.
+
+Wrong (in card.template.smn):
+
+    <p>Hello</p>
+    @props(title: string)
+
+Right (in card.template.smn):
+
+    @props(title: string)
+    <p>Hello {{ title }}</p>
+
+## L016 @include without a call
+`@include(...)` calls another template, so the parentheses hold a call like `card(page)`.
+
+Wrong (in page.template.smn):
+
+    @include(1 + 2)
+
+Right (in page.template.smn):
+
+    @import { card } from "card.template.smn"
+    @include(card("Start"))
+
+File card.template.smn:
+
+    @props(title: string)
+    <h2>{{ title }}</h2>
+
+## L017 raw string line with less indentation
+In a raw string over several lines, the indentation of the line with the closing `"""` is taken off every line. A
+line with less indentation than that cannot lose it.
+
+Wrong:
+
+    var text = """
+        first
+      second
+        """;
+
+Right:
+
+    var text = """
+        first
+          second
+        """;

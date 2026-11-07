@@ -1,0 +1,196 @@
+The explanations of the import errors (M), shown by `somoni --explain M001`.
+A section starts with `## CODE title`; `Wrong:` and `Right:` are followed by an example indented by four spaces,
+and `File name.smn:` gives another file it needs.
+
+## M001 file not found
+The file after `from` does not exist or cannot be read. Paths start at the folder of the file with the `import`.
+
+Wrong:
+
+    import { square } from "missing.smn";
+
+Right:
+
+    import { square } from "math.smn";
+    print(square(3));
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+## M002 files import each other
+Two or more files import each other in a circle, so none of them can be read first. Move what both need into a third
+file that both import.
+
+Wrong:
+
+    import { a } from "first.smn";
+    print(a());
+
+File first.smn:
+
+    import { b } from "second.smn";
+    export fn a(): int {
+        return b();
+    }
+
+File second.smn:
+
+    import { a } from "first.smn";
+    export fn b(): int {
+        return 1;
+    }
+
+Right:
+
+    import { a } from "first.smn";
+    print(a());
+
+File first.smn:
+
+    import { b } from "second.smn";
+    export fn a(): int {
+        return b();
+    }
+
+File second.smn:
+
+    export fn b(): int {
+        return 1;
+    }
+
+## M003 code in an imported file
+An imported file may only declare things: `fn`, `struct`, `enum`, `class`, `interface`, `const` and `import`. Code
+that runs, like `print(...)`, belongs to the main file.
+
+Wrong:
+
+    import { one } from "numbers.smn";
+    print(one());
+
+File numbers.smn:
+
+    export fn one(): int {
+        return 1;
+    }
+    print("loaded");
+
+Right:
+
+    import { one } from "numbers.smn";
+    print("loaded");
+    print(one());
+
+File numbers.smn:
+
+    export fn one(): int {
+        return 1;
+    }
+
+## M004 path with / or @ at the start
+Import paths start at the folder of the file with the `import`. Paths that start with `/` or `@`, from a root folder
+or a named root, are reserved for later.
+
+Wrong:
+
+    import { square } from "@app/math.smn";
+
+Right:
+
+    import { square } from "math.smn";
+    print(square(2));
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+## M005 name is not exported
+The file has the name, but without `export` it is private to that file.
+
+Wrong:
+
+    import { secret } from "math.smn";
+
+File math.smn:
+
+    fn secret(): int {
+        return 42;
+    }
+
+Right:
+
+    import { secret } from "math.smn";
+    print(secret());
+
+File math.smn:
+
+    export fn secret(): int {
+        return 42;
+    }
+
+## M006 name is not in the file
+The file has no function, struct, enum, class, interface or const with this name. Check the spelling.
+
+Wrong:
+
+    import { root } from "math.smn";
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+Right:
+
+    import { square } from "math.smn";
+    print(square(2));
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+## M007 name imported twice
+Two imports give the same name in this file. Give one of them another name with `as`.
+
+Wrong:
+
+    import { square } from "math.smn";
+    import { square } from "geometry.smn";
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+File geometry.smn:
+
+    export fn square(side: float): float {
+        return side * side;
+    }
+
+Right:
+
+    import { square } from "math.smn";
+    import { square as area } from "geometry.smn";
+    print(square(2));
+    print(area(1.5));
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+File geometry.smn:
+
+    export fn square(side: float): float {
+        return side * side;
+    }

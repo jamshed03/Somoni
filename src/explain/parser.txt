@@ -1,0 +1,326 @@
+The explanations of the parse errors (P), shown by `somoni --explain P001`.
+A section starts with `## CODE title`; `Wrong:` and `Right:` are followed by an example indented by four spaces.
+
+## P001 something expected
+The parser needs a certain token here, like `;`, `=`, `)` or `{`, and found something else. The message names what is
+missing; the line shown is where it noticed, which can be right after the place where it is missing.
+
+Wrong:
+
+    var x: int 5;
+
+Right:
+
+    var x: int = 5;
+
+## P002 unexpected token
+A token stands where nothing like it can stand. A common case is `i++` inside an expression: it is only a statement
+of its own.
+
+Wrong:
+
+    var i = 1;
+    print(i++);
+
+Right:
+
+    var i = 1;
+    i++;
+    print(i);
+
+## P003 block not closed
+A block `{` has no `}` before the end of the file. The line shown is where the block starts.
+
+Wrong:
+
+    if (true) {
+        print(1);
+
+Right:
+
+    if (true) {
+        print(1);
+    }
+
+## P004 for loop starts with const
+The start of a `for` loop changes its variable in every round, so it must be `var`.
+
+Wrong:
+
+    for (const i = 0; i < 3; i++) {
+        print(i);
+    }
+
+Right:
+
+    for (var i = 0; i < 3; i++) {
+        print(i);
+    }
+
+## P005 function not at the top level
+A named function can only be declared at the top level of a file, not inside a block or another function. Inside,
+use a lambda.
+
+Wrong:
+
+    fn outer(): int {
+        fn inner(): int {
+            return 1;
+        }
+        return inner();
+    }
+
+Right:
+
+    fn inner(): int {
+        return 1;
+    }
+
+    fn outer(): int {
+        var twice = fn(n: int) => n * 2;
+        return twice(inner());
+    }
+
+## P006 struct not at the top level
+A struct can only be declared at the top level of a file.
+
+Wrong:
+
+    if (true) {
+        struct Point { x: int }
+    }
+
+Right:
+
+    struct Point { x: int }
+
+## P007 cannot assign to this
+Only a variable, a list element or a field can get a new value, not the result of a call or a literal.
+
+Wrong:
+
+    fn numbers(): list<int> {
+        return [1, 2];
+    }
+    numbers()[0] = 5;
+
+Right:
+
+    fn numbers(): list<int> {
+        return [1, 2];
+    }
+    var list = numbers();
+    list[0] = 5;
+
+## P008 enum not at the top level
+An enum can only be declared at the top level of a file.
+
+Wrong:
+
+    if (true) {
+        enum Color { Red, Green }
+    }
+
+Right:
+
+    enum Color { Red, Green }
+
+## P009 import not at the start
+`import` is only allowed at the start of a file, before every other statement.
+
+Wrong:
+
+    print(1);
+    import { square } from "math.smn";
+
+Right:
+
+    import { square } from "math.smn";
+    print(square(1));
+
+File math.smn:
+
+    export fn square(x: int): int {
+        return x * x;
+    }
+
+## P010 export not at the top level
+`export` marks what other files may import, so it only stands at the top level of a file.
+
+Wrong:
+
+    {
+        export const LIMIT = 10;
+    }
+
+Right:
+
+    export const LIMIT = 10;
+
+## P011 class not at the top level
+A class can only be declared at the top level of a file.
+
+Wrong:
+
+    if (true) {
+        class Counter {
+            count: int = 0;
+        }
+    }
+
+Right:
+
+    class Counter {
+        count: int = 0;
+    }
+
+## P012 two constructors
+A class has at most one `constructor`. For different ways to make an object, use static methods.
+
+Wrong:
+
+    class Point {
+        x: int;
+        constructor() {
+            this.x = 0;
+        }
+        constructor(x: int) {
+            this.x = x;
+        }
+    }
+
+Right:
+
+    class Point {
+        x: int;
+        constructor(x: int) {
+            this.x = x;
+        }
+        static origin(): Point {
+            return new Point(0);
+        }
+    }
+
+## P014 interface not at the top level
+An interface can only be declared at the top level of a file.
+
+Wrong:
+
+    if (true) {
+        interface Shape {
+            area(): float;
+        }
+    }
+
+Right:
+
+    interface Shape {
+        area(): float;
+    }
+
+## P015 readonly in the wrong place
+`readonly` is only allowed before a field of a class. The fields of a struct can always change.
+
+Wrong:
+
+    struct Point { readonly x: int, y: int }
+
+Right:
+
+    class Point {
+        readonly x: int;
+        constructor(x: int) {
+            this.x = x;
+        }
+    }
+
+## P016 static in the wrong place
+`static` is only allowed before methods and fields, not before a constructor, and not together with `override` or
+`readonly`.
+
+Wrong:
+
+    class User {
+        static constructor() {
+        }
+    }
+
+Right:
+
+    class User {
+        static create(): User {
+            return new User();
+        }
+    }
+
+## P017 abstract in the wrong place
+`abstract` is only allowed before a class and before methods of an abstract class, not before fields and not
+together with `static` or `override`.
+
+Wrong:
+
+    abstract class Animal {
+        abstract name: string;
+    }
+
+Right:
+
+    abstract class Animal {
+        abstract name(): string;
+    }
+
+## P018 private abstract method
+An abstract method has no body; subclasses must override it. A private method cannot be seen by them, so it cannot
+be abstract. Use `protected` or leave the visibility out.
+
+Wrong:
+
+    abstract class Animal {
+        private abstract sound(): string;
+    }
+
+Right:
+
+    abstract class Animal {
+        protected abstract sound(): string;
+    }
+
+## P019 | with _ or ok(...) or err(...)
+In a branch of `match`, `|` joins values or variants like `"a" | "b"` or `Color.Red | Color.Green`. `_` already
+means everything else, and `ok(...)` and `err(...)` each take their value, so they cannot be joined.
+
+Wrong:
+
+    match (int("1")) {
+        ok(_) | err(_) => {
+            print("any");
+        }
+    }
+
+Right:
+
+    match (int("1")) {
+        ok(_) => {
+            print("a number");
+        }
+        err(_) => {
+            print("no number");
+        }
+    }
+
+## P020 if (var ...) with ? in the type
+`if (var name: type = value)` only runs its block when the value is not null, so inside it the type has no `?`.
+
+Wrong:
+
+    const found: int? = 1;
+    if (var x: int? = found) {
+        print(x);
+    }
+
+Right:
+
+    const found: int? = 1;
+    if (var x: int = found) {
+        print(x);
+    }

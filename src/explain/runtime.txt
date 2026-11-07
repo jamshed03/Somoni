@@ -1,0 +1,167 @@
+The explanations of the runtime errors (R), shown by `somoni --explain R001`.
+A section starts with `## CODE title`; `Wrong:` and `Right:` are followed by an example indented by four spaces.
+
+## R000 internal error
+Something happened that the type checker should have made impossible. This is a bug in Somoni itself, not in the
+program; please report the program that shows it.
+
+## R001 division by zero
+An int or a float was divided by 0, or `%` was used with 0. Check the divisor first.
+
+Wrong:
+
+    var count = 0;
+    print(10 / count);
+
+Right:
+
+    var count = 0;
+    if (count != 0) {
+        print(10 / count);
+    }
+
+## R002 integer overflow
+An int became bigger than 9223372036854775807 or smaller than -9223372036854775808. Somoni does not wrap around
+silently. Use a float for very big numbers.
+
+Wrong:
+
+    var big = 9223372036854775807;
+    big += 1;
+
+Right:
+
+    var big = 9223372036854775807.0;
+    big += 1.0;
+    print(big);
+
+## R004 recursion too deep
+A function called itself (or others) more than 10000 times without returning, usually because the end of the
+recursion is missing.
+
+Wrong:
+
+    fn count_down(n: int): int {
+        return count_down(n - 1);
+    }
+    print(count_down(3));
+
+Right:
+
+    fn count_down(n: int): int {
+        if (n == 0) {
+            return 0;
+        }
+        return count_down(n - 1);
+    }
+    print(count_down(3));
+
+## R005 index out of range
+A list was read or changed at a place it does not have. The places of a list with 3 elements are 0, 1 and 2.
+
+Wrong:
+
+    var list = [1, 2, 3];
+    print(list[3]);
+
+Right:
+
+    var list = [1, 2, 3];
+    print(list[len(list) - 1]);
+
+## R006 key not in the map
+A map was read at a key it does not have. Check with `has(m, key)` first, or use `m.get(key, default)`.
+
+Wrong:
+
+    var ages = {"Ali": 30};
+    print(ages["Bea"]);
+
+Right:
+
+    var ages = {"Ali": 30};
+    print(ages.get("Bea", 0));
+
+## R007 key twice in a map
+A map literal gives the same key twice. Each key may appear once.
+
+Wrong:
+
+    var ages = {"Ali": 30, "Bea": 25, "Ali": 31};
+
+Right:
+
+    var ages = {"Ali": 31, "Bea": 25};
+
+## R008 constant used before its line
+A function used a `const` of the top level before the line of that constant has run. Move the constant above the
+first call.
+
+Wrong:
+
+    fn show(): int {
+        return LIMIT;
+    }
+    print(show());
+    const LIMIT = 10;
+
+Right:
+
+    const LIMIT = 10;
+    fn show(): int {
+        return LIMIT;
+    }
+    print(show());
+
+## R009 slice out of range
+`slice(start, end)` needs `0 <= start <= end <= length`.
+
+Wrong:
+
+    print([1, 2].slice(1, 3));
+
+Right:
+
+    print([1, 2].slice(1, 2));
+
+## R010 no result for these arguments
+A built-in function has no result for its arguments, like the square root of a negative number, `pow` with a
+negative int exponent, or `format` and `repeat` with a negative count.
+
+Wrong:
+
+    print(sqrt(-1.0));
+
+Right:
+
+    print(sqrt(1.0));
+
+## R011 input cannot be read
+`input()` could not read the input, for example because it is not valid UTF-8 text.
+
+## R012 output cannot be written
+`print` or `write` could not write the output, for example because the program writes into a pipe that is already
+closed: `somoni list.smn | head -1` closes after one line.
+
+## R013 no HTTP status
+`set_status(n)` takes an HTTP status from 100 to 599, like 404 or 422.
+
+Wrong:
+
+    set_status(42);
+
+Right:
+
+    set_status(404);
+
+## R014 redirect target with a line break
+`redirect(target)` puts the target into the header `Location`. A line break in it could add headers of its own, like
+a cookie, so the target must be one line and not empty.
+
+Wrong:
+
+    redirect("/page\nSet-Cookie: x=1");
+
+Right:
+
+    redirect("/page");
