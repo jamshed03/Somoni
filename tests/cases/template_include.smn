@@ -1,0 +1,8 @@
+// a template calls another template with @include, like a layout with its parts
+import { Page } from "modules/pages.smn";
+import { layout } from "modules/layout.template.smn";
+
+layout("Typen", [
+    Page { title: "Start", url: "/" },
+    Page { title: "Typen", url: "/typen" }
+]);

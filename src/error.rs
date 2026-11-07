@@ -45,6 +45,7 @@ pub enum ErrorCode {
         close: &'static str,
     },
     TemplateEmpty,
+    IncludeNotCall,
     DirectiveWithoutOpen {
         found: &'static str,
         needs: &'static str,
@@ -504,6 +505,7 @@ impl ErrorCode {
             ErrorCode::DirectiveWrongEnd { .. } => "L013",
             ErrorCode::TemplateName { .. } => "L014",
             ErrorCode::TemplateHeaderLate { .. } => "L015",
+            ErrorCode::IncludeNotCall => "L016",
 
             ErrorCode::Expected { .. } => "P001",
             ErrorCode::UnexpectedToken { .. } => "P002",
@@ -711,6 +713,9 @@ impl ErrorCode {
                 format!("this is not closed with '{}' in the template", close)
             }
             ErrorCode::TemplateEmpty => "'{{ }}' in a template needs a value to show".to_string(),
+            ErrorCode::IncludeNotCall => {
+                "'@include' needs a call of a template, like @include(card(page))".to_string()
+            }
             ErrorCode::DirectiveWithoutOpen { found, needs } => {
                 format!("'{}' has no open '{}' before it", found, needs)
             }

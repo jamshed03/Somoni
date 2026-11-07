@@ -1,0 +1,15 @@
+{{-- A page with a list of links: calls card.template.smn for each page with @include --}}
+@import { Page } from "pages.smn"
+@import { card } from "card.template.smn"
+@props(title: string, pages: list<Page>)
+<!doctype html>
+<html lang="de">
+<body>
+<h1>{{ title }}</h1>
+<ul>
+@foreach (page: Page in pages)
+    @include(card(page, page.title == title))
+@endforeach
+</ul>
+</body>
+</html>

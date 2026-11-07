@@ -16,6 +16,7 @@ pub(super) enum Directive {
     EndIf,
     Foreach,
     EndForeach,
+    Include,
     Import,
     Props,
 }
@@ -28,6 +29,7 @@ const DIRECTIVES: &[Directive] = &[
     Directive::EndIf,
     Directive::Foreach,
     Directive::EndForeach,
+    Directive::Include,
     Directive::Import,
     Directive::Props,
 ];
@@ -42,6 +44,7 @@ impl Directive {
             Directive::EndIf => "@endif",
             Directive::Foreach => "@foreach",
             Directive::EndForeach => "@endforeach",
+            Directive::Include => "@include",
             Directive::Import => "@import",
             Directive::Props => "@props",
         }
@@ -58,6 +61,7 @@ impl Directive {
             Directive::If | Directive::ElseIf => "(x > 0)",
             Directive::Foreach => "(item: string in items)",
             Directive::Props => "(title: string)",
+            Directive::Include => "(card(page))",
             Directive::Else | Directive::EndIf | Directive::EndForeach | Directive::Import => "( )",
         }
     }
@@ -80,7 +84,11 @@ impl Directive {
         match self {
             Directive::ElseIf | Directive::Else | Directive::EndIf => Some(Directive::If),
             Directive::EndForeach => Some(Directive::Foreach),
-            Directive::If | Directive::Foreach | Directive::Import | Directive::Props => None,
+            Directive::If
+            | Directive::Foreach
+            | Directive::Include
+            | Directive::Import
+            | Directive::Props => None,
         }
     }
 
@@ -91,7 +99,7 @@ impl Directive {
             Directive::If | Directive::ElseIf | Directive::Else | Directive::EndIf => {
                 Directive::EndIf
             }
-            Directive::Import | Directive::Props => self,
+            Directive::Include | Directive::Import | Directive::Props => self,
         }
     }
 }
@@ -127,6 +135,7 @@ impl Lexer {
                 push(tokens, [Token::LBrace], start);
             }
             Directive::Else => push(tokens, [Token::RBrace, Token::Else, Token::LBrace], start),
+            Directive::Include => self.read_include(start, tokens)?,
             Directive::EndIf | Directive::EndForeach => {
                 open.pop();
                 push(tokens, [Token::RBrace], start);
@@ -138,7 +147,27 @@ impl Lexer {
         Ok(())
     }
 
-    /// Reads the `( ... )` after `@if`, `@elseif` or `@foreach` up to its matching `)`, or returns L012.
+    /// Reads `@include(card(page))` after its name as the statement `card(page);`, which calls another template;
+    /// it must start like a call (L016), the parser checks the rest.
+    fn read_include(
+        &mut self,
+        start: Span,
+        tokens: &mut Vec<SpannedToken>,
+    ) -> Result<(), SomoniError> {
+        let mut parens = Vec::new();
+        self.read_condition(Directive::Include, start, &mut parens)?;
+        let inner = parens
+            .get(1..parens.len().saturating_sub(1))
+            .unwrap_or_default();
+        if !starts_call(inner) {
+            return Err(SomoniError::at(start, ErrorCode::IncludeNotCall));
+        }
+        tokens.extend_from_slice(inner);
+        push(tokens, [Token::Semicolon], start);
+        Ok(())
+    }
+
+    /// Reads the `( ... )` after `@if`, `@elseif`, `@foreach`, `@include` or `@props` up to its matching `)`, or returns L012.
     pub(super) fn read_condition(
         &mut self,
         directive: Directive,
@@ -201,4 +230,13 @@ fn check_open(
         },
     };
     Err(SomoniError::at(start, code))
+}
+
+/// Returns true if `tokens` start like a call: a name, then `(` or `.` like in `card(page)` or `parts.card(page)`.
+fn starts_call(tokens: &[SpannedToken]) -> bool {
+    let kinds: Vec<&Token> = tokens.iter().take(2).map(|t| &t.token).collect();
+    matches!(
+        kinds.as_slice(),
+        [Token::Ident(_), Token::LParen | Token::Dot]
+    )
 }
