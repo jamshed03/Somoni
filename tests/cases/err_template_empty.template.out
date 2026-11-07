@@ -1,0 +1,3 @@
+Lex error [L009]: Line 1: '{{ }}' in a template needs a value to show
+  1 | <p>{{ }}</p>
+    |    ^^

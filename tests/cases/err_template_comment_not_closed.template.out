@@ -1,0 +1,3 @@
+Lex error [L003]: Line 1: unterminated comment
+  1 | {{-- ohne Ende
+    | ^^^^

@@ -4,7 +4,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::ast::{Import, Stmt};
 use crate::error::{ErrorCode, SomoniError};
-use crate::lexer::Lexer;
+use crate::lexer::{Lexer, is_template};
 use crate::parser::Parser;
 use crate::span::Span;
 
@@ -64,7 +64,13 @@ impl Loader {
 
     /// Lexes and parses one file.
     fn parse(&self, number: usize) -> Result<Vec<Stmt>, SomoniError> {
-        let tokens = Lexer::new(&self.files[number].source, number).tokenize()?;
+        let file = &self.files[number];
+        let mut lexer = Lexer::new(&file.source, number);
+        let tokens = if is_template(&file.name) {
+            lexer.tokenize_template()?
+        } else {
+            lexer.tokenize()?
+        };
         Parser::new(tokens).parse_program(number != MAIN_FILE)
     }
 

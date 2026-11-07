@@ -41,6 +41,10 @@ pub enum ErrorCode {
         found: char,
     },
     InterpolationNotClosed,
+    TemplateNotClosed {
+        close: &'static str,
+    },
+    TemplateEmpty,
     UnterminatedComment,
     IntegerTooLarge {
         text: String,
@@ -468,6 +472,8 @@ impl ErrorCode {
             ErrorCode::InvalidFloat { .. } => "L005",
             ErrorCode::UnknownEscape { .. } => "L006",
             ErrorCode::InterpolationNotClosed => "L007",
+            ErrorCode::TemplateNotClosed { .. } => "L008",
+            ErrorCode::TemplateEmpty => "L009",
 
             ErrorCode::Expected { .. } => "P001",
             ErrorCode::UnexpectedToken { .. } => "P002",
@@ -671,6 +677,10 @@ impl ErrorCode {
             ErrorCode::IfVarOptionalType => {
                 "the type in 'if (var name: type = ...)' has no '?', the block only runs when the value is not null".to_string()
             }
+            ErrorCode::TemplateNotClosed { close } => {
+                format!("this is not closed with '{}' in the template", close)
+            }
+            ErrorCode::TemplateEmpty => "'{{ }}' in a template needs a value to show".to_string(),
             ErrorCode::InterpolationNotClosed => {
                 "a '{' in this string is not closed with '}' (a '{' itself is written '\\{')".to_string()
             }

@@ -2,6 +2,10 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
 use crate::token::{SpannedToken, Token};
 
+pub use template::is_template;
+
+mod template;
+
 /// The keywords of Somoni; every other word is a name.
 const KEYWORDS: &[(&str, Token)] = &[
     ("var", Token::Var),
@@ -119,15 +123,45 @@ impl Lexer {
     /// Reads the whole source and returns its tokens, the last one always `Eof`.
     pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
         let mut tokens = Vec::new();
+        self.read_code(&mut tokens, None)?;
+        self.finish(tokens)
+    }
+
+    /// Reads code into `tokens` up to the end, or up to `close` (like `}}` in a template) outside of any `{ }`;
+    /// returns true if it found `close`.
+    fn read_code(
+        &mut self,
+        tokens: &mut Vec<SpannedToken>,
+        close: Option<&str>,
+    ) -> Result<bool, SomoniError> {
+        let mut braces = 0usize;
         while let Some(c) = self.peek() {
             if self.skip_space_or_comment(c)? {
                 continue;
             }
+            if let Some(close) = close
+                && braces == 0
+                && self.open_strings.is_empty()
+                && self.at(close)
+            {
+                self.pos += close.chars().count();
+                return Ok(true);
+            }
             let (line, col) = (self.line, self.col());
             let token = self.read_token(c)?;
+            match token {
+                Token::LBrace => braces += 1,
+                Token::RBrace => braces = braces.saturating_sub(1),
+                _ => {}
+            }
             let span = self.span_from(line, col);
             tokens.push(SpannedToken { token, span });
         }
+        Ok(false)
+    }
+
+    /// Checks that no string is still open and adds the `Eof` token.
+    fn finish(&self, mut tokens: Vec<SpannedToken>) -> Result<Vec<SpannedToken>, SomoniError> {
         if let Some(open) = self.open_strings.first() {
             return Err(self.unterminated(open.start));
         }
@@ -137,6 +171,13 @@ impl Lexer {
             span,
         });
         Ok(tokens)
+    }
+
+    /// Returns true if `text` starts at the current character.
+    fn at(&self, text: &str) -> bool {
+        text.chars()
+            .enumerate()
+            .all(|(offset, c)| self.chars.get(self.pos + offset) == Some(&c))
     }
 
     /// Skips a line break, a space or a comment that starts with `c`, and returns true if it did.
