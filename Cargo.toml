@@ -2,6 +2,9 @@
 name = "somoni"
 version = "0.10.0"
 edition = "2024"
+description = "A small, strongly typed programming language with templates and a small web server"
+license = "MIT"
+repository = "https://github.com/jamshed03/Somoni"
 
 [dependencies]
 

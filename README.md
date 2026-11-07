@@ -80,3 +80,6 @@ Version 0.10.0: the core of the language plus lists, structs, optional types, ma
 
 -   Null checks: after `if (a != null)` the value of `a` can be used; `if (var avg: float = s.average()) { ... }` checks a value without an extra variable
 
+## License
+
+MIT, see [LICENSE](LICENSE).
