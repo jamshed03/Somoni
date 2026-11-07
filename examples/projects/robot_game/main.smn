@@ -1,4 +1,4 @@
-// A robot drives over a level after a fixed list of commands: it collects dirt, avoids traps and looks for the exit.
+// A robot drives over a level: the player steers it with w, a, s and d, collects dirt, avoids traps and looks for the exit.
 
 import { Effect, Tile } from "lib/tiles.smn";
 import * as level from "lib/level.smn";
@@ -13,16 +13,16 @@ enum Direction {
 // Returns the direction for a command sign, a small factory for directions.
 fn direction_of(sign: string): result<Direction, string> {
     match (sign) {
-        "U" => {
+        "w" => {
             return ok(Direction.Up);
         }
-        "D" => {
+        "s" => {
             return ok(Direction.Down);
         }
-        "L" => {
+        "a" => {
             return ok(Direction.Left);
         }
-        "R" => {
+        "d" => {
             return ok(Direction.Right);
         }
         _ => {
@@ -79,9 +79,13 @@ class Game {
         this.robot = new Robot(map.start);
     }
 
+    is_over(): bool {
+        return !this.robot.can_go_on();
+    }
+
     run(commands: string): void {
         for (sign: string in commands) {
-            if (!this.robot.can_go_on()) {
+            if (this.is_over()) {
                 break;
             }
             match (direction_of(sign)) {
@@ -147,11 +151,19 @@ var lines: list<string> = [
 ];
 match (level.Level::parse(lines)) {
     ok(map: level.Level) => {
-        var game: Game = new Game(map);
+        var game = new Game(map);
+        print("Steuern mit w, a, s, d (auch mehrere, z. B. dd), q beendet.");
         game.show();
-        game.run("RRUDDLLDRRRXRR");
-        print("");
-        game.show();
+        var line = input();
+        while (line != null && !game.is_over()) {
+            if (line == "q") {
+                break;
+            }
+            game.run(line);
+            print("");
+            game.show();
+            line = input();
+        }
         print(game.report());
     }
     err(message: string) => {
