@@ -1,3 +1,5 @@
+<img src="somoni-logo.svg" alt="Somoni logo" width="96" height="96">
+
 # Somoni
 
 A small, strongly typed programming language, interpreted in Rust.

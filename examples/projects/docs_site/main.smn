@@ -7,12 +7,28 @@ import { section as show_section } from "lib/section.template.smn";
 
 const VERSION = "0.10.0";
 
-// Writes one page with the layout around `body`, and tells what was written.
-fn write_page(name: string, title: string, sections: list<Section>, body: string): void {
-    var html = capture(fn() => layout(VERSION, title, sections, body));
-    match (write_file("site/{name}", html)) {
+// Writes `text` into site/`name` and tells what was written.
+fn save(name: string, text: string): void {
+    match (write_file("site/{name}", text)) {
         ok(characters: int) => {
             print("wrote site/{name} ({characters} characters)");
+        }
+        err(reason: string) => {
+            print(reason);
+        }
+    }
+}
+
+// Writes one page with the layout around `body`.
+fn write_page(name: string, title: string, sections: list<Section>, body: string): void {
+    save(name, capture(fn() => layout(VERSION, title, sections, body)));
+}
+
+// Copies the logo of Somoni from the top folder of the project into the site.
+fn copy_logo(): void {
+    match (read_file("../../../somoni-logo.svg")) {
+        ok(svg: string) => {
+            save("somoni-logo.svg", svg);
         }
         err(reason: string) => {
             print(reason);
@@ -32,6 +48,7 @@ for (id: string in ["start", "types", "functions", "classes", "modules", "templa
     }
 }
 
+copy_logo();
 write_page("index.html", "Contents", sections, capture(fn() => overview(sections)));
 for (section: Section in sections) {
     write_page("{section.id}.html", section.title, sections, capture(fn() => show_section(section)));

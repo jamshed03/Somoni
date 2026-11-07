@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <title>Somoni (Variante 8, Rahmen)</title>
+  <title>Somoni</title>
   <defs>
     <pattern id="lat" width="6" height="6" patternUnits="userSpaceOnUse">
       <path d="M0 0 L6 6 M6 0 L0 6" stroke="#F4EFE3" stroke-width="1" fill="none"/>
