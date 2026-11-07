@@ -1,10 +1,10 @@
-interface Form {
+interface Shape {
     area(): float;
 }
-class K implements Form {
+class K implements Shape {
     area(): float {
         return 1.0;
     }
 }
-var f: Form = new K();
+var f: Shape = new K();
 var k: K = f;

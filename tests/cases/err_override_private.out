@@ -1,3 +1,3 @@
-Type error [T055]: Line 13: 'intern' is already a field or method of 'Dog'
-  13 |     intern(): void {
-     |     ^^^^^^
+Type error [T055]: Line 13: 'internal' is already a field or method of 'Dog'
+  13 |     internal(): void {
+     |     ^^^^^^^^

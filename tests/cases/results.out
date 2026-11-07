@@ -10,7 +10,7 @@ err("fresh")
 0
 no result
 ok([])
-Answer { wert: err(false) }
+Answer { value: err(false) }
 two
 4
 42

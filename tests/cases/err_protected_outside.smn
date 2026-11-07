@@ -6,7 +6,7 @@ class Animal {
         return "...";
     }
 
-    private intern(): void {
+    private internal(): void {
     }
 }
 var t: Animal = new Animal();

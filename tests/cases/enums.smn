@@ -51,22 +51,22 @@ print(sky);
 // an enum used before its declaration; break inside a branch
 fn reverse(r: Direction): Direction {
     match (r) {
-        Direction.Links => {
+        Direction.Left => {
             return Direction.Right;
         }
         Direction.Right => {
-            return Direction.Links;
+            return Direction.Left;
         }
     }
 }
 enum Direction {
-    Links,
+    Left,
     Right
 }
-print(reverse(Direction.Links));
-for (r: Direction in [Direction.Links, Direction.Right, Direction.Links]) {
+print(reverse(Direction.Left));
+for (r: Direction in [Direction.Left, Direction.Right, Direction.Left]) {
     match (r) {
-        Direction.Links => {
+        Direction.Left => {
             print("<");
         }
         Direction.Right => {

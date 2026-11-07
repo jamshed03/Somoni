@@ -1,3 +1,3 @@
 Type error [T003]: Line 4: cannot assign fn(int): int to fn(string): int
-  4 | var f: fn(string): int = quadrat;
-    |                          ^^^^^^^
+  4 | var f: fn(string): int = square;
+    |                          ^^^^^^

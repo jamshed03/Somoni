@@ -1,3 +1,3 @@
-Type error [T029]: Line 10: cannot use '.' on Form
+Type error [T029]: Line 10: cannot use '.' on Shape
   10 | print(f.r);
      |       ^

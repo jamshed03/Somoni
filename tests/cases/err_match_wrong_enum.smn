@@ -4,11 +4,11 @@ enum Color {
     Blue
 }
 enum Direction {
-    Links
+    Left
 }
 var f: Color = Color.Red;
 match (f) {
-    Direction.Links => {
+    Direction.Left => {
         print(1);
     }
     _ => {

@@ -17,17 +17,17 @@ struct Button {
 }
 
 class Counter {
-    stand: int;
+    balance: int;
     step: fn(int): int;
 
     constructor(step: fn(int): int) {
-        this.stand = 1;
+        this.balance = 1;
         this.step = step;
     }
 
     further(): int {
-        this.stand = this.step(this.stand);
-        return this.stand;
+        this.balance = this.step(this.balance);
+        return this.balance;
     }
 }
 

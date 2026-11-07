@@ -1,3 +1,3 @@
-Type error [T012]: Line 2: unknown function 'quadrat'
-  2 | print(quadrat(2));
-    |       ^^^^^^^
+Type error [T012]: Line 2: unknown function 'square'
+  2 | print(square(2));
+    |       ^^^^^^

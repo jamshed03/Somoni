@@ -1,11 +1,11 @@
 import { Named } from "modules/named.smn";
 
-interface Form {
+interface Shape {
     area(): float;
     scale(factor: float): void;
 }
 
-class Circle implements Form, Named {
+class Circle implements Shape, Named {
     r: float;
 
     constructor(r: float) {
@@ -25,7 +25,7 @@ class Circle implements Form, Named {
     }
 }
 
-class Quadrat implements Form, Named {
+class Square implements Shape, Named {
     side: float;
 
     constructor(side: float) {
@@ -41,7 +41,7 @@ class Quadrat implements Form, Named {
     }
 
     name(): string {
-        return "Quadrat";
+        return "Square";
     }
 
     // more methods than the interface needs are fine
@@ -51,34 +51,34 @@ class Quadrat implements Form, Named {
 }
 
 // the same call runs the method of the class of each object
-var shapes: list<Form> = [new Circle(1.0), new Quadrat(2.0)];
-for (f: Form in shapes) {
+var shapes: list<Shape> = [new Circle(1.0), new Square(2.0)];
+for (f: Shape in shapes) {
     print(f.area());
 }
 
 // an interface as parameter and return type
-fn sum(alle: list<Form>): float {
+fn sum(all: list<Shape>): float {
     var s: float = 0.0;
-    for (f: Form in alle) {
+    for (f: Shape in all) {
         s = s + f.area();
     }
     return s;
 }
 print(sum(shapes));
 
-fn larger(a: Form, b: Form): Form {
+fn larger(a: Shape, b: Shape): Shape {
     if (a.area() > b.area()) {
         return a;
     }
     return b;
 }
-var q: Quadrat = new Quadrat(3.0);
-var g: Form = larger(new Circle(1.0), q);
+var q: Square = new Square(3.0);
+var g: Shape = larger(new Circle(1.0), q);
 print(g);
 print(g == q);
 
 // a method through an interface changes the object (it is a reference)
-for (f: Form in shapes) {
+for (f: Shape in shapes) {
     f.scale(2.0);
 }
 print(shapes);
@@ -92,7 +92,7 @@ print(q.perimeter());
 
 // an interface in a field and as optional
 class Drawing {
-    main: Form? = null;
+    main: Shape? = null;
 }
 var z: Drawing = new Drawing();
 z.main = new Circle(2.0);

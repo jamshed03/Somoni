@@ -42,16 +42,16 @@ print(t.chef.visits);
 print(t.members[0] == u);
 
 // new inside a constructor
-class Paar {
-    links: User;
+class Pair {
+    left: User;
     right: User;
 
     constructor(name: string) {
-        this.links = new User(name, 1);
+        this.left = new User(name, 1);
         this.right = new User(name, 2);
     }
 }
-print(new Paar("x").right.age);
+print(new Pair("x").right.age);
 
 // a class without fields and without constructor
 class Empty {

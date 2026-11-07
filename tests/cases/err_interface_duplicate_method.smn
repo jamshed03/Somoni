@@ -1,4 +1,4 @@
-interface Form {
+interface Shape {
     area(): float;
     area(): float;
 }

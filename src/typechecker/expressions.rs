@@ -812,7 +812,7 @@ impl TypeChecker {
             .is_some_and(|fields| fields.iter().any(|(field, _)| field == name))
     }
 
-    /// Checks `k.aktion(args)` for a field with a function type, or returns T091 for a field of another type.
+    /// Checks `button.action(args)` for a field with a function type, or returns T091 for a field of another type.
     fn check_field_call(
         &mut self,
         object: &Type,

@@ -1,2 +1,2 @@
-import { quadrat as q } from "modules/math.smn";
-print(quadrat(2));
+import { square as q } from "modules/math.smn";
+print(square(2));

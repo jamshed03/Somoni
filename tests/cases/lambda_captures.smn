@@ -3,7 +3,7 @@ fn times(factor: int): fn(int): int {
     return fn(x: int): int => x * factor;
 }
 
-fn alle(numbers: list<int>, f: fn(int): int): list<int> {
+fn all(numbers: list<int>, f: fn(int): int): list<int> {
     var outcome: list<int> = [];
     for (n: int in numbers) {
         outcome += [f(n)];
@@ -24,14 +24,14 @@ fn adder(a: int): fn(int): fn(int): int {
 }
 
 class Account {
-    stand: int;
+    balance: int;
 
-    constructor(stand: int) {
-        this.stand = stand;
+    constructor(balance: int) {
+        this.balance = balance;
     }
 
     deposit(amount: int): void {
-        this.stand += amount;
+        this.balance += amount;
     }
 
     later(amount: int): fn(): void {
@@ -41,13 +41,13 @@ class Account {
     }
 
     pointer(): fn(): int {
-        return fn(): int => this.stand;
+        return fn(): int => this.balance;
     }
 }
 
 var triple: fn(int): int = times(3);
 print(triple(5));
-print(alle([1, 2, 3], times(10)));
+print(all([1, 2, 3], times(10)));
 
 var n: int = 2;
 var plus_n: fn(int): int = fn(x: int): int => x + n;
@@ -55,12 +55,12 @@ n = 100;
 print(plus_n(1));
 
 var name: string = "Ali";
-var gruss: fn(): string = fn(): string {
+var greeting: fn(): string = fn(): string {
     var text: string = "Hello " + name;
     return text + "!";
 };
 name = "Bea";
-print(gruss());
+print(greeting());
 
 for (f: fn(): int in counter_entries()) {
     print(f());
@@ -70,11 +70,11 @@ print(adder(1)(20)(300));
 
 var k: Account = new Account(5);
 var payout: fn(): void = k.later(10);
-var stand: fn(): int = k.pointer();
+var balance: fn(): int = k.pointer();
 payout();
 payout();
-print(stand());
-print(k.stand);
+print(balance());
+print(k.balance);
 
 var entries: list<int> = [1, 2];
 var length: fn(): int = fn(): int => len(entries);

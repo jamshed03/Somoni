@@ -3,7 +3,7 @@ fn apply(f: fn(int): int, n: int): int {
     return f(n);
 }
 
-fn alle(numbers: list<int>, f: fn(int): int): list<int> {
+fn all(numbers: list<int>, f: fn(int): int): list<int> {
     var outcome: list<int> = [];
     for (n: int in numbers) {
         outcome += [f(n)];
@@ -20,7 +20,7 @@ const TEN: int = 10;
 var times2: fn(int): int = fn(x: int): int => x * 2;
 print(times2(21));
 print(apply(fn(x: int): int => x + 1, 41));
-print(alle([1, 2, 3], fn(x: int): int => x * x));
+print(all([1, 2, 3], fn(x: int): int => x * x));
 print(adder()(2, 3));
 
 var bigger: fn(int, int): int = fn(a: int, b: int): int {
@@ -31,10 +31,10 @@ var bigger: fn(int, int): int = fn(a: int, b: int): int {
 };
 print(bigger(3, 7));
 
-var gruss: fn(string): void = fn(name: string): void {
+var greeting: fn(string): void = fn(name: string): void {
     print("Hello " + name);
 };
-gruss("Ali");
+greeting("Ali");
 
 var plus_ten: fn(int): int = fn(x: int): int => x + TEN;
 print(plus_ten(5));

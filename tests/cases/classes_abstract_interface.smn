@@ -1,9 +1,9 @@
 // an abstract class fulfils an interface with an abstract method, its subclass has the body
-interface Form {
+interface Shape {
     area(): int;
 }
 
-abstract class Basis implements Form {
+abstract class Base implements Shape {
     abstract area(): int;
 
     doubled(): int {
@@ -11,7 +11,7 @@ abstract class Basis implements Form {
     }
 }
 
-class Quadrat extends Basis {
+class Square extends Base {
     side: int = 3;
 
     override area(): int {
@@ -19,7 +19,7 @@ class Quadrat extends Basis {
     }
 }
 
-var f: Form = new Quadrat();
+var f: Shape = new Square();
 print(f.area());
-var b: Basis = new Quadrat();
+var b: Base = new Square();
 print(b.doubled());

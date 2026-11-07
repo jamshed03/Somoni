@@ -1,5 +1,5 @@
-interface Form {
+interface Shape {
     area(): int;
 }
-abstract class Basis implements Form {
+abstract class Base implements Shape {
 }

@@ -1,10 +1,10 @@
 // assigning to a checked variable is allowed; afterwards it has the type of the value
 class Node {
-    wert: int;
+    value: int;
     next: Node?;
 
-    constructor(wert: int, next: Node?) {
-        this.wert = wert;
+    constructor(value: int, next: Node?) {
+        this.value = value;
         this.next = next;
     }
 }
@@ -12,7 +12,7 @@ class Node {
 var n: Node? = new Node(1, new Node(2, new Node(3, null)));
 var sum: int = 0;
 while (n != null) {
-    sum += n.wert;
+    sum += n.value;
     n = n.next;
 }
 print(sum);

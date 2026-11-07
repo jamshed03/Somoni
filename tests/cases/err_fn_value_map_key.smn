@@ -1,4 +1,4 @@
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return n * n;
 }
 var m: map<fn(int): int, int> = {};

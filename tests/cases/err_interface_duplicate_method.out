@@ -1,3 +1,3 @@
-Type error [T055]: Line 3: 'area' is already a field or method of 'Form'
+Type error [T055]: Line 3: 'area' is already a field or method of 'Shape'
   3 |     area(): float;
     |     ^^^^

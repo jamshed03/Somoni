@@ -4,6 +4,6 @@ enum Color {
     Blue
 }
 enum Direction {
-    Links
+    Left
 }
-var f: Color = Direction.Links;
+var f: Color = Direction.Left;

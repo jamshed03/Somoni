@@ -8,7 +8,7 @@ fn amount(n: int): int {
 
 fn grade(points: int): string {
     if (points >= 90) {
-        return "very gut";
+        return "very good";
     } else if (points >= 50) {
         return "passed";
     } else {

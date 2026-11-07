@@ -3,17 +3,17 @@ import * as math from "modules/math.smn";
 import * as k from "modules/constants.smn";
 import * as bank from "modules/account.smn";
 
-struct Linie {
+struct Line {
     of: math.Point,
-    bis: math.Point
+    to: math.Point
 }
 
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return 0;
 }
 
-print(math.quadrat(5));
-print(quadrat(5));
+print(math.square(5));
+print(square(5));
 var p: math.Point = math.Point { x: 1, y: 2 };
 print(math.move(p, 3));
 var r: math.Direction = math.Direction.Right;
@@ -22,10 +22,10 @@ print(k.PI);
 print(len(k.PRIMES));
 print(k.perimeter(1.0));
 var account: bank.Account = new bank.Account();
-print(account.stand);
-print(bank.Account::fresh().stand);
-var f: fn(int): int = math.quadrat;
+print(account.balance);
+print(bank.Account::fresh().balance);
+var f: fn(int): int = math.square;
 print(f(7));
-var l: Linie = Linie { of: p, bis: math.Point { x: 9, y: 9 } };
-print(l.bis.x);
+var l: Line = Line { of: p, to: math.Point { x: 9, y: 9 } };
+print(l.to.x);
 print(p.x);

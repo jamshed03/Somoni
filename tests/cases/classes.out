@@ -1,4 +1,4 @@
-Counter { stand: 0, name: "counter", steps: [] }
+Counter { balance: 0, name: "counter", steps: [] }
 1
 10
 true
@@ -10,10 +10,10 @@ true
 99
 99
 1
-Node { wert: 1, next: Node { wert: 1, next: null, ort: Point { x: 7 } }, ort: Point { x: 7 } }
+Node { value: 1, next: Node { value: 1, next: null, place: Point { x: 7 } }, place: Point { x: 7 } }
 8
 Point { x: 9 }
-Node { wert: 1, next: Node { ... }, ort: Point { x: 7 } }
+Node { value: 1, next: Node { ... }, place: Point { x: 7 } }
 70
 6
-Self { x: 6, alle: [Self { ... }] }
+Self { x: 6, all: [Self { ... }] }

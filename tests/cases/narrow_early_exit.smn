@@ -1,10 +1,10 @@
 // after an if whose branch always leaves the block, the opposite of its condition holds
 class Node {
-    wert: int;
+    value: int;
     next: Node?;
 
-    constructor(wert: int, next: Node?) {
-        this.wert = wert;
+    constructor(value: int, next: Node?) {
+        this.value = value;
         this.next = next;
     }
 }
@@ -13,7 +13,7 @@ fn sum(n: Node?): int {
     if (n == null) {
         return 0;
     }
-    return n.wert + sum(n.next);
+    return n.value + sum(n.next);
 }
 
 fn first(l: list<int?>): int {
@@ -26,7 +26,7 @@ fn first(l: list<int?>): int {
     return -1;
 }
 
-fn bis_null(l: list<int?>): int {
+fn to_null(l: list<int?>): int {
     var outcome: int = 0;
     for (x: int? in l) {
         if (x != null) {
@@ -49,6 +49,6 @@ fn with_block(a: int?): int {
 
 print(sum(new Node(1, new Node(2, null))));
 print(first([null, null, 4]));
-print(bis_null([1, 2, null, 5]));
+print(to_null([1, 2, null, 5]));
 print(with_block(null));
 print(with_block(41));

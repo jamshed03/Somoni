@@ -2,7 +2,7 @@
 Point { x: 4, y: 2 }
 right
 (a7)
-Secret { wert: 42 }
+Secret { value: 42 }
 true
 105
 Secret { text: "mine" }

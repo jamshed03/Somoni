@@ -1,20 +1,20 @@
 // import { a as b } gives an imported name another name in this file
-import { quadrat as q, Point as P, move, Direction as R } from "modules/math.smn";
+import { square as q, Point as P, move, Direction as R } from "modules/math.smn";
 import { Account as BankAccount } from "modules/account.smn";
 import { PI as CIRCLE_NUMBER } from "modules/constants.smn";
 
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return n + 1000;
 }
 
 print(q(4));
-print(quadrat(4));
+print(square(4));
 var p: P = P { x: 1, y: 2 };
 print(move(p, 10).x);
-var r: R = R.Links;
-print(r == R.Links);
+var r: R = R.Left;
+print(r == R.Left);
 var k: BankAccount = new BankAccount();
-print(k.stand);
+print(k.balance);
 print(CIRCLE_NUMBER);
 var f: fn(int): int = q;
 print(f(5));

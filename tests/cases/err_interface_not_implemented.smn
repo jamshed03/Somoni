@@ -1,4 +1,4 @@
-interface Form {
+interface Shape {
     area(): float;
 }
 class K {
@@ -6,4 +6,4 @@ class K {
         return 1.0;
     }
 }
-var f: Form = new K();
+var f: Shape = new K();

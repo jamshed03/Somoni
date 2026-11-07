@@ -1,7 +1,7 @@
 // readonly fields: set in the constructor of their class, read everywhere,
 // objects behind them stay changeable
 class Account {
-    stand: int = 0;
+    balance: int = 0;
 }
 
 class Register {
@@ -9,13 +9,13 @@ class Register {
     readonly max: int = 10;
     private readonly name: string = "Register";
     readonly account: Account;
-    readonly alle: list<Account>;
+    readonly all: list<Account>;
 
     constructor(p: list<int>) {
         this.prices = p;
         this.max = 20;
         this.account = new Account();
-        this.alle = [new Account()];
+        this.all = [new Account()];
         this.prices[0] = 5;
     }
 
@@ -28,7 +28,7 @@ class Register {
     }
 }
 
-class Laden extends Register {
+class Shop extends Register {
     constructor() {
         super([1, 1]);
     }
@@ -43,9 +43,9 @@ print(k.prices);
 print(k.max);
 print(k.sum());
 print(k.title());
-k.account.stand = 7;
-print(k.account.stand);
-k.alle[0].stand = 3;
-print(k.alle[0].stand);
-const l: Laden = new Laden();
+k.account.balance = 7;
+print(k.account.balance);
+k.all[0].balance = 3;
+print(k.all[0].balance);
+const l: Shop = new Shop();
 print(l.doubled());

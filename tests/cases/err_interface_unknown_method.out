@@ -1,3 +1,3 @@
-Type error [T056]: Line 13: 'Form' has no method 'extra'
+Type error [T056]: Line 13: 'Shape' has no method 'extra'
   13 | print(f.extra());
      |         ^^^^^

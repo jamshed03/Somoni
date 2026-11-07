@@ -1,13 +1,13 @@
-import { quadrat, Point, move, Direction, secret } from "modules/math.smn";
+import { square, Point, move, Direction, secret } from "modules/math.smn";
 import { brackets } from "modules/text/brackets.smn";
 
-print(quadrat(4));
+print(square(4));
 var p: Point = Point { x: 1, y: 2 };
 p = move(p, 3);
 print(p);
 match (Direction.Right) {
-    Direction.Links => {
-        print("links");
+    Direction.Left => {
+        print("left");
     }
     Direction.Right => {
         print("right");

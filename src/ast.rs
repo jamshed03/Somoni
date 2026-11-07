@@ -310,7 +310,7 @@ pub enum MethodTarget {
     Virtual { slot: usize },
     /// Method number `method` of interface number `interface`.
     Interface { interface: usize, method: usize },
-    /// Field number `position` with a function type, whose value is called: `k.aktion(x)`.
+    /// Field number `position` with a function type, whose value is called: `button.action(x)`.
     Field { position: usize },
     /// A built-in method of a string, list or map, called like a function with the value first: `s.upper()`.
     Builtin(Builtin),

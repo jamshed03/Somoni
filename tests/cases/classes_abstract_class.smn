@@ -1,5 +1,5 @@
 // an abstract class has no objects of its own, only its subclasses do
-abstract class Form {
+abstract class Shape {
     name: string;
 
     constructor(name: string) {
@@ -7,7 +7,7 @@ abstract class Form {
     }
 
     description(): string {
-        return "Form " + this.name;
+        return "Shape " + this.name;
     }
 
     static unit(): string {
@@ -15,15 +15,15 @@ abstract class Form {
     }
 }
 
-class Quadrat extends Form {
+class Square extends Shape {
     side: int;
 
     constructor(side: int) {
-        super("Quadrat");
+        super("Square");
         this.side = side;
     }
 }
 
-var f: Form = new Quadrat(3);
+var f: Shape = new Square(3);
 print(f.description());
-print(Form::unit());
+print(Shape::unit());

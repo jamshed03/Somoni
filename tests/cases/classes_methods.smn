@@ -1,6 +1,6 @@
 class Account {
     owner: string;
-    stand: int = 0;
+    balance: int = 0;
     bookings: list<int> = [];
 
     constructor(owner: string) {
@@ -8,20 +8,20 @@ class Account {
     }
 
     deposit(amount: int): void {
-        this.stand += amount;
+        this.balance += amount;
         this.bookings = this.bookings + [amount];
     }
 
     withdraw(amount: int): result<int, string> {
-        if (amount > this.stand) {
+        if (amount > this.balance) {
             return err("not enough money");
         }
         this.deposit(-amount);
-        return ok(this.stand);
+        return ok(this.balance);
     }
 
     description(): string {
-        return this.owner + ": " + string(this.stand);
+        return this.owner + ": " + string(this.balance);
     }
 }
 
@@ -35,7 +35,7 @@ print(k.bookings);
 // a method changes the object for every reference
 var equal: Account = k;
 equal.deposit(5);
-print(k.stand);
+print(k.balance);
 
 // method calls inside expressions and on new
 print(new Account("Sara").description());
@@ -43,15 +43,15 @@ print(len(k.description()) > 3);
 
 // the constructor may call methods once all fields are set; recursion
 class Counter {
-    stand: int;
+    balance: int;
 
     constructor(start: int) {
-        this.stand = start;
+        this.balance = start;
         this.further();
     }
 
     further(): void {
-        this.stand += 1;
+        this.balance += 1;
     }
 
     factorial(n: int): int {
@@ -62,7 +62,7 @@ class Counter {
     }
 }
 var z: Counter = new Counter(10);
-print(z.stand);
+print(z.balance);
 print(z.factorial(5));
 
 // objects in a list, changed in a loop
@@ -70,16 +70,16 @@ var accounts: list<Account> = [new Account("A"), new Account("B")];
 for (x: Account in accounts) {
     x.deposit(1);
 }
-print(accounts[1].stand);
+print(accounts[1].balance);
 for (var i: int = 0; i < 3; z.further()) {
     i += 1;
 }
-print(z.stand);
+print(z.balance);
 
 // new as a statement runs the constructor
-class Melder {
+class Notifier {
     constructor() {
         print("built");
     }
 }
-new Melder();
+new Notifier();

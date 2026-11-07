@@ -1,5 +1,5 @@
 // own functions are values of type fn(...): ..., they can be stored, passed on and called
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return n * n;
 }
 
@@ -11,14 +11,14 @@ fn apply(f: fn(int): int, n: int): int {
     return f(n);
 }
 
-fn choose(gross: bool): fn(int): int {
-    if (gross) {
-        return quadrat;
+fn choose(big: bool): fn(int): int {
+    if (big) {
+        return square;
     }
     return doubled;
 }
 
-fn alle(fs: list<fn(int): int>, n: int): list<int> {
+fn all(fs: list<fn(int): int>, n: int): list<int> {
     var outcomes: list<int> = [];
     for (f: fn(int): int in fs) {
         outcomes += [f(n)];
@@ -26,16 +26,16 @@ fn alle(fs: list<fn(int): int>, n: int): list<int> {
     return outcomes;
 }
 
-var f: fn(int): int = quadrat;
+var f: fn(int): int = square;
 print(f(3));
 f = doubled;
 print(f(3));
-print(apply(quadrat, 4));
+print(apply(square, 4));
 print(choose(true)(5));
 print(choose(false)(5));
-var fs: list<fn(int): int> = [quadrat, doubled];
+var fs: list<fn(int): int> = [square, doubled];
 print(fs[1](10));
-print(alle(fs, 7));
+print(all(fs, 7));
 var empty: fn(): void = fn_without;
 empty();
 
@@ -43,14 +43,14 @@ fn fn_without(): void {
     print("without Parameter");
 }
 
-fn melder(): fn(): void {
+fn notifier(): fn(): void {
     return fn_without;
 }
 
-melder()();
+notifier()();
 
 {
-    var quadrat: fn(int): int = doubled;
-    print(quadrat(6));
+    var square: fn(int): int = doubled;
+    print(square(6));
 }
-print(quadrat(6));
+print(square(6));

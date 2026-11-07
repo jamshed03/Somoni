@@ -27,7 +27,7 @@ fn check(n: int): result<bool, string> {
     return ok(true);
 }
 
-fn alle(numbers: list<int>): result<int, string> {
+fn all(numbers: list<int>): result<int, string> {
     for (n: int in numbers) {
         check(n)?;
     }
@@ -56,10 +56,10 @@ print(compute(100, 0, 2));
 print(compute(100, 5, 0));
 print(sum(["1", "2", "3"]));
 print(sum(["1", "x", "3"]));
-print(alle([1, 2, 3]));
-print(alle([1, -2, -3]));
+print(all([1, 2, 3]));
+print(all([1, -2, -3]));
 var r: Calculator = new Calculator(3);
 print(r.times("4"));
-print(r.times("vier"));
+print(r.times("four"));
 print(r.both("a", "2"));
 print(r.both("1", "2"));

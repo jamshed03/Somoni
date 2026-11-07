@@ -1,3 +1,3 @@
-Type error [T075]: Line 7: 'quadrat' is static, call it as 'Math::quadrat(...)'
-  7 | print(m.quadrat(2));
-    |         ^^^^^^^
+Type error [T075]: Line 7: 'square' is static, call it as 'Math::square(...)'
+  7 | print(m.square(2));
+    |         ^^^^^^

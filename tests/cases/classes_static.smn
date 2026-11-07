@@ -1,16 +1,16 @@
 // static methods with Class::name(), private and protected constructors
 class Counter {
-    wert: int;
+    value: int;
 
     private constructor(start: int) {
-        this.wert = start;
+        this.value = start;
     }
 
     static fresh(): Counter {
         return new Counter(0);
     }
 
-    static ab(start: int): Counter {
+    static starting_at(start: int): Counter {
         return Counter::verify(start);
     }
 
@@ -22,16 +22,16 @@ class Counter {
     }
 
     increase(): void {
-        this.wert += 1;
+        this.value += 1;
     }
 
     copy(): Counter {
-        return Counter::ab(this.wert);
+        return Counter::starting_at(this.value);
     }
 }
 
 class Math {
-    static quadrat(x: int): int {
+    static square(x: int): int {
         return x * x;
     }
 }
@@ -56,9 +56,9 @@ class Dog extends Animal {
 
 var z: Counter = Counter::fresh();
 z.increase();
-print(z.wert);
-print(Counter::ab(-5).wert);
-print(Counter::ab(7).copy().wert);
-print(Math::quadrat(4));
-Math::quadrat(2);
+print(z.value);
+print(Counter::starting_at(-5).value);
+print(Counter::starting_at(7).copy().value);
+print(Math::square(4));
+Math::square(2);
 print(Dog::puppy().name);

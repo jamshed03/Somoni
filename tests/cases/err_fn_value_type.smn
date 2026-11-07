@@ -1,4 +1,4 @@
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return n * n;
 }
-var f: fn(string): int = quadrat;
+var f: fn(string): int = square;

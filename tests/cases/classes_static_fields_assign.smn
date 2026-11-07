@@ -12,7 +12,7 @@ class Counter {
 }
 
 class Account {
-    stand: int = 0;
+    balance: int = 0;
 }
 
 class Bank {
@@ -35,5 +35,5 @@ var copy: list<string> = Counter::names;
 copy[0] = "k";
 print(Counter::names[0]);
 Bank::accounts += [new Account()];
-Bank::accounts[0].stand = 5;
-print(Bank::accounts[0].stand);
+Bank::accounts[0].balance = 5;
+print(Bank::accounts[0].balance);

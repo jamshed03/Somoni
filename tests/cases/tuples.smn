@@ -8,16 +8,16 @@ fn min_max(numbers: list<int>): (int, int)? {
         return null;
     }
     var small: int = numbers[0];
-    var gross: int = numbers[0];
+    var big: int = numbers[0];
     for (n: int in numbers) {
         if (n < small) {
             small = n;
         }
-        if (n > gross) {
-            gross = n;
+        if (n > big) {
+            big = n;
         }
     }
-    return (small, gross);
+    return (small, big);
 }
 
 struct Entry {
@@ -35,9 +35,9 @@ print(outcome.0);
 print(outcome.1);
 
 var pairs: list<(string, bool)> = [("a", true), ("b", false)];
-for (paar: (string, bool) in pairs) {
-    if (paar.1) {
-        print(paar.0);
+for (pair: (string, bool) in pairs) {
+    if (pair.1) {
+        print(pair.0);
     }
 }
 

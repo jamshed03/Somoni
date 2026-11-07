@@ -25,7 +25,7 @@ print("\{ curly \} and } alone");
 
 var maybe: int? = 7;
 if (maybe != null) {
-    print("Wert {maybe}");
+    print("Value {maybe}");
 }
 
 var lines = ["a", "b"];

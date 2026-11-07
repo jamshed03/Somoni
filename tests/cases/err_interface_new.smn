@@ -1,4 +1,4 @@
-interface Form {
+interface Shape {
     area(): float;
 }
-var f: Form = new Form();
+var f: Shape = new Shape();

@@ -1,5 +1,5 @@
 // instanceof asks at runtime whether an object belongs to a class or interface
-interface Form {
+interface Shape {
     area(): int;
 }
 
@@ -12,7 +12,7 @@ class Dog extends Animal {
 class Dachshund extends Dog {
 }
 
-class Cat extends Animal implements Form {
+class Cat extends Animal implements Shape {
     area(): int {
         return 1;
     }
@@ -25,11 +25,11 @@ for (t: Animal in animals) {
 var d: Dachshund = new Dachshund();
 print(d instanceof Animal);
 var k: Animal = new Cat();
-print(k instanceof Form);
+print(k instanceof Shape);
 var h: Animal = new Dog();
-print(h instanceof Form);
+print(h instanceof Shape);
 var empty: Animal? = null;
 print(empty instanceof Animal);
-var f: Form = new Cat();
+var f: Shape = new Cat();
 print(f instanceof Cat);
 print(h instanceof Dog && !(h instanceof Dachshund));

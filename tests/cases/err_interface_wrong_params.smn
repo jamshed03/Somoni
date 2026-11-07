@@ -1,7 +1,7 @@
-interface Form {
+interface Shape {
     area(): float;
 }
-class K implements Form {
+class K implements Shape {
     area(exactly: int): float {
         return 1.0;
     }

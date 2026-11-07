@@ -1,5 +1,5 @@
 // where instanceof is true, the variable has the narrower type
-interface Form {
+interface Shape {
     area(): int;
 }
 
@@ -17,7 +17,7 @@ class Dog extends Animal {
     }
 }
 
-class Cat extends Animal implements Form {
+class Cat extends Animal implements Shape {
     override sound(): string {
         return "Meow";
     }
@@ -31,7 +31,7 @@ fn describe(t: Animal?): string {
     if (t instanceof Dog) {
         return t.bark();
     }
-    if (t instanceof Form) {
+    if (t instanceof Shape) {
         return "Area " + string(t.area());
     }
     if (t != null) {
@@ -54,6 +54,6 @@ for (t: Animal in animals) {
 var h: Animal = new Dog();
 print(h instanceof Dog && h.bark() == "Woof woof");
 var k: Cat = new Cat();
-if (k instanceof Form) {
+if (k instanceof Shape) {
     print(k.sound());
 }

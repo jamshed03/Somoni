@@ -57,13 +57,13 @@ match (divide(4, 0)) {
 var empty: result<list<int>, string> = ok([]);
 print(empty);
 struct Answer {
-    wert: result<float, bool>
+    value: result<float, bool>
 }
-var a: Answer = Answer { wert: err(false) };
+var a: Answer = Answer { value: err(false) };
 print(a);
-var alle: list<result<int, string>> = [ok(1), err("two"), ok(3)];
+var all: list<result<int, string>> = [ok(1), err("two"), ok(3)];
 var sum: int = 0;
-for (x: result<int, string> in alle) {
+for (x: result<int, string> in all) {
     match (x) {
         ok(n: int) => {
             sum += n;

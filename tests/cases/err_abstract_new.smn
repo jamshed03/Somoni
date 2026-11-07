@@ -1,3 +1,3 @@
-abstract class Form {
+abstract class Shape {
 }
-var f: Form = new Form();
+var f: Shape = new Shape();

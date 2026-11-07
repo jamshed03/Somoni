@@ -24,7 +24,7 @@ pub enum Value {
     Bool(bool),
     Str(Rc<Text>),
     List(Rc<Vec<Value>>),
-    /// `(1, "eins")`; its elements never change.
+    /// `(1, "one")`; its elements never change.
     Tuple(Rc<Vec<Value>>),
     Struct(Rc<StructValue>),
     Map(Rc<MapValue>),

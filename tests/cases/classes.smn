@@ -1,20 +1,20 @@
 import { Account } from "modules/account.smn";
 
 class Counter {
-    stand: int = 0;
+    balance: int = 0;
     name: string = "counter";
     steps: list<int> = [];
 }
 
 var a: Counter = new Counter();
 print(a);
-a.stand += 1;
-print(a.stand);
+a.balance += 1;
+print(a.balance);
 
 // b is the same object, not a copy
 var b: Counter = a;
-b.stand = 10;
-print(a.stand);
+b.balance = 10;
+print(a.balance);
 print(a == b);
 print(a == new Counter());
 print(a != new Counter());
@@ -26,21 +26,21 @@ print(new Counter().steps);
 
 // a function can change the object of the caller
 fn increase(z: Counter): void {
-    z.stand += 5;
+    z.balance += 5;
 }
 increase(a);
-print(a.stand);
+print(a.balance);
 
 // const keeps the variable, not the fields
 const k: Counter = new Counter();
-k.stand = 3;
-print(k.stand);
+k.balance = 3;
+print(k.balance);
 
 // objects in lists are references too
 var entries: list<Counter> = [a, a];
-entries[0].stand = 99;
-print(a.stand);
-print(entries[1].stand);
+entries[0].balance = 99;
+print(a.balance);
+print(entries[1].balance);
 
 // a struct stays a copy, also inside an object
 struct Point {
@@ -52,18 +52,18 @@ q.x = 2;
 print(p.x);
 
 class Node {
-    wert: int = 1;
+    value: int = 1;
     next: Node? = null;
-    ort: Point = Point { x: 7 };
+    place: Point = Point { x: 7 };
 }
 var n: Node = new Node();
 n.next = new Node();
 print(n);
-n.ort.x = 8;
-print(n.ort.x);
+n.place.x = 8;
+print(n.place.x);
 const m: Node = n;
-m.ort.x = 9;
-print(n.ort);
+m.place.x = 9;
+print(n.place);
 
 // objects that know each other in a circle
 var one: Node = new Node();
@@ -72,17 +72,17 @@ print(one);
 
 // a class from another file
 var account: Account = new Account();
-account.stand -= 30;
-print(account.stand);
+account.balance -= 30;
+print(account.balance);
 
 // the same object twice on one path
 class Self {
     x: int = 0;
-    alle: list<Self> = [];
+    all: list<Self> = [];
 }
 var s: Self = new Self();
-s.alle = [s];
-s.alle[0].x = 5;
-s.alle[0].x += 1;
+s.all = [s];
+s.all[0].x = 5;
+s.all[0].x += 1;
 print(s.x);
 print(s);

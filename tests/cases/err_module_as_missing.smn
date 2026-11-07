@@ -1,1 +1,1 @@
-import { quadrat as } from "modules/math.smn";
+import { square as } from "modules/math.smn";

@@ -6,10 +6,10 @@ class Animal {
         return "...";
     }
 
-    private intern(): void {
+    private internal(): void {
     }
 }
 class Dog extends Animal {
-    intern(): void {
+    internal(): void {
     }
 }

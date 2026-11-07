@@ -1,6 +1,6 @@
 import { number } from "numbers.smn";
 
-export fn quadrat(x: int): int {
+export fn square(x: int): int {
     return times(x, x);
 }
 
@@ -19,15 +19,15 @@ export fn move(p: Point, dx: int): Point {
 }
 
 export enum Direction {
-    Links,
+    Left,
     Right
 }
 
 // an exported function may return a private struct
 struct Secret {
-    wert: int
+    value: int
 }
 
 export fn secret(): Secret {
-    return Secret { wert: number() * 6 };
+    return Secret { value: number() * 6 };
 }

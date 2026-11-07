@@ -4,12 +4,12 @@ struct User {
     age: int
 }
 
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return n * n;
 }
 
 var numbers: list<int> = [3, 1, 4, 1, 5];
-print(numbers.map(quadrat));
+print(numbers.map(square));
 print(numbers.map(fn(n: int): string => "#" + string(n)));
 print(numbers.filter(fn(n: int): bool => n > 2));
 print(numbers.reduce(0, fn(sum: int, n: int): int => sum + n));
@@ -19,7 +19,7 @@ print(numbers.all(fn(n: int): bool => n > 0));
 print(numbers.all(fn(n: int): bool => n > 1));
 
 var limit: int = 3;
-print(numbers.filter(fn(n: int): bool => n >= limit).map(quadrat));
+print(numbers.filter(fn(n: int): bool => n >= limit).map(square));
 
 var users: list<User> = [
     User { name: "Cem", age: 41 },
@@ -35,7 +35,7 @@ var table: list<list<int>> = [[1, 2], [3]];
 print(table.map(fn(line: list<int>): list<int> => line.map(fn(n: int): int => n * 10)));
 
 var empty: list<int> = [];
-print(empty.map(quadrat));
+print(empty.map(square));
 print(empty.any(fn(n: int): bool => true));
 print(empty.all(fn(n: int): bool => false));
 print(empty.reduce(7, fn(a: int, n: int): int => a + n));

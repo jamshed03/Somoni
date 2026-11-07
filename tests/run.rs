@@ -87,7 +87,7 @@ fn run_somoni(dir: &Path, file: &std::ffi::OsStr, input: &str) -> Output {
 
 /// Runs one program and returns what is wrong: other output or another exit code.
 /// `err_*` programs must end with exit code 1, all others with 0.
-/// It runs inside tests/cases, so error messages show short paths like `modules/mathe.smn`.
+/// It runs inside tests/cases, so error messages show short paths like `modules/math.smn`.
 fn check_program(program: &Path) -> Vec<String> {
     let Ok(expected) = fs::read_to_string(program.with_extension("out")) else {
         return vec!["missing .out file".to_string()];

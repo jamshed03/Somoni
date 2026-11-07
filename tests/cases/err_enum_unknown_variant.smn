@@ -3,4 +3,4 @@ enum Color {
     Green,
     Blue
 }
-var f: Color = Color.Lila;
+var f: Color = Color.Purple;

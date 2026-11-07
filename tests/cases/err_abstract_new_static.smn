@@ -1,5 +1,5 @@
-abstract class Form {
-    static create(): Form {
-        return new Form();
+abstract class Shape {
+    static create(): Shape {
+        return new Shape();
     }
 }

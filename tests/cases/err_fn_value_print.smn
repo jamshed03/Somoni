@@ -1,4 +1,4 @@
-fn quadrat(n: int): int {
+fn square(n: int): int {
     return n * n;
 }
-print(quadrat);
+print(square);

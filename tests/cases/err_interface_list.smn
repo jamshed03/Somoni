@@ -1,10 +1,10 @@
-interface Form {
+interface Shape {
     area(): float;
 }
-class K implements Form {
+class K implements Shape {
     area(): float {
         return 1.0;
     }
 }
 var ks: list<K> = [new K()];
-var fs: list<Form> = ks;
+var fs: list<Shape> = ks;
