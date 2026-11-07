@@ -859,7 +859,7 @@ impl ErrorCode {
                 format!("'{}' has no method '{}'", class, name)
             }
             ErrorCode::NoMethods { found } => format!(
-                "cannot call a method on {} (only objects, strings, lists and maps have methods)",
+                "cannot call a method on {} (only objects, strings, floats, lists and maps have methods)",
                 found
             ),
             ErrorCode::PrivateMember { class, name } => format!(

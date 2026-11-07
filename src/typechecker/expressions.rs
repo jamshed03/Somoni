@@ -629,7 +629,7 @@ impl TypeChecker {
             Type::Struct(_) if self.has_field(&target_type, &call.name) => {
                 self.check_field_call(&target_type, call, span)
             }
-            Type::Str | Type::List(_) | Type::Map(_, _) => {
+            Type::Str | Type::Float | Type::List(_) | Type::Map(_, _) => {
                 self.check_builtin_method(target_type, call, span)
             }
             _ => Err(SomoniError::at(

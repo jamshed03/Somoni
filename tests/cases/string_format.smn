@@ -1,0 +1,24 @@
+// Fixed places for floats, padding and repeating for strings.
+print((1.0 / 3.0).format(2));
+print((2.0).format(0));
+print((2.5).format(0));
+print((14.0).format(2));
+print((-0.25).format(1));
+const third: float = 1.0 / 3.0;
+print(third);
+
+print("[" + "ä".pad_left(3) + "]");
+print("[" + "ä".pad_right(3) + "]");
+print("[" + "abc".pad_right(2) + "]");
+print("[" + "abc".pad_left(-3) + "]");
+
+print("-".repeat(5));
+print("[" + "ab".repeat(0) + "]");
+print("ab".repeat(3));
+
+const names: list<string> = ["Apfel", "Kiwi", "Birne"];
+const prices: list<float> = [1.5, 0.333, 12.0];
+print("-".repeat(16));
+for (var i: int = 0; i < len(names); i++) {
+    print(names[i].pad_right(8) + prices[i].format(2).pad_left(8));
+}

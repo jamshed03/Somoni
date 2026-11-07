@@ -1,0 +1,1 @@
+print("-".repeat(-1));

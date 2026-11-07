@@ -8,7 +8,7 @@ use crate::types::Type;
 use crate::value::{Value, map_key};
 
 use convert::{conversion_result, float_to_int, parse_float, parse_int};
-use strings::{index_of, join, replace, slice_text, split};
+use strings::{Side, format_float, index_of, join, pad, repeat, replace, slice_text, split};
 
 mod collections;
 mod convert;
@@ -59,6 +59,10 @@ pub enum Builtin {
     All,
     SortBy,
     Get,
+    Format,
+    PadLeft,
+    PadRight,
+    Repeat,
 }
 
 /// Every built-in function and method, so that a name only has to be written in `name`.
@@ -104,6 +108,10 @@ const ALL: &[Builtin] = &[
     Builtin::All,
     Builtin::SortBy,
     Builtin::Get,
+    Builtin::Format,
+    Builtin::PadLeft,
+    Builtin::PadRight,
+    Builtin::Repeat,
 ];
 
 impl Builtin {
@@ -146,7 +154,11 @@ impl Builtin {
             | Builtin::Any
             | Builtin::All
             | Builtin::SortBy
-            | Builtin::Get => true,
+            | Builtin::Get
+            | Builtin::Format
+            | Builtin::PadLeft
+            | Builtin::PadRight
+            | Builtin::Repeat => true,
             Builtin::Print
             | Builtin::Int
             | Builtin::Float
@@ -236,6 +248,10 @@ impl Builtin {
             Builtin::All => "all",
             Builtin::SortBy => "sort_by",
             Builtin::Get => "get",
+            Builtin::Format => "format",
+            Builtin::PadLeft => "pad_left",
+            Builtin::PadRight => "pad_right",
+            Builtin::Repeat => "repeat",
         }
     }
 
@@ -278,7 +294,11 @@ impl Builtin {
             | Builtin::Filter
             | Builtin::Any
             | Builtin::All
-            | Builtin::SortBy => 2,
+            | Builtin::SortBy
+            | Builtin::Format
+            | Builtin::PadLeft
+            | Builtin::PadRight
+            | Builtin::Repeat => 2,
             Builtin::Replace | Builtin::Slice | Builtin::Reduce | Builtin::Get => 3,
         }
     }
@@ -310,6 +330,9 @@ impl Builtin {
             (Builtin::IndexOf, [Type::Str, Type::Str]) => Ok(Type::Optional(Box::new(Type::Int))),
             (Builtin::Replace, [Type::Str, Type::Str, Type::Str]) => Ok(Type::Str),
             (Builtin::Slice, [Type::Str, Type::Int, Type::Int]) => Ok(Type::Str),
+            (Builtin::PadLeft | Builtin::PadRight | Builtin::Repeat, [Type::Str, Type::Int]) => {
+                Ok(Type::Str)
+            }
             (Builtin::Replace | Builtin::Slice, [Type::Str, Type::Str | Type::Int, _]) => Err(2),
             (
                 Builtin::Split
@@ -318,9 +341,14 @@ impl Builtin {
                 | Builtin::EndsWith
                 | Builtin::IndexOf
                 | Builtin::Replace
-                | Builtin::Slice,
+                | Builtin::Slice
+                | Builtin::PadLeft
+                | Builtin::PadRight
+                | Builtin::Repeat,
                 [Type::Str, ..],
             ) => Err(1),
+            (Builtin::Format, [Type::Float, Type::Int]) => Ok(Type::Str),
+            (Builtin::Format, [Type::Float, _]) => Err(1),
             (Builtin::Join, [Type::List(element), _]) if **element == Type::Str => Err(1),
             (Builtin::Abs, [number @ (Type::Int | Type::Float)]) => Ok(number.clone()),
             (Builtin::Min | Builtin::Max | Builtin::Pow, [Type::Int, Type::Int]) => Ok(Type::Int),
@@ -441,6 +469,14 @@ impl Builtin {
             (Builtin::IndexOf, [Value::Str(s), Value::Str(part)]) => {
                 Ok(index_of(s.as_str(), part.as_str()))
             }
+            (Builtin::Format, [Value::Float(f), Value::Int(places)]) => format_float(*f, *places),
+            (Builtin::PadLeft, [Value::Str(s), Value::Int(width)]) => {
+                Ok(pad(s, *width, Side::Left))
+            }
+            (Builtin::PadRight, [Value::Str(s), Value::Int(width)]) => {
+                Ok(pad(s, *width, Side::Right))
+            }
+            (Builtin::Repeat, [Value::Str(s), Value::Int(times)]) => repeat(s.as_str(), *times),
             (Builtin::Abs, [Value::Int(n)]) => math::abs_int(*n),
             (Builtin::Abs, [Value::Float(f)]) => Ok(Value::Float(f.abs())),
             (Builtin::Min, [Value::Int(a), Value::Int(b)]) => Ok(Value::Int(*a.min(b))),

@@ -2,11 +2,12 @@
 
 use std::rc::Rc;
 
-use crate::error::SomoniError;
+use crate::error::{ErrorCode, SomoniError};
 use crate::text::Text;
 use crate::value::Value;
 
-use super::{slice_range, string_value};
+use super::math::no_result;
+use super::{Builtin, slice_range, string_value};
 
 /// Splits `s` at every `sep`, or into its characters if `sep` is empty.
 pub(super) fn split(s: &str, sep: &str) -> Value {
@@ -56,4 +57,40 @@ pub(super) fn index_of(s: &str, part: &str) -> Value {
         Some(byte) => Value::Int(s[..byte].chars().count() as i64),
         None => Value::Null,
     }
+}
+
+/// The side on which `pad_left` and `pad_right` add their spaces.
+pub(super) enum Side {
+    Left,
+    Right,
+}
+
+/// Returns `f` with exactly `places` digits after the point, or R010 for a negative `places`.
+pub(super) fn format_float(f: f64, places: i64) -> Result<Value, SomoniError> {
+    let places = usize::try_from(places).map_err(|_| no_result(Builtin::Format))?;
+    Ok(string_value(format!("{:.*}", places, f)))
+}
+
+/// Fills `s` with spaces on `side` up to `width` characters; a shorter `width` leaves `s` as it is.
+pub(super) fn pad(s: &Rc<Text>, width: i64, side: Side) -> Value {
+    let missing = usize::try_from(width)
+        .unwrap_or(0)
+        .saturating_sub(s.char_count());
+    if missing == 0 {
+        return Value::Str(Rc::clone(s));
+    }
+    let spaces = " ".repeat(missing);
+    match side {
+        Side::Left => string_value(spaces + s.as_str()),
+        Side::Right => string_value(s.as_str().to_string() + &spaces),
+    }
+}
+
+/// Returns `s` `times` times in a row, or R010 for a negative `times` and R002 if the result is too long.
+pub(super) fn repeat(s: &str, times: i64) -> Result<Value, SomoniError> {
+    let times = usize::try_from(times).map_err(|_| no_result(Builtin::Repeat))?;
+    if s.len().checked_mul(times).is_none() {
+        return Err(ErrorCode::IntegerOverflow.into());
+    }
+    Ok(string_value(s.repeat(times)))
 }

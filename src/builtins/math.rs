@@ -43,8 +43,8 @@ pub(super) fn to_int(f: f64, round: fn(f64) -> f64) -> Result<Value, SomoniError
     float_to_int(round(f))
 }
 
-/// The error R010 for a math function that has no result for its arguments.
-fn no_result(builtin: Builtin) -> SomoniError {
+/// The error R010 for a built-in function that has no result for its arguments.
+pub(super) fn no_result(builtin: Builtin) -> SomoniError {
     ErrorCode::NoMathResult {
         function: builtin.name(),
     }
