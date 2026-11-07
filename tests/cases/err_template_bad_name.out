@@ -1,0 +1,3 @@
+Lex error [L014]: modules/bad-name.template.smn: Line 1: the template 'modules/bad-name.template.smn' with @props needs a file name that is a valid name, like card.template.smn
+  1 | @props(title: string)
+    | ^^^^^^

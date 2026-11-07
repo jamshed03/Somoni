@@ -1,0 +1,5 @@
+// A page of a site, used by modules/card.template.smn and template_props.smn
+export struct Page {
+    title: string,
+    url: string
+}

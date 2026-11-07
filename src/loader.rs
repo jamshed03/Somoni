@@ -67,7 +67,7 @@ impl Loader {
         let file = &self.files[number];
         let mut lexer = Lexer::new(&file.source, number);
         let tokens = if is_template(&file.name) {
-            lexer.tokenize_template()?
+            lexer.tokenize_template(&file.name)?
         } else {
             lexer.tokenize()?
         };

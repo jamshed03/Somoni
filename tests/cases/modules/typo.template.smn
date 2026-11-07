@@ -1,0 +1,3 @@
+@import { Page } from "pages.smn"
+@props(page: Page)
+<h1>{{ page.titel }}</h1>

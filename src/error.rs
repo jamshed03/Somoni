@@ -55,6 +55,13 @@ pub enum ErrorCode {
     },
     DirectiveCondition {
         directive: &'static str,
+        example: &'static str,
+    },
+    TemplateHeaderLate {
+        directive: &'static str,
+    },
+    TemplateName {
+        file: String,
     },
     DirectiveWrongEnd {
         found: &'static str,
@@ -495,6 +502,8 @@ impl ErrorCode {
             ErrorCode::DirectiveNotClosed { .. } => "L011",
             ErrorCode::DirectiveCondition { .. } => "L012",
             ErrorCode::DirectiveWrongEnd { .. } => "L013",
+            ErrorCode::TemplateName { .. } => "L014",
+            ErrorCode::TemplateHeaderLate { .. } => "L015",
 
             ErrorCode::Expected { .. } => "P001",
             ErrorCode::UnexpectedToken { .. } => "P002",
@@ -717,9 +726,17 @@ impl ErrorCode {
                 "'{}' cannot stand here: '{}' from line {} is still open and needs '{}' first",
                 found, open, line, close
             ),
-            ErrorCode::DirectiveCondition { directive } => format!(
-                "'{}' needs its condition in '( )', like {} (x > 0)",
-                directive, directive
+            ErrorCode::DirectiveCondition { directive, example } => format!(
+                "'{}' needs '( ... )' after it, like {} {}",
+                directive, directive, example
+            ),
+            ErrorCode::TemplateHeaderLate { directive } => format!(
+                "'{}' must stand at the top of the template, before any text, value or other directive",
+                directive
+            ),
+            ErrorCode::TemplateName { file } => format!(
+                "the template '{}' with @props needs a file name that is a valid name, like card.template.smn",
+                file
             ),
             ErrorCode::InterpolationNotClosed => {
                 "a '{' in this string is not closed with '}' (a '{' itself is written '\\{')".to_string()

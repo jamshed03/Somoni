@@ -1,0 +1,2 @@
+@props(title: string)
+<h1>{{ title }}</h1>

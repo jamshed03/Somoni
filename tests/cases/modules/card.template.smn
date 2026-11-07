@@ -1,0 +1,10 @@
+{{-- A template with data: one link to a page, the active one in bold --}}
+@import { Page } from "pages.smn"
+@props(page: Page, active: bool)
+<li>
+    @if (active)
+    <b>{{ page.title }}</b>
+    @else
+    <a href="{{ page.url }}">{{ page.title }}</a>
+    @endif
+</li>

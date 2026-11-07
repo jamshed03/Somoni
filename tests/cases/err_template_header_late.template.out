@@ -1,0 +1,3 @@
+Lex error [L015]: Line 2: '@props' must stand at the top of the template, before any text, value or other directive
+  2 | @props(a: int)
+    | ^^^^^^

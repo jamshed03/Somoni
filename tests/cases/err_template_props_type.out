@@ -1,0 +1,3 @@
+Type error [T027]: modules/typo.template.smn: Line 3: 'Page' has no field 'titel'
+  3 | <h1>{{ page.titel }}</h1>
+    |             ^^^^^
