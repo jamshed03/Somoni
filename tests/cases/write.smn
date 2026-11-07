@@ -1,0 +1,17 @@
+// write(...) writes like print, but without a line break at the end
+write("<ul>");
+for (name: string in ["Ali", "Bea"]) {
+    write("<li>" + name + "</li>");
+}
+print("</ul>");
+write(42);
+write(" ");
+write(2.5);
+write(" ");
+write([1, 2]);
+print("");
+write("Name? ");
+if (var name = input()) {
+    print("Hallo " + name);
+}
+write("ohne Zeilenumbruch am Ende");

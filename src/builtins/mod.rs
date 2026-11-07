@@ -20,6 +20,7 @@ mod strings;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Builtin {
     Print,
+    Write,
     Input,
     Int,
     Float,
@@ -72,6 +73,7 @@ pub enum Builtin {
 /// Every built-in function and method, so that a name only has to be written in `name`.
 const ALL: &[Builtin] = &[
     Builtin::Print,
+    Builtin::Write,
     Builtin::Input,
     Builtin::Int,
     Builtin::Float,
@@ -169,6 +171,7 @@ impl Builtin {
             | Builtin::PadRight
             | Builtin::Repeat => true,
             Builtin::Print
+            | Builtin::Write
             | Builtin::Input
             | Builtin::Int
             | Builtin::Float
@@ -237,6 +240,7 @@ impl Builtin {
     pub fn name(self) -> &'static str {
         match self {
             Builtin::Print => "print",
+            Builtin::Write => "write",
             Builtin::Input => "input",
             Builtin::Int => "int",
             Builtin::Float => "float",
@@ -292,6 +296,7 @@ impl Builtin {
         match self {
             Builtin::Input => 0,
             Builtin::Print
+            | Builtin::Write
             | Builtin::Int
             | Builtin::Float
             | Builtin::Str
@@ -341,8 +346,8 @@ impl Builtin {
     /// Returns the result type for these argument types, or `Err(i)` if argument `i` is not allowed.
     pub fn result_type(self, args: &[Type]) -> Result<Type, usize> {
         match (self, args) {
-            (Builtin::Print, [Type::Void | Type::Function(_)]) => Err(0),
-            (Builtin::Print, [_]) => Ok(Type::Void),
+            (Builtin::Print | Builtin::Write, [Type::Void | Type::Function(_)]) => Err(0),
+            (Builtin::Print | Builtin::Write, [_]) => Ok(Type::Void),
             (Builtin::Input, []) => Ok(Type::Optional(Box::new(Type::Str))),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
             (Builtin::Int, [Type::Str]) => Ok(conversion_result(Type::Int)),
@@ -470,6 +475,7 @@ impl Builtin {
                 println!("{}", arg);
                 Ok(Value::Void)
             }
+            (Builtin::Write, [arg]) => io::write_text(arg),
             (Builtin::Input, []) => io::read_line(),
             (Builtin::Int, [Value::Float(f)]) => float_to_int(*f),
             (Builtin::Int, [Value::Str(s)]) => Ok(parse_int(s.as_str())),

@@ -439,6 +439,9 @@ pub enum ErrorCode {
     InputFailed {
         reason: String,
     },
+    OutputFailed {
+        reason: String,
+    },
     KeyNotFound {
         key: String,
     },
@@ -605,6 +608,7 @@ impl ErrorCode {
             ErrorCode::SliceOutOfRange { .. } => "R009",
             ErrorCode::NoMathResult { .. } => "R010",
             ErrorCode::InputFailed { .. } => "R011",
+            ErrorCode::OutputFailed { .. } => "R012",
         }
     }
 
@@ -1073,6 +1077,7 @@ impl ErrorCode {
                 start, end, length
             ),
             ErrorCode::InputFailed { reason } => format!("cannot read the input: {}", reason),
+            ErrorCode::OutputFailed { reason } => format!("cannot write the output: {}", reason),
             ErrorCode::NoMathResult { function } => format!(
                 "'{}' has no result for these arguments, like sqrt(-1.0) or pow(2, -1)",
                 function
