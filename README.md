@@ -30,6 +30,8 @@ Every test is a Somoni program with its expected output in `tests/cases/`:
 Programs that should fail start with `err_` and must exit with code 1, all others with 0.
 
 -   New features need new tests (one that works, one `err_` case per new error).
+-   A new error code needs an explanation in `src/explain/` (`somoni --explain CODE`); `cargo test` runs its
+    examples: a `Wrong:` example must give the code, a `Right:` example must run without errors.
 -   If a change modifies an output on purpose, update the affected `.out` files and check them by hand.
 
 ## How it works
