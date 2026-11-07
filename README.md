@@ -17,7 +17,7 @@ print(x % 3);
 
     cargo run -- examples/hello.smn              # run it
     cargo run -- --bytecode examples/hello.smn   # show the bytecode instead of running it
-    cd examples/projects/docs_site && cargo run -- main.smn > index.html   # build the documentation page with templates
+    cargo run -- examples/projects/docs_site/main.smn   # build the documentation site into examples/projects/docs_site/site/
 
 ## Tests
 

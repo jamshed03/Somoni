@@ -1,6 +1,38 @@
-// Builds the documentation page of Somoni with Somoni: somoni main.smn > index.html
+// Builds the documentation site of Somoni with Somoni: one HTML file per section in site/, and site/index.html.
 
-import { sections } from "lib/content.smn";
+import { Section, load_section } from "lib/content.smn";
 import { layout } from "lib/layout.template.smn";
+import { overview } from "lib/overview.template.smn";
+import { section as show_section } from "lib/section.template.smn";
 
-layout("0.8.0", sections());
+const VERSION = "0.8.0";
+
+// Writes one page with the layout around `body`, and tells what was written.
+fn write_page(name: string, title: string, sections: list<Section>, body: string): void {
+    var html = capture(fn() => layout(VERSION, title, sections, body));
+    match (write_file("site/{name}", html)) {
+        ok(characters: int) => {
+            print("wrote site/{name} ({characters} characters)");
+        }
+        err(reason: string) => {
+            print(reason);
+        }
+    }
+}
+
+var sections: list<Section> = [];
+for (id: string in ["start", "types", "functions", "classes", "modules", "templates"]) {
+    match (load_section(id)) {
+        ok(section: Section) => {
+            sections += [section];
+        }
+        err(reason: string) => {
+            print(reason);
+        }
+    }
+}
+
+write_page("index.html", "Contents", sections, capture(fn() => overview(sections)));
+for (section: Section in sections) {
+    write_page("{section.id}.html", section.title, sections, capture(fn() => show_section(section)));
+}

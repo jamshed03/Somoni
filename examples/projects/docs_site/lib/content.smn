@@ -1,4 +1,4 @@
-// The texts of the documentation site: one section per topic, each with an example in Somoni.
+// The sections of the documentation site, read from the text files in content/.
 
 export struct Section {
     id: string,
@@ -8,124 +8,50 @@ export struct Section {
     notes: list<string>
 }
 
-// Returns all sections in the order of the page.
-export fn sections(): list<Section> {
-    return [
-        Section {
-            id: "start",
-            title: "What is Somoni?",
-            intro: "Somoni is a strongly typed language with curly braces. A type checker finds errors before the program runs, a VM runs the bytecode.",
-            example: """
-                print("Hello Somoni");
+// Returns the text after `prefix` if `line` starts with it.
+fn after(line: string, prefix: string): string? {
+    if (line.starts_with(prefix)) {
+        return line.slice(len(prefix), len(line));
+    }
+    return null;
+}
 
-                var name = "Ali";
-                print("Hello {name}!");
-                """,
-            notes: [
-                "Run a program: somoni file.smn",
-                "Named after Ismoil Somoni",
-                "Interpreter written in Rust: lexer, parser, type checker, compiler, VM"
-            ]
-        },
-        Section {
-            id: "typen",
-            title: "Variables and types",
-            intro: "Every variable has a fixed type. It may be left out, then it is the type of the value.",
-            example: """
-                var count = 0;              // int
-                const pi: float = 3.14;
-                var names = ["Ali", "Bea"];    // list<string>
-                var ages = {"Ali": 30};       // map<string, int>
-                var found: int? = null;       // int or null
-
-                if (found != null) {
-                    print(found + 1);
-                }
-                """,
-            notes: [
-                "int, float, bool, string, list, map, tuple, struct, enum, result",
-                """No silent conversion: "5" + 1 is an error""",
-                "A value with ? must be checked for null before it is used"
-            ]
-        },
-        Section {
-            id: "funktionen",
-            title: "Functions and lambdas",
-            intro: "Functions have types for their parameters and their result. Lambdas may leave them out where they are known.",
-            example: """
-                fn square(x: int): int {
-                    return x * x;
-                }
-
-                var users = [User { name: "Ali", age: 30 }];
-                print(users.map(fn(u) => u.name));
-                print(users.filter(fn(u) => u.age > 18));
-                """,
-            notes: [
-                "map, filter, reduce, any, all and sort_by give the lambda its types",
-                "Lambdas copy the outside variables they use"
-            ]
-        },
-        Section {
-            id: "klassen",
-            title: "Classes and interfaces",
-            intro: "Classes with a constructor, visibility, inheritance and interfaces.",
-            example: """
-                interface Shape {
-                    area(): float;
-                }
-
-                class Circle implements Shape {
-                    private r: float;
-
-                    constructor(r: float) {
-                        this.r = r;
-                    }
-
-                    area(): float {
-                        return 3.14 * this.r * this.r;
-                    }
-                }
-                """,
-            notes: [
-                "public, private, protected, readonly, static, abstract",
-                "extends and super, override is checked",
-                "instanceof narrows the type"
-            ]
-        },
-        Section {
-            id: "module",
-            title: "Module",
-            intro: "A file marks what it shares with export. Other files get it with import.",
-            example: """
-                import { square } from "math.smn";
-                import * as text from "text.smn";
-
-                print(square(4));
-                """,
-            notes: [
-                "export before fn, struct, enum, class, interface or const",
-                "Every file is read once, import cycles are reported"
-            ]
-        },
-        Section {
-            id: "templates",
-            title: "Templates",
-            intro: "Files name.template.smn are HTML with values and directives. This page is built that way.",
-            example: """
-                @props(title: string, pages: list<Page>)
-                <h1>{{ title }}</h1>
-                <ul>
-                @foreach (page: Page in pages)
-                    <li>{{ page.title }}</li>
-                @endforeach
-                </ul>
-                """,
-            notes: [
-                """{{ }} always escapes, {!! !!} writes raw HTML""",
-                "@if, @elseif, @else, @foreach, @include",
-                "A typo in a template is an error before the program runs, with file and line"
-            ]
+// Reads a section from its text: lines "title: ", "intro: " and "note: ", then "---" and the example.
+export fn parse_section(id: string, text: string): result<Section, string> {
+    var title = "";
+    var intro = "";
+    var notes: list<string> = [];
+    var example: list<string> = [];
+    var in_example = false;
+    for (line: string in text.split("\n")) {
+        if (in_example) {
+            example += [line];
+        } else if (line == "---") {
+            in_example = true;
+        } else if (var value = after(line, "title: ")) {
+            title = value;
+        } else if (var value = after(line, "intro: ")) {
+            intro = value;
+        } else if (var value = after(line, "note: ")) {
+            notes += [value];
+        } else if (line.trim() != "") {
+            return err("{id}: unknown line '{line}'");
         }
-    ];
+    }
+    if (title == "") {
+        return err("{id}: the line 'title: ' is missing");
+    }
+    return ok(Section {
+        id: id,
+        title: title,
+        intro: intro,
+        example: example.join("\n").trim(),
+        notes: notes
+    });
+}
+
+// Reads the section `id` from content/`id`.txt.
+export fn load_section(id: string): result<Section, string> {
+    var text = read_file("../content/{id}.txt")?;
+    return parse_section(id, text);
 }

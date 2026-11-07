@@ -1,0 +1,9 @@
+title: Modules
+intro: A file marks what it shares with export. Other files get it with import.
+note: export before fn, struct, enum, class, interface or const
+note: Every file is read once, import cycles are reported
+---
+import { square } from "math.smn";
+import * as text from "text.smn";
+
+print(square(4));

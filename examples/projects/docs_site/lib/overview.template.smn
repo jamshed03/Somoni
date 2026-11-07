@@ -1,0 +1,9 @@
+{{-- The start page: every section with its title and its first sentence --}}
+@import { Section } from "content.smn"
+@props(sections: list<Section>)
+<h2>Contents</h2>
+<ul>
+    @foreach (section: Section in sections)
+    <li><a href="{{ section.id }}.html">{{ section.title }}</a>: {{ section.intro }}</li>
+    @endforeach
+</ul>

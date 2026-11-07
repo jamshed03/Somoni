@@ -1,1 +1,6 @@
 /target
+docs
+.claude
+CLAUDE.md
+.DS_Store
+/bench

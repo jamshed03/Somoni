@@ -1,13 +1,12 @@
-{{-- The whole page: head with styles, a menu of all sections, then every section --}}
+{{-- One page of the site: head with styles, a menu of all sections, then the body of the page --}}
 @import { Section } from "content.smn"
-@import { section as show_section } from "section.template.smn"
-@props(version: string, sections: list<Section>)
+@props(version: string, title: string, sections: list<Section>, body: string)
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Somoni {{ version }}</title>
+    <title>{{ title }} - Somoni {{ version }}</title>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
         nav a { margin-right: 1rem; }
@@ -21,18 +20,16 @@
 </head>
 <body>
     <header>
-        <h1>Somoni</h1>
+        <h1><a href="index.html">Somoni</a></h1>
         <p>Version {{ version }}, built with Somoni itself</p>
         <nav>
             @foreach (section: Section in sections)
-            <a href="#{{ section.id }}">{{ section.title }}</a>
+            <a href="{{ section.id }}.html">{{ section.title }}</a>
             @endforeach
         </nav>
     </header>
     <main>
-        @foreach (section: Section in sections)
-        @include(show_section(section))
-        @endforeach
+{!! body !!}
     </main>
 </body>
 </html>
