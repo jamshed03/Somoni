@@ -120,7 +120,7 @@ export class OperationFactory {
                 return ok(new Power());
             }
             _ => {
-                return err("unbekannter Operator '" + sign + "'");
+                return err("unbekannter Operator '{sign}'");
             }
         }
     }

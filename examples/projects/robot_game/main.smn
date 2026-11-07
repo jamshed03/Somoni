@@ -26,7 +26,7 @@ fn direction_of(sign: string): result<Direction, string> {
             return ok(Direction.Right);
         }
         _ => {
-            return err("unbekannter Befehl '" + sign + "'");
+            return err("unbekannter Befehl '{sign}'");
         }
     }
 }
@@ -104,7 +104,7 @@ class Game {
         this.robot.energy--;
         var tile: Tile? = this.map.tile_at(this.robot.x + dx, this.robot.y + dy);
         if (tile == null || !tile.can_enter()) {
-            print("Rums, Wand bei " + string(this.robot.x + dx) + "," + string(this.robot.y + dy));
+            print("Rums, Wand bei {this.robot.x + dx},{this.robot.y + dy}");
             return;
         }
         this.robot.x += dx;
@@ -138,7 +138,7 @@ class Game {
         } else if (this.robot.energy > 0) {
             state = "unterwegs";
         }
-        return "Schmutz: " + string(this.robot.collected) + ", Energie: " + string(this.robot.energy) + ", " + state;
+        return "Schmutz: {this.robot.collected}, Energie: {this.robot.energy}, {state}";
     }
 }
 
@@ -167,7 +167,7 @@ match (level.Level::parse(lines)) {
         print(game.report());
     }
     err(message: string) => {
-        print("Karte kaputt: " + message);
+        print("Karte kaputt: {message}");
     }
 }
 
@@ -175,6 +175,6 @@ match (level.Level::parse(["#?#"])) {
     ok(_) => {
     }
     err(message: string) => {
-        print("Karte kaputt: " + message);
+        print("Karte kaputt: {message}");
     }
 }

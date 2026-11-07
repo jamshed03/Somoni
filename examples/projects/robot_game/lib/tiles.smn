@@ -120,7 +120,7 @@ export class TileFactory {
                 return ok(new Exit());
             }
             _ => {
-                return err("unbekanntes Feld '" + sign + "'");
+                return err("unbekanntes Feld '{sign}'");
             }
         }
     }

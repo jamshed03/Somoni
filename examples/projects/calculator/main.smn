@@ -13,7 +13,7 @@ class Calculator {
         var tokens: list<string> = tokenize(text)?;
         var tree: Node = new Parser(tokens).parse()?;
         var value: float = tree.evaluate()?;
-        this.history += [tree.show() + " = " + string(value)];
+        this.history += ["{tree.show()} = {value}"];
         return ok(value);
     }
 
@@ -40,15 +40,15 @@ var inputs: list<string> = [
 for (input: string in inputs) {
     match (calculator.calculate(input)) {
         ok(value: float) => {
-            print(input + " = " + value.format(2));
+            print("{input} = {value.format(2)}");
         }
         err(message: string) => {
-            print(input + " -> Fehler: " + message);
+            print("{input} -> Fehler: {message}");
         }
     }
 }
 
 print("Verlauf:");
 for (entry: string in calculator.entries()) {
-    print("  " + entry);
+    print("  {entry}");
 }
