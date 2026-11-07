@@ -40,7 +40,7 @@ var inputs: list<string> = [
 for (input: string in inputs) {
     match (calculator.calculate(input)) {
         ok(value: float) => {
-            print(input + " = " + string(value));
+            print(input + " = " + value.format(2));
         }
         err(message: string) => {
             print(input + " -> Fehler: " + message);
