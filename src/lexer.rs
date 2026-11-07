@@ -85,6 +85,22 @@ pub struct Lexer {
     pos: usize,
     line: usize,
     line_start: usize,
+    /// The strings whose `{...}` is being read, the innermost last.
+    open_strings: Vec<OpenString>,
+}
+
+/// A string inside whose `{...}` the lexer is, like `"Hallo {name` before the `}`.
+struct OpenString {
+    /// The place of the opening `"`, for L003 if the string is never closed.
+    start: Span,
+    /// How many `{` inside the expression are still open, like the `{` of a map.
+    braces: usize,
+}
+
+/// How the text of a string ended: with its closing `"` or with a `{` before an expression.
+enum TextEnd {
+    Quote,
+    Brace,
 }
 
 impl Lexer {
@@ -96,6 +112,7 @@ impl Lexer {
             pos: 0,
             line: 1,
             line_start: 0,
+            open_strings: Vec::new(),
         }
     }
 
@@ -110,6 +127,9 @@ impl Lexer {
             let token = self.read_token(c)?;
             let span = self.span_from(line, col);
             tokens.push(SpannedToken { token, span });
+        }
+        if let Some(open) = self.open_strings.first() {
+            return Err(self.unterminated(open.start));
         }
         let span = self.span_from(self.line, self.col());
         tokens.push(SpannedToken {
@@ -142,6 +162,14 @@ impl Lexer {
         if c == '"' {
             return self.read_string();
         }
+        if let Some(open) = self.open_strings.last_mut() {
+            match (c, open.braces) {
+                ('}', 0) => return self.continue_string(),
+                ('}', _) => open.braces -= 1,
+                ('{', _) => open.braces += 1,
+                _ => {}
+            }
+        }
         self.read_symbol(c)
     }
 
@@ -166,15 +194,47 @@ impl Lexer {
         keyword(&word).unwrap_or(Token::Ident(word))
     }
 
-    /// Reads a string `"..."`, which may go over several lines and hold escapes like `\n`.
+    /// Reads a string `"..."`, or its start up to the first `{` of `"Hallo {name}"`.
     fn read_string(&mut self) -> Result<Token, SomoniError> {
         let start = Span::in_line(self.file, self.line, self.col(), 1);
         self.advance();
+        match self.read_text(start)? {
+            (text, TextEnd::Quote) => Ok(Token::Str(text)),
+            (text, TextEnd::Brace) => {
+                self.open_strings.push(OpenString { start, braces: 0 });
+                Ok(Token::StrStart(text))
+            }
+        }
+    }
+
+    /// Reads the rest of a string after the `}` that ends one of its `{...}`.
+    fn continue_string(&mut self) -> Result<Token, SomoniError> {
+        let start = self
+            .open_strings
+            .last()
+            .map(|open| open.start)
+            .ok_or_else(|| SomoniError::internal("'}' of a string without the string"))?;
+        self.advance();
+        match self.read_text(start)? {
+            (text, TextEnd::Quote) => {
+                self.open_strings.pop();
+                Ok(Token::StrEnd(text))
+            }
+            (text, TextEnd::Brace) => Ok(Token::StrMiddle(text)),
+        }
+    }
+
+    /// Reads text of a string up to its closing `"` or up to a `{`, which may go over several lines and hold escapes like `\n`.
+    fn read_text(&mut self, start: Span) -> Result<(String, TextEnd), SomoniError> {
         let mut text = String::new();
         while let Some(c) = self.peek() {
             if c == '"' {
                 self.advance();
-                return Ok(Token::Str(text));
+                return Ok((text, TextEnd::Quote));
+            }
+            if c == '{' {
+                self.advance();
+                return Ok((text, TextEnd::Brace));
             }
             if c == '\\' {
                 text.push(self.read_escape(start)?);
@@ -187,10 +247,18 @@ impl Lexer {
                 self.advance();
             }
         }
-        Err(SomoniError::at(start, ErrorCode::UnterminatedString))
+        Err(self.unterminated(start))
     }
 
-    /// Reads an escape `\n`, `\t`, `\"` or `\\` and returns its character, or L006 for another one.
+    /// The error for a string that `start` opens and the file ends in: L007 at the outer string if one of its `{...}` is still open, else L002.
+    fn unterminated(&self, start: Span) -> SomoniError {
+        match self.open_strings.first() {
+            Some(open) => SomoniError::at(open.start, ErrorCode::InterpolationNotClosed),
+            None => SomoniError::at(start, ErrorCode::UnterminatedString),
+        }
+    }
+
+    /// Reads an escape `\n`, `\t`, `\"`, `\\`, `\{` or `\}` and returns its character, or L006 for another one.
     fn read_escape(&mut self, string_start: Span) -> Result<char, SomoniError> {
         let place = Span::in_line(self.file, self.line, self.col(), 2);
         self.advance();
@@ -202,6 +270,8 @@ impl Lexer {
             't' => '\t',
             '"' => '"',
             '\\' => '\\',
+            '{' => '{',
+            '}' => '}',
             other => {
                 let code = ErrorCode::UnknownEscape { found: other };
                 return Err(SomoniError::at(place, code));
@@ -385,6 +455,62 @@ mod tests {
     fn unknown_escape_is_an_error() {
         let error = Lexer::new(r#""a\qb""#, 0).tokenize().unwrap_err();
         assert!(error.to_string().contains("L006"), "{}", error);
+    }
+
+    /// Returns the tokens of `source` without their places and without `Eof`.
+    fn tokens(source: &str) -> Vec<Token> {
+        let mut tokens: Vec<Token> = Lexer::new(source, 0)
+            .tokenize()
+            .unwrap()
+            .into_iter()
+            .map(|t| t.token)
+            .collect();
+        tokens.pop();
+        tokens
+    }
+
+    #[test]
+    fn interpolation_splits_the_string_into_parts() {
+        assert_eq!(
+            tokens(r#""a{x}b{y}c""#),
+            vec![
+                Token::StrStart("a".to_string()),
+                Token::Ident("x".to_string()),
+                Token::StrMiddle("b".to_string()),
+                Token::Ident("y".to_string()),
+                Token::StrEnd("c".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn braces_and_strings_inside_an_interpolation_stay_tokens() {
+        assert_eq!(
+            tokens(r#""{ {"k": "v"}["k"] }!""#),
+            vec![
+                Token::StrStart(String::new()),
+                Token::LBrace,
+                Token::Str("k".to_string()),
+                Token::Colon,
+                Token::Str("v".to_string()),
+                Token::RBrace,
+                Token::LBracket,
+                Token::Str("k".to_string()),
+                Token::RBracket,
+                Token::StrEnd("!".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn escaped_braces_are_text() {
+        assert_eq!(string_text(r#""\{a\}""#), "{a}");
+    }
+
+    #[test]
+    fn interpolation_without_end_is_an_error() {
+        let error = Lexer::new(r#""a{x"#, 0).tokenize().unwrap_err();
+        assert!(error.to_string().contains("L007"), "{}", error);
     }
 
     #[test]

@@ -303,6 +303,7 @@ impl TypeChecker {
                 self.binary_type(*op, l, r, *op_span)
             }
             ExprKind::List(elements) => self.check_list(elements, span, None),
+            ExprKind::Interpolation(parts) => self.check_interpolation(parts),
             ExprKind::Map(entries) => self.check_map(entries, span, None),
             ExprKind::Tuple(items) => self.check_tuple(items, span),
             ExprKind::TupleIndex { target, index } => self.check_tuple_index(target, *index),
@@ -471,6 +472,18 @@ impl TypeChecker {
             .map(|(capture, _)| capture)
             .collect();
         Ok(Type::function(params, return_type))
+    }
+
+    /// Checks the expressions of `"Hallo {name}"`, which must be values that `string(...)` turns into text, or T105.
+    fn check_interpolation(&mut self, parts: &mut [Expr]) -> Result<Type, SomoniError> {
+        for part in parts {
+            let found = self.check_expr(part)?;
+            if !matches!(found, Type::Int | Type::Float | Type::Bool | Type::Str) {
+                let code = ErrorCode::InterpolationType { found };
+                return Err(SomoniError::at(part.span, code));
+            }
+        }
+        Ok(Type::Str)
     }
 
     /// Returns the types of the parameters of a lambda: as written, else from `hint`, else T103 (T104 if `hint` has another count).

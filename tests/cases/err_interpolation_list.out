@@ -1,0 +1,3 @@
+Type error [T105]: Line 2: cannot put list<int> into a string; only int, float, bool and string can stand in '{...}' (a value with '?' first needs a null check)
+  2 | print("Liste: {l}");
+    |                ^

@@ -12,3 +12,5 @@ print("ein Satz
 über zwei Zeilen" == "ein Satz\nüber zwei Zeilen");
 print(["a\"b", "x\ny", "C:\\"]);
 print({"tab": "a\tb"});
+print(["a\{b\}"]);
+print("a\{b\}");

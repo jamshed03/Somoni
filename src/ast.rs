@@ -87,6 +87,8 @@ pub enum ExprKind {
     CallValue(CallValue),
     /// `fn(x: int): int => x * 2` or `fn(x: int): int { ... }`, a function without a name.
     Lambda(Box<Lambda>),
+    /// `"Hallo {name}!"`: the texts as `ExprKind::Str` and the expressions between them, in their order.
+    Interpolation(Vec<Expr>),
     /// A variable from outside a lambda, read from its copy number `index`, which the type checker makes from a name.
     Captured {
         name: String,
@@ -219,7 +221,9 @@ impl Expr {
             | ExprKind::EnumValue { .. } => None,
             ExprKind::Binary { left, right, .. } => left.find_this().or_else(|| right.find_this()),
             ExprKind::Unary { operand, .. } => operand.find_this(),
-            ExprKind::List(items) | ExprKind::Tuple(items) => first_this(items),
+            ExprKind::List(items) | ExprKind::Tuple(items) | ExprKind::Interpolation(items) => {
+                first_this(items)
+            }
             ExprKind::TupleIndex { target, .. } => target.find_this(),
             ExprKind::Call(call) => first_this(&call.args),
             ExprKind::New(new) => first_this(&new.args),

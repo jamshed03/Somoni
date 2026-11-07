@@ -43,6 +43,12 @@ pub enum Token {
     Ident(String),
     Int(i64),
     Str(String),
+    /// The text before the first `{` of `"Hallo {name}!"`; the tokens of `name` follow.
+    StrStart(String),
+    /// The text between two `{...}` of a string.
+    StrMiddle(String),
+    /// The text after the last `}` up to the closing `"`.
+    StrEnd(String),
     Float(f64),
 
     // symbols

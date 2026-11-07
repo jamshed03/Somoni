@@ -1,0 +1,3 @@
+Parse error [P001]: Line 1: expected an expression inside '{}' (a '{' itself is written '\{')
+  1 | print("leer {}");
+    |              ^

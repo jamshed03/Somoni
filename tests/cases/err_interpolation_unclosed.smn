@@ -1,0 +1,2 @@
+var name = "Ali";
+print("Hallo {name");

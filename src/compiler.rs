@@ -5,6 +5,7 @@ use crate::ast::{
     EnumDecl, Expr, ExprKind, FieldInit, ForEach, Function, IterKind, Lambda, Literal, Match,
     MethodCall, MethodTarget, Pattern, Stmt, VarDecl,
 };
+use crate::builtins::Builtin;
 use crate::bytecode::{
     Chunk, ClassCode, Op, Path, PathRoot, PathStep, Program, ValueTable, index_slot,
 };
@@ -786,6 +787,7 @@ impl Compiler {
             ExprKind::Float(f) => self.push_constant(Value::Float(*f), span),
             ExprKind::Bool(b) => self.push_constant(Value::Bool(*b), span),
             ExprKind::Str(s) => self.push_constant(Value::Str(Rc::clone(s)), span),
+            ExprKind::Interpolation(parts) => self.compile_interpolation(parts, span)?,
             ExprKind::Null => self.push_constant(Value::Null, span),
             ExprKind::EnumValue { decl, variant } => self.push_enum(decl, *variant, span),
             ExprKind::Ident { slot, .. } => {
@@ -882,6 +884,20 @@ impl Compiler {
                 self.compile_expr(target)?;
                 let position = filled(*index, "field position")?;
                 self.chunk.push(Op::Field(position), span);
+            }
+        }
+        Ok(())
+    }
+
+    /// Writes `"Hallo {name}"` as its parts, each expression turned into text like `string(...)`, joined with `+`.
+    fn compile_interpolation(&mut self, parts: &[Expr], span: Span) -> Result<(), SomoniError> {
+        for (place, part) in parts.iter().enumerate() {
+            self.compile_expr(part)?;
+            if !matches!(part.kind, ExprKind::Str(_)) {
+                self.chunk.push(Op::CallBuiltin(Builtin::Str, 1), part.span);
+            }
+            if place > 0 {
+                self.chunk.push(Op::Binary(BinaryOp::Add), span);
             }
         }
         Ok(())

@@ -1,0 +1,41 @@
+// "Hallo {name}" puts values into a string, turned into text like string(...)
+struct User {
+    name: string,
+    age: int
+}
+
+var name = "Ali";
+var count = 3;
+var price = 2.5;
+var done = false;
+print("Hallo {name}!");
+print("{count} Zahlen, {price} Euro, fertig: {done}");
+print("{count + 1} ist mehr, {price.format(2)} mit zwei Stellen");
+
+var user = User { name: "Bea", age: 30 };
+print("{user.name} ist {user.age}");
+
+var ages = {"Ali": 30};
+print("Ali ist {ages.get("Ali", 0)}, Tom ist {ages.get("Tom", 0)}");
+print("Map in der Klammer: { {"k": 1}["k"] }");
+print("verschachtelt: {"innen {name}"}");
+print("{name}{count}");
+print("{name}");
+print("\{ geschweift \} und } allein");
+
+var maybe: int? = 7;
+if (maybe != null) {
+    print("Wert {maybe}");
+}
+
+var lines = ["a", "b"];
+print("{len(lines)} Zeilen:
+- {lines[0]}
+- {lines[1]}");
+
+fn greet(who: string): string {
+    return "Guten Tag, {who.upper()}";
+}
+print(greet("cem"));
+var twice = fn(n: int) => "{n} mal 2 ist {n * 2}";
+print(twice(21));

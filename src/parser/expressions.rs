@@ -212,6 +212,7 @@ impl Parser {
             Token::Int(n) => ExprKind::Int(n),
             Token::Float(f) => ExprKind::Float(f),
             Token::Str(s) => ExprKind::Str(Rc::new(Text::new(s))),
+            Token::StrStart(text) => return self.parse_interpolation(text, span),
             Token::True => ExprKind::Bool(true),
             Token::False => ExprKind::Bool(false),
             Token::Null => ExprKind::Null,
@@ -244,6 +245,31 @@ impl Parser {
         };
         self.advance();
         Ok(Expr { kind, span })
+    }
+
+    /// Reads `"Hallo {name}!"` as its parts: the texts and the expressions between them.
+    fn parse_interpolation(&mut self, first: String, start: Span) -> Result<Expr, SomoniError> {
+        self.advance();
+        let mut parts: Vec<Expr> = text_part(first, start).into_iter().collect();
+        loop {
+            if matches!(self.peek(), Token::StrMiddle(_) | Token::StrEnd(_)) {
+                return Err(
+                    self.expected("an expression inside '{}' (a '{' itself is written '\\{')")
+                );
+            }
+            parts.push(self.parse_expr()?);
+            let span = self.current_span();
+            let (text, last) = match self.peek().clone() {
+                Token::StrMiddle(text) => (text, false),
+                Token::StrEnd(text) => (text, true),
+                _ => return Err(self.expected("'}' after the expression inside '{...}'")),
+            };
+            self.advance();
+            parts.extend(text_part(text, span));
+            if last {
+                return Ok(self.expr_since(ExprKind::Interpolation(parts), start));
+            }
+        }
     }
 
     /// Reads a call `name(a, b)` whose name is the current token.
@@ -399,4 +425,12 @@ impl Parser {
             target: None,
         })
     }
+}
+
+/// Returns a text of an interpolated string as an expression, or nothing for an empty text like in `"{a}{b}"`.
+fn text_part(text: String, span: Span) -> Option<Expr> {
+    (!text.is_empty()).then(|| Expr {
+        kind: ExprKind::Str(Rc::new(Text::new(text))),
+        span,
+    })
 }

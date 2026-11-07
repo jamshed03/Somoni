@@ -444,7 +444,9 @@ pub(super) fn is_fixed_value(expr: &Expr) -> bool {
         ExprKind::Constant { .. } => false,
         ExprKind::Binary { left, right, .. } => is_fixed_value(left) && is_fixed_value(right),
         ExprKind::Unary { operand, .. } => is_fixed_value(operand),
-        ExprKind::List(items) | ExprKind::Tuple(items) => items.iter().all(is_fixed_value),
+        ExprKind::List(items) | ExprKind::Tuple(items) | ExprKind::Interpolation(items) => {
+            items.iter().all(is_fixed_value)
+        }
         ExprKind::Map(entries) => entries
             .iter()
             .all(|(key, value)| is_fixed_value(key) && is_fixed_value(value)),

@@ -40,6 +40,7 @@ pub enum ErrorCode {
     UnknownEscape {
         found: char,
     },
+    InterpolationNotClosed,
     UnterminatedComment,
     IntegerTooLarge {
         text: String,
@@ -366,6 +367,9 @@ pub enum ErrorCode {
         expected: usize,
         found: usize,
     },
+    InterpolationType {
+        found: Type,
+    },
     ConstTypeLater {
         name: String,
         line: usize,
@@ -463,6 +467,7 @@ impl ErrorCode {
             ErrorCode::IntegerTooLarge { .. } => "L004",
             ErrorCode::InvalidFloat { .. } => "L005",
             ErrorCode::UnknownEscape { .. } => "L006",
+            ErrorCode::InterpolationNotClosed => "L007",
 
             ErrorCode::Expected { .. } => "P001",
             ErrorCode::UnexpectedToken { .. } => "P002",
@@ -595,6 +600,7 @@ impl ErrorCode {
             ErrorCode::VoidVariable => "T101",
             ErrorCode::LambdaParamType { .. } => "T103",
             ErrorCode::LambdaParamCount { .. } => "T104",
+            ErrorCode::InterpolationType { .. } => "T105",
             ErrorCode::ConstTypeLater { .. } => "T102",
 
             ErrorCode::Internal { .. } => "R000",
@@ -665,8 +671,11 @@ impl ErrorCode {
             ErrorCode::IfVarOptionalType => {
                 "the type in 'if (var name: type = ...)' has no '?', the block only runs when the value is not null".to_string()
             }
+            ErrorCode::InterpolationNotClosed => {
+                "a '{' in this string is not closed with '}' (a '{' itself is written '\\{')".to_string()
+            }
             ErrorCode::UnknownEscape { found } => format!(
-                "unknown escape '\\{}' in a string (known: \\n \\t \\\" \\\\)",
+                "unknown escape '\\{}' in a string (known: \\n \\t \\\" \\\\ \\{{ \\}})",
                 found
             ),
             ErrorCode::UnterminatedComment => "unterminated comment".to_string(),
@@ -1008,6 +1017,10 @@ impl ErrorCode {
             ErrorCode::LambdaParamType { name } => format!(
                 "the type of parameter '{}' is unknown here; write it (fn({}: type) => ...) or use the lambda where a function type is expected",
                 name, name
+            ),
+            ErrorCode::InterpolationType { found } => format!(
+                "cannot put {} into a string; only int, float, bool and string can stand in '{{...}}' (a value with '?' first needs a null check)",
+                found
             ),
             ErrorCode::LambdaParamCount { expected, found } => format!(
                 "this lambda has {} parameters, but a function with {} is expected here",
