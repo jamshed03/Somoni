@@ -1,6 +1,7 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
 
 /// Runs every program in tests/cases and compares it with its .out file.
 /// Files in subfolders (e.g. tests/cases/modules) are only imported, not run.
@@ -66,6 +67,24 @@ fn check_all(programs: &[PathBuf], place: &str) {
     );
 }
 
+/// Runs somoni in `dir` with `file` and gives it `input` as if it were typed, e.g. from `spiel.in` next to `spiel.smn`.
+fn run_somoni(dir: &Path, file: &std::ffi::OsStr, input: &str) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_somoni"))
+        .current_dir(dir)
+        .arg(file)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("cannot start somoni");
+    let mut stdin = child.stdin.take().expect("no stdin");
+    stdin
+        .write_all(input.as_bytes())
+        .expect("cannot write the input");
+    drop(stdin);
+    child.wait_with_output().expect("somoni did not finish")
+}
+
 /// Runs one program and returns what is wrong: other output or another exit code.
 /// `err_*` programs must end with exit code 1, all others with 0.
 /// It runs inside tests/cases, so error messages show short paths like `modules/mathe.smn`.
@@ -77,11 +96,8 @@ fn check_program(program: &Path) -> Vec<String> {
     let (Some(dir), Some(file)) = (program.parent(), program.file_name()) else {
         return vec!["program has no directory".to_string()];
     };
-    let output = Command::new(env!("CARGO_BIN_EXE_somoni"))
-        .current_dir(dir)
-        .arg(file)
-        .output()
-        .expect("cannot start somoni");
+    let input = fs::read_to_string(program.with_extension("in")).unwrap_or_default();
+    let output = run_somoni(dir, file, &input);
     let actual = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
