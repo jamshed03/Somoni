@@ -156,7 +156,8 @@ fn cannot_read(name: &str) -> ErrorCode {
     }
 }
 
-/// Removes `.` and `x/..` from a path for messages, so `a/b/../c.smn` becomes `a/c.smn`.
+/// Removes `.` and `x/..` from a path for messages, so `a/b/../c.smn` becomes `a/c.smn`; always with `/`, also on
+/// Windows, so a message is the same on every system.
 fn tidy(path: &Path) -> String {
     let mut parts: Vec<Component> = Vec::new();
     for part in path.components() {
@@ -170,7 +171,23 @@ fn tidy(path: &Path) -> String {
     }
     parts
         .iter()
-        .collect::<PathBuf>()
-        .to_string_lossy()
-        .into_owned()
+        .map(|part| match part {
+            Component::RootDir => String::new(),
+            other => other.as_os_str().to_string_lossy().into_owned(),
+        })
+        .collect::<Vec<String>>()
+        .join("/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tidy_removes_dots_and_joins_with_slashes() {
+        assert_eq!(tidy(Path::new("a/b/../c.smn")), "a/c.smn");
+        assert_eq!(tidy(Path::new("./modules/./x.smn")), "modules/x.smn");
+        assert_eq!(tidy(Path::new("../x.smn")), "../x.smn");
+        assert_eq!(tidy(Path::new("/home/ali/x.smn")), "/home/ali/x.smn");
+    }
 }
