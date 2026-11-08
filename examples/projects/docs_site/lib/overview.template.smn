@@ -1,9 +1,13 @@
-{{-- The start page: every section with its title and its first sentence --}}
+{{-- The start page: every section as a card with its title and its first sentence --}}
 @import { Section } from "content.smn"
 @props(sections: list<Section>)
-<h2>Contents</h2>
-<ul>
+<h1>Documentation</h1>
+<p>Everything you need to learn Somoni, from the first program to templates and a web server.</p>
+<div class="cards">
     @foreach (section: Section in sections)
-    <li><a href="{{ section.id }}.html">{{ section.title }}</a>: {!! section.intro !!}</li>
+    <a class="card" href="{{ section.id }}.html">
+        <h2>{{ section.title }}</h2>
+        <p>{!! section.intro !!}</p>
+    </a>
     @endforeach
-</ul>
+</div>

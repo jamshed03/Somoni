@@ -1,6 +1,6 @@
-{{-- One page of the site: head with styles, a menu of all sections, then the body of the page --}}
+{{-- The frame of every page: head with styles, a header with the logo and the nav, the page body, a footer --}}
 @import { Section } from "content.smn"
-@props(version: string, title: string, sections: list<Section>, body: string)
+@props(version: string, title: string, sections: list<Section>, body: string, current: string)
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,30 +8,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ title }} - Somoni {{ version }}</title>
     <link rel="icon" href="somoni-logo.svg" type="image/svg+xml">
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
-        nav a { margin-right: 1rem; }
-        h1 a { display: inline-flex; align-items: center; gap: 0.6rem; color: inherit; text-decoration: none; }
-        pre { background: #f4f4f4; padding: 1rem; overflow-x: auto; }
-        @media (prefers-color-scheme: dark) {
-            body { background: #1b1b1b; color: #eee; }
-            pre { background: #2a2a2a; }
-            a { color: #8ab4f8; }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1><a href="index.html"><img src="somoni-logo.svg" alt="" width="56" height="56"> Somoni</a></h1>
-        <p>Version {{ version }}, built with Somoni itself</p>
+        <div class="brand-row">
+            <a class="brand" href="index.html">
+                <img src="somoni-logo.svg" alt="">
+                <span>Somoni</span>
+            </a>
+            <span class="version">v{{ version }}</span>
+        </div>
         <nav>
             @foreach (section: Section in sections)
+            @if (section.id == current)
+            <a href="{{ section.id }}.html" class="active" aria-current="page">{{ section.title }}</a>
+            @else
             <a href="{{ section.id }}.html">{{ section.title }}</a>
+            @endif
             @endforeach
         </nav>
     </header>
     <main>
 {!! body !!}
     </main>
+    <footer>
+        <p>Somoni is free software under the <a href="https://github.com/jamshed03/Somoni/blob/main/LICENSE">MIT license</a>. Source on <a href="https://github.com/jamshed03/Somoni">GitHub</a>.</p>
+    </footer>
 </body>
 </html>

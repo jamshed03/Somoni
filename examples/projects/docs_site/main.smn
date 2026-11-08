@@ -19,16 +19,16 @@ fn save(name: string, text: string): void {
     }
 }
 
-// Writes one page with the layout around `body`.
-fn write_page(name: string, title: string, sections: list<Section>, body: string): void {
-    save(name, capture(fn() => layout(VERSION, title, sections, body)));
+// Writes one page with the layout around `body`; `current` is the id of the page shown active in the nav.
+fn write_page(name: string, title: string, sections: list<Section>, body: string, current: string): void {
+    save(name, capture(fn() => layout(VERSION, title, sections, body, current)));
 }
 
-// Copies the logo of Somoni from the top folder of the project into the site.
-fn copy_logo(): void {
-    match (read_file("../../../somoni-logo.svg")) {
-        ok(svg: string) => {
-            save("somoni-logo.svg", svg);
+// Copies the file `from` into site/`to`, like the stylesheet or the logo of Somoni.
+fn copy_asset(from: string, to: string): void {
+    match (read_file(from)) {
+        ok(text: string) => {
+            save(to, text);
         }
         err(reason: string) => {
             print(reason);
@@ -48,8 +48,9 @@ for (id: string in ["start", "getting-started", "types", "control-flow", "functi
     }
 }
 
-copy_logo();
-write_page("index.html", "Contents", sections, capture(fn() => overview(sections)));
+copy_asset("../../../somoni-logo.svg", "somoni-logo.svg");
+copy_asset("lib/style.css", "style.css");
+write_page("index.html", "Contents", sections, capture(fn() => overview(sections)), "");
 for (section: Section in sections) {
-    write_page("{section.id}.html", section.title, sections, capture(fn() => show_section(section)));
+    write_page("{section.id}.html", section.title, sections, capture(fn() => show_section(section)), section.id);
 }

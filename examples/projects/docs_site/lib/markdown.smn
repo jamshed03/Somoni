@@ -69,7 +69,7 @@ class Reader {
             this.language = line.slice(3, len(line)).trim();
         } else if (line.starts_with("## ")) {
             this.close_text();
-            this.blocks += ["<h3>{inline(line.slice(3, len(line)))}</h3>"];
+            this.blocks += ["<h2>{inline(line.slice(3, len(line)))}</h2>"];
         } else if (line.starts_with("- ")) {
             this.close_paragraph();
             this.items += [inline(line.slice(2, len(line)))];
