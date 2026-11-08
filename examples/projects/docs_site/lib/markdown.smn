@@ -1,4 +1,5 @@
-// A small Markdown reader: headings, paragraphs, lists, code blocks, `code` and [links](target), everything else is text.
+// A small Markdown reader: headings, paragraphs, lists, code blocks, `code`, [links](target) and ![images](src),
+// everything else is text.
 
 // Returns the earlier of two places, or the one that exists.
 fn earliest(a: int?, b: int?): int? {
@@ -11,12 +12,12 @@ fn earliest(a: int?, b: int?): int? {
     return b;
 }
 
-// Returns `text` as HTML with `code` and [links](target); everything else is escaped.
+// Returns `text` as HTML with `code`, [links](target) and ![images](src); everything else is escaped.
 export fn inline(text: string): string {
     var parts: list<string> = [];
     var rest = text;
     while (rest != "") {
-        var next = earliest(rest.index_of("`"), rest.index_of("["));
+        var next = earliest(earliest(rest.index_of("`"), rest.index_of("![")), rest.index_of("["));
         if (var at = next) {
             parts += [rest.slice(0, at).escape_html()];
             rest = rest.slice(at, len(rest));
@@ -31,8 +32,8 @@ export fn inline(text: string): string {
     return parts.join("");
 }
 
-// Reads `code` or [text](target) at the start of `rest` as HTML and how many characters it takes;
-// a single ` or [ without its end is just text.
+// Reads `code`, [text](target) or ![text](src) at the start of `rest` as HTML and how many characters it takes;
+// a single `, [ or ![ without its end is just text.
 fn special(rest: string): (string, int) {
     if (rest.starts_with("`")) {
         if (var end = rest.slice(1, len(rest)).index_of("`")) {
@@ -40,14 +41,24 @@ fn special(rest: string): (string, int) {
         }
         return ("`", 1);
     }
-    if (var middle = rest.index_of("](")) {
-        if (var close = rest.slice(middle, len(rest)).index_of(")")) {
-            var label = rest.slice(1, middle);
-            var target = rest.slice(middle + 2, middle + close);
-            return ("<a href=\"{target.escape_html()}\">{inline(label)}</a>", middle + close + 1);
+    var image = rest.starts_with("!");
+    var start = 0;
+    if (image) {
+        start = 1;
+    }
+    var bracket = rest.slice(start, len(rest));
+    if (var middle = bracket.index_of("](")) {
+        if (var close = bracket.slice(middle, len(bracket)).index_of(")")) {
+            var label = bracket.slice(1, middle);
+            var target = bracket.slice(middle + 2, middle + close).escape_html();
+            var taken = start + middle + close + 1;
+            if (image) {
+                return ("<img src=\"{target}\" alt=\"{label.escape_html()}\">", taken);
+            }
+            return ("<a href=\"{target}\">{inline(label)}</a>", taken);
         }
     }
-    return ("[", 1);
+    return (rest.slice(0, start + 1), start + 1);
 }
 
 // Turns Markdown lines into HTML blocks, keeping in mind what is open: a paragraph, a list or a code block.

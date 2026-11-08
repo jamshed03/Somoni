@@ -24,11 +24,11 @@ fn write_page(name: string, title: string, sections: list<Section>, body: string
     save(name, capture(fn() => layout(VERSION, title, sections, body, current)));
 }
 
-// Copies the file `from` into site/`to`, like the stylesheet or the logo of Somoni.
+// Copies the file `from` into site/`to` byte for byte, like the stylesheet, the logo or an image.
 fn copy_asset(from: string, to: string): void {
-    match (read_file(from)) {
-        ok(text: string) => {
-            save(to, text);
+    match (copy_file(from, "site/{to}")) {
+        ok(bytes: int) => {
+            print("copied site/{to} ({bytes} bytes)");
         }
         err(reason: string) => {
             print(reason);
@@ -53,6 +53,7 @@ for (id: string in [
 
 copy_asset("../../../somoni-logo.svg", "somoni-logo.svg");
 copy_asset("lib/style.css", "style.css");
+copy_asset("content/lifecycle.svg", "lifecycle.svg");
 write_page("index.html", "Contents", sections, capture(fn() => overview(sections)), "");
 for (section: Section in sections) {
     write_page("{section.id}.html", section.title, sections, capture(fn() => show_section(section)), section.id);

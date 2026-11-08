@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 620" width="640" height="620" role="img" aria-labelledby="title desc">
+  <title id="title">The lifecycle of a Somoni program</title>
+  <desc id="desc">The source text goes through the lexer, the parser, the type checker, the compiler and the VM. Lexer, parser, modules and type checker stop with an error before anything runs; the VM can stop with a runtime error.</desc>
+  <style>
+    .stage { fill: #f5f2ea; stroke: #0f7a72; stroke-width: 1.5; }
+    .run { fill: #fbf3e2; stroke: #a4700f; stroke-width: 1.5; }
+    .end { fill: #ffffff; stroke: #c9c3b3; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .error { fill: #ffffff; stroke: #c9c3b3; stroke-width: 1; }
+    .name { font: 600 16px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #0b2523; }
+    .data { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #5b6b68; }
+    .code { font: 700 14px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #b4441c; }
+    .why { font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #16211f; }
+    .note { font: 13px system-ui, -apple-system, "Segoe UI", sans-serif; fill: #5b6b68; }
+    .flow { stroke: #0f7a72; stroke-width: 1.5; fill: none; }
+    .fail { stroke: #b4441c; stroke-width: 1.2; stroke-dasharray: 4 4; fill: none; }
+    .bracket { stroke: #c9c3b3; stroke-width: 1.5; fill: none; }
+    .head-flow { fill: #0f7a72; }
+    .head-fail { fill: #b4441c; }
+    @media (prefers-color-scheme: dark) {
+      .stage { fill: #123331; stroke: #52c2b9; }
+      .run { fill: #2a2614; stroke: #f2b84b; }
+      .end { fill: #0b2523; stroke: #4a625f; }
+      .error { fill: #0b2523; stroke: #4a625f; }
+      .name { fill: #f4efe3; }
+      .data, .note { fill: #a7bdb9; }
+      .code { fill: #ff8a5c; }
+      .why { fill: #f4efe3; }
+      .flow { stroke: #52c2b9; }
+      .fail { stroke: #ff8a5c; }
+      .bracket { stroke: #4a625f; }
+      .head-flow { fill: #52c2b9; }
+      .head-fail { fill: #ff8a5c; }
+    }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" class="head-flow"/>
+    </marker>
+    <marker id="arrow-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" class="head-fail"/>
+    </marker>
+  </defs>
+
+  <!-- Brackets: everything above the VM happens before the program runs. -->
+  <path class="bracket" d="M30 104 H22 V446 H30"/>
+  <text class="note" transform="translate(14 275) rotate(-90)" text-anchor="middle">checked before it runs</text>
+  <path class="bracket" d="M30 504 H22 V548 H30"/>
+  <text class="note" transform="translate(14 526) rotate(-90)" text-anchor="middle">runs</text>
+
+  <!-- The stages, top to bottom. -->
+  <rect class="end" x="44" y="20" width="236" height="44" rx="10"/>
+  <text class="name" x="162" y="47" text-anchor="middle">main.smn</text>
+
+  <rect class="stage" x="44" y="104" width="236" height="44" rx="10"/>
+  <text class="name" x="162" y="131" text-anchor="middle">Lexer</text>
+
+  <rect class="stage" x="44" y="204" width="236" height="44" rx="10"/>
+  <text class="name" x="162" y="231" text-anchor="middle">Parser + imports</text>
+
+  <rect class="stage" x="44" y="304" width="236" height="44" rx="10"/>
+  <text class="name" x="162" y="331" text-anchor="middle">Type checker</text>
+
+  <rect class="stage" x="44" y="402" width="236" height="44" rx="10"/>
+  <text class="name" x="162" y="429" text-anchor="middle">Compiler</text>
+
+  <rect class="run" x="44" y="504" width="236" height="44" rx="10"/>
+  <text class="name" x="162" y="531" text-anchor="middle">VM</text>
+
+  <!-- What flows from one stage to the next. -->
+  <path class="flow" d="M162 64 V102" marker-end="url(#arrow)"/>
+  <text class="data" x="174" y="88">text</text>
+  <path class="flow" d="M162 148 V202" marker-end="url(#arrow)"/>
+  <text class="data" x="174" y="180">tokens</text>
+  <path class="flow" d="M162 248 V302" marker-end="url(#arrow)"/>
+  <text class="data" x="174" y="280">tree (AST)</text>
+  <path class="flow" d="M162 348 V400" marker-end="url(#arrow)"/>
+  <text class="data" x="174" y="379">checked tree</text>
+  <path class="flow" d="M162 446 V502" marker-end="url(#arrow)"/>
+  <text class="data" x="174" y="479">bytecode</text>
+  <path class="flow" d="M162 548 V578" marker-end="url(#arrow)"/>
+  <text class="data" x="174" y="570">output</text>
+  <text class="note" x="162" y="604" text-anchor="middle">print, write, a page</text>
+
+  <!-- Where each stage can stop, with the letter of its error codes. -->
+  <path class="fail" d="M280 126 H354" marker-end="url(#arrow-fail)"/>
+  <rect class="error" x="358" y="106" width="262" height="40" rx="8"/>
+  <text class="code" x="372" y="131">L</text>
+  <text class="why" x="392" y="131">a character makes no sense</text>
+
+  <path class="fail" d="M280 216 H354" marker-end="url(#arrow-fail)"/>
+  <rect class="error" x="358" y="196" width="262" height="40" rx="8"/>
+  <text class="code" x="372" y="221">P</text>
+  <text class="why" x="392" y="221">the grammar does not fit</text>
+
+  <path class="fail" d="M280 236 H310 V264 H354" marker-end="url(#arrow-fail)"/>
+  <rect class="error" x="358" y="244" width="262" height="40" rx="8"/>
+  <text class="code" x="372" y="269">M</text>
+  <text class="why" x="392" y="269">an import cannot be loaded</text>
+
+  <path class="fail" d="M280 326 H354" marker-end="url(#arrow-fail)"/>
+  <rect class="error" x="358" y="306" width="262" height="40" rx="8"/>
+  <text class="code" x="372" y="331">T</text>
+  <text class="why" x="392" y="331">the types do not fit</text>
+
+  <text class="note" x="358" y="430">The compiler trusts the checked tree:</text>
+  <text class="note" x="358" y="448">it has no errors of its own.</text>
+
+  <path class="fail" d="M280 526 H354" marker-end="url(#arrow-fail)"/>
+  <rect class="error" x="358" y="506" width="262" height="40" rx="8"/>
+  <text class="code" x="372" y="531">R</text>
+  <text class="why" x="392" y="531">fails while running</text>
+</svg>

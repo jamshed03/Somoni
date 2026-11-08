@@ -4,6 +4,8 @@ A Somoni program goes through five steps before anything runs: the lexer turns t
 turns tokens into a tree, the type checker checks that tree, the compiler turns it into bytecode, and the VM
 runs that bytecode.
 
+![The lifecycle of a Somoni program: main.smn goes through lexer, parser, type checker, compiler and VM; each stage but the compiler can stop with an error](lifecycle.svg)
+
 ```text
 var x: int = 1 + true;
 ```
