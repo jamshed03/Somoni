@@ -2,6 +2,8 @@
 
 # Somoni
 
+[![Test](https://github.com/jamshed03/Somoni/actions/workflows/test.yml/badge.svg)](https://github.com/jamshed03/Somoni/actions/workflows/test.yml)
+
 A small, strongly typed programming language, interpreted in Rust. Every type is checked before a program runs,
 and every error has a code that points to the exact place. Named after Ismoil Somoni (Tajikistan); source files end
 in `.smn`.

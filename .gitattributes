@@ -1,0 +1,4 @@
+# Text files keep \n on every system, so programs and their expected .out files match on Windows too.
+* text=auto eol=lf
+*.png binary
+*.dat binary
