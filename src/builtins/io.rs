@@ -44,6 +44,19 @@ pub(super) fn write_file(dir: &str, path: &str, text: &Text) -> Value {
     }
 }
 
+/// Copies the file `from` to `to`, both starting at the folder `dir`, as `ok(bytes)`, or `err(reason)`.
+/// Copies raw bytes rather than text, so it also works for files like `.png` that are not valid UTF-8.
+pub(super) fn copy_file(dir: &str, from: &str, to: &str) -> Value {
+    let bytes = match std::fs::read(Path::new(dir).join(from)) {
+        Ok(bytes) => bytes,
+        Err(error) => return failed("read", from, error.kind()),
+    };
+    match std::fs::write(Path::new(dir).join(to), &bytes) {
+        Ok(()) => Value::Ok(Rc::new(Value::Int(bytes.len() as i64))),
+        Err(error) => failed("write", to, error.kind()),
+    }
+}
+
 /// Returns `err("cannot read 'path': not found")` and the like, with a reason that is the same on every system.
 fn failed(action: &str, path: &str, kind: ErrorKind) -> Value {
     let reason = match kind {

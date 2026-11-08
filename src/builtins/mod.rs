@@ -29,6 +29,7 @@ pub enum Builtin {
     Input,
     ReadFile,
     WriteFile,
+    CopyFile,
     Query,
     RequestPath,
     Form,
@@ -92,6 +93,7 @@ const ALL: &[Builtin] = &[
     Builtin::Input,
     Builtin::ReadFile,
     Builtin::WriteFile,
+    Builtin::CopyFile,
     Builtin::Query,
     Builtin::RequestPath,
     Builtin::Form,
@@ -201,6 +203,7 @@ impl Builtin {
             | Builtin::Input
             | Builtin::ReadFile
             | Builtin::WriteFile
+            | Builtin::CopyFile
             | Builtin::Query
             | Builtin::RequestPath
             | Builtin::Form
@@ -271,10 +274,13 @@ impl Builtin {
         }
     }
 
-    /// Returns true for `read_file` and `write_file`, whose paths start at the folder of the file with the call;
-    /// the type checker puts that folder before the arguments.
+    /// Returns true for `read_file`, `write_file` and `copy_file`, whose paths start at the folder of the file
+    /// with the call; the type checker puts that folder before the arguments.
     pub fn needs_dir(self) -> bool {
-        matches!(self, Builtin::ReadFile | Builtin::WriteFile)
+        matches!(
+            self,
+            Builtin::ReadFile | Builtin::WriteFile | Builtin::CopyFile
+        )
     }
 
     /// Returns the type the next argument should have after the types `before`, so that `m.get("x", [])` or
@@ -309,6 +315,7 @@ impl Builtin {
             Builtin::Input => "input",
             Builtin::ReadFile => "read_file",
             Builtin::WriteFile => "write_file",
+            Builtin::CopyFile => "copy_file",
             Builtin::Query => "query",
             Builtin::RequestPath => "request_path",
             Builtin::Form => "form",
@@ -374,7 +381,7 @@ impl Builtin {
             | Builtin::Form
             | Builtin::SetStatus
             | Builtin::Redirect => 1,
-            Builtin::WriteFile => 2,
+            Builtin::WriteFile | Builtin::CopyFile => 2,
             Builtin::RequestPath | Builtin::RequestMethod => 0,
             Builtin::Print
             | Builtin::Write
@@ -444,6 +451,10 @@ impl Builtin {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
             (Builtin::WriteFile, [Type::Str, _]) => Err(1),
+            (Builtin::CopyFile, [Type::Str, Type::Str]) => {
+                Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
+            }
+            (Builtin::CopyFile, [Type::Str, _]) => Err(1),
             (Builtin::Query | Builtin::Form, [Type::Str]) => {
                 Ok(Type::Optional(Box::new(Type::Str)))
             }
@@ -581,6 +592,9 @@ impl Builtin {
             }
             (Builtin::WriteFile, [Value::Str(dir), Value::Str(path), Value::Str(text)]) => {
                 Ok(io::write_file(dir.as_str(), path.as_str(), text))
+            }
+            (Builtin::CopyFile, [Value::Str(dir), Value::Str(from), Value::Str(to)]) => {
+                Ok(io::copy_file(dir.as_str(), from.as_str(), to.as_str()))
             }
             (Builtin::Int, [Value::Float(f)]) => float_to_int(*f),
             (Builtin::Int, [Value::Str(s)]) => Ok(parse_int(s.as_str())),

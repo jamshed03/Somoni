@@ -1,0 +1,10 @@
+// copy_file copies raw bytes, not text, so it also works for files that are not valid UTF-8; paths start
+// at the folder of this file, like read_file and write_file.
+print(copy_file("files/hello.txt", "../../target/copy_file_test.txt"));
+print(read_file("../../target/copy_file_test.txt"));
+
+print(is_err(read_file("files/binary.dat")));
+print(copy_file("files/binary.dat", "../../target/copy_file_binary_test.dat"));
+
+print(copy_file("files/missing.txt", "../../target/x.txt"));
+print(copy_file("files/hello.txt", "no/such/folder/x.txt"));
