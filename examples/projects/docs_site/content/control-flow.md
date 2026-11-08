@@ -63,11 +63,23 @@ match (c) {
     Color.Green => {
         print("green");
     }
-    _ => {
+    Color.Blue => {
         print("blue");
     }
 }
+
+var letter = "e";
+match (letter) {
+    "a" | "e" | "i" | "o" | "u" => {
+        print("vowel");
+    }
+    _ => {
+        print("consonant");
+    }
+}
 ```
+
+Over ints and strings, `_` is required; `|` puts several values into one branch.
 
 After `if (a != null)`, the value of `a` can be used in the block without `?` ("narrowing"). `if (var name = value)` checks a value that can be null, without a variable declared before it.
 

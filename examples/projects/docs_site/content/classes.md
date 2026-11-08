@@ -21,5 +21,7 @@ class Circle implements Shape {
 ```
 
 - `public`, `private`, `protected`, `readonly`, `static`, `abstract`
+- `static` methods and fields belong to the class: `User::guest()`, `User::count`, inherited by subclasses
+- Objects are references (`==` asks "the same object?"), structs stay copies
 - `extends` and `super`, `override` is checked
 - `instanceof` narrows the type

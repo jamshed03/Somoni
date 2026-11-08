@@ -20,6 +20,7 @@ print((1.0 / 3.0).format(2));
 - Strings: `trim`, `upper`, `lower`, `split`, `contains`, `starts_with`, `ends_with`, `replace`, `slice`, `index_of`, `pad_left`, `pad_right`, `repeat`, `escape_html`
 - Lists: `contains`, `index_of`, `reverse`, `slice`, `sort`, `sort_desc`, `remove`, `join`, and with a lambda: `map`, `filter`, `reduce`, `any`, `all`, `sort_by`, `sort_by_desc`
 - Maps: `values()`, `remove`, `get(k, default)`, plus the functions `len`, `has(m, k)`, `keys(m)`
+- Input and output: `print`, `write` (without a line break), `input()` (one line, `null` at the end), `read_file`, `write_file` and `copy_file` (with a `result`; `copy_file` copies bytes, so it also works for images), `capture(fn() => ...)` (what a function prints, as a string)
 - Math functions: `abs`, `min`, `max`, `sqrt`, `pow`, `floor`, `ceil`, `round`
 - Not found is `null`, not `-1`: `"abc".index_of("z")` has type `int?`
 - `somoni --explain T057` and the other codes explain every rule in detail, with a working and a failing example
