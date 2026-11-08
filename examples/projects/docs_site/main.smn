@@ -37,7 +37,7 @@ fn copy_logo(): void {
 }
 
 var sections: list<Section> = [];
-for (id: string in ["start", "types", "functions", "classes", "modules", "templates"]) {
+for (id: string in ["start", "getting-started", "types", "control-flow", "functions", "classes", "modules", "templates"]) {
     match (load_section(id)) {
         ok(section: Section) => {
             sections += [section];
