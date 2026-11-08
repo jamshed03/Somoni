@@ -12,6 +12,8 @@
     --code-bg: #0e2422;
     --code-fg: #eef1ef;
     --code-border: rgba(244, 239, 227, 0.12);
+    --wrong: #ff8a5c;
+    --right: #52c2b9;
     --radius: 10px;
 }
 
@@ -169,6 +171,39 @@ pre {
     padding: 1rem 1.1rem;
     overflow-x: auto;
     margin: 1rem 0;
+}
+
+pre.wrong::before,
+pre.wrong + pre:not(.wrong)::before {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+pre.wrong {
+    border-left: 4px solid var(--wrong);
+}
+
+pre.wrong::before {
+    content: "Wrong";
+    color: var(--wrong);
+}
+
+pre.wrong[data-code]::before {
+    content: "Wrong: error " attr(data-code);
+}
+
+pre.wrong + pre:not(.wrong) {
+    border-left: 4px solid var(--right);
+}
+
+pre.wrong + pre:not(.wrong)::before {
+    content: "Right";
+    color: var(--right);
 }
 
 pre code {

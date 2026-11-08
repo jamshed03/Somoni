@@ -61,6 +61,18 @@ fn special(rest: string): (string, int) {
     return (rest.slice(0, start + 1), start + 1);
 }
 
+// Returns a code block as HTML; ```smn-wrong T006 and ```smn-bad are marked as wrong, the first with its error code.
+fn code_block(language: string, html: string): string {
+    if (language.starts_with("smn-wrong ")) {
+        var code = language.slice(10, len(language)).trim().escape_html();
+        return "<pre class=\"wrong\" data-code=\"{code}\"><code class=\"language-smn\">{html}</code></pre>";
+    }
+    if (language == "smn-bad") {
+        return "<pre class=\"wrong\"><code class=\"language-smn\">{html}</code></pre>";
+    }
+    return "<pre><code class=\"language-{language.escape_html()}\">{html}</code></pre>";
+}
+
 // Turns Markdown lines into HTML blocks, keeping in mind what is open: a paragraph, a list or a code block.
 class Reader {
     private blocks: list<string> = [];
@@ -95,8 +107,7 @@ class Reader {
     // Reads a line inside a code block, which ends with ```.
     private read_code(line: string): void {
         if (line.starts_with("```")) {
-            var text = this.code.join("\n").escape_html();
-            this.blocks += ["<pre><code class=\"language-{this.language}\">{text}</code></pre>"];
+            this.blocks += [code_block(this.language, this.code.join("\n").escape_html())];
             this.code = [];
             this.in_code = false;
             return;
