@@ -20,6 +20,7 @@ Then run it:
 somoni hello.smn
 ```
 
+- The install command with `--force` updates Somoni, `cargo uninstall somoni` removes it
 - `somoni file.smn` runs the file
 - `somoni --bytecode file.smn` shows its bytecode instead of running it
 - `somoni --explain T003` explains an error code, with an example

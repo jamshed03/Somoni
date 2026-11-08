@@ -28,13 +28,20 @@ Type error [T003]: Line 1: cannot assign string to int
     |                ^^^^
 ```
 
-## Run
+## Install
 
-You need [Rust](https://www.rust-lang.org/tools/install). Then, in this folder:
+You need [Rust](https://www.rust-lang.org/tools/install). Then:
 
-    cargo run -- examples/hello.smn          # run a program
-    cargo run -- --explain T003              # explain an error code, with an example
-    cargo run -- serve examples/projects/web # serve a folder as web pages on http://localhost:8000
+    cargo install --git https://github.com/jamshed03/Somoni
+
+This puts `somoni` into `~/.cargo/bin`, which the Rust installer adds to your `PATH`. Run it again with `--force`
+to update, `cargo uninstall somoni` removes it.
+
+    somoni hello.smn            # run a program
+    somoni --explain T003       # explain an error code, with an example
+    somoni serve my-site        # serve a folder as web pages on http://localhost:8000
+
+In a clone of this repository, `cargo run -- examples/hello.smn` does the same without installing.
 
 ## Documentation
 
