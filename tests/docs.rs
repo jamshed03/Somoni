@@ -1,12 +1,25 @@
-//! Runs every ```smn block of the documentation site: each must run without an error, so no example gets old.
-//! Blocks marked ```text or ```template are only shown, not run.
+//! Runs every Somoni block of the documentation site, so no example gets old: ```smn and ```smn-bad must run without
+//! an error, ```smn-wrong T014 must give exactly that error. Blocks marked ```text or ```template are only shown.
 
 use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+/// What a block must do when it runs.
+enum Expect {
+    Run,
+    Fail(String),
+}
+
+/// One block of a page, with the page it is on and what it must do.
+struct Block {
+    page: String,
+    code: String,
+    expect: Expect,
+}
+
 #[test]
-fn every_smn_block_of_the_documentation_runs() {
+fn every_smn_block_of_the_documentation_does_what_it_says() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/projects/docs_site/content");
     let mut pages: Vec<PathBuf> = fs::read_dir(&dir)
         .unwrap()
@@ -14,25 +27,30 @@ fn every_smn_block_of_the_documentation_runs() {
         .filter(|path| path.extension().is_some_and(|ending| ending == "md"))
         .collect();
     pages.sort();
-    let blocks: Vec<(String, String)> = pages
-        .iter()
-        .flat_map(|page| {
-            let name = page.file_name().unwrap().to_string_lossy().to_string();
-            smn_blocks(&fs::read_to_string(page).unwrap())
-                .into_iter()
-                .map(move |block| (name.clone(), block))
-        })
-        .collect();
-    let problems: Vec<String> = blocks
-        .iter()
-        .enumerate()
-        .filter_map(|(number, (page, block))| {
-            let output = run(block, number);
-            output
-                .contains(" error [")
-                .then(|| format!("{}:\n{}\n--- output ---\n{}", page, block, output))
-        })
-        .collect();
+    let mut blocks = Vec::new();
+    let mut problems = Vec::new();
+    for page in &pages {
+        let name = page.file_name().unwrap().to_string_lossy().to_string();
+        for (info, code) in fenced_blocks(&fs::read_to_string(page).unwrap()) {
+            match expectation(&info) {
+                Some(expect) => blocks.push(Block {
+                    page: name.clone(),
+                    code,
+                    expect,
+                }),
+                None if info.starts_with("smn") => {
+                    problems.push(format!("{}: unknown block kind ```{}", name, info))
+                }
+                None => {}
+            }
+        }
+    }
+    problems.extend(
+        blocks
+            .iter()
+            .enumerate()
+            .filter_map(|(number, block)| problem(block, &run(&block.code, number))),
+    );
     assert!(!blocks.is_empty(), "no ```smn blocks found");
     assert!(
         problems.is_empty(),
@@ -43,18 +61,47 @@ fn every_smn_block_of_the_documentation_runs() {
     );
 }
 
-/// Returns the code of every block that starts with ```smn in the Markdown `text`.
-fn smn_blocks(text: &str) -> Vec<String> {
+/// Returns what a block with this info string (the text after ```) must do, or None for one that is only shown.
+fn expectation(info: &str) -> Option<Expect> {
+    let words: Vec<&str> = info.split_whitespace().collect();
+    match words.as_slice() {
+        ["smn"] | ["smn-bad"] => Some(Expect::Run),
+        ["smn-wrong", code] => Some(Expect::Fail(code.to_string())),
+        _ => None,
+    }
+}
+
+/// Returns why `block` did not do what it must, judged by its `output`, or None if it did.
+fn problem(block: &Block, output: &str) -> Option<String> {
+    let (failed, wanted) = match &block.expect {
+        Expect::Run => (output.contains(" error ["), "no error".to_string()),
+        Expect::Fail(code) => (
+            !output.contains(&format!(" error [{}]", code)),
+            format!("error {}", code),
+        ),
+    };
+    failed.then(|| {
+        format!(
+            "{} (wanted {}):\n{}\n--- output ---\n{}",
+            block.page, wanted, block.code, output
+        )
+    })
+}
+
+/// Returns the info string and the code of every fenced block (```info ... ```) in the Markdown `text`.
+fn fenced_blocks(text: &str) -> Vec<(String, String)> {
     let mut blocks = Vec::new();
-    let mut open: Option<Vec<&str>> = None;
+    let mut open: Option<(String, Vec<&str>)> = None;
     for line in text.lines() {
         match (&mut open, line.trim_end()) {
-            (Some(lines), "```") => {
-                blocks.push(lines.join("\n") + "\n");
+            (Some((info, lines)), "```") => {
+                blocks.push((info.clone(), lines.join("\n") + "\n"));
                 open = None;
             }
-            (Some(lines), _) => lines.push(line),
-            (None, "```smn") => open = Some(Vec::new()),
+            (Some((_, lines)), _) => lines.push(line),
+            (None, fence) if fence.starts_with("```") => {
+                open = Some((fence[3..].trim().to_string(), Vec::new()))
+            }
             (None, _) => {}
         }
     }
