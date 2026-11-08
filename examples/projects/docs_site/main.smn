@@ -37,7 +37,10 @@ fn copy_asset(from: string, to: string): void {
 }
 
 var sections: list<Section> = [];
-for (id: string in ["start", "getting-started", "types", "control-flow", "functions", "classes", "modules", "templates"]) {
+for (id: string in [
+    "start", "getting-started", "types", "collections", "control-flow", "functions", "errors",
+    "classes", "modules", "standard-library", "templates", "web-server", "how-it-works", "error-codes"
+]) {
     match (load_section(id)) {
         ok(section: Section) => {
             sections += [section];
