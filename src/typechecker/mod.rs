@@ -521,7 +521,8 @@ impl TypeChecker {
         for (arg, param_type) in args.iter_mut().zip(params) {
             let arg_type = self.check_expr_expecting(arg, param_type)?;
             if !self.fits(&arg_type, param_type) {
-                return Err(wrong_arg_type(name, arg_type, arg.span));
+                let expected = Some(param_type.to_string());
+                return Err(wrong_arg_type(name, arg_type, expected, arg.span));
             }
         }
         Ok(())
@@ -587,13 +588,14 @@ fn check_arg_count(
     Ok(())
 }
 
-/// Returns the error for an argument with the wrong type.
-fn wrong_arg_type(name: &str, found: Type, span: Span) -> SomoniError {
+/// Returns T014 for an argument of `name` with the wrong type, saying what it expects if that is known.
+fn wrong_arg_type(name: &str, found: Type, expected: Option<String>, span: Span) -> SomoniError {
     SomoniError::at(
         span,
         ErrorCode::WrongArgType {
             name: name.to_string(),
             found,
+            expected: expected.map(String::into_boxed_str),
         },
     )
 }

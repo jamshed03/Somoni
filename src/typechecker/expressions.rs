@@ -86,6 +86,7 @@ impl TypeChecker {
         self.check_fits(&mut call.args[0], inner, |found| ErrorCode::WrongArgType {
             name: name.clone(),
             found,
+            expected: Some(inner.to_string().into_boxed_str()),
         })?;
         Ok(())
     }
@@ -680,7 +681,13 @@ impl TypeChecker {
         check_arg_count(&call.name, builtin.arity(), &call.args, span)?;
         let arg_types = self.check_builtin_args(builtin, Vec::new(), &mut call.args)?;
         let result = builtin.result_type(&arg_types).map_err(|bad| {
-            wrong_arg_type(&call.name, arg_types[bad].clone(), call.args[bad].span)
+            let expected = builtin.expected_text(&arg_types[..bad]);
+            wrong_arg_type(
+                &call.name,
+                arg_types[bad].clone(),
+                expected,
+                call.args[bad].span,
+            )
         })?;
         if builtin.needs_dir() {
             let dir = ExprKind::Str(Rc::new(Text::new(self.current_dir.clone())));
@@ -751,7 +758,13 @@ impl TypeChecker {
             Err(0) => return Err(unknown()),
             Err(bad) => {
                 let found = types[bad].clone();
-                return Err(wrong_arg_type(&call.name, found, call.args[bad - 1].span));
+                let expected = builtin.expected_text(&types[..bad]);
+                return Err(wrong_arg_type(
+                    &call.name,
+                    found,
+                    expected,
+                    call.args[bad - 1].span,
+                ));
             }
         };
         call.call = Some(MethodTarget::Builtin(builtin));

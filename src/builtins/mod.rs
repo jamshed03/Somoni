@@ -215,6 +215,18 @@ impl Builtin {
         }
     }
 
+    /// Returns what the next argument after the types `before` should be, for a message: a function type for a lambda
+    /// or the one type that fits; None where several types fit, like for `len`.
+    pub fn expected_text(self, before: &[Type]) -> Option<String> {
+        match (self, self.function_hint(before)) {
+            (Builtin::SortBy | Builtin::SortByDesc, Some(hint)) => {
+                Some(format!("fn({}): int, float or string", hint.params[0]))
+            }
+            (_, Some(hint)) => Some(hint.to_string()),
+            (_, None) => self.expected_arg(before).map(|ty| ty.to_string()),
+        }
+    }
+
     /// Returns true for `ok` and `err`, which take their result type from where they are used.
     pub fn builds_result(self) -> bool {
         matches!(self, Builtin::Ok | Builtin::Err)

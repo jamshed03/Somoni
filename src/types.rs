@@ -78,6 +78,17 @@ pub struct FunctionHint {
     pub result: Option<Type>,
 }
 
+/// Shows a hint as a function type, with `...` for a result where any fits: `fn(int): bool`, `fn(int): ...`.
+impl fmt::Display for FunctionHint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let params: Vec<String> = self.params.iter().map(Type::to_string).collect();
+        match &self.result {
+            Some(result) => write!(f, "fn({}): {}", params.join(", "), result),
+            None => write!(f, "fn({}): ...", params.join(", ")),
+        }
+    }
+}
+
 /// The parameter types and the result type of a function type.
 #[derive(Debug, PartialEq)]
 pub struct FunctionType {

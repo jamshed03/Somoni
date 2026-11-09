@@ -1,3 +1,3 @@
-Type error [T014]: Line 1: cannot use fn(int): void as argument of 'capture'
+Type error [T014]: Line 1: cannot use fn(int): void as argument of 'capture', it expects fn(): void
   1 | print(capture(fn(x: int) { print(x); }));
     |               ^^^^^^^^^^^^^^^^^^^^^^^^

@@ -186,6 +186,7 @@ pub enum ErrorCode {
     WrongArgType {
         name: String,
         found: Type,
+        expected: Option<Box<str>>,
     },
     DuplicateFunction {
         name: String,
@@ -883,9 +884,19 @@ impl ErrorCode {
                 };
                 format!("'{}' expects {} {}, got {}", name, expected, word, found)
             }
-            ErrorCode::WrongArgType { name, found } => {
-                format!("cannot use {} as argument of '{}'", found, name)
-            }
+            ErrorCode::WrongArgType {
+                name,
+                found,
+                expected: Some(expected),
+            } => format!(
+                "cannot use {} as argument of '{}', it expects {}",
+                found, name, expected
+            ),
+            ErrorCode::WrongArgType {
+                name,
+                found,
+                expected: None,
+            } => format!("cannot use {} as argument of '{}'", found, name),
             ErrorCode::DuplicateFunction { name } => {
                 format!("function '{}' is already declared", name)
             }

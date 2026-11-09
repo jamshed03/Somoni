@@ -1,3 +1,3 @@
-Type error [T014]: Line 4: cannot use string as argument of 'add'
+Type error [T014]: Line 4: cannot use string as argument of 'add', it expects int
   4 | print(add(1, "2"));
     |              ^^^

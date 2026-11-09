@@ -1,0 +1,3 @@
+Type error [T014]: Line 4: cannot use fn(string): int as argument of 'apply', it expects fn(int): int
+  4 | print(apply(fn(s: string): int => len(s)));
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
