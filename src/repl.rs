@@ -153,7 +153,7 @@ impl Repl {
                 let order = loader.load_typed_imports(&mut [])?;
                 let shown = shown_var(expr.clone());
                 let name = shown.name.clone();
-                match self.compile(vec![Stmt::VarDecl(shown)], Some(&name), loader, &order) {
+                match self.compile(vec![Stmt::VarDecl(Box::new(shown))], Some(&name), loader, &order) {
                     Err(error) if matches!(error.code, ErrorCode::VoidVariable) => {
                         let span = expr.span;
                         self.compile(vec![Stmt::Expr { expr, span }], None, loader, &order)

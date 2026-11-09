@@ -616,12 +616,15 @@ pub(super) fn describe_signature(name: &str, signature: &Signature) -> String {
 
 /// Returns the field that `this.field = value;` sets, if `value` does not use `this`.
 fn sets_field(stmt: &Stmt) -> Option<&str> {
-    let Stmt::Assign(Assign {
+    let Stmt::Assign(assign) = stmt else {
+        return None;
+    };
+    let Assign {
         target,
         op: None,
         value,
         ..
-    }) = stmt
+    } = &**assign
     else {
         return None;
     };

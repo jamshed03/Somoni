@@ -23,8 +23,8 @@ impl Parser {
                 let mutable = *self.peek() == Token::Var;
                 self.parse_destructure(mutable, start)
             }
-            Token::Var => Ok(Stmt::VarDecl(self.parse_var_decl(true, start)?)),
-            Token::Const => Ok(Stmt::VarDecl(self.parse_var_decl(false, start)?)),
+            Token::Var => Ok(Stmt::VarDecl(Box::new(self.parse_var_decl(true, start)?))),
+            Token::Const => Ok(Stmt::VarDecl(Box::new(self.parse_var_decl(false, start)?))),
             Token::LBrace => self.parse_block(start),
             Token::If => self.parse_if(start),
             Token::While => self.parse_while(start),
@@ -69,14 +69,14 @@ impl Parser {
         let open = self.current_span();
         self.expect(Token::LBrace, "'{' after match value")?;
         let arms = self.parse_until_brace(open, Self::parse_arm)?;
-        Ok(Stmt::Match(Match {
+        Ok(Stmt::Match(Box::new(Match {
             subject,
             arms,
             arm_of_variant: Vec::new(),
             unwraps: false,
             by_value: false,
             span: start,
-        }))
+        })))
     }
 
     /// Reads one branch `pattern => { ... }` of a `match`.
@@ -226,13 +226,13 @@ impl Parser {
         let binding = self.parse_binding("if")?;
         let then_stmts = self.expect_block_stmts("after if condition")?;
         let else_branch = self.parse_else()?;
-        Ok(Stmt::IfVar(null_checked(
+        Ok(Stmt::IfVar(Box::new(null_checked(
             start,
             "if",
             binding,
             then_stmts,
             else_branch,
-        )))
+        ))))
     }
 
     /// Reads the rest of `while (var name: type = value) { ... }` after `while (`, as
@@ -247,7 +247,7 @@ impl Parser {
                 kind: ExprKind::Bool(true),
                 span: start,
             },
-            body: Box::new(Stmt::Block(vec![Stmt::IfVar(check)])),
+            body: Box::new(Stmt::Block(vec![Stmt::IfVar(Box::new(check))])),
             span: start,
         })
     }
@@ -326,7 +326,7 @@ impl Parser {
     fn parse_for_init(&mut self) -> Result<Stmt, SomoniError> {
         let span = self.current_span();
         match self.peek() {
-            Token::Var => Ok(Stmt::VarDecl(self.parse_var_decl(true, span)?)),
+            Token::Var => Ok(Stmt::VarDecl(Box::new(self.parse_var_decl(true, span)?))),
             Token::Const => Err(SomoniError::at(span, ErrorCode::ForStartConst)),
             _ => Err(self.expected("'var' after 'for ('")),
         }
@@ -356,7 +356,7 @@ impl Parser {
         let iterable = self.parse_expr()?;
         self.expect(Token::RParen, "')' after the list")?;
         let body = self.expect_block("after for header")?;
-        Ok(Stmt::ForEach(ForEach {
+        Ok(Stmt::ForEach(Box::new(ForEach {
             vars,
             iterable,
             body: Box::new(body),
@@ -364,7 +364,7 @@ impl Parser {
             seq_slot: None,
             over: None,
             span: start,
-        }))
+        })))
     }
 
     /// Reads an assignment with `;`, e.g. `x = 5;`.
@@ -417,7 +417,7 @@ impl Parser {
         let op_span = self.current_span().to(self.tokens[self.pos + 1].span);
         self.advance();
         self.advance();
-        Ok(Stmt::Assign(Assign {
+        Ok(Stmt::Assign(Box::new(Assign {
             target,
             op: Some((op, op_span)),
             value: Expr {
@@ -426,7 +426,7 @@ impl Parser {
             },
             in_object: false,
             span: self.since(start),
-        }))
+        })))
     }
 
     /// Reads `= value` or `+= value` after `target`, or returns P007 if the target is no variable or part of one.
@@ -440,13 +440,13 @@ impl Parser {
         }
         self.advance();
         let value = self.parse_expr()?;
-        Ok(Stmt::Assign(Assign {
+        Ok(Stmt::Assign(Box::new(Assign {
             target,
             op,
             value,
             in_object: false,
             span: self.since(start),
-        }))
+        })))
     }
 
     /// Reads `var (q: int, r: int) = value;` or `var (q, r) = value;`: a hidden variable holds the tuple, every name
@@ -510,7 +510,7 @@ impl Parser {
                 }
             })
             .collect();
-        Ok(Stmt::Destructure(Destructure { tuple, parts }))
+        Ok(Stmt::Destructure(Box::new(Destructure { tuple, parts })))
     }
 
     /// Reads `var name: type = value;` or `const name: type = value;`.
@@ -635,7 +635,7 @@ fn null_checked(
         },
         span: binding.span,
     };
-    then_stmts.insert(0, Stmt::VarDecl(binding));
+    then_stmts.insert(0, Stmt::VarDecl(Box::new(binding)));
     let branch = Stmt::If {
         condition: not_null,
         then_branch: Box::new(Stmt::Block(then_stmts)),

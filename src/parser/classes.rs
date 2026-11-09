@@ -86,7 +86,7 @@ impl Parser {
             file: name_span.file as usize,
             fields: body.fields.iter().map(|f| f.field.name.clone()).collect(),
         };
-        Ok(Stmt::ClassDecl(ClassDecl {
+        Ok(Stmt::ClassDecl(Box::new(ClassDecl {
             exported,
             is_abstract,
             layout: Rc::new(layout),
@@ -98,7 +98,7 @@ impl Parser {
             extends,
             implements,
             plan: ClassPlan::default(),
-        }))
+        })))
     }
 
     /// Reads `extends Parent` after the class name, if it is there.

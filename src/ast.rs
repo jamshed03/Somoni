@@ -383,17 +383,17 @@ pub enum UnaryOp {
 /// The kinds of statements. `span` is the place error messages point to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    VarDecl(VarDecl),
+    VarDecl(Box<VarDecl>),
     /// `var (q: int, r: int) = value;`, kept as a hidden variable with the tuple and one variable per element.
-    Destructure(Destructure),
+    Destructure(Box<Destructure>),
     /// `if (var name: type = value) { ... }`, built by the parser from a hidden variable and an `if`.
-    IfVar(IfVar),
+    IfVar(Box<IfVar>),
     /// A call as a statement, e.g. `print(x);`
     Expr {
         expr: Expr,
         span: Span,
     },
-    Assign(Assign),
+    Assign(Box<Assign>),
     Block(Vec<Stmt>),
     If {
         condition: Expr,
@@ -414,7 +414,7 @@ pub enum Stmt {
         body: Box<Stmt>,
         span: Span,
     },
-    ForEach(ForEach),
+    ForEach(Box<ForEach>),
     Break {
         span: Span,
     },
@@ -424,10 +424,10 @@ pub enum Stmt {
     FnDecl(Function),
     Import(Import),
     StructDecl(Rc<StructDecl>),
-    ClassDecl(ClassDecl),
+    ClassDecl(Box<ClassDecl>),
     InterfaceDecl(InterfaceDecl),
     EnumDecl(Rc<EnumDecl>),
-    Match(Match),
+    Match(Box<Match>),
     Return {
         value: Option<Expr>,
         span: Span,
@@ -921,7 +921,7 @@ macro_rules! declarations {
         $(#[$doc])*
         pub fn $name(stmts: &[Stmt]) -> impl Iterator<Item = &$item> {
             stmts.iter().filter_map(|stmt| match stmt {
-                Stmt::$variant(decl) => Some(decl),
+                Stmt::$variant(decl) => Some::<&$item>(decl),
                 _ => None,
             })
         }
