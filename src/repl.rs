@@ -278,3 +278,36 @@ fn shown_var(expr: Expr) -> VarDecl {
         global: None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn open_brackets_strings_and_comments_wait_for_more_lines() {
+        assert!(!is_complete("fn twice(n: int): int {\n"));
+        assert!(!is_complete("var names = [\n    \"Ali\",\n"));
+        assert!(!is_complete("print(\"a\"\n"));
+        assert!(!is_complete("var text = \"\"\"\n    raw\n"));
+        assert!(!is_complete("/* a comment\n"));
+    }
+
+    #[test]
+    fn closed_or_too_many_brackets_are_complete() {
+        assert!(is_complete("print(1);\n"));
+        assert!(is_complete("fn f(): int {\n    return 1;\n}\n"));
+        assert!(is_complete("print(\"(\");\n"));
+        assert!(is_complete("}\n"));
+        assert!(is_complete("print($);\n"));
+    }
+
+    #[test]
+    fn a_semicolon_goes_before_the_end() {
+        let tokens = Lexer::new("var x = 5", MAIN_FILE).tokenize().unwrap();
+        let kinds: Vec<Token> = with_semicolon(tokens)
+            .into_iter()
+            .map(|spanned| spanned.token)
+            .collect();
+        assert_eq!(&kinds[kinds.len() - 2..], &[Token::Semicolon, Token::Eof]);
+    }
+}

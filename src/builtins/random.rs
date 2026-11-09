@@ -44,3 +44,60 @@ impl Random {
         Ok(Value::Int((i128::from(min) + offset as i128) as i64))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Returns a generator that starts from `state` instead of the clock, so its numbers are always the same.
+    fn seeded(state: u64) -> Random {
+        Random { state }
+    }
+
+    /// Returns the int inside `value`.
+    fn int(value: Value) -> i64 {
+        match value {
+            Value::Int(n) => n,
+            other => panic!("no int: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn the_numbers_are_those_of_splitmix64() {
+        let mut random = seeded(0);
+        let first: Vec<u64> = (0..3).map(|_| random.next()).collect();
+        assert_eq!(
+            first,
+            vec![
+                0xE220_A839_7B1D_CDAF,
+                0x6E78_9E6A_A1B9_65F4,
+                0x06C4_5D18_8009_454F
+            ]
+        );
+    }
+
+    #[test]
+    fn every_number_lies_between_min_and_max() {
+        let mut random = seeded(42);
+        for _ in 0..1000 {
+            let n = int(random.between(-3, 3).unwrap());
+            assert!((-3..=3).contains(&n), "{}", n);
+        }
+    }
+
+    #[test]
+    fn the_whole_range_of_int_does_not_overflow() {
+        let mut random = seeded(7);
+        for _ in 0..100 {
+            random.between(i64::MIN, i64::MAX).unwrap();
+        }
+        assert_eq!(int(random.between(i64::MAX, i64::MAX).unwrap()), i64::MAX);
+        assert_eq!(int(random.between(i64::MIN, i64::MIN).unwrap()), i64::MIN);
+    }
+
+    #[test]
+    fn min_greater_than_max_is_r010() {
+        let error = seeded(1).between(6, 1).unwrap_err();
+        assert_eq!(error.code.code(), "R010");
+    }
+}
