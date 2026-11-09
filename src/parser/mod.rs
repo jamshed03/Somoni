@@ -322,3 +322,162 @@ fn starts_declaration(token: &Token) -> bool {
             | Token::Interface
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lexer::Lexer;
+
+    /// Returns the tokens of `source`.
+    fn lex(source: &str) -> Vec<SpannedToken> {
+        Lexer::new(source, 0).tokenize().unwrap()
+    }
+
+    /// Returns the statements of `source`.
+    fn parse(source: &str) -> Vec<Stmt> {
+        Parser::new(lex(source)).parse_program(false).unwrap()
+    }
+
+    /// Returns the error of parsing `source` as text, like `Parse error [P001]: Line 1: expected ';'`.
+    fn error(source: &str) -> String {
+        Parser::new(lex(source))
+            .parse_program(false)
+            .unwrap_err()
+            .to_string()
+    }
+
+    /// Returns `source` read as one expression in brackets, so `1 + 2 * 3` is `(Add 1 (Mul 2 3))`.
+    fn shape(source: &str) -> String {
+        show(&Parser::new(lex(source)).parse_lone_expr().unwrap())
+    }
+
+    /// Writes an expression in brackets with its operator first, and a call as `name(args)`.
+    fn show(expr: &Expr) -> String {
+        match &expr.kind {
+            ExprKind::Int(n) => n.to_string(),
+            ExprKind::Ident { name, .. } => name.clone(),
+            ExprKind::Binary {
+                left, op, right, ..
+            } => format!("({:?} {} {})", op, show(left), show(right)),
+            ExprKind::Unary { op, operand } => format!("({:?} {})", op, show(operand)),
+            ExprKind::Call(call) => {
+                let args: Vec<String> = call.args.iter().map(show).collect();
+                format!("{}({})", call.name, args.join(", "))
+            }
+            other => format!("{:?}", other),
+        }
+    }
+
+    #[test]
+    fn multiplication_comes_before_addition() {
+        assert_eq!(shape("1 + 2 * 3"), "(Add 1 (Mul 2 3))");
+        assert_eq!(shape("(1 + 2) * 3"), "(Mul (Add 1 2) 3)");
+    }
+
+    #[test]
+    fn the_same_level_goes_from_left_to_right() {
+        assert_eq!(shape("10 - 4 - 3"), "(Sub (Sub 10 4) 3)");
+    }
+
+    #[test]
+    fn and_comes_before_or_and_comparisons_after_arithmetic() {
+        assert_eq!(shape("a || b && c"), "(Or a (And b c))");
+        assert_eq!(shape("a + 1 < b * 2"), "(Less (Add a 1) (Mul b 2))");
+    }
+
+    #[test]
+    fn unary_operators_bind_tightest() {
+        assert_eq!(shape("-a * b"), "(Mul (Neg a) b)");
+        assert_eq!(shape("!a && b"), "(And (Not a) b)");
+    }
+
+    #[test]
+    fn else_if_is_an_else_with_an_if_inside() {
+        let stmts = parse("if (a) { } else if (b) { } else { }");
+        let [
+            Stmt::If {
+                else_branch: Some(inner),
+                ..
+            },
+        ] = stmts.as_slice()
+        else {
+            panic!("no if: {:?}", stmts);
+        };
+        assert!(matches!(
+            inner.as_ref(),
+            Stmt::If { else_branch: Some(last), .. } if matches!(last.as_ref(), Stmt::Block(_))
+        ));
+    }
+
+    #[test]
+    fn a_name_after_for_starts_a_for_each_loop() {
+        for source in [
+            "for (n in l) { }",
+            "for (n: int in l) { }",
+            "for (i, n in l) { }",
+        ] {
+            assert!(
+                matches!(parse(source).as_slice(), [Stmt::ForEach(_)]),
+                "{}",
+                source
+            );
+        }
+        assert!(matches!(
+            parse("for (var i = 0; i < 3; i++) { }").as_slice(),
+            [Stmt::For { .. }]
+        ));
+    }
+
+    #[test]
+    fn while_var_is_while_true_around_an_if_var() {
+        let stmts = parse("while (var line = input()) { }");
+        let [
+            Stmt::While {
+                condition, body, ..
+            },
+        ] = stmts.as_slice()
+        else {
+            panic!("no while: {:?}", stmts);
+        };
+        assert_eq!(condition.kind, ExprKind::Bool(true));
+        assert!(
+            matches!(body.as_ref(), Stmt::Block(inner) if matches!(inner.as_slice(), [Stmt::IfVar(_)]))
+        );
+    }
+
+    #[test]
+    fn a_tuple_gets_a_written_type_only_when_every_name_has_one() {
+        let tuple_typed = |source| match parse(source).as_slice() {
+            [Stmt::Destructure(destructure)] => destructure.tuple.type_name.is_some(),
+            other => panic!("no destructure: {:?}", other),
+        };
+        assert!(tuple_typed("var (q: int, r: int) = t;"));
+        assert!(!tuple_typed("var (q, r: int) = t;"));
+    }
+
+    #[test]
+    fn a_lone_expression_must_end_the_input() {
+        assert_eq!(shape("x * 2"), "(Mul x 2)");
+        assert!(Parser::new(lex("x * 2;")).parse_lone_expr().is_err());
+    }
+
+    #[test]
+    fn a_module_name_from_an_earlier_import_joins_its_names() {
+        let call = |namespaces: &[String]| {
+            let expr = Parser::new(lex("math.square(3)"))
+                .with_namespaces(namespaces)
+                .parse_lone_expr()
+                .unwrap();
+            show(&expr)
+        };
+        assert_eq!(call(&["math".to_string()]), "math.square(3)");
+        assert_ne!(call(&[]), "math.square(3)");
+    }
+
+    #[test]
+    fn errors_say_what_is_missing() {
+        assert!(error("var x = 1").ends_with("expected ';'"));
+        assert!(error("if (a) print(1);").ends_with("expected '{' after if condition"));
+        assert!(error("x + 1;").ends_with("expected '='"));
+    }
+}
