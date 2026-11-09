@@ -1,0 +1,30 @@
+// while (var ...) runs as long as the value is not null; the value is computed again before every round.
+while (var line = input()) {
+    if (line == "skip") {
+        continue;
+    }
+    if (line == "stop") {
+        break;
+    }
+    print("you wrote {line}");
+}
+while (var rest = input()) {
+    print("after stop: {rest}");
+}
+
+class Node {
+    value: int;
+    next: Node?;
+
+    constructor(value: int, next: Node?) {
+        this.value = value;
+        this.next = next;
+    }
+}
+var node: Node? = new Node(1, new Node(2, new Node(3, null)));
+var sum = 0;
+while (const current: Node = node) {
+    sum += current.value;
+    node = current.next;
+}
+print(sum);

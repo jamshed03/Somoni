@@ -309,7 +309,8 @@ Right:
     }
 
 ## P020 if (var ...) with ? in the type
-`if (var name: type = value)` only runs its block when the value is not null, so inside it the type has no `?`.
+`if (var name: type = value)` only runs its block when the value is not null, so inside it the type has no `?`. The
+same holds for `while (var name: type = value)`.
 
 Wrong:
 

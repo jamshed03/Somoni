@@ -1,0 +1,3 @@
+Type error [T100]: Line 2: 'while (var ...)' needs a value that can be null, but this is int; use a normal 'var' instead
+  2 | while (var n = count) {
+    |                ^^^^^

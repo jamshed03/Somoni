@@ -48,7 +48,9 @@ pub enum ErrorCode {
     },
     UnterminatedString,
     OrPatternNotAllowed,
-    IfVarOptionalType,
+    IfVarOptionalType {
+        keyword: &'static str,
+    },
     UnknownEscape {
         found: char,
     },
@@ -400,6 +402,7 @@ pub enum ErrorCode {
     },
     IfVarNotOptional {
         found: Type,
+        keyword: &'static str,
     },
     VoidVariable,
     LambdaParamType {
@@ -549,7 +552,7 @@ impl ErrorCode {
             ErrorCode::AbstractNotAllowed => "P017",
             ErrorCode::PrivateAbstract => "P018",
             ErrorCode::OrPatternNotAllowed => "P019",
-            ErrorCode::IfVarOptionalType => "P020",
+            ErrorCode::IfVarOptionalType { .. } => "P020",
 
             ErrorCode::CannotReadFile { .. } => "M001",
             ErrorCode::ImportCycle { .. } => "M002",
@@ -731,9 +734,10 @@ impl ErrorCode {
             ErrorCode::OrPatternNotAllowed => {
                 "'|' joins only values and variants, not '_', ok(...) or err(...)".to_string()
             }
-            ErrorCode::IfVarOptionalType => {
-                "the type in 'if (var name: type = ...)' has no '?', the block only runs when the value is not null".to_string()
-            }
+            ErrorCode::IfVarOptionalType { keyword } => format!(
+                "the type in '{} (var name: type = ...)' has no '?', the block only runs when the value is not null",
+                keyword
+            ),
             ErrorCode::TemplateNotClosed { close } => {
                 format!("this is not closed with '{}' in the template", close)
             }
@@ -1135,9 +1139,9 @@ impl ErrorCode {
                 "the type of '{}' is only known from line {} on, where its value is computed; write its type there (const {}: type = ...) or move it up",
                 name, line, name
             ),
-            ErrorCode::IfVarNotOptional { found } => format!(
-                "'if (var ...)' needs a value that can be null, but this is {}; use a normal 'var' instead",
-                found
+            ErrorCode::IfVarNotOptional { found, keyword } => format!(
+                "'{} (var ...)' needs a value that can be null, but this is {}; use a normal 'var' instead",
+                keyword, found
             ),
             ErrorCode::ValueMatchWithoutRest { ty } => format!(
                 "a match over {} needs a branch '_' for all other values",

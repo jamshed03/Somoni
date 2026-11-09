@@ -1,0 +1,4 @@
+var count = 3;
+while (var n = count) {
+    print(n);
+}

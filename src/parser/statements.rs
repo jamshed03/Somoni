@@ -221,63 +221,50 @@ impl Parser {
         })
     }
 
-    /// Reads the rest of `if (var name: type = value) { ... }`: a hidden variable of type `type?` holds the value,
-    /// and after `!= null` the block declares `name` from it, so the value is computed only once.
+    /// Reads the rest of `if (var name: type = value) { ... }` with its `else`, after `if (`.
     fn parse_if_var(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        let binding = self.parse_binding("if")?;
+        let then_stmts = self.expect_block_stmts("after if condition")?;
+        let else_branch = self.parse_else()?;
+        Ok(Stmt::IfVar(null_checked(
+            start,
+            "if",
+            binding,
+            then_stmts,
+            else_branch,
+        )))
+    }
+
+    /// Reads the rest of `while (var name: type = value) { ... }` after `while (`, as
+    /// `while (true) { if (var name: type = value) { ... } else { break; } }`, so the value is computed every round.
+    fn parse_while_var(&mut self, start: Span) -> Result<Stmt, SomoniError> {
+        let binding = self.parse_binding("while")?;
+        let body = self.expect_block_stmts("after while condition")?;
+        let stop = Box::new(Stmt::Break { span: start });
+        let check = null_checked(start, "while", binding, body, Some(stop));
+        Ok(Stmt::While {
+            condition: Expr {
+                kind: ExprKind::Bool(true),
+                span: start,
+            },
+            body: Box::new(Stmt::Block(vec![Stmt::IfVar(check)])),
+            span: start,
+        })
+    }
+
+    /// Reads `var name: type = value)` of `if (var ...)` or `while (var ...)`, or P020 for a type with `?`.
+    fn parse_binding(&mut self, keyword: &'static str) -> Result<VarDecl, SomoniError> {
         let mutable = *self.peek() == Token::Var;
         let binding_start = self.current_span();
-        let mut binding = self.parse_var_head(mutable, binding_start)?;
+        let binding = self.parse_var_head(mutable, binding_start)?;
         if let Some(type_name) = binding.type_name.as_ref().filter(|t| t.optional) {
             return Err(SomoniError::at(
                 type_name.span,
-                ErrorCode::IfVarOptionalType,
+                ErrorCode::IfVarOptionalType { keyword },
             ));
         }
-        self.expect(Token::RParen, "')' after if condition")?;
-        let mut then_stmts = self.expect_block_stmts("after if condition")?;
-        let else_branch = self.parse_else()?;
-
-        let hidden_name = format!("<if {}:{}>", start.line, start.col);
-        let read_hidden = Expr {
-            kind: ExprKind::Ident {
-                name: hidden_name.clone(),
-                slot: None,
-            },
-            span: binding.value.span,
-        };
-        let hidden = VarDecl {
-            name: hidden_name,
-            type_name: binding.type_name.clone().map(|type_name| TypeName {
-                optional: true,
-                ..type_name
-            }),
-            value: std::mem::replace(&mut binding.value, read_hidden.clone()),
-            mutable: false,
-            ..binding.clone()
-        };
-        let not_null = Expr {
-            kind: ExprKind::Binary {
-                left: Box::new(read_hidden),
-                op: BinaryOp::NotEq,
-                op_span: binding.name_span,
-                right: Box::new(Expr {
-                    kind: ExprKind::Null,
-                    span: binding.name_span,
-                }),
-            },
-            span: binding.span,
-        };
-        then_stmts.insert(0, Stmt::VarDecl(binding));
-        let branch = Stmt::If {
-            condition: not_null,
-            then_branch: Box::new(Stmt::Block(then_stmts)),
-            else_branch,
-            span: start,
-        };
-        Ok(Stmt::IfVar(IfVar {
-            hidden,
-            branch: Box::new(branch),
-        }))
+        self.expect(Token::RParen, &format!("')' after {} condition", keyword))?;
+        Ok(binding)
     }
 
     /// Reads `else if ...` or `else { ... }` after an `if`, if there is one.
@@ -298,6 +285,9 @@ impl Parser {
     fn parse_while(&mut self, start: Span) -> Result<Stmt, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'while'")?;
+        if matches!(self.peek(), Token::Var | Token::Const) {
+            return self.parse_while_var(start);
+        }
         let condition = self.parse_expr()?;
         self.expect(Token::RParen, "')' after while condition")?;
         let body = self.expect_block("after while condition")?;
@@ -603,5 +593,58 @@ fn stands_alone(expr: &Expr) -> bool {
         | ExprKind::CallValue(_) => true,
         ExprKind::Try(inner) => stands_alone(inner),
         _ => false,
+    }
+}
+
+/// Builds the null check of `if (var ...)` and `while (var ...)`: a hidden variable of type `type?` holds the value once,
+/// and after `!= null` the block declares `binding` from it.
+fn null_checked(
+    start: Span,
+    keyword: &'static str,
+    mut binding: VarDecl,
+    mut then_stmts: Vec<Stmt>,
+    else_branch: Option<Box<Stmt>>,
+) -> IfVar {
+    let hidden_name = format!("<{} {}:{}>", keyword, start.line, start.col);
+    let read_hidden = Expr {
+        kind: ExprKind::Ident {
+            name: hidden_name.clone(),
+            slot: None,
+        },
+        span: binding.value.span,
+    };
+    let hidden = VarDecl {
+        name: hidden_name,
+        type_name: binding.type_name.clone().map(|type_name| TypeName {
+            optional: true,
+            ..type_name
+        }),
+        value: std::mem::replace(&mut binding.value, read_hidden.clone()),
+        mutable: false,
+        ..binding.clone()
+    };
+    let not_null = Expr {
+        kind: ExprKind::Binary {
+            left: Box::new(read_hidden),
+            op: BinaryOp::NotEq,
+            op_span: binding.name_span,
+            right: Box::new(Expr {
+                kind: ExprKind::Null,
+                span: binding.name_span,
+            }),
+        },
+        span: binding.span,
+    };
+    then_stmts.insert(0, Stmt::VarDecl(binding));
+    let branch = Stmt::If {
+        condition: not_null,
+        then_branch: Box::new(Stmt::Block(then_stmts)),
+        else_branch,
+        span: start,
+    };
+    IfVar {
+        hidden,
+        branch: Box::new(branch),
+        keyword,
     }
 }

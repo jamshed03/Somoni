@@ -203,13 +203,16 @@ impl TypeChecker {
         }
     }
 
-    /// Checks `if (var name: type = value)`, whose value must be able to be null, or T100.
+    /// Checks `if (var name: type = value)` or `while (var ...)`, whose value must be able to be null, or T100.
     fn check_if_var(&mut self, if_var: &mut IfVar) -> Result<(), SomoniError> {
         let found = self.check_var_decl(&mut if_var.hidden)?;
         if !matches!(found, Type::Optional(_)) {
             return Err(SomoniError::at(
                 if_var.hidden.value.span,
-                ErrorCode::IfVarNotOptional { found },
+                ErrorCode::IfVarNotOptional {
+                    found,
+                    keyword: if_var.keyword,
+                },
             ));
         }
         self.check_stmt(&mut if_var.branch)

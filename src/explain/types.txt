@@ -1818,7 +1818,7 @@ Right:
 
 ## T100 if (var ...) with a value that is never null
 `if (var name = value)` runs only when the value is not null; for a value without `?`, it would always run. Use a
-normal `var`.
+normal `var`. The same holds for `while (var name = value)`, which would never stop.
 
 Wrong:
 

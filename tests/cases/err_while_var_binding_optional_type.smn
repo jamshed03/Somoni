@@ -1,0 +1,3 @@
+while (var line: string? = input()) {
+    print(line);
+}

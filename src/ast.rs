@@ -443,10 +443,12 @@ pub struct Destructure {
 
 /// `if (var name: type = value) { ... } else { ... }`, which runs the block only if `value` is not null.
 /// `hidden` is `const <if line:col>: type? = value;`, `branch` is `if (<if line:col> != null) { var name: type = <if line:col>; ... }`.
+/// A `while (var ...)` loop is `while (true)` around one of these with `else { break; }`; `keyword` is `if` or `while`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IfVar {
     pub hidden: VarDecl,
     pub branch: Box<Stmt>,
+    pub keyword: &'static str,
 }
 
 /// `var name: type = value;` or `const name: type = value;`.
