@@ -30,7 +30,7 @@ enum Kind {
     Method,
 }
 
-/// Writes the enum `Builtin`, the list `ALL` and `name`, `arity` and `is_method` from one line per built-in:
+/// Writes the enum `Builtin` and `named`, `name`, `arity` and `is_method` from one line per built-in:
 /// `Variant => "name", arguments, Function or Method`, where a method counts the value before the dot as an argument.
 macro_rules! builtins {
     ($($variant:ident => $name:literal, $arity:literal, $kind:ident;)*) => {
@@ -40,10 +40,15 @@ macro_rules! builtins {
             $($variant,)*
         }
 
-        /// Every built-in function and method, so that a name only has to be written once.
-        const ALL: &[Builtin] = &[$(Builtin::$variant,)*];
-
         impl Builtin {
+            /// Returns the function or method with this name.
+            fn named(name: &str) -> Option<Builtin> {
+                match name {
+                    $($name => Some(Builtin::$variant),)*
+                    _ => None,
+                }
+            }
+
             /// Returns the name of the function as written in Somoni.
             pub fn name(self) -> &'static str {
                 match self {
@@ -147,11 +152,6 @@ impl Builtin {
     /// Returns the built-in method with this name, e.g. `upper` for `s.upper()`.
     pub fn method_named(name: &str) -> Option<Builtin> {
         Builtin::named(name).filter(|builtin| builtin.is_method())
-    }
-
-    /// Returns the function or method with this name.
-    fn named(name: &str) -> Option<Builtin> {
-        ALL.iter().copied().find(|builtin| builtin.name() == name)
     }
 
     /// Returns true for a method like `l.map(f)` that calls a function, which only the VM can do (`CallHigher`).
