@@ -20,5 +20,5 @@ Type error [T006]: Line 1: cannot use operator on int and bool
 
 - Type errors are always reported before a program starts; a runtime error like division by zero only happens while it runs
 - Every error has a code (like `T006`) and a kind: `L` lexer, `P` parser, `M` modules, `T` type, `R` runtime
-- `cargo run -- --bytecode file.smn` prints the bytecode the compiler produced, instead of running it
-- `cargo run -- --explain T006` explains a code in full, with a working and a failing example
+- `somoni --bytecode file.smn` prints the bytecode the compiler produced, instead of running it
+- `somoni --explain T006` explains a code in full, with a working and a failing example
