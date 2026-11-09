@@ -126,7 +126,7 @@ Right:
 
 ## R010 no result for these arguments
 A built-in function has no result for its arguments, like the square root of a negative number, `pow` with a
-negative int exponent, or `format` and `repeat` with a negative count.
+negative int exponent, `format` and `repeat` with a negative count, or `random(min, max)` with `min` greater than `max`.
 
 Wrong:
 

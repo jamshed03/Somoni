@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
-use crate::builtins::{Builtin, string_value};
+use crate::builtins::{Builtin, Random, string_value};
 use crate::bytecode::{Chunk, Op, Path, PathRoot, PathStep, Program, ValueTable, index_slot};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
@@ -114,6 +114,8 @@ struct Vm<'p> {
     location: Option<String>,
     /// The arguments after the file on the command line, which `args()` gives; empty under `somoni serve`.
     args: Vec<String>,
+    /// The generator behind `random(min, max)`, started from the clock.
+    random: Random,
 }
 
 impl<'p> Vm<'p> {
@@ -300,9 +302,8 @@ impl<'p> Vm<'p> {
     /// Calls a built-in function with the `count` values on top of the stack and pushes its result.
     fn call_builtin(&mut self, builtin: Builtin, count: usize) -> Result<(), SomoniError> {
         let start = self.top_start(count);
-        let result = if builtin == Builtin::Args {
-            let items = self.args.iter().cloned().map(string_value).collect();
-            Value::List(Rc::new(items))
+        let result = if matches!(builtin, Builtin::Args | Builtin::Random) {
+            self.state_call(builtin, start)?
         } else if let Some(value) = self.server_call(builtin, start) {
             value?
         } else if let Some(text) = builtin.output_text(&self.stack[start..]) {
@@ -314,6 +315,20 @@ impl<'p> Vm<'p> {
         self.stack.truncate(start);
         self.stack.push(result);
         Ok(())
+    }
+
+    /// Runs `args` or `random`, which need state of the VM, with the arguments from `start` on.
+    fn state_call(&mut self, builtin: Builtin, start: usize) -> Result<Value, SomoniError> {
+        match (builtin, &self.stack[start..]) {
+            (Builtin::Args, []) => {
+                let items = self.args.iter().cloned().map(string_value).collect();
+                Ok(Value::List(Rc::new(items)))
+            }
+            (Builtin::Random, [Value::Int(min), Value::Int(max)]) => {
+                self.random.between(*min, *max)
+            }
+            _ => Err(SomoniError::internal("no state call for these arguments")),
+        }
     }
 
     /// Runs `query`, `form`, `request_path`, `request_method` or `set_status` with the arguments from `start` on,

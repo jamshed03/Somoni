@@ -1,0 +1,18 @@
+// random(min, max) gives an int from min to max, both included; the numbers change every run, so the test only
+// checks what is always true.
+var faces: map<int, bool> = {};
+var inside = true;
+for (var i = 0; i < 1000; i++) {
+    var n = random(1, 6);
+    if (n < 1 || n > 6) {
+        inside = false;
+    }
+    faces[n] = true;
+}
+print(inside);
+print(len(faces));
+print(random(5, 5));
+print(random(-3, -3));
+
+var wide = random(-9223372036854775807 - 1, 9223372036854775807);
+print(wide == wide);

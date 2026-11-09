@@ -1,0 +1,1 @@
+print(random(1, 2.5));

@@ -12,12 +12,14 @@ use strings::{
     Side, escape_html, format_float, index_of, join, pad, repeat, replace, slice_text, split,
 };
 
+pub(crate) use random::Random;
 pub(crate) use strings::html_safe;
 
 mod collections;
 mod convert;
 mod io;
 mod math;
+mod random;
 mod strings;
 
 /// The functions built into Somoni.
@@ -32,6 +34,7 @@ pub enum Builtin {
     CopyFile,
     Args,
     Now,
+    Random,
     Query,
     RequestPath,
     Form,
@@ -98,6 +101,7 @@ const ALL: &[Builtin] = &[
     Builtin::CopyFile,
     Builtin::Args,
     Builtin::Now,
+    Builtin::Random,
     Builtin::Query,
     Builtin::RequestPath,
     Builtin::Form,
@@ -210,6 +214,7 @@ impl Builtin {
             | Builtin::CopyFile
             | Builtin::Args
             | Builtin::Now
+            | Builtin::Random
             | Builtin::Query
             | Builtin::RequestPath
             | Builtin::Form
@@ -324,6 +329,7 @@ impl Builtin {
             Builtin::CopyFile => "copy_file",
             Builtin::Args => "args",
             Builtin::Now => "now",
+            Builtin::Random => "random",
             Builtin::Query => "query",
             Builtin::RequestPath => "request_path",
             Builtin::Form => "form",
@@ -426,6 +432,7 @@ impl Builtin {
             | Builtin::Min
             | Builtin::Max
             | Builtin::Pow
+            | Builtin::Random
             | Builtin::Remove
             | Builtin::Map
             | Builtin::Filter
@@ -469,6 +476,8 @@ impl Builtin {
             (Builtin::RequestPath | Builtin::RequestMethod, []) => Ok(Type::Str),
             (Builtin::Args, []) => Ok(Type::List(Box::new(Type::Str))),
             (Builtin::Now, []) => Ok(Type::Int),
+            (Builtin::Random, [Type::Int, Type::Int]) => Ok(Type::Int),
+            (Builtin::Random, [Type::Int, _]) => Err(1),
             (Builtin::SetStatus, [Type::Int]) => Ok(Type::Void),
             (Builtin::Redirect, [Type::Str]) => Ok(Type::Void),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
