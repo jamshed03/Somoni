@@ -1,6 +1,6 @@
 [package]
 name = "somoni"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2024"
 description = "A small, strongly typed programming language with templates and a small web server"
 license = "MIT"
