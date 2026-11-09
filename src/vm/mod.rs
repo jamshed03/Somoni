@@ -1,11 +1,10 @@
 use std::rc::Rc;
 
 use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
-use crate::builtins::Builtin;
+use crate::builtins::{Builtin, string_value};
 use crate::bytecode::{Chunk, Op, Path, PathRoot, PathStep, Program, ValueTable, index_slot};
 use crate::error::{ErrorCode, SomoniError};
 use crate::map::MapValue;
-use crate::text::Text;
 use crate::value::{self, Closure, Object, Step, StructValue, Value, Way, map_key, show_key};
 
 mod higher;
@@ -16,9 +15,13 @@ use output::Output;
 /// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
 
-/// Runs a compiled program.
-pub fn run(program: &Program) -> Result<(), SomoniError> {
-    Vm::default().run(program)
+/// Runs a compiled program with the arguments that `args()` gives it.
+pub fn run(program: &Program, args: Vec<String>) -> Result<(), SomoniError> {
+    Vm {
+        args,
+        ..Vm::default()
+    }
+    .run(program)
 }
 
 /// The request that `somoni serve` answers with a program: its method, decoded path, query and form.
@@ -109,6 +112,8 @@ struct Vm<'p> {
     status: Option<u16>,
     /// Where `redirect` sends the browser.
     location: Option<String>,
+    /// The arguments after the file on the command line, which `args()` gives; empty under `somoni serve`.
+    args: Vec<String>,
 }
 
 impl<'p> Vm<'p> {
@@ -295,7 +300,10 @@ impl<'p> Vm<'p> {
     /// Calls a built-in function with the `count` values on top of the stack and pushes its result.
     fn call_builtin(&mut self, builtin: Builtin, count: usize) -> Result<(), SomoniError> {
         let start = self.top_start(count);
-        let result = if let Some(value) = self.server_call(builtin, start) {
+        let result = if builtin == Builtin::Args {
+            let items = self.args.iter().cloned().map(string_value).collect();
+            Value::List(Rc::new(items))
+        } else if let Some(value) = self.server_call(builtin, start) {
             value?
         } else if let Some(text) = builtin.output_text(&self.stack[start..]) {
             self.output.write(&text)?;
@@ -315,7 +323,7 @@ impl<'p> Vm<'p> {
         builtin: Builtin,
         start: usize,
     ) -> Option<Result<Value, SomoniError>> {
-        let text = |text: &str| Value::Str(Rc::new(Text::new(text.to_string())));
+        let text = |text: &str| string_value(text.to_string());
         let request = self.request.as_ref();
         let value = match (builtin, &self.stack[start..]) {
             (Builtin::Query | Builtin::Form, [Value::Str(name)]) => {
@@ -651,7 +659,7 @@ impl<'p> Vm<'p> {
         let chars = text
             .as_str()
             .chars()
-            .map(|c| Value::Str(Rc::new(Text::new(c.to_string()))))
+            .map(|c| string_value(c.to_string()))
             .collect();
         self.stack.push(Value::List(Rc::new(chars)));
         Ok(())

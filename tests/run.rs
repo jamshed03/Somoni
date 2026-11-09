@@ -67,11 +67,13 @@ fn check_all(programs: &[PathBuf], place: &str) {
     );
 }
 
-/// Runs somoni in `dir` with `file` and gives it `input` as if it were typed, e.g. from `spiel.in` next to `spiel.smn`.
-fn run_somoni(dir: &Path, file: &std::ffi::OsStr, input: &str) -> Output {
+/// Runs somoni in `dir` with `file` and the arguments `args`, and gives it `input` as if it were typed,
+/// e.g. from `game.in` next to `game.smn`.
+fn run_somoni(dir: &Path, file: &std::ffi::OsStr, args: &[String], input: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_somoni"))
         .current_dir(dir)
         .arg(file)
+        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -97,7 +99,10 @@ fn check_program(program: &Path) -> Vec<String> {
         return vec!["program has no directory".to_string()];
     };
     let input = fs::read_to_string(program.with_extension("in")).unwrap_or_default();
-    let output = run_somoni(dir, file, &input);
+    let args: Vec<String> = fs::read_to_string(program.with_extension("args"))
+        .map(|text| text.lines().map(str::to_string).collect())
+        .unwrap_or_default();
+    let output = run_somoni(dir, file, &args, &input);
     let actual = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),

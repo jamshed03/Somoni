@@ -2,10 +2,9 @@
 
 use std::rc::Rc;
 
-use crate::builtins::Builtin;
+use crate::builtins::{Builtin, string_value};
 use crate::bytecode::Program;
 use crate::error::SomoniError;
-use crate::text::Text;
 use crate::value::{Order, Value};
 
 use super::{Frame, Vm};
@@ -61,7 +60,7 @@ impl<'p> Vm<'p> {
         let called = self.call_now(f, &[], frame, program);
         let text = self.output.end_capture();
         called?;
-        Ok(Value::Str(Rc::new(Text::new(text))))
+        Ok(string_value(text))
     }
 
     /// Returns `f(item)` for every item.

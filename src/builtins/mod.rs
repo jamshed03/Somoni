@@ -30,6 +30,7 @@ pub enum Builtin {
     ReadFile,
     WriteFile,
     CopyFile,
+    Args,
     Query,
     RequestPath,
     Form,
@@ -94,6 +95,7 @@ const ALL: &[Builtin] = &[
     Builtin::ReadFile,
     Builtin::WriteFile,
     Builtin::CopyFile,
+    Builtin::Args,
     Builtin::Query,
     Builtin::RequestPath,
     Builtin::Form,
@@ -204,6 +206,7 @@ impl Builtin {
             | Builtin::ReadFile
             | Builtin::WriteFile
             | Builtin::CopyFile
+            | Builtin::Args
             | Builtin::Query
             | Builtin::RequestPath
             | Builtin::Form
@@ -316,6 +319,7 @@ impl Builtin {
             Builtin::ReadFile => "read_file",
             Builtin::WriteFile => "write_file",
             Builtin::CopyFile => "copy_file",
+            Builtin::Args => "args",
             Builtin::Query => "query",
             Builtin::RequestPath => "request_path",
             Builtin::Form => "form",
@@ -382,7 +386,7 @@ impl Builtin {
             | Builtin::SetStatus
             | Builtin::Redirect => 1,
             Builtin::WriteFile | Builtin::CopyFile => 2,
-            Builtin::RequestPath | Builtin::RequestMethod => 0,
+            Builtin::Args | Builtin::RequestPath | Builtin::RequestMethod => 0,
             Builtin::Print
             | Builtin::Write
             | Builtin::Capture
@@ -459,6 +463,7 @@ impl Builtin {
                 Ok(Type::Optional(Box::new(Type::Str)))
             }
             (Builtin::RequestPath | Builtin::RequestMethod, []) => Ok(Type::Str),
+            (Builtin::Args, []) => Ok(Type::List(Box::new(Type::Str))),
             (Builtin::SetStatus, [Type::Int]) => Ok(Type::Void),
             (Builtin::Redirect, [Type::Str]) => Ok(Type::Void),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
@@ -688,7 +693,7 @@ impl Builtin {
 }
 
 /// Returns a string value.
-pub(super) fn string_value(s: String) -> Value {
+pub(crate) fn string_value(s: String) -> Value {
     Value::Str(Rc::new(Text::new(s)))
 }
 

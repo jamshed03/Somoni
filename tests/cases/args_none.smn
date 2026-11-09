@@ -1,0 +1,3 @@
+// Without arguments, args() is an empty list.
+print(args());
+print(len(args()));

@@ -1,0 +1,14 @@
+// args() gives the arguments after the file, without the file name; the test runner reads them from args.args.
+var given = args();
+print(len(given));
+for (arg in given) {
+    print("<{arg}>");
+}
+match (int(given[1])) {
+    ok(age: int) => {
+        print(age + 1);
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}

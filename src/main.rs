@@ -32,8 +32,12 @@ const DEFAULT_PORT: u16 = 8000;
 
 /// What the command line asks for.
 enum Command {
-    /// `somoni [--bytecode] file.smn`: run the file, or show its bytecode.
-    Run { path: String, show_bytecode: bool },
+    /// `somoni [--bytecode] file.smn [args...]`: run the file with the arguments after it, or show its bytecode.
+    Run {
+        path: String,
+        show_bytecode: bool,
+        args: Vec<String>,
+    },
     /// `somoni serve [folder] [--port 8000]`: answer requests from the browser with the files of `dir`.
     Serve { dir: String, port: u16 },
     /// `somoni --explain T003`: show what an error code means, with an example.
@@ -46,7 +50,8 @@ fn main() {
         Command::Run {
             path,
             show_bytecode,
-        } => run(&path, show_bytecode),
+            args,
+        } => run(&path, show_bytecode, args),
         Command::Serve { dir, port } => {
             serve::serve(&dir, port).unwrap_or_else(|message| fail(&message))
         }
@@ -59,18 +64,20 @@ fn main() {
 
 /// Reads the command from the arguments after the program name, or stops with the usage.
 fn read_command(args: Vec<String>) -> Command {
-    let usage = "Usage: somoni [--bytecode] <file.smn>\n       somoni serve [folder] [--port 8000]\n       somoni --explain <code>";
+    let usage = "Usage: somoni [--bytecode] <file.smn> [args...]\n       somoni serve [folder] [--port 8000]\n       somoni --explain <code>";
     match args.as_slice() {
-        [path] if path != "serve" => Command::Run {
-            path: path.clone(),
-            show_bytecode: false,
-        },
-        [flag, path] if flag == "--bytecode" => Command::Run {
-            path: path.clone(),
-            show_bytecode: true,
-        },
         [flag, code] if flag == "--explain" => Command::Explain { code: code.clone() },
         [serve, rest @ ..] if serve == "serve" => read_serve(rest).unwrap_or_else(|| fail(usage)),
+        [flag, path, rest @ ..] if flag == "--bytecode" => Command::Run {
+            path: path.clone(),
+            show_bytecode: true,
+            args: rest.to_vec(),
+        },
+        [path, rest @ ..] if !path.starts_with("--") => Command::Run {
+            path: path.clone(),
+            show_bytecode: false,
+            args: rest.to_vec(),
+        },
         _ => fail(usage),
     }
 }
@@ -89,14 +96,14 @@ fn read_serve(args: &[String]) -> Option<Command> {
     Some(Command::Serve { dir, port })
 }
 
-/// Runs the file `path`, or shows its bytecode, and stops with exit code 1 on an error.
-fn run(path: &str, show_bytecode: bool) {
+/// Runs the file `path` with `args`, or shows its bytecode, and stops with exit code 1 on an error.
+fn run(path: &str, show_bytecode: bool, args: Vec<String>) {
     let (program, files) = build(path).unwrap_or_else(|message| fail(&message));
     if show_bytecode {
         print!("{}", bytecode::disassemble(&program));
         return;
     }
-    if let Err(error) = vm::run(&program) {
+    if let Err(error) = vm::run(&program, args) {
         fail(&render(&error, &files));
     }
 }

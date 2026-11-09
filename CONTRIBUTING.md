@@ -11,6 +11,7 @@ A program goes through lexer, parser, type checker, compiler and VM; the
 Every test is a Somoni program with its expected output in `tests/cases/`:
 `name.smn` is the program, `name.out` is stdout followed by stderr.
 Programs that should fail start with `err_` and must exit with code 1, all others with 0.
+A `name.in` next to `name.smn` is given to the program as typed input, a `name.args` gives one argument per line.
 The programs in `examples/` are checked the same way, except files in folders named `lib`, which are only imported.
 
 -   New features need new tests (one that works, one `err_` case per new error).
