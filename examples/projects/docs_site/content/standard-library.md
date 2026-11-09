@@ -22,7 +22,7 @@ print((1.0 / 3.0).format(2));
 - Maps: `values()`, `remove`, `get(k, default)`, plus the functions `len`, `has(m, k)`, `keys(m)`
 - Input and output: `print`, `write` (without a line break), `input()` (one line, `null` at the end), `read_file`, `write_file`, `append_file`, `copy_file` and `make_dir` (with a `result`; `copy_file` copies bytes, so it also works for images), `capture(fn() => ...)` (what a function prints, as a string)
 - Command line: `args()` gives the arguments after the file as a `list<string>`, so `somoni greet.smn Ali 30` gives `["Ali", "30"]`
-- Time: `now()` gives the milliseconds since 1970 as an `int`, like `Date.now()` in JavaScript; `now() - start` measures how long something took
+- Time: `now()` gives the milliseconds since 1970 as an `int`, like `Date.now()` in JavaScript; `now() - start` measures how long something took; `format_date(now(), "YYYY-MM-DD hh:mm")` shows a moment in UTC
 - Chance: `random(1, 6)` gives an `int` from 1 to 6, both included; good for games and examples, not for passwords
 - Math functions: `abs`, `min`, `max`, `sqrt`, `pow`, `floor`, `ceil`, `round`
 - Not found is `null`, not `-1`: `"abc".index_of("z")` has type `int?`

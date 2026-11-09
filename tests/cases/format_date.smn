@@ -1,0 +1,6 @@
+// format_date shows a moment in UTC; YYYY MM DD hh mm ss are filled in.
+print(format_date(0, "YYYY-MM-DD hh:mm:ss"));
+print(format_date(-1, "YYYY-MM-DD hh:mm:ss"));
+print(format_date(1700000000000, "DD.MM.YYYY hh:mm"));
+print(format_date(951782400000, "YYYY-MM-DD"));
+print(len(format_date(now(), "YYYY")));

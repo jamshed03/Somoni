@@ -17,6 +17,7 @@ pub(crate) use strings::html_safe;
 
 mod collections;
 mod convert;
+mod date;
 mod io;
 mod math;
 mod random;
@@ -80,6 +81,7 @@ builtins! {
     MakeDir       => "make_dir",       1, Function;
     Args          => "args",           0, Function;
     Now           => "now",            0, Function;
+    FormatDate    => "format_date",    2, Function;
     Random        => "random",         2, Function;
     Query         => "query",          1, Function;
     RequestPath   => "request_path",   0, Function;
@@ -278,6 +280,8 @@ impl Builtin {
             (Builtin::RequestPath | Builtin::RequestMethod, []) => Ok(Type::Str),
             (Builtin::Args, []) => Ok(Type::List(Box::new(Type::Str))),
             (Builtin::Now, []) => Ok(Type::Int),
+            (Builtin::FormatDate, [Type::Int, Type::Str]) => Ok(Type::Str),
+            (Builtin::FormatDate, [Type::Int, _]) => Err(1),
             (Builtin::Random, [Type::Int, Type::Int]) => Ok(Type::Int),
             (Builtin::Random, [Type::Int, _]) => Err(1),
             (Builtin::SetStatus, [Type::Int]) => Ok(Type::Void),
@@ -409,6 +413,9 @@ impl Builtin {
         match (self, args) {
             (Builtin::Input, []) => io::read_line(),
             (Builtin::Now, []) => Ok(Value::Int(io::now_millis())),
+            (Builtin::FormatDate, [Value::Int(millis), Value::Str(pattern)]) => {
+                Ok(string_value(date::format_date(*millis, pattern.as_str())))
+            }
             (Builtin::ReadFile, [Value::Str(dir), Value::Str(path)]) => {
                 Ok(io::read_file(dir.as_str(), path.as_str()))
             }
