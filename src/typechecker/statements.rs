@@ -356,7 +356,7 @@ impl TypeChecker {
                 name_span,
                 ..
             } => {
-                let Type::Class(layout) = self.check_expr(inner)? else {
+                let Type::Class(layout) = self.check_expr(inner)?.with_fields().clone() else {
                     return self.object_field(inner);
                 };
                 let through_this =

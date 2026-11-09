@@ -1,0 +1,16 @@
+interface Named {
+    label(): string;
+}
+
+class Pet {
+    readonly id: int = 1;
+
+    constructor() {
+    }
+}
+
+fn change(p: Pet): void {
+    if (p instanceof Named) {
+        p.id = 5;
+    }
+}

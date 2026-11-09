@@ -1,0 +1,41 @@
+// a field of a narrowed object (Pet & Shape) can be set through a const parameter, like any object
+interface Shape {
+    area(): int;
+}
+
+class Animal implements Shape {
+    name: string;
+    readonly id: int = 1;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+
+    area(): int {
+        return 1;
+    }
+}
+
+class Pet {
+    owner: string;
+
+    constructor() {
+        this.owner = "Ann";
+    }
+}
+
+class Cat extends Pet implements Shape {
+    area(): int {
+        return 2;
+    }
+}
+
+fn rename(p: Pet): void {
+    if (p instanceof Shape) {
+        p.owner = "Bob";
+    }
+}
+
+var c = new Cat();
+rename(c);
+print(c.owner);

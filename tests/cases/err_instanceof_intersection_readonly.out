@@ -1,0 +1,3 @@
+Type error [T073]: Line 14: 'id' is readonly in 'Pet' and can only be set in its constructor
+  14 |         p.id = 5;
+     |           ^^
