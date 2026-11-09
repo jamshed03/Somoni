@@ -1,0 +1,4 @@
+var numbers = [1, 2];
+for (n in numbers) {
+    print(n + "a");
+}

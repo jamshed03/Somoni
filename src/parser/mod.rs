@@ -169,11 +169,11 @@ impl Parser {
         })
     }
 
-    /// Reads one parameter of a lambda, `x: int` or only `x`.
-    fn parse_lambda_param(&mut self) -> Result<Param, SomoniError> {
-        let (name, name_span) = self.expect_ident("parameter name")?;
+    /// Reads `x: int` or only `x`, for a lambda, a `for`-each loop or a tuple taken apart; `what` names it in messages.
+    fn parse_param_maybe_typed(&mut self, what: &str) -> Result<Param, SomoniError> {
+        let (name, name_span) = self.expect_ident(&format!("{} name", what))?;
         let type_name = if self.eat(Token::Colon) {
-            Some(self.parse_type("parameter type")?)
+            Some(self.parse_type(&format!("{} type", what))?)
         } else {
             None
         };

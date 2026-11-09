@@ -412,6 +412,10 @@ pub enum ErrorCode {
     InterpolationType {
         found: Type,
     },
+    DestructureShape {
+        names: usize,
+        found: Type,
+    },
     ConstTypeLater {
         name: String,
         line: usize,
@@ -659,6 +663,7 @@ impl ErrorCode {
             ErrorCode::LambdaParamType { .. } => "T103",
             ErrorCode::LambdaParamCount { .. } => "T104",
             ErrorCode::InterpolationType { .. } => "T105",
+            ErrorCode::DestructureShape { .. } => "T106",
             ErrorCode::ConstTypeLater { .. } => "T102",
 
             ErrorCode::Internal { .. } => "R000",
@@ -1110,6 +1115,10 @@ impl ErrorCode {
             ErrorCode::LambdaParamType { name } => format!(
                 "the type of parameter '{}' is unknown here; write it (fn({}: type) => ...) or use the lambda where a function type is expected",
                 name, name
+            ),
+            ErrorCode::DestructureShape { names, found } => format!(
+                "cannot take {} apart into {} names; that needs a tuple with {} elements",
+                found, names, names
             ),
             ErrorCode::InterpolationType { found } => format!(
                 "cannot put {} into a string; only int, float, bool and string can stand in '{{...}}' (a value with '?' first needs a null check)",

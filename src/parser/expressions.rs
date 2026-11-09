@@ -173,8 +173,9 @@ impl Parser {
     fn parse_lambda(&mut self, start: Span) -> Result<Expr, SomoniError> {
         self.advance();
         self.expect(Token::LParen, "'(' after 'fn'")?;
-        let params =
-            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_lambda_param())?;
+        let params = self.parse_comma_list(Token::RParen, "')'", |this| {
+            this.parse_param_maybe_typed("parameter")
+        })?;
         let return_type = if self.eat(Token::Colon) {
             Some(self.parse_type("return type")?)
         } else {

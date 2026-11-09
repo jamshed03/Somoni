@@ -1,0 +1,29 @@
+// The type of a loop variable may be left out: it comes from what the loop runs over.
+var names = ["Ali", "Sara"];
+for (name in names) {
+    print(name.upper());
+}
+for (i, name in names) {
+    print("{i}: {name}");
+}
+
+var ages = {"Ali": 30, "Sara": 25};
+for (name in ages) {
+    print(name);
+}
+for (name, years in ages) {
+    print("{name} is {years + 1} next year");
+}
+
+// a written type and a left out one can be mixed
+for (i, c: string in "ab") {
+    print("{i}{c}");
+}
+
+struct Point {
+    x: int,
+    y: int
+}
+for (p in [Point { x: 1, y: 2 }]) {
+    print(p.x + p.y);
+}

@@ -1901,3 +1901,16 @@ Right:
 
     var names = ["Ali", "Bea"];
     print("Names: {names.join(", ")}");
+
+## T106 tuple that does not fit the names
+`var (a, b) = value;` takes a tuple apart: the value must be a tuple with exactly one element per name. With types
+written (`var (a: int, b: int) = ...`) the same mistake is T003.
+
+Wrong:
+
+    var (q, r) = (17, 5, 2);
+
+Right:
+
+    var (q, r) = (17, 5);
+    print(q + r);

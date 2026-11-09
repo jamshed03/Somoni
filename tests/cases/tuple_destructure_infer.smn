@@ -1,0 +1,13 @@
+// The types of the names may be left out when a tuple is taken apart, also only for some of them.
+fn divide(a: int, b: int): (int, int) {
+    return (a / b, a % b);
+}
+var (q, r) = divide(17, 5);
+print(q * 10 + r);
+
+const (name, age: int) = ("Ali", 30);
+print("{name} {age}");
+
+var (first, rest) = (1, [2, 3]);
+rest += [first];
+print(rest);

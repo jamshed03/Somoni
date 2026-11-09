@@ -313,7 +313,7 @@ impl Parser {
         self.advance();
         self.expect(Token::LParen, "'(' after 'for'")?;
         if let Token::Ident(_) = self.peek()
-            && *self.peek_next() == Token::Colon
+            && matches!(self.peek_next(), Token::Colon | Token::Comma | Token::In)
         {
             return self.parse_foreach(start);
         }
@@ -356,11 +356,11 @@ impl Parser {
         }
     }
 
-    /// Reads the rest of `for (name: string in namen) { ... }` after `for (`.
+    /// Reads the rest of `for (name: string in names) { ... }` or `for (name in names) { ... }` after `for (`.
     fn parse_foreach(&mut self, start: Span) -> Result<Stmt, SomoniError> {
-        let mut vars = vec![self.parse_param("loop variable")?];
+        let mut vars = vec![self.parse_param_maybe_typed("loop variable")?];
         if self.eat(Token::Comma) {
-            vars.push(self.parse_param("loop variable")?);
+            vars.push(self.parse_param_maybe_typed("loop variable")?);
         }
         self.expect(Token::In, "'in'")?;
         let iterable = self.parse_expr()?;
@@ -459,32 +459,31 @@ impl Parser {
         }))
     }
 
-    /// Reads `var (q: int, r: int) = value;`: a hidden variable holds the tuple, every name reads one element of it.
+    /// Reads `var (q: int, r: int) = value;` or `var (q, r) = value;`: a hidden variable holds the tuple, every name
+    /// reads one element of it. The hidden variable has a written type only when every name has one.
     fn parse_destructure(&mut self, mutable: bool, start: Span) -> Result<Stmt, SomoniError> {
         self.advance();
         self.advance();
-        let names =
-            self.parse_comma_list(Token::RParen, "')'", |this| this.parse_param("variable"))?;
+        let names = self.parse_comma_list(Token::RParen, "')'", |this| {
+            this.parse_param_maybe_typed("variable")
+        })?;
         self.expect(Token::Equal, "'='")?;
         let value = self.parse_expr()?;
         let span = self.since(start);
         self.expect(Token::Semicolon, "';'")?;
         let hidden = format!("<tuple {}:{}>", start.line, start.col);
-        let args = names.iter().map(|name| name.type_name.clone()).collect();
-        let Some(args) = args else {
-            return Err(SomoniError::internal("variable of a tuple without a type"));
-        };
-        let tuple_type = TypeName {
+        let args: Option<Vec<TypeName>> = names.iter().map(|name| name.type_name.clone()).collect();
+        let tuple_type = args.map(|args| TypeName {
             name: TUPLE_TYPE.to_string(),
             args,
             optional: false,
             span,
-        };
+        });
         let tuple = VarDecl {
             exported: false,
             name: hidden.clone(),
             name_span: start,
-            type_name: Some(tuple_type),
+            type_name: tuple_type,
             value,
             mutable: true,
             slot: None,

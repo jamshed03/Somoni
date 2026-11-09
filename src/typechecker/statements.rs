@@ -1,8 +1,8 @@
 //! Checking statements and function bodies: variables, assignments, loops, `return`.
 
 use crate::ast::{
-    Assign, AssignRoot, BinaryOp, Expr, ExprKind, ForEach, Function, IfVar, IterKind, Match, Param,
-    Stmt, THIS, VarDecl,
+    Assign, AssignRoot, BinaryOp, Destructure, Expr, ExprKind, ForEach, Function, IfVar, IterKind,
+    Match, Param, Stmt, THIS, TypeName, VarDecl,
 };
 use crate::error::{ErrorCode, SomoniError};
 use crate::span::Span;
@@ -10,7 +10,7 @@ use crate::types::Type;
 
 use super::declarations::is_fixed_value;
 use super::patterns::{check_match, check_value_match};
-use super::{ObjectField, Returns, Signature, TypeChecker, written};
+use super::{ObjectField, Returns, Signature, TypeChecker};
 
 impl TypeChecker {
     /// Checks statements one after another.
@@ -109,12 +109,7 @@ impl TypeChecker {
     pub(super) fn check_stmt(&mut self, stmt: &mut Stmt) -> Result<(), SomoniError> {
         match stmt {
             Stmt::VarDecl(decl) => self.check_var_decl(decl).map(|_| ()),
-            Stmt::Destructure(_) => {
-                for decl in stmt.var_decls_mut() {
-                    self.check_var_decl(decl)?;
-                }
-                Ok(())
-            }
+            Stmt::Destructure(destructure) => self.check_destructure(destructure),
             Stmt::IfVar(if_var) => self.in_scope(|this| this.check_if_var(if_var)),
             Stmt::Assign(assign) => self.check_assign(assign),
             Stmt::Expr { expr, .. } => {
@@ -169,6 +164,22 @@ impl TypeChecker {
         let slot = self.declare(&decl.name, decl.name_span, declared, decl.mutable)?;
         decl.slot = Some(slot);
         Ok(found)
+    }
+
+    /// Checks `var (q, r) = value;`: the hidden tuple, that it has one element per name, then every name.
+    fn check_destructure(&mut self, destructure: &mut Destructure) -> Result<(), SomoniError> {
+        let found = self.check_var_decl(&mut destructure.tuple)?;
+        let names = destructure.parts.len();
+        if !matches!(&found, Type::Tuple(elements) if elements.len() == names) {
+            return Err(SomoniError::at(
+                destructure.tuple.value.span,
+                ErrorCode::DestructureShape { names, found },
+            ));
+        }
+        for part in &mut destructure.parts {
+            self.check_var_decl(part)?;
+        }
+        Ok(())
     }
 
     /// Returns the type of the variable and the type of its value; without a written type both are the type of the value.
@@ -424,7 +435,8 @@ impl TypeChecker {
         })
     }
 
-    /// Declares the variables of a `for`-each loop or of `ok(n: int)` and returns their slots.
+    /// Declares the variables of a `for`-each loop or of `ok(n: int)` and returns their slots;
+    /// a variable without a written type gets the expected one.
     pub(super) fn declare_bound_vars(
         &mut self,
         vars: &[Param],
@@ -432,21 +444,34 @@ impl TypeChecker {
     ) -> Result<Vec<usize>, SomoniError> {
         let mut slots = Vec::new();
         for (var, expected) in vars.iter().zip(expected) {
-            let type_name = written(&var.type_name)?;
-            let declared = self.resolve_type(type_name, false)?;
-            if declared != expected {
-                return Err(SomoniError::at(
-                    type_name.span,
-                    ErrorCode::BoundVarType {
-                        name: var.name.clone(),
-                        expected,
-                        found: declared,
-                    },
-                ));
-            }
+            let declared = match &var.type_name {
+                Some(type_name) => self.written_bound_type(&var.name, type_name, expected)?,
+                None => expected,
+            };
             slots.push(self.declare(&var.name, var.name_span, declared, false)?);
         }
         Ok(slots)
+    }
+
+    /// Returns the written type of a bound variable, or T039 if it is not exactly the `expected` one.
+    fn written_bound_type(
+        &mut self,
+        name: &str,
+        type_name: &TypeName,
+        expected: Type,
+    ) -> Result<Type, SomoniError> {
+        let declared = self.resolve_type(type_name, false)?;
+        if declared != expected {
+            return Err(SomoniError::at(
+                type_name.span,
+                ErrorCode::BoundVarType {
+                    name: name.to_string(),
+                    expected,
+                    found: declared,
+                },
+            ));
+        }
+        Ok(declared)
     }
 
     /// Checks the body of a `while` or `for` loop with the variables its condition proves not to be null.
