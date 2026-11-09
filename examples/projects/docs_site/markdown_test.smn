@@ -1,0 +1,7 @@
+// Checks lib/markdown.smn: an indented line after a list item goes on with that item.
+import { to_html } from "lib/markdown.smn";
+
+print(to_html("- one\n  two `x`\n- three\n\nafter"));
+print(to_html("- `a\n  b`"));
+print(to_html("- item\n\n  indented"));
+print(to_html("text\n  more"));

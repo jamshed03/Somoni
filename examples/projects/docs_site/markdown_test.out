@@ -1,0 +1,13 @@
+<ul>
+    <li>one two <code>x</code></li>
+    <li>three</li>
+</ul>
+<p>after</p>
+<ul>
+    <li><code>a b</code></li>
+</ul>
+<ul>
+    <li>item</li>
+</ul>
+<p>indented</p>
+<p>text more</p>

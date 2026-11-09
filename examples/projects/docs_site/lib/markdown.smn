@@ -74,6 +74,7 @@ fn code_block(language: string, html: string): string {
 }
 
 // Turns Markdown lines into HTML blocks, keeping in mind what is open: a paragraph, a list or a code block.
+// An indented line after a list item goes on with that item, like in CommonMark.
 class Reader {
     private blocks: list<string> = [];
     private paragraph: list<string> = [];
@@ -95,7 +96,9 @@ class Reader {
             this.blocks += ["<h2>{inline(line.slice(3, len(line)))}</h2>"];
         } else if (line.starts_with("- ")) {
             this.close_paragraph();
-            this.items += [inline(line.slice(2, len(line)))];
+            this.items += [line.slice(2, len(line))];
+        } else if (len(this.items) > 0 && (line.starts_with(" ") || line.starts_with("\t")) && line.trim() != "") {
+            this.items[len(this.items) - 1] += " " + line.trim();
         } else if (line.trim() == "") {
             this.close_text();
         } else {
@@ -132,7 +135,7 @@ class Reader {
     // Closes an open list.
     private close_list(): void {
         if (len(this.items) > 0) {
-            var items = this.items.map(fn(item) => "    <li>{item}</li>").join("\n");
+            var items = this.items.map(fn(item) => "    <li>{inline(item)}</li>").join("\n");
             this.blocks += ["<ul>\n{items}\n</ul>"];
             this.items = [];
         }
