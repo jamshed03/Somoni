@@ -123,6 +123,12 @@ impl Lexer {
         }
     }
 
+    /// Counts the lines from `line` on instead of 1, for an input of the REPL that follows earlier ones.
+    pub fn starting_at_line(mut self, line: usize) -> Lexer {
+        self.line = line;
+        self
+    }
+
     /// Reads the whole source and returns its tokens, the last one always `Eof`.
     pub fn tokenize(&mut self) -> Result<Vec<SpannedToken>, SomoniError> {
         let mut tokens = Vec::new();

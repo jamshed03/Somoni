@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
@@ -14,6 +15,36 @@ use output::Output;
 
 /// More nested calls than this are runtime error R004.
 const MAX_CALL_DEPTH: usize = 10_000;
+
+/// What the REPL keeps between two inputs: the variables of the top level, the globals by name and the generator.
+#[derive(Default)]
+pub struct Session {
+    stack: Vec<Value>,
+    globals: HashMap<String, Value>,
+    random: Random,
+}
+
+/// Runs the main chunk of `program` with the variables and globals that `session` kept, and keeps them again.
+/// After an error, what ran until then stays, like in Python.
+pub fn run_in(program: &Program, session: &mut Session) -> Result<(), SomoniError> {
+    let globals = program
+        .globals
+        .iter()
+        .map(|name| session.globals.get(name).cloned().unwrap_or(Value::Void));
+    let mut vm = Vm {
+        stack: std::mem::take(&mut session.stack),
+        globals: globals.collect(),
+        random: std::mem::take(&mut session.random),
+        ..Vm::default()
+    };
+    let ran = vm.run_main(program);
+    vm.stack.truncate(program.main.locals);
+    session.stack = vm.stack;
+    session.random = vm.random;
+    let names = program.globals.iter().cloned();
+    session.globals.extend(names.zip(vm.globals));
+    ran
+}
 
 /// Runs a compiled program with the arguments that `args()` gives it.
 pub fn run(program: &Program, args: Vec<String>) -> Result<(), SomoniError> {
@@ -121,13 +152,18 @@ struct Vm<'p> {
 impl<'p> Vm<'p> {
     /// Runs a program, starting with its main chunk.
     fn run(&mut self, program: &'p Program) -> Result<(), SomoniError> {
+        self.globals = vec![Value::Void; program.globals.len()];
+        self.run_main(program)
+    }
+
+    /// Runs the main chunk with the globals already in place; variables of the top level already on the stack stay.
+    fn run_main(&mut self, program: &'p Program) -> Result<(), SomoniError> {
         let mut frame = Frame {
             chunk: &program.main,
             ip: 0,
             base: 0,
         };
         self.stack.resize(frame.chunk.locals, Value::Void);
-        self.globals = vec![Value::Void; program.globals.len()];
         self.run_until(&mut frame, program, None)
     }
 

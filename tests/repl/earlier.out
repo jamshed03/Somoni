@@ -1,0 +1,14 @@
+2
+Runtime error [R001]: Line 1: division by zero
+  1 | fn half(n: int): int { return 10 / n; }
+    |                               ^^^^^^
+green
+Hi Ali
+1
+2
+1
+0
+BEA
+Type error [T004]: Line 1: 'x' is already declared in this block
+  1 | var x = 2;
+    |     ^

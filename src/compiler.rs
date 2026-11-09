@@ -19,10 +19,27 @@ const THIS_SLOT: usize = 0;
 
 /// Turns a checked program into bytecode, file by file in `order` like the type checker.
 pub fn compile(files: &[SourceFile], order: &[usize]) -> Result<Program, SomoniError> {
+    compile_from(files, order, 0, &[])
+}
+
+/// Compiles like `compile`, but the main chunk runs only the statements of the main file from `first_new` on and the
+/// start values of static fields not named in `known_globals`: the REPL runs only what is new in an input.
+pub fn compile_from(
+    files: &[SourceFile],
+    order: &[usize],
+    first_new: usize,
+    known_globals: &[String],
+) -> Result<Program, SomoniError> {
     let mut lambdas = Vec::new();
+    let globals = global_names(files, order);
+    let new = MainStart {
+        first_new,
+        known_globals,
+        globals: &globals,
+    };
     let mut program = Program {
-        main: compile_main(files, order, &mut lambdas)?,
-        globals: global_names(files, order),
+        main: compile_main(files, order, &mut lambdas, new)?,
+        globals,
         ..Program::default()
     };
     for &number in order {
@@ -48,15 +65,20 @@ fn in_number_order(mut lambdas: Lambdas) -> Result<Vec<Chunk>, SomoniError> {
         .collect()
 }
 
-/// Compiles the start values of all static fields and then the top-level code of the main file.
+/// Compiles the start values of the new static fields, then the new top-level code of the main file (see `MainStart`);
+/// earlier top-level statements are compiled only for their lambdas.
 fn compile_main(
     files: &[SourceFile],
     order: &[usize],
     lambdas: &mut Lambdas,
+    new: MainStart,
 ) -> Result<Chunk, SomoniError> {
     let main = filled(files.first(), "main file")?;
     let mut compiler = Compiler::new("program".to_string(), 0);
     for (_, field, global) in static_fields(files, order) {
+        if new.known_globals.contains(&new.globals[global]) {
+            continue;
+        }
         let start = filled(field.start.as_ref(), "start value of a static field")?;
         compiler.compile_expr(start)?;
         compiler.chunk.push(Op::SetGlobal(global), start.span);
@@ -66,8 +88,22 @@ fn compile_main(
             compiler.compile_var_value(decl)?;
         }
     }
-    compiler.compile_stmts(&main.stmts)?;
+    let (earlier, newer) = main.stmts.split_at(new.first_new.min(main.stmts.len()));
+    let mut earlier_code = Compiler::new("program".to_string(), 0);
+    earlier_code.compile_stmts(earlier)?;
+    compiler.chunk.locals = earlier_code.chunk.locals;
+    earlier_code.finish(lambdas);
+    compiler.compile_stmts(newer)?;
     Ok(compiler.finish(lambdas))
+}
+
+/// What the main chunk runs: the statements of the main file from `first_new` on, and the start values of the static
+/// fields whose names in `globals` are not in `known_globals`. A normal program starts at 0 with no known globals.
+#[derive(Clone, Copy)]
+struct MainStart<'a> {
+    first_new: usize,
+    known_globals: &'a [String],
+    globals: &'a [String],
 }
 
 /// Returns the name of each global by its number, `Class::field` or the name of a constant.

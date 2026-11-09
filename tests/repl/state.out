@@ -1,0 +1,19 @@
+10
+25
+true
+42
+8
+2
+102
+true
+Runtime error [R001]: Line 1: division by zero
+  1 | var y = 1 / 0;
+    |         ^^^^^
+Type error [T002]: Line 1: unknown variable 'y'
+  1 | print(y);
+    |       ^
+Runtime error [R001]: Line 1: division by zero
+  1 | x = 10; print(1 / 0);
+    |               ^^^^^
+10
+1

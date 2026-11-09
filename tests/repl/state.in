@@ -1,0 +1,27 @@
+var x = 5;
+print(x * 2);
+fn square(n: int): int { return n * n; }
+print(square(x));
+struct Point { x: int, y: int }
+var p = Point { x: 1, y: 2 };
+print(p == Point { x: 1, y: 2 });
+var double = fn(n: int): int => n * 2;
+print(double(21));
+var (q, r) = (17 / 5, 17 % 5);
+var (s, t) = (1, 2);
+print(q + r + s + t);
+class Counter { static count: int = 0; constructor() { Counter::count += 1; } }
+var a = new Counter();
+var b = new Counter();
+print(Counter::count);
+class Other { static total: int = 100; }
+print(Counter::count + Other::total);
+const LIMIT = 3;
+fn below(n: int): bool { return n < LIMIT; }
+print(below(2));
+var y = 1 / 0;
+print(y);
+x = 10; print(1 / 0);
+print(x);
+var z = 1;
+print(z);

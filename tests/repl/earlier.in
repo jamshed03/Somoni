@@ -1,0 +1,17 @@
+fn half(n: int): int { return 10 / n; }
+print(half(4));
+print(half(0));
+enum Color { Red, Green }
+var c = Color.Green;
+match (c) { Color.Red => { print("red"); } Color.Green => { print("green"); } }
+class User { name: string; constructor(name: string) { this.name = name; } greet(): string { return "Hi {this.name}"; } }
+var u = new User("Ali");
+print(u.greet());
+for (n in [1, 2]) { print(n); }
+if (var i = [5, 6].index_of(6)) { print(i); }
+if (var j = [5, 6].index_of(5)) { print(j); }
+var f = fn() => u.name.upper();
+u.name = "Bea";
+print(f());
+var x = 1;
+var x = 2;
