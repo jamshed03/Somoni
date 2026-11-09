@@ -1,0 +1,3 @@
+Type error [T075]: Line 16: 'make' is static, call it as 'Animal::make(...)'
+  16 |         a.make();
+     |           ^^^^

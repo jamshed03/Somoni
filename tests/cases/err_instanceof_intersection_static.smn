@@ -1,0 +1,18 @@
+interface Shape {
+    area(): int;
+}
+
+class Animal {
+    constructor() {
+    }
+
+    static make(): Animal {
+        return new Animal();
+    }
+}
+
+fn check(a: Animal): void {
+    if (a instanceof Shape) {
+        a.make();
+    }
+}
