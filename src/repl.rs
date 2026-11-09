@@ -153,7 +153,12 @@ impl Repl {
                 let order = loader.load_typed_imports(&mut [])?;
                 let shown = shown_var(expr.clone());
                 let name = shown.name.clone();
-                match self.compile(vec![Stmt::VarDecl(Box::new(shown))], Some(&name), loader, &order) {
+                match self.compile(
+                    vec![Stmt::VarDecl(Box::new(shown))],
+                    Some(&name),
+                    loader,
+                    &order,
+                ) {
                     Err(error) if matches!(error.code, ErrorCode::VoidVariable) => {
                         let span = expr.span;
                         self.compile(vec![Stmt::Expr { expr, span }], None, loader, &order)
@@ -211,10 +216,15 @@ impl Repl {
     /// Returns the error ready to show: in an imported file like in a program, else with its line counted inside the
     /// input, or in all inputs if it lies in an earlier one.
     fn render(&self, mut error: SomoniError, source: &str, files: &[SourceFile]) -> String {
-        if error.span.is_some_and(|span| span.file as usize != MAIN_FILE) {
+        if error
+            .span
+            .is_some_and(|span| span.file as usize != MAIN_FILE)
+        {
             return crate::render(&error, files);
         }
-        let in_input = error.span.is_none_or(|span| span.line as usize > self.lines);
+        let in_input = error
+            .span
+            .is_none_or(|span| span.line as usize > self.lines);
         let text = if in_input {
             error.span = error.span.map(|span| span.up(self.lines));
             source.to_string()

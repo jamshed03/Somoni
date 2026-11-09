@@ -49,7 +49,13 @@ impl Span {
     pub fn up(self, lines: usize) -> Span {
         let line = self.line as usize - lines;
         let end_line = self.end_line as usize - lines;
-        Span::new(self.file as usize, line, self.col as usize, end_line, self.end_col as usize)
+        Span::new(
+            self.file as usize,
+            line,
+            self.col as usize,
+            end_line,
+            self.end_col as usize,
+        )
     }
 }
 
