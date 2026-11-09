@@ -238,4 +238,90 @@ mod tests {
         assert_eq!(resolve(&root, "/../etc/passwd"), Target::Missing);
         assert_eq!(resolve(&root, "/docs/../about"), Target::Missing);
     }
+
+    /// Writes the program `source` as the file `name` into the served folder `root`.
+    fn page_file(root: &Path, name: &str, source: &str) {
+        fs::write(root.join(name), source).unwrap();
+    }
+
+    /// Sends the raw HTTP request `raw` through `read_request` and `respond`, like the server does without the network.
+    fn send(root: &Path, raw: &str) -> Response {
+        let incoming = read_request(&mut raw.as_bytes()).unwrap().unwrap();
+        respond(root, &incoming)
+    }
+
+    /// Sends `GET target` and returns the status and the body as text.
+    fn get(root: &Path, target: &str) -> (u16, String) {
+        let response = send(root, &format!("GET {} HTTP/1.1\r\nHost: x\r\n\r\n", target));
+        (response.status, String::from_utf8(response.body).unwrap())
+    }
+
+    #[test]
+    fn a_program_answers_with_what_it_prints() {
+        let root = site("program");
+        page_file(
+            &root,
+            "hello.smn",
+            "if (var name = query(\"name\")) {\n    print(\"hi {name}\");\n}\n",
+        );
+        assert_eq!(get(&root, "/hello?name=Ann"), (200, "hi Ann\n".to_string()));
+    }
+
+    #[test]
+    fn a_form_sent_with_post_reaches_the_program() {
+        let root = site("post");
+        page_file(
+            &root,
+            "form.smn",
+            "if (var name = form(\"name\")) {\n    print(name);\n}\n",
+        );
+        let body = "name=Ann+B";
+        let raw = format!(
+            "POST /form HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let response = send(&root, &raw);
+        assert_eq!(
+            response.status,
+            200,
+            "{}",
+            String::from_utf8_lossy(&response.body)
+        );
+        assert_eq!(response.body, b"Ann B\n");
+    }
+
+    #[test]
+    fn a_redirect_and_a_runtime_error_set_the_status() {
+        let root = site("status");
+        page_file(&root, "away.smn", "redirect(\"/hello\");\n");
+        page_file(
+            &root,
+            "broken.smn",
+            "var zero: int = 0;\nprint(5 / zero);\n",
+        );
+        let away = send(&root, "GET /away HTTP/1.1\r\n\r\n");
+        assert_eq!(
+            (away.status, away.location.as_deref()),
+            (303, Some("/hello"))
+        );
+        assert_eq!(get(&root, "/broken").0, 500);
+    }
+
+    #[test]
+    fn a_page_cannot_write_source_files_or_read_outside() {
+        let root = site("files");
+        fs::write(root.parent().unwrap().join("secret.txt"), "secret").unwrap();
+        page_file(
+            &root,
+            "unsafe.smn",
+            "if (var name = query(\"write\")) {\n    print(write_file(name, \"print(1);\"));\n}\nif (var path = query(\"read\")) {\n    print(read_file(path));\n}\n",
+        );
+        let (_, written) = get(&root, "/unsafe?write=hack.smn");
+        assert!(written.contains("does not write .smn files"), "{}", written);
+        assert!(!root.join("hack.smn").exists());
+        let (_, read) = get(&root, "/unsafe?read=../secret.txt");
+        assert!(read.contains("outside the served folder"), "{}", read);
+        assert!(!read.contains("secret\""), "{}", read);
+    }
 }
