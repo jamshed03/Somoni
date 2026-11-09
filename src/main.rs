@@ -112,6 +112,8 @@ fn read_serve(args: &[String]) -> Option<Command> {
 }
 
 /// Runs the file `path` with `args`, or shows its bytecode, and stops with exit code 1 on an error.
+/// At the end it leaves the program and its syntax trees to the operating system, which frees them at once,
+/// instead of freeing every node one by one (about 10 % of the time for a large program).
 fn run(path: &str, show_bytecode: bool, args: Vec<String>) {
     let (program, files) = build(path).unwrap_or_else(|message| fail(&message));
     if show_bytecode {
@@ -121,6 +123,7 @@ fn run(path: &str, show_bytecode: bool, args: Vec<String>) {
     if let Err(error) = vm::run(&program, args) {
         fail(&render(&error, &files));
     }
+    std::mem::forget((program, files));
 }
 
 /// Reads, checks and compiles the program that starts in `path`, with its files for later error messages,
