@@ -1,9 +1,7 @@
 //! The REPL: `somoni` without a file reads Somoni line by line and runs every input right away.
-//! It keeps the parsed statements of every input that ran; a new input is checked and compiled together with them,
-//! but only its own code runs, on top of the variables the VM kept (see docs on `compile_from` and `run_in`).
-//! Errors are shown on stdout like results, because in the REPL they are part of the conversation, and end nothing.
+//! Errors go to stdout like results, because in the REPL they are part of the conversation, and end nothing.
 
-use std::io::{self, BufRead, IsTerminal, Write};
+use std::io::{self, BufRead, IsTerminal, Stdin, Write};
 use std::path::PathBuf;
 
 use crate::ast::{Expr, Stmt, VarDecl};
@@ -25,12 +23,22 @@ const PROMPT: &str = "> ";
 /// The prompt before another line of an input that is not complete yet.
 const MORE: &str = ". ";
 
-/// Reads inputs until the input ends (Ctrl+D) and runs each one; an input goes on over several lines while it is
-/// not complete, and an empty line sends it anyway.
+/// Runs every input until the input ends (Ctrl+D).
 pub fn run() {
     let stdin = io::stdin();
     let terminal = stdin.is_terminal();
     let mut repl = Repl::default();
+    while let Some(input) = read_input(&stdin, terminal) {
+        repl.run_input(input);
+    }
+    if terminal {
+        println!();
+    }
+}
+
+/// Reads one input, over several lines while it is not complete, or None when the input has ended.
+/// An empty line sends an input that is not complete anyway, so a missing `)` cannot trap anyone.
+fn read_input(stdin: &Stdin, terminal: bool) -> Option<String> {
     let mut input = String::new();
     loop {
         if terminal {
@@ -38,9 +46,8 @@ pub fn run() {
             let _ = io::stdout().flush();
         }
         let mut line = String::new();
-        match stdin.lock().read_line(&mut line) {
-            Ok(0) | Err(_) => break,
-            Ok(_) => {}
+        if matches!(stdin.lock().read_line(&mut line), Ok(0) | Err(_)) {
+            return (!input.is_empty()).then_some(input);
         }
         let blank = line.trim().is_empty();
         if blank && input.is_empty() {
@@ -48,14 +55,8 @@ pub fn run() {
         }
         input.push_str(&line);
         if blank || is_complete(&input) {
-            repl.run_input(std::mem::take(&mut input));
+            return Some(input);
         }
-    }
-    if !input.is_empty() {
-        repl.run_input(input);
-    }
-    if terminal {
-        println!();
     }
 }
 
@@ -89,15 +90,13 @@ struct Repl {
     sources: String,
     /// The number of their lines; the next input starts on the line after them.
     lines: usize,
-    /// The names of the globals that have their values already, so their start values do not run again.
-    globals: Vec<String>,
-    /// The variables and globals of the VM.
+    /// The globals that have their values already, whose start values must not run again.
+    known_globals: Vec<String>,
     session: Session,
 }
 
 impl Repl {
-    /// Reads, checks, compiles and runs one input, shows the value of an expression, and keeps the input if it ran
-    /// without an error, else shows the error.
+    /// Runs one input, shows its value or its error, and keeps it if it ran without an error.
     fn run_input(&mut self, source: String) {
         let ran = self.build(&source).and_then(|built| {
             vm::run_in(&built.program, &mut self.session)?;
@@ -113,14 +112,13 @@ impl Repl {
                 self.history.extend(built.stmts);
                 self.lines += source.lines().count();
                 self.sources.push_str(&source);
-                self.globals = built.program.globals;
+                self.known_globals = built.program.globals;
             }
             Err(error) => println!("{}", self.render(error, &source)),
         }
     }
 
-    /// Parses the input, checks and compiles it after the earlier ones. An input that is one expression is kept in
-    /// a hidden variable whose value the REPL shows; a call without a value, like `print(x)`, just runs.
+    /// Checks and compiles one input after the earlier ones; an expression alone goes into a hidden variable to show.
     fn build(&self, source: &str) -> Result<Built, SomoniError> {
         match self.parse(source)? {
             Input::Stmts(stmts) => self.compile(stmts, None),
@@ -170,8 +168,12 @@ impl Repl {
         let mut checker = TypeChecker::new();
         checker.check(&mut files, &[MAIN_FILE])?;
         let shown = shown.and_then(|name| checker.top_level_var(name));
-        let program =
-            compiler::compile_from(&files, &[MAIN_FILE], self.history.len(), &self.globals)?;
+        let program = compiler::compile_from(
+            &files,
+            &[MAIN_FILE],
+            self.history.len(),
+            &self.known_globals,
+        )?;
         Ok(Built {
             program,
             stmts,
