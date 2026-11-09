@@ -700,7 +700,7 @@ impl ErrorCode {
         let message = self.base_message();
         if self.unchecked_optional() {
             return format!(
-                "{}; check it with '!= null' first, a field after copying it into a variable",
+                "{}; check it for null first: if (x != null) for a variable, if (var name = ...) for a field or a call",
                 message
             );
         }
