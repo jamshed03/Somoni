@@ -6,7 +6,7 @@
 use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
-use crate::ast::Stmt;
+use crate::ast::{Expr, Stmt, VarDecl};
 use crate::bytecode::Program;
 use crate::compiler;
 use crate::error::{ErrorCode, SomoniError};
@@ -14,6 +14,8 @@ use crate::lexer::Lexer;
 use crate::loader::{MAIN_FILE, SourceFile};
 use crate::parser::Parser;
 use crate::typechecker::TypeChecker;
+use crate::types::Type;
+use crate::value::Quoted;
 use crate::vm::{self, Session};
 
 /// The prompt before an input, shown only when a person types into a terminal.
@@ -59,41 +61,84 @@ struct Repl {
 }
 
 impl Repl {
-    /// Reads, checks, compiles and runs one input, and keeps it if it ran without an error, else shows the error.
+    /// Reads, checks, compiles and runs one input, shows the value of an expression, and keeps the input if it ran
+    /// without an error, else shows the error.
     fn run_input(&mut self, source: String) {
-        let ran = self.build(&source).and_then(|(program, stmts)| {
-            vm::run_in(&program, &mut self.session)?;
-            Ok((program, stmts))
+        let ran = self.build(&source).and_then(|built| {
+            vm::run_in(&built.program, &mut self.session)?;
+            Ok(built)
         });
         match ran {
-            Ok((program, stmts)) => {
-                self.history.extend(stmts);
+            Ok(built) => {
+                if let Some((ty, slot)) = &built.shown
+                    && let Some(value) = self.session.local(*slot)
+                {
+                    println!("{}: {}", Quoted(value), ty);
+                }
+                self.history.extend(built.stmts);
                 self.lines += source.lines().count();
                 self.sources.push_str(&source);
-                self.globals = program.globals;
+                self.globals = built.program.globals;
             }
             Err(error) => println!("{}", self.render(error, &source)),
         }
     }
 
-    /// Parses the input, checks and compiles it after the earlier ones, and returns the program with its statements;
-    /// `import` is M008 for now.
-    fn build(&self, source: &str) -> Result<(Program, Vec<Stmt>), SomoniError> {
+    /// Parses the input, checks and compiles it after the earlier ones. An input that is one expression is kept in
+    /// a hidden variable whose value the REPL shows; a call without a value, like `print(x)`, just runs.
+    fn build(&self, source: &str) -> Result<Built, SomoniError> {
+        match self.parse(source)? {
+            Input::Stmts(stmts) => self.compile(stmts, None),
+            Input::Expr(expr) => {
+                let shown = shown_var(expr.clone());
+                let name = shown.name.clone();
+                match self.compile(vec![Stmt::VarDecl(shown)], Some(&name)) {
+                    Err(error) if matches!(error.code, ErrorCode::VoidVariable) => {
+                        let span = expr.span;
+                        self.compile(vec![Stmt::Expr { expr, span }], None)
+                    }
+                    built => built,
+                }
+            }
+        }
+    }
+
+    /// Reads the input as statements or, if that fails, as one expression; `import` is M008 for now.
+    fn parse(&self, source: &str) -> Result<Input, SomoniError> {
         let tokens = Lexer::new(source, MAIN_FILE)
             .starting_at_line(self.lines + 1)
             .tokenize()?;
-        let stmts = Parser::new(tokens).parse_program(false)?;
+        let stmts = match Parser::new(tokens.clone()).parse_program(false) {
+            Ok(stmts) => stmts,
+            Err(error) => {
+                return Parser::new(tokens)
+                    .parse_lone_expr()
+                    .map(Input::Expr)
+                    .map_err(|_| error);
+            }
+        };
         if let Some(Stmt::Import(import)) =
             stmts.iter().find(|stmt| matches!(stmt, Stmt::Import(_)))
         {
             return Err(SomoniError::at(import.span, ErrorCode::ImportInRepl));
         }
+        Ok(Input::Stmts(stmts))
+    }
+
+    /// Checks and compiles `stmts` after the earlier inputs; `shown` names the variable whose value the REPL shows.
+    fn compile(&self, stmts: Vec<Stmt>, shown: Option<&str>) -> Result<Built, SomoniError> {
         let mut files = [main_file(String::new())];
         files[MAIN_FILE].stmts = self.history.iter().chain(&stmts).cloned().collect();
-        TypeChecker::new().check(&mut files, &[MAIN_FILE])?;
+        let mut checker = TypeChecker::new();
+        checker.check(&mut files, &[MAIN_FILE])?;
+        let shown = shown.and_then(|name| checker.top_level_var(name));
         let program =
             compiler::compile_from(&files, &[MAIN_FILE], self.history.len(), &self.globals)?;
-        Ok((program, stmts))
+        Ok(Built {
+            program,
+            stmts,
+            shown,
+        })
     }
 
     /// Returns the error ready to show: its line counted inside the input, or in all inputs if it lies in an earlier one.
@@ -109,6 +154,34 @@ impl Repl {
             format!("{}{}", self.sources, source)
         };
         crate::render(&error, &[main_file(text)])
+    }
+}
+
+/// What one input holds: statements, or one expression whose value the REPL shows.
+enum Input {
+    Stmts(Vec<Stmt>),
+    Expr(Expr),
+}
+
+/// One input ready to run: the program, the statements to keep, and the type and slot of a value to show.
+struct Built {
+    program: Program,
+    stmts: Vec<Stmt>,
+    shown: Option<(Type, usize)>,
+}
+
+/// Returns `var <it line:col> = expr;`, the hidden variable that holds the value of an expression typed alone.
+fn shown_var(expr: Expr) -> VarDecl {
+    VarDecl {
+        exported: false,
+        name: format!("<it {}:{}>", expr.span.line, expr.span.col),
+        name_span: expr.span,
+        type_name: None,
+        span: expr.span,
+        value: expr,
+        mutable: true,
+        slot: None,
+        global: None,
     }
 }
 

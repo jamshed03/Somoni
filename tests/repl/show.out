@@ -1,0 +1,18 @@
+10: int
+"ALI": string
+[3, 6]: list<int>
+true: bool
+1.5: float
+{"a": 1}: map<string, int>
+(1, "one"): (int, string)
+null: int?
+1: int?
+Point { x: 1, y: 2 }: Point
+Color.Green: Color
+fn: fn(int): int
+10: int
+5
+Type error [T006]: Line 1: cannot use operator on int and string
+  1 | x + "a"
+    |   ^
+5: int

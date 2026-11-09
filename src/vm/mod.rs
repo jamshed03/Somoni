@@ -24,6 +24,13 @@ pub struct Session {
     random: Random,
 }
 
+impl Session {
+    /// Returns the value of the top-level variable in `slot`, if there is one.
+    pub fn local(&self, slot: usize) -> Option<&Value> {
+        self.stack.get(slot)
+    }
+}
+
 /// Runs the main chunk of `program` with the variables and globals that `session` kept, and keeps them again.
 /// After an error, what ran until then stays, like in Python.
 pub fn run_in(program: &Program, session: &mut Session) -> Result<(), SomoniError> {

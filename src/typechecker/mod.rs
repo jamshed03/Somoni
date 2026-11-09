@@ -383,6 +383,13 @@ impl TypeChecker {
         Ok(())
     }
 
+    /// Returns the declared type and the slot of the variable `name` at the top level of the file checked last.
+    pub fn top_level_var(&self, name: &str) -> Option<(Type, usize)> {
+        self.scopes
+            .lookup(name)
+            .map(|info| (info.declared.clone(), info.slot))
+    }
+
     /// Runs `check` inside a new function with its own variables and return type.
     fn in_function<T>(&mut self, return_type: Returns, check: impl FnOnce(&mut Self) -> T) -> T {
         let outer_scopes = std::mem::replace(&mut self.scopes, Scopes::new());

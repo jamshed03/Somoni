@@ -22,6 +22,15 @@ impl Parser {
         Parser { tokens, pos: 0 }
     }
 
+    /// Reads the whole input as one expression, like `x * 2` in the REPL.
+    pub fn parse_lone_expr(&mut self) -> Result<Expr, SomoniError> {
+        let expr = self.parse_expr()?;
+        if *self.peek() != Token::Eof {
+            return Err(self.expected("end of the input after the expression"));
+        }
+        Ok(expr)
+    }
+
     /// Reads a whole file, which may hold only declarations if it is `imported` (M003).
     pub fn parse_program(&mut self, imported: bool) -> Result<Vec<Stmt>, SomoniError> {
         let mut stmts = Vec::new();
