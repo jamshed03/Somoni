@@ -22,140 +22,117 @@ mod math;
 mod random;
 mod strings;
 
-/// The functions built into Somoni.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Builtin {
-    Print,
-    Write,
-    Capture,
-    Input,
-    ReadFile,
-    WriteFile,
-    CopyFile,
-    Args,
-    Now,
-    Random,
-    Query,
-    RequestPath,
-    Form,
-    RequestMethod,
-    SetStatus,
-    Redirect,
-    Int,
-    Float,
-    Str,
-    Len,
-    Has,
-    Keys,
-    Ok,
-    Err,
-    IsOk,
-    IsErr,
-    Upper,
-    Lower,
-    Trim,
-    Split,
-    Join,
-    Contains,
-    StartsWith,
-    EndsWith,
-    Replace,
-    Slice,
-    IndexOf,
-    Abs,
-    Min,
-    Max,
-    Sqrt,
-    Pow,
-    Floor,
-    Ceil,
-    Round,
-    Reverse,
-    Sort,
-    SortDesc,
-    Remove,
-    Values,
-    Map,
-    Filter,
-    Reduce,
-    Any,
-    All,
-    SortBy,
-    SortByDesc,
-    Get,
-    Format,
-    PadLeft,
-    PadRight,
-    Repeat,
-    EscapeHtml,
+/// Whether a built-in is called as a function, `len(l)`, or as a method on a value, `s.upper()`.
+#[derive(PartialEq)]
+enum Kind {
+    Function,
+    Method,
 }
 
-/// Every built-in function and method, so that a name only has to be written in `name`.
-const ALL: &[Builtin] = &[
-    Builtin::Print,
-    Builtin::Write,
-    Builtin::Capture,
-    Builtin::Input,
-    Builtin::ReadFile,
-    Builtin::WriteFile,
-    Builtin::CopyFile,
-    Builtin::Args,
-    Builtin::Now,
-    Builtin::Random,
-    Builtin::Query,
-    Builtin::RequestPath,
-    Builtin::Form,
-    Builtin::RequestMethod,
-    Builtin::SetStatus,
-    Builtin::Redirect,
-    Builtin::Int,
-    Builtin::Float,
-    Builtin::Str,
-    Builtin::Len,
-    Builtin::Has,
-    Builtin::Keys,
-    Builtin::Ok,
-    Builtin::Err,
-    Builtin::IsOk,
-    Builtin::IsErr,
-    Builtin::Upper,
-    Builtin::Lower,
-    Builtin::Trim,
-    Builtin::Split,
-    Builtin::Join,
-    Builtin::Contains,
-    Builtin::StartsWith,
-    Builtin::EndsWith,
-    Builtin::Replace,
-    Builtin::Slice,
-    Builtin::IndexOf,
-    Builtin::Abs,
-    Builtin::Min,
-    Builtin::Max,
-    Builtin::Sqrt,
-    Builtin::Pow,
-    Builtin::Floor,
-    Builtin::Ceil,
-    Builtin::Round,
-    Builtin::Reverse,
-    Builtin::Sort,
-    Builtin::SortDesc,
-    Builtin::Remove,
-    Builtin::Values,
-    Builtin::Map,
-    Builtin::Filter,
-    Builtin::Reduce,
-    Builtin::Any,
-    Builtin::All,
-    Builtin::SortBy,
-    Builtin::SortByDesc,
-    Builtin::Get,
-    Builtin::Format,
-    Builtin::PadLeft,
-    Builtin::PadRight,
-    Builtin::Repeat,
-    Builtin::EscapeHtml,
-];
+/// Writes the enum `Builtin`, the list `ALL` and `name`, `arity` and `is_method` from one line per built-in:
+/// `Variant => "name", arguments, Function or Method`, where a method counts the value before the dot as an argument.
+macro_rules! builtins {
+    ($($variant:ident => $name:literal, $arity:literal, $kind:ident;)*) => {
+        /// The functions and methods built into Somoni.
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        pub enum Builtin {
+            $($variant,)*
+        }
+
+        /// Every built-in function and method, so that a name only has to be written once.
+        const ALL: &[Builtin] = &[$(Builtin::$variant,)*];
+
+        impl Builtin {
+            /// Returns the name of the function as written in Somoni.
+            pub fn name(self) -> &'static str {
+                match self {
+                    $(Builtin::$variant => $name,)*
+                }
+            }
+
+            /// Returns the number of arguments, for a method with the value before the dot.
+            pub fn arity(self) -> usize {
+                match self {
+                    $(Builtin::$variant => $arity,)*
+                }
+            }
+
+            /// Returns true for a method, which is called on a value (`s.upper()`) and gets that value as its first
+            /// argument.
+            pub fn is_method(self) -> bool {
+                match self {
+                    $(Builtin::$variant => Kind::$kind == Kind::Method,)*
+                }
+            }
+        }
+    };
+}
+
+builtins! {
+    Print         => "print",          1, Function;
+    Write         => "write",          1, Function;
+    Capture       => "capture",        1, Function;
+    Input         => "input",          0, Function;
+    ReadFile      => "read_file",      1, Function;
+    WriteFile     => "write_file",     2, Function;
+    CopyFile      => "copy_file",      2, Function;
+    Args          => "args",           0, Function;
+    Now           => "now",            0, Function;
+    Random        => "random",         2, Function;
+    Query         => "query",          1, Function;
+    RequestPath   => "request_path",   0, Function;
+    Form          => "form",           1, Function;
+    RequestMethod => "request_method", 0, Function;
+    SetStatus     => "set_status",     1, Function;
+    Redirect      => "redirect",       1, Function;
+    Int           => "int",            1, Function;
+    Float         => "float",          1, Function;
+    Str           => "string",         1, Function;
+    Len           => "len",            1, Function;
+    Has           => "has",            2, Function;
+    Keys          => "keys",           1, Function;
+    Ok            => "ok",             1, Function;
+    Err           => "err",            1, Function;
+    IsOk          => "is_ok",          1, Function;
+    IsErr         => "is_err",         1, Function;
+    Upper         => "upper",          1, Method;
+    Lower         => "lower",          1, Method;
+    Trim          => "trim",           1, Method;
+    Split         => "split",          2, Method;
+    Join          => "join",           2, Method;
+    Contains      => "contains",       2, Method;
+    StartsWith    => "starts_with",    2, Method;
+    EndsWith      => "ends_with",      2, Method;
+    Replace       => "replace",        3, Method;
+    Slice         => "slice",          3, Method;
+    IndexOf       => "index_of",       2, Method;
+    Abs           => "abs",            1, Function;
+    Min           => "min",            2, Function;
+    Max           => "max",            2, Function;
+    Sqrt          => "sqrt",           1, Function;
+    Pow           => "pow",            2, Function;
+    Floor         => "floor",          1, Function;
+    Ceil          => "ceil",           1, Function;
+    Round         => "round",          1, Function;
+    Reverse       => "reverse",        1, Method;
+    Sort          => "sort",           1, Method;
+    SortDesc      => "sort_desc",      1, Method;
+    Remove        => "remove",         2, Method;
+    Values        => "values",         1, Method;
+    Map           => "map",            2, Method;
+    Filter        => "filter",         2, Method;
+    Reduce        => "reduce",         3, Method;
+    Any           => "any",            2, Method;
+    All           => "all",            2, Method;
+    SortBy        => "sort_by",        2, Method;
+    SortByDesc    => "sort_by_desc",   2, Method;
+    Get           => "get",            3, Method;
+    Format        => "format",         2, Method;
+    PadLeft       => "pad_left",       2, Method;
+    PadRight      => "pad_right",      2, Method;
+    Repeat        => "repeat",         2, Method;
+    EscapeHtml    => "escape_html",    1, Method;
+}
 
 impl Builtin {
     /// Returns the built-in function with this name, if there is one; methods like `upper` are no functions.
@@ -171,75 +148,6 @@ impl Builtin {
     /// Returns the function or method with this name.
     fn named(name: &str) -> Option<Builtin> {
         ALL.iter().copied().find(|builtin| builtin.name() == name)
-    }
-
-    /// Returns true for a method, which is called on a value (`s.upper()`) and gets that value as its first argument.
-    pub fn is_method(self) -> bool {
-        match self {
-            Builtin::Upper
-            | Builtin::Lower
-            | Builtin::Trim
-            | Builtin::Split
-            | Builtin::Join
-            | Builtin::Contains
-            | Builtin::StartsWith
-            | Builtin::EndsWith
-            | Builtin::Replace
-            | Builtin::Slice
-            | Builtin::IndexOf
-            | Builtin::Reverse
-            | Builtin::Sort
-            | Builtin::SortDesc
-            | Builtin::Remove
-            | Builtin::Values
-            | Builtin::Map
-            | Builtin::Filter
-            | Builtin::Reduce
-            | Builtin::Any
-            | Builtin::All
-            | Builtin::SortBy
-            | Builtin::SortByDesc
-            | Builtin::Get
-            | Builtin::Format
-            | Builtin::PadLeft
-            | Builtin::PadRight
-            | Builtin::Repeat
-            | Builtin::EscapeHtml => true,
-            Builtin::Print
-            | Builtin::Write
-            | Builtin::Capture
-            | Builtin::Input
-            | Builtin::ReadFile
-            | Builtin::WriteFile
-            | Builtin::CopyFile
-            | Builtin::Args
-            | Builtin::Now
-            | Builtin::Random
-            | Builtin::Query
-            | Builtin::RequestPath
-            | Builtin::Form
-            | Builtin::RequestMethod
-            | Builtin::SetStatus
-            | Builtin::Redirect
-            | Builtin::Int
-            | Builtin::Float
-            | Builtin::Str
-            | Builtin::Len
-            | Builtin::Has
-            | Builtin::Keys
-            | Builtin::Ok
-            | Builtin::Err
-            | Builtin::IsOk
-            | Builtin::IsErr
-            | Builtin::Abs
-            | Builtin::Min
-            | Builtin::Max
-            | Builtin::Sqrt
-            | Builtin::Pow
-            | Builtin::Floor
-            | Builtin::Ceil
-            | Builtin::Round => false,
-        }
     }
 
     /// Returns true for a method like `l.map(f)` that calls a function, which only the VM can do (`CallHigher`).
@@ -315,137 +223,6 @@ impl Builtin {
     /// Returns `ok` or `err` if `name` is one of them.
     pub fn result_builder(name: &str) -> Option<Builtin> {
         Builtin::from_name(name).filter(|builtin| builtin.builds_result())
-    }
-
-    /// Returns the name of the function as written in Somoni.
-    pub fn name(self) -> &'static str {
-        match self {
-            Builtin::Print => "print",
-            Builtin::Write => "write",
-            Builtin::Capture => "capture",
-            Builtin::Input => "input",
-            Builtin::ReadFile => "read_file",
-            Builtin::WriteFile => "write_file",
-            Builtin::CopyFile => "copy_file",
-            Builtin::Args => "args",
-            Builtin::Now => "now",
-            Builtin::Random => "random",
-            Builtin::Query => "query",
-            Builtin::RequestPath => "request_path",
-            Builtin::Form => "form",
-            Builtin::RequestMethod => "request_method",
-            Builtin::SetStatus => "set_status",
-            Builtin::Redirect => "redirect",
-            Builtin::Int => "int",
-            Builtin::Float => "float",
-            Builtin::Str => "string",
-            Builtin::Len => "len",
-            Builtin::Has => "has",
-            Builtin::Keys => "keys",
-            Builtin::Ok => "ok",
-            Builtin::Err => "err",
-            Builtin::IsOk => "is_ok",
-            Builtin::IsErr => "is_err",
-            Builtin::Upper => "upper",
-            Builtin::Lower => "lower",
-            Builtin::Trim => "trim",
-            Builtin::Split => "split",
-            Builtin::Join => "join",
-            Builtin::Contains => "contains",
-            Builtin::StartsWith => "starts_with",
-            Builtin::EndsWith => "ends_with",
-            Builtin::Replace => "replace",
-            Builtin::Slice => "slice",
-            Builtin::IndexOf => "index_of",
-            Builtin::Abs => "abs",
-            Builtin::Min => "min",
-            Builtin::Max => "max",
-            Builtin::Sqrt => "sqrt",
-            Builtin::Pow => "pow",
-            Builtin::Floor => "floor",
-            Builtin::Ceil => "ceil",
-            Builtin::Round => "round",
-            Builtin::Reverse => "reverse",
-            Builtin::Sort => "sort",
-            Builtin::SortDesc => "sort_desc",
-            Builtin::Remove => "remove",
-            Builtin::Values => "values",
-            Builtin::Map => "map",
-            Builtin::Filter => "filter",
-            Builtin::Reduce => "reduce",
-            Builtin::Any => "any",
-            Builtin::All => "all",
-            Builtin::SortBy => "sort_by",
-            Builtin::SortByDesc => "sort_by_desc",
-            Builtin::Get => "get",
-            Builtin::Format => "format",
-            Builtin::PadLeft => "pad_left",
-            Builtin::PadRight => "pad_right",
-            Builtin::Repeat => "repeat",
-            Builtin::EscapeHtml => "escape_html",
-        }
-    }
-
-    /// Returns the number of arguments.
-    pub fn arity(self) -> usize {
-        match self {
-            Builtin::Input => 0,
-            Builtin::ReadFile
-            | Builtin::Query
-            | Builtin::Form
-            | Builtin::SetStatus
-            | Builtin::Redirect => 1,
-            Builtin::WriteFile | Builtin::CopyFile => 2,
-            Builtin::Args | Builtin::Now | Builtin::RequestPath | Builtin::RequestMethod => 0,
-            Builtin::Print
-            | Builtin::Write
-            | Builtin::Capture
-            | Builtin::Int
-            | Builtin::Float
-            | Builtin::Str
-            | Builtin::Len
-            | Builtin::Keys
-            | Builtin::Ok
-            | Builtin::Err
-            | Builtin::IsOk
-            | Builtin::IsErr
-            | Builtin::Upper
-            | Builtin::Lower
-            | Builtin::Trim
-            | Builtin::EscapeHtml
-            | Builtin::Abs
-            | Builtin::Sqrt
-            | Builtin::Floor
-            | Builtin::Ceil
-            | Builtin::Round
-            | Builtin::Reverse
-            | Builtin::Sort
-            | Builtin::SortDesc
-            | Builtin::Values => 1,
-            Builtin::Has
-            | Builtin::Split
-            | Builtin::Join
-            | Builtin::Contains
-            | Builtin::StartsWith
-            | Builtin::EndsWith
-            | Builtin::IndexOf
-            | Builtin::Min
-            | Builtin::Max
-            | Builtin::Pow
-            | Builtin::Random
-            | Builtin::Remove
-            | Builtin::Map
-            | Builtin::Filter
-            | Builtin::Any
-            | Builtin::All
-            | Builtin::SortBy
-            | Builtin::SortByDesc
-            | Builtin::Format
-            | Builtin::PadLeft
-            | Builtin::PadRight
-            | Builtin::Repeat => 2,
-            Builtin::Replace | Builtin::Slice | Builtin::Reduce | Builtin::Get => 3,
-        }
     }
 
     /// Returns the result type for these argument types, or `Err(i)` if argument `i` is not allowed.
