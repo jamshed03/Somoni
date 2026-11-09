@@ -1,0 +1,6 @@
+I am thinking of a number from 1 to 100. Type a guess and press Enter.
+50 is too big.
+'abc' is no number, try again.
+25 is too small.
+37 is too big.
+Right, it is 31! You needed 4 tries in under a second.

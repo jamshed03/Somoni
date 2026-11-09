@@ -1,0 +1,69 @@
+// A guessing game: Somoni picks a number from 1 to 100 and you guess it, with a hint after every try.
+// A number after the file picks it instead, e.g. `somoni main.smn 42`: a friend can choose it, and the test knows it.
+
+const LOW = 1;
+const HIGH = 100;
+
+// Returns the number given after the file, or a random one if there is none or it is no number.
+fn secret_number(): int {
+    var given = args();
+    if (len(given) == 0) {
+        return random(LOW, HIGH);
+    }
+    match (int(given[0])) {
+        ok(n: int) => {
+            return n;
+        }
+        err(_) => {
+            print("'{given[0]}' is no number, so I pick one myself.");
+            return random(LOW, HIGH);
+        }
+    }
+}
+
+// Returns how long the game took in words, from milliseconds.
+fn duration(millis: int): string {
+    var seconds = millis / 1000;
+    if (seconds == 0) {
+        return "in under a second";
+    }
+    if (seconds == 1) {
+        return "in 1 second";
+    }
+    return "in {seconds} seconds";
+}
+
+var secret = secret_number();
+print("I am thinking of a number from {LOW} to {HIGH}. Type a guess and press Enter.");
+
+var tries = 0;
+var found = false;
+var start = now();
+while (var line = input()) {
+    match (int(line.trim())) {
+        ok(guess: int) => {
+            tries++;
+            if (guess < secret) {
+                print("{guess} is too small.");
+            } else if (guess > secret) {
+                print("{guess} is too big.");
+            } else {
+                found = true;
+                break;
+            }
+        }
+        err(_) => {
+            print("'{line}' is no number, try again.");
+        }
+    }
+}
+
+if (found) {
+    var word = "tries";
+    if (tries == 1) {
+        word = "try";
+    }
+    print("Right, it is {secret}! You needed {tries} {word} {duration(now() - start)}.");
+} else {
+    print("Bye! The number was {secret}.");
+}
