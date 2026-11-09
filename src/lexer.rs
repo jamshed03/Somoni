@@ -567,6 +567,86 @@ mod tests {
         assert!(error.to_string().contains("L007"), "{}", error);
     }
 
+    /// Returns the error code of lexing `source`, like `L002`.
+    fn error_code(source: &str) -> &'static str {
+        Lexer::new(source, 0).tokenize().unwrap_err().code.code()
+    }
+
+    #[test]
+    fn the_longest_symbol_wins() {
+        let name = |n: &str| Token::Ident(n.to_string());
+        assert_eq!(
+            tokens("a<=b == c => d += 1 :: x"),
+            vec![
+                name("a"),
+                Token::LessEqual,
+                name("b"),
+                Token::EqualEqual,
+                name("c"),
+                Token::FatArrow,
+                name("d"),
+                Token::PlusEqual,
+                Token::Int(1),
+                Token::ColonColon,
+                name("x"),
+            ]
+        );
+    }
+
+    #[test]
+    fn keywords_are_whole_words() {
+        assert_eq!(
+            tokens("var variable if iffy"),
+            vec![
+                Token::Var,
+                Token::Ident("variable".to_string()),
+                Token::If,
+                Token::Ident("iffy".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn numbers_are_ints_or_floats() {
+        assert_eq!(tokens("42 3.5"), vec![Token::Int(42), Token::Float(3.5)]);
+    }
+
+    #[test]
+    fn a_tuple_index_after_a_dot_reads_as_a_float() {
+        assert_eq!(
+            tokens("p.0.1"),
+            vec![Token::Ident("p".to_string()), Token::Dot, Token::Float(0.1)]
+        );
+    }
+
+    #[test]
+    fn comments_are_skipped() {
+        assert_eq!(
+            tokens("a // to the end\n/* over\n lines */ b"),
+            vec![Token::Ident("a".to_string()), Token::Ident("b".to_string())]
+        );
+    }
+
+    #[test]
+    fn errors_of_the_lexer() {
+        assert_eq!(error_code("a $ b"), "L001");
+        assert_eq!(error_code("\"abc"), "L002");
+        assert_eq!(error_code("/* abc"), "L003");
+        assert_eq!(error_code("9223372036854775808"), "L004");
+    }
+
+    #[test]
+    fn lines_can_start_later() {
+        let spans: Vec<usize> = Lexer::new("x\ny", 0)
+            .starting_at_line(5)
+            .tokenize()
+            .unwrap()
+            .iter()
+            .map(|t| t.span.line)
+            .collect();
+        assert_eq!(spans, vec![5, 6, 6]);
+    }
+
     #[test]
     fn string_over_two_lines() {
         assert_eq!(
