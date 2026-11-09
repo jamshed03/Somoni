@@ -1,0 +1,10 @@
+// now() gives the milliseconds since 1970; its value changes, so the test only checks what is always true.
+var start = now();
+print(start > 1700000000000);
+var total = 0;
+for (var i = 0; i < 100000; i++) {
+    total += i;
+}
+var took = now() - start;
+print(took >= 0);
+print(took < 60000);

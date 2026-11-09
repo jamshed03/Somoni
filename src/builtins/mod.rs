@@ -31,6 +31,7 @@ pub enum Builtin {
     WriteFile,
     CopyFile,
     Args,
+    Now,
     Query,
     RequestPath,
     Form,
@@ -96,6 +97,7 @@ const ALL: &[Builtin] = &[
     Builtin::WriteFile,
     Builtin::CopyFile,
     Builtin::Args,
+    Builtin::Now,
     Builtin::Query,
     Builtin::RequestPath,
     Builtin::Form,
@@ -207,6 +209,7 @@ impl Builtin {
             | Builtin::WriteFile
             | Builtin::CopyFile
             | Builtin::Args
+            | Builtin::Now
             | Builtin::Query
             | Builtin::RequestPath
             | Builtin::Form
@@ -320,6 +323,7 @@ impl Builtin {
             Builtin::WriteFile => "write_file",
             Builtin::CopyFile => "copy_file",
             Builtin::Args => "args",
+            Builtin::Now => "now",
             Builtin::Query => "query",
             Builtin::RequestPath => "request_path",
             Builtin::Form => "form",
@@ -386,7 +390,7 @@ impl Builtin {
             | Builtin::SetStatus
             | Builtin::Redirect => 1,
             Builtin::WriteFile | Builtin::CopyFile => 2,
-            Builtin::Args | Builtin::RequestPath | Builtin::RequestMethod => 0,
+            Builtin::Args | Builtin::Now | Builtin::RequestPath | Builtin::RequestMethod => 0,
             Builtin::Print
             | Builtin::Write
             | Builtin::Capture
@@ -464,6 +468,7 @@ impl Builtin {
             }
             (Builtin::RequestPath | Builtin::RequestMethod, []) => Ok(Type::Str),
             (Builtin::Args, []) => Ok(Type::List(Box::new(Type::Str))),
+            (Builtin::Now, []) => Ok(Type::Int),
             (Builtin::SetStatus, [Type::Int]) => Ok(Type::Void),
             (Builtin::Redirect, [Type::Str]) => Ok(Type::Void),
             (Builtin::Int, [Type::Float]) => Ok(Type::Int),
@@ -592,6 +597,7 @@ impl Builtin {
     pub fn call(self, args: &[Value]) -> Result<Value, SomoniError> {
         match (self, args) {
             (Builtin::Input, []) => io::read_line(),
+            (Builtin::Now, []) => Ok(Value::Int(io::now_millis())),
             (Builtin::ReadFile, [Value::Str(dir), Value::Str(path)]) => {
                 Ok(io::read_file(dir.as_str(), path.as_str()))
             }

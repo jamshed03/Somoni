@@ -1,9 +1,10 @@
-//! Talking to the outside of the program: `input()` reads a line that the user types, `read_file` and `write_file`
-//! read and write whole files. `print` and `write` are written by the VM (`vm/output.rs`).
+//! Talking to the outside of the program: `input()` reads a line that the user types, `read_file`, `write_file` and
+//! `copy_file` work with whole files, `now()` reads the clock. `print` and `write` are written by the VM (`vm/output.rs`).
 
 use std::io::{BufRead, ErrorKind};
 use std::path::Path;
 use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::error::{ErrorCode, SomoniError};
 use crate::text::Text;
@@ -55,6 +56,13 @@ pub(super) fn copy_file(dir: &str, from: &str, to: &str) -> Value {
         Ok(()) => Value::Ok(Rc::new(Value::Int(bytes.len() as i64))),
         Err(error) => failed("write", to, error.kind()),
     }
+}
+
+/// Returns the milliseconds since 1970-01-01 (UTC), or 0 if the clock of the system stands before that.
+pub(super) fn now_millis() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_millis() as i64)
 }
 
 /// Returns `err("cannot read 'path': not found")` and the like, with a reason that is the same on every system.
