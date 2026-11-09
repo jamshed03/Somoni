@@ -1,0 +1,1 @@
+print(append_file("x.txt", 42));

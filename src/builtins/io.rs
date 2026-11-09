@@ -1,7 +1,7 @@
-//! Talking to the outside of the program: `input()` reads a line that the user types, `read_file`, `write_file` and
-//! `copy_file` work with whole files, `now()` reads the clock. `print` and `write` are written by the VM (`vm/output.rs`).
+//! Talking to the outside of the program: `input()` reads a line that the user types, `read_file`, `write_file`,
+//! `append_file` and `copy_file` work with whole files, `now()` reads the clock. `print` and `write` are written by the VM (`vm/output.rs`).
 
-use std::io::{BufRead, ErrorKind};
+use std::io::{BufRead, ErrorKind, Write};
 use std::path::Path;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -40,6 +40,20 @@ pub(super) fn read_file(dir: &str, path: &str) -> Value {
 /// Writes `text` into the file `path`, which starts at the folder `dir`, as `ok(characters)`, or `err(reason)`.
 pub(super) fn write_file(dir: &str, path: &str, text: &Text) -> Value {
     match std::fs::write(Path::new(dir).join(path), text.as_str()) {
+        Ok(()) => Value::Ok(Rc::new(Value::Int(text.char_count() as i64))),
+        Err(error) => failed("write", path, error.kind()),
+    }
+}
+
+/// Adds `text` to the end of the file `path`, which starts at the folder `dir` and is made if it is missing, as
+/// `ok(characters)`, or `err(reason)`.
+pub(super) fn append_file(dir: &str, path: &str, text: &Text) -> Value {
+    let appended = std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(Path::new(dir).join(path))
+        .and_then(|mut file| file.write_all(text.as_str().as_bytes()));
+    match appended {
         Ok(()) => Value::Ok(Rc::new(Value::Int(text.char_count() as i64))),
         Err(error) => failed("write", path, error.kind()),
     }

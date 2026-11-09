@@ -20,7 +20,7 @@ print((1.0 / 3.0).format(2));
 - Strings: `trim`, `upper`, `lower`, `split`, `contains`, `starts_with`, `ends_with`, `replace`, `slice`, `index_of`, `pad_left`, `pad_right`, `repeat`, `escape_html`
 - Lists: `contains`, `index_of`, `reverse`, `slice`, `sort`, `sort_desc`, `remove`, `join`, and with a lambda: `map`, `filter`, `reduce`, `any`, `all`, `sort_by`, `sort_by_desc`
 - Maps: `values()`, `remove`, `get(k, default)`, plus the functions `len`, `has(m, k)`, `keys(m)`
-- Input and output: `print`, `write` (without a line break), `input()` (one line, `null` at the end), `read_file`, `write_file` and `copy_file` (with a `result`; `copy_file` copies bytes, so it also works for images), `capture(fn() => ...)` (what a function prints, as a string)
+- Input and output: `print`, `write` (without a line break), `input()` (one line, `null` at the end), `read_file`, `write_file`, `append_file` and `copy_file` (with a `result`; `copy_file` copies bytes, so it also works for images), `capture(fn() => ...)` (what a function prints, as a string)
 - Command line: `args()` gives the arguments after the file as a `list<string>`, so `somoni greet.smn Ali 30` gives `["Ali", "30"]`
 - Time: `now()` gives the milliseconds since 1970 as an `int`, like `Date.now()` in JavaScript; `now() - start` measures how long something took
 - Chance: `random(1, 6)` gives an `int` from 1 to 6, both included; good for games and examples, not for passwords

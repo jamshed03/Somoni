@@ -76,6 +76,7 @@ builtins! {
     ReadFile      => "read_file",      1, Function;
     WriteFile     => "write_file",     2, Function;
     CopyFile      => "copy_file",      2, Function;
+    AppendFile    => "append_file",    2, Function;
     Args          => "args",           0, Function;
     Now           => "now",            0, Function;
     Random        => "random",         2, Function;
@@ -198,7 +199,7 @@ impl Builtin {
     pub fn needs_dir(self) -> bool {
         matches!(
             self,
-            Builtin::ReadFile | Builtin::WriteFile | Builtin::CopyFile
+            Builtin::ReadFile | Builtin::WriteFile | Builtin::AppendFile | Builtin::CopyFile
         )
     }
 
@@ -255,6 +256,10 @@ impl Builtin {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
             (Builtin::WriteFile, [Type::Str, _]) => Err(1),
+            (Builtin::AppendFile, [Type::Str, Type::Str]) => {
+                Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
+            }
+            (Builtin::AppendFile, [Type::Str, _]) => Err(1),
             (Builtin::CopyFile, [Type::Str, Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
@@ -401,6 +406,9 @@ impl Builtin {
             }
             (Builtin::WriteFile, [Value::Str(dir), Value::Str(path), Value::Str(text)]) => {
                 Ok(io::write_file(dir.as_str(), path.as_str(), text))
+            }
+            (Builtin::AppendFile, [Value::Str(dir), Value::Str(path), Value::Str(text)]) => {
+                Ok(io::append_file(dir.as_str(), path.as_str(), text))
             }
             (Builtin::CopyFile, [Value::Str(dir), Value::Str(from), Value::Str(to)]) => {
                 Ok(io::copy_file(dir.as_str(), from.as_str(), to.as_str()))

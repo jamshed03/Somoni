@@ -1,0 +1,6 @@
+// append_file adds text to the end of a file and makes the file if it is missing; paths start at this folder.
+print(write_file("../../target/append_file_test.txt", "first\n"));
+print(append_file("../../target/append_file_test.txt", "second\n"));
+print(append_file("../../target/append_file_test.txt", "third ü\n"));
+print(read_file("../../target/append_file_test.txt"));
+print(append_file("no/such/folder/x.txt", "x"));
