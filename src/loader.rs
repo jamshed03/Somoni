@@ -25,6 +25,8 @@ pub struct SourceFile {
 pub struct Loader {
     pub files: Vec<SourceFile>,
     number_by_path: HashMap<PathBuf, usize>,
+    /// The file number for a folder joined with an import path, so `canonicalize` runs once for each.
+    number_by_import: HashMap<PathBuf, usize>,
     loading_now: Vec<usize>,
     check_order: Vec<usize>,
 }
@@ -126,13 +128,21 @@ impl Loader {
         check_import_path(import)?;
         let name = self.import_name(from, import);
         let not_found = || SomoniError::at(import.path_span, cannot_read(&name));
-        let path = fs::canonicalize(dir.join(&import.path)).map_err(|_| not_found())?;
-        if let Some(&number) = self.number_by_path.get(&path) {
+        let joined = dir.join(&import.path);
+        if let Some(&number) = self.number_by_import.get(&joined) {
             self.check_no_cycle(number, &name, import.path_span)?;
             return Ok(number);
         }
+        let path = fs::canonicalize(&joined).map_err(|_| not_found())?;
+        if let Some(&number) = self.number_by_path.get(&path) {
+            self.check_no_cycle(number, &name, import.path_span)?;
+            self.number_by_import.insert(joined, number);
+            return Ok(number);
+        }
         let source = fs::read_to_string(&path).map_err(|_| not_found())?;
-        self.add_file(path, name, source)
+        let number = self.add_file(path, name, source)?;
+        self.number_by_import.insert(joined, number);
+        Ok(number)
     }
 
     /// Returns the name of an imported file for messages, seen from the main file.
