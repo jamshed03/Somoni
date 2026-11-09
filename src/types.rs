@@ -131,9 +131,7 @@ impl Type {
 
     /// Returns the part that can have fields: the class of `Animal & Shape`, or the type itself.
     pub fn with_fields(&self) -> &Type {
-        let parts = self.parts();
-        parts
-            .iter()
+        (self.parts().iter())
             .find(|part| matches!(part, Type::Class(_)))
             .unwrap_or(self)
     }

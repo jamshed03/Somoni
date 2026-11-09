@@ -756,18 +756,14 @@ impl TypeChecker {
         span: Span,
     ) -> Result<Type, SomoniError> {
         let target_type = self.check_expr(&mut call.target)?;
-        match &target_type {
+        match self.receiver(&target_type, &call.name) {
             Type::Interface(layout) => self.check_interface_call(layout, call, span),
             Type::Class(layout) => self.check_class_method_call(layout, call, span),
-            Type::Intersection(parts) => match self.method_part(parts, &call.name) {
-                Some(Type::Class(layout)) => self.check_class_method_call(layout, call, span),
-                Some(Type::Interface(layout)) => self.check_interface_call(layout, call, span),
-                _ => Err(unknown_method(
-                    &target_type.to_string(),
-                    &call.name,
-                    call.name_span,
-                )),
-            },
+            Type::Intersection(_) => Err(unknown_method(
+                &target_type.to_string(),
+                &call.name,
+                call.name_span,
+            )),
             Type::Struct(_) if self.has_field(&target_type, &call.name) => {
                 self.check_field_call(&target_type, call, span)
             }
@@ -781,16 +777,22 @@ impl TypeChecker {
         }
     }
 
-    /// Returns the first part of `Animal & Shape` that has a method (or a field) `name`, the class first.
-    fn method_part<'a>(&self, parts: &'a [Type], name: &str) -> Option<&'a Type> {
-        parts.iter().find(|part| match part {
-            Type::Class(layout) => self
-                .class_info(layout)
-                .is_ok_and(|info| info.methods.contains_key(name) || self.has_field(part, name)),
+    /// Returns the type a method `name` is called on: the first part of `Animal & Shape` that has a method (or a field)
+    /// with that name, the class first, or else the type itself.
+    fn receiver<'a>(&self, target: &'a Type, name: &str) -> &'a Type {
+        let has = |part: &Type| match part {
+            Type::Class(layout) => self.class_info(layout).is_ok_and(|info| {
+                info.methods.contains_key(name)
+                    || info.fields.iter().any(|(field, _)| field == name)
+            }),
             Type::Interface(layout) => (self.interface_info(layout))
                 .is_ok_and(|info| info.methods.iter().any(|(method, _)| method == name)),
             _ => false,
-        })
+        };
+        let Type::Intersection(parts) = target else {
+            return target;
+        };
+        parts.iter().find(|part| has(part)).unwrap_or(target)
     }
 
     /// Checks `s.upper()` and other built-in methods, which get the value before the dot as their first argument.
