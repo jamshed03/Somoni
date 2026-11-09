@@ -343,21 +343,34 @@ impl<'p> Vm<'p> {
     }
 
     /// Calls a built-in function with the `count` values on top of the stack and pushes its result.
+    /// Most only compute from their arguments; the few that need the output, the request or other state of the VM
+    /// are named.
+    #[inline(never)]
     fn call_builtin(&mut self, builtin: Builtin, count: usize) -> Result<(), SomoniError> {
         let start = self.top_start(count);
-        let result = if matches!(builtin, Builtin::Args | Builtin::Random) {
-            self.state_call(builtin, start)?
-        } else if let Some(value) = self.server_call(builtin, start) {
-            value?
-        } else if let Some(text) = builtin.output_text(&self.stack[start..]) {
-            self.output.write(&text)?;
-            Value::Void
-        } else {
-            builtin.call(&self.stack[start..])?
+        let result = match builtin {
+            Builtin::Print | Builtin::Write => self.output_call(builtin, start)?,
+            Builtin::Args | Builtin::Random => self.state_call(builtin, start)?,
+            Builtin::Query
+            | Builtin::Form
+            | Builtin::RequestPath
+            | Builtin::RequestMethod
+            | Builtin::SetStatus
+            | Builtin::Redirect => self.server_call(builtin, start)?,
+            _ => builtin.call(&self.stack[start..])?,
         };
         self.stack.truncate(start);
         self.stack.push(result);
         Ok(())
+    }
+
+    /// Writes what `print` or `write` puts out, with the argument at `start`.
+    fn output_call(&mut self, builtin: Builtin, start: usize) -> Result<Value, SomoniError> {
+        let text = builtin
+            .output_text(&self.stack[start..])
+            .ok_or_else(|| SomoniError::internal("no output for these arguments"))?;
+        self.output.write(&text)?;
+        Ok(Value::Void)
     }
 
     /// Runs `args` or `random`, which need state of the VM, with the arguments from `start` on.
@@ -374,13 +387,9 @@ impl<'p> Vm<'p> {
         }
     }
 
-    /// Runs `query`, `form`, `request_path`, `request_method` or `set_status` with the arguments from `start` on,
-    /// None for other functions; without a request, `query` and `form` give null and the others an empty string.
-    fn server_call(
-        &mut self,
-        builtin: Builtin,
-        start: usize,
-    ) -> Option<Result<Value, SomoniError>> {
+    /// Runs `query`, `form`, `request_path`, `request_method`, `set_status` or `redirect` with the arguments from `start`
+    /// on; without a request, `query` and `form` give null and the others an empty string or nothing.
+    fn server_call(&mut self, builtin: Builtin, start: usize) -> Result<Value, SomoniError> {
         let text = |text: &str| string_value(text.to_string());
         let request = self.request.as_ref();
         let value = match (builtin, &self.stack[start..]) {
@@ -401,15 +410,15 @@ impl<'p> Vm<'p> {
             }
             (Builtin::SetStatus, [Value::Int(status)]) => {
                 let status = *status;
-                return Some(self.set_status(status));
+                return self.set_status(status);
             }
             (Builtin::Redirect, [Value::Str(target)]) => {
                 let target = target.as_str().to_string();
-                return Some(self.redirect(target));
+                return self.redirect(target);
             }
-            _ => return None,
+            _ => return Err(SomoniError::internal("no server call for these arguments")),
         };
-        Some(Ok(value))
+        Ok(value)
     }
 
     /// Sends the browser on to `target` with status 303, or returns R014 for an empty target or one with a line break,
