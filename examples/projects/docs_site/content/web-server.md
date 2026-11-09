@@ -25,3 +25,9 @@ Saved as `search.smn`, this page answers `GET /search?q=lambda`; outside `somoni
 - `set_status(404)` changes the response code, `redirect("/")` sends the browser elsewhere
 - `somoni serve folder --port 8080` uses another port than 8000
 - A `name.template.smn` file works the same way: its result is the page
+
+Files under the server:
+
+- `read_file`, `write_file`, `append_file`, `copy_file` and `make_dir` stay inside `folder`: an absolute path, a `..` that leads out of it or a link that points outside gives `err("cannot read '../x': outside the served folder")`
+- They never write a file whose path holds `.smn`, so a file name from a form cannot become a page: `write_file("hack.smn", text)` gives `err("cannot write 'hack.smn': somoni serve does not write .smn files")`
+- On the command line (`somoni file.smn`) these limits do not apply
