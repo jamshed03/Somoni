@@ -1,0 +1,3 @@
+Type error [T014]: Line 23: cannot use Animal & Shape as argument of 'label', it expects Named
+  23 |         print(label(a));
+     |                     ^

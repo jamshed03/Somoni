@@ -528,13 +528,16 @@ impl TypeChecker {
         Ok(())
     }
 
-    /// Returns true if a value of type `found` may be used where `expected` is wanted.
+    /// Returns true if a value of type `found` may be used where `expected` is wanted. `Animal & Shape` fits where one
+    /// of its parts fits, and a value fits `Animal & Shape` only if it fits every part.
     fn fits(&self, found: &Type, expected: &Type) -> bool {
         if found == expected {
             return true;
         }
         match (found, expected) {
             (_, Type::Optional(inner)) => self.fits(found, inner),
+            (_, Type::Intersection(parts)) => parts.iter().all(|part| self.fits(found, part)),
+            (Type::Intersection(parts), _) => parts.iter().any(|part| self.fits(part, expected)),
             (Type::Class(class), Type::Class(ancestor)) => self.is_subclass(class, ancestor),
             (Type::Class(layout), Type::Interface(interface)) => self
                 .classes

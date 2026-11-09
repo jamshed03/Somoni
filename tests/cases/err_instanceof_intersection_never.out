@@ -1,0 +1,3 @@
+Type error [T080]: Line 20: a 'Animal & Shape' can never be a 'Car'
+  20 |         print(a instanceof Car);
+     |                            ^^^

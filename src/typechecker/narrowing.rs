@@ -94,7 +94,8 @@ impl TypeChecker {
         Some((name.clone(), (**inner).clone()))
     }
 
-    /// Returns the variable and its type for `a instanceof Name`, which is `Name` unless the variable is already narrower.
+    /// Returns the variable and its type for `a instanceof Name`: its own type if that is already narrower, `Name` if
+    /// that is narrower, else both, like `Animal & Shape`.
     fn instance_checked(&self, test: &InstanceOf) -> Option<(String, Type)> {
         let ExprKind::Ident { name, .. } = &test.value.kind else {
             return None;
@@ -106,9 +107,23 @@ impl TypeChecker {
         let wanted = self.names.type_named(&test.type_name)?;
         let narrowed = if self.fits(&current, &wanted) {
             current
-        } else {
+        } else if self.fits(&wanted, &current) {
             wanted
+        } else {
+            self.intersection(&current, wanted)
         };
         Some((name.clone(), narrowed))
+    }
+
+    /// Returns `current & wanted` without the parts of `current` that `wanted` already covers, so `Animal & Shape` with
+    /// `instanceof Dog` becomes `Dog & Shape`; the class comes first.
+    fn intersection(&self, current: &Type, wanted: Type) -> Type {
+        let mut parts: Vec<Type> = (current.parts().iter())
+            .filter(|part| !self.fits(&wanted, part))
+            .cloned()
+            .collect();
+        parts.push(wanted);
+        parts.sort_by_key(|part| !matches!(part, Type::Class(_)));
+        Type::Intersection(parts.into())
     }
 }

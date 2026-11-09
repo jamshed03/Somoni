@@ -1,0 +1,17 @@
+interface Shape {
+    area(): int;
+}
+
+class Animal {
+    name: string;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+}
+
+fn describe(a: Animal): void {
+    if (a instanceof Shape) {
+        print(a.fly());
+    }
+}

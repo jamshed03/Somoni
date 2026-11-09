@@ -610,7 +610,7 @@ impl TypeChecker {
         }
     }
 
-    /// Checks `target.name` on a struct or object.
+    /// Checks `target.name` on a struct or object; on `Animal & Shape` the fields are those of the class.
     fn check_field(
         &mut self,
         target: &mut Expr,
@@ -618,7 +618,7 @@ impl TypeChecker {
         name_span: Span,
         index: &mut Option<usize>,
     ) -> Result<Type, SomoniError> {
-        let target_type = self.check_expr(target)?;
+        let target_type = self.check_expr(target)?.with_fields().clone();
         let Some(fields) = self.fields_of(&target_type) else {
             return Err(SomoniError::at(
                 target.span,
@@ -759,6 +759,15 @@ impl TypeChecker {
         match &target_type {
             Type::Interface(layout) => self.check_interface_call(layout, call, span),
             Type::Class(layout) => self.check_class_method_call(layout, call, span),
+            Type::Intersection(parts) => match self.method_part(parts, &call.name) {
+                Some(Type::Class(layout)) => self.check_class_method_call(layout, call, span),
+                Some(Type::Interface(layout)) => self.check_interface_call(layout, call, span),
+                _ => Err(unknown_method(
+                    &target_type.to_string(),
+                    &call.name,
+                    call.name_span,
+                )),
+            },
             Type::Struct(_) if self.has_field(&target_type, &call.name) => {
                 self.check_field_call(&target_type, call, span)
             }
@@ -770,6 +779,18 @@ impl TypeChecker {
                 ErrorCode::NoMethods { found: target_type },
             )),
         }
+    }
+
+    /// Returns the first part of `Animal & Shape` that has a method (or a field) `name`, the class first.
+    fn method_part<'a>(&self, parts: &'a [Type], name: &str) -> Option<&'a Type> {
+        parts.iter().find(|part| match part {
+            Type::Class(layout) => self
+                .class_info(layout)
+                .is_ok_and(|info| info.methods.contains_key(name) || self.has_field(part, name)),
+            Type::Interface(layout) => (self.interface_info(layout))
+                .is_ok_and(|info| info.methods.iter().any(|(method, _)| method == name)),
+            _ => false,
+        })
     }
 
     /// Checks `s.upper()` and other built-in methods, which get the value before the dot as their first argument.
@@ -972,12 +993,15 @@ impl TypeChecker {
             Type::Optional(inner) => (**inner).clone(),
             other => other.clone(),
         };
-        if !matches!(object, Type::Class(_) | Type::Interface(_)) {
+        if !matches!(
+            object,
+            Type::Class(_) | Type::Interface(_) | Type::Intersection(_)
+        ) {
             let code = ErrorCode::InstanceofNotObject { found };
             return Err(SomoniError::at(test.value.span, code));
         }
         let (wanted, target) = self.instance_type(&test.type_name, test.type_span)?;
-        if let (Type::Class(from), Type::Class(to)) = (&object, &wanted)
+        if let (Type::Class(from), Type::Class(to)) = (object.with_fields(), &wanted)
             && !self.is_subclass(from, to)
             && !self.is_subclass(to, from)
         {

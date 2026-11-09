@@ -1,0 +1,54 @@
+// Animal & Shape becomes Dog & Shape after instanceof Dog; a method in both parts is the one of the class
+interface Shape {
+    area(): int;
+    sound(): string;
+}
+
+class Animal {
+    name: string;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+
+    sound(): string {
+        return "animal";
+    }
+}
+
+class Dog extends Animal {
+    constructor() {
+        super("Dog");
+    }
+
+    bark(): string {
+        return "woof";
+    }
+}
+
+class RoundDog extends Dog implements Shape {
+    area(): int {
+        return 7;
+    }
+
+    override sound(): string {
+        return "round woof";
+    }
+}
+
+fn check(given: Animal?): void {
+    var maybe = given;
+    if (maybe instanceof Shape) {
+        print(maybe.sound());
+        if (maybe instanceof Dog) {
+            print("{maybe.bark()} {maybe.area()} {maybe.name}");
+            var shown: string = "{maybe.name}";
+            print(shown);
+        }
+        maybe = new Animal("new");
+        print(maybe.name);
+    }
+}
+
+check(new RoundDog());
+check(null);

@@ -68,6 +68,9 @@ pub enum Type {
     Function(Rc<FunctionType>),
     /// `(int, string)` with the type of each element.
     Tuple(Rc<[Type]>),
+    /// `Animal & Shape`: an object that has all these types, which only narrowing with `instanceof` makes;
+    /// at least two parts, the class (if any) first.
+    Intersection(Rc<[Type]>),
 }
 
 /// What the place of a lambda tells about its type, e.g. the parameter type that `l.map(...)` gives it.
@@ -108,12 +111,31 @@ impl Type {
             Type::Map(first, second) | Type::Result(first, second) => {
                 first.origin_file().or_else(|| second.origin_file())
             }
-            Type::Tuple(elements) => elements.iter().find_map(Type::origin_file),
+            Type::Tuple(elements) | Type::Intersection(elements) => {
+                elements.iter().find_map(Type::origin_file)
+            }
             Type::Function(function) => (function.params.iter())
                 .chain([&function.result])
                 .find_map(Type::origin_file),
             Type::Int | Type::Float | Type::Bool | Type::Str | Type::Void => None,
         }
+    }
+
+    /// Returns the parts of `Animal & Shape`, or the type itself as its only part.
+    pub fn parts(&self) -> &[Type] {
+        match self {
+            Type::Intersection(parts) => parts,
+            other => std::slice::from_ref(other),
+        }
+    }
+
+    /// Returns the part that can have fields: the class of `Animal & Shape`, or the type itself.
+    pub fn with_fields(&self) -> &Type {
+        let parts = self.parts();
+        parts
+            .iter()
+            .find(|part| matches!(part, Type::Class(_)))
+            .unwrap_or(self)
     }
 
     /// Builds the type `fn(params): result`.
@@ -192,6 +214,10 @@ impl fmt::Display for Type {
             Type::Function(function) => {
                 let params: Vec<String> = function.params.iter().map(Type::to_string).collect();
                 write!(f, "fn({}): {}", params.join(", "), function.result)
+            }
+            Type::Intersection(parts) => {
+                let parts: Vec<String> = parts.iter().map(Type::to_string).collect();
+                write!(f, "{}", parts.join(" & "))
             }
         }
     }

@@ -1,0 +1,68 @@
+// after instanceof with an interface, a variable keeps its class too: Animal & Shape
+interface Shape {
+    area(): int;
+}
+
+interface Named {
+    label(): string;
+}
+
+class Animal {
+    name: string;
+
+    constructor(name: string) {
+        this.name = name;
+    }
+
+    sound(): string {
+        return "...";
+    }
+}
+
+class Turtle extends Animal implements Shape, Named {
+    constructor() {
+        super("Tom");
+    }
+
+    area(): int {
+        return 3;
+    }
+
+    label(): string {
+        return "turtle";
+    }
+}
+
+fn size(s: Shape): int {
+    return s.area();
+}
+
+fn call(a: Animal): string {
+    return a.name;
+}
+
+fn describe(a: Animal): void {
+    if (a instanceof Shape) {
+        print(a.name);
+        print(a.sound());
+        print(a.area());
+        print(size(a));
+        print(call(a));
+        if (a instanceof Named) {
+            print("{a.name} {a.area()} {a.label()}");
+        }
+        if (a instanceof Turtle) {
+            print(a.label());
+        }
+    }
+}
+
+fn both(s: Shape): void {
+    if (s instanceof Named && s.area() > 1) {
+        print(s.label());
+    }
+}
+
+describe(new Turtle());
+describe(new Animal("Rex"));
+both(new Turtle());
