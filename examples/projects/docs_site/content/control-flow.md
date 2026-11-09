@@ -41,10 +41,16 @@ for (var i = 0; i < 5; i++) {
 `for`-each runs over a list, a map or a string.
 
 ```smn
-for (name: string in ["Ali", "Bea"]) {
+for (name in ["Ali", "Bea"]) {
     print(name);
 }
+for (i, name: string in ["Ali", "Bea"]) {
+    print("{i}: {name}");
+}
 ```
+
+The type of a loop variable may be left out: it is the type of the elements, so `name` is a `string` and stays one.
+With two variables, the first one is the index of a list or string, or the key of a map.
 
 `match` chooses a branch by an enum variant, a result, or a value; it must cover every case, or end with `_`.
 
