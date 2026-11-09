@@ -610,8 +610,8 @@ pub(super) fn describe_method(name: &str, visibility: Visibility, signature: &Si
 
 /// Describes a method for a message, e.g. `laut(): string`.
 pub(super) fn describe_signature(name: &str, signature: &Signature) -> String {
-    let params: Vec<String> = signature.params.iter().map(Type::to_string).collect();
-    format!("{}({}): {}", name, params.join(", "), signature.return_type)
+    let params = Type::joined(&signature.params, ", ");
+    format!("{}({}): {}", name, params, signature.return_type)
 }
 
 /// Returns the field that `this.field = value;` sets, if `value` does not use `this`.

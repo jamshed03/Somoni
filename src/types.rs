@@ -84,10 +84,10 @@ pub struct FunctionHint {
 /// Shows a hint as a function type, with `...` for a result where any fits: `fn(int): bool`, `fn(int): ...`.
 impl fmt::Display for FunctionHint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let params: Vec<String> = self.params.iter().map(Type::to_string).collect();
+        let params = Type::joined(&self.params, ", ");
         match &self.result {
-            Some(result) => write!(f, "fn({}): {}", params.join(", "), result),
-            None => write!(f, "fn({}): ...", params.join(", ")),
+            Some(result) => write!(f, "fn({}): {}", params, result),
+            None => write!(f, "fn({}): ...", params),
         }
     }
 }
@@ -134,6 +134,12 @@ impl Type {
         (self.parts().iter())
             .find(|part| matches!(part, Type::Class(_)))
             .unwrap_or(self)
+    }
+
+    /// Shows the types one after another with `separator` between them, like `int, string` or `Animal & Shape`.
+    pub fn joined(types: &[Type], separator: &str) -> String {
+        let shown: Vec<String> = types.iter().map(Type::to_string).collect();
+        shown.join(separator)
     }
 
     /// Builds the type `fn(params): result`.
@@ -205,18 +211,14 @@ impl fmt::Display for Type {
             Type::Class(layout) => write!(f, "{}", layout.name),
             Type::Interface(layout) => write!(f, "{}", layout.name),
             Type::Result(value, error) => write!(f, "result<{}, {}>", value, error),
-            Type::Tuple(elements) => {
-                let elements: Vec<String> = elements.iter().map(Type::to_string).collect();
-                write!(f, "({})", elements.join(", "))
-            }
-            Type::Function(function) => {
-                let params: Vec<String> = function.params.iter().map(Type::to_string).collect();
-                write!(f, "fn({}): {}", params.join(", "), function.result)
-            }
-            Type::Intersection(parts) => {
-                let parts: Vec<String> = parts.iter().map(Type::to_string).collect();
-                write!(f, "{}", parts.join(" & "))
-            }
+            Type::Tuple(elements) => write!(f, "({})", Type::joined(elements, ", ")),
+            Type::Function(function) => write!(
+                f,
+                "fn({}): {}",
+                Type::joined(&function.params, ", "),
+                function.result
+            ),
+            Type::Intersection(parts) => write!(f, "{}", Type::joined(parts, " & ")),
         }
     }
 }
