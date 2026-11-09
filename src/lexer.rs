@@ -9,82 +9,6 @@ use raw_string::RAW_QUOTES;
 mod raw_string;
 mod template;
 
-/// The keywords of Somoni; every other word is a name.
-const KEYWORDS: &[(&str, Token)] = &[
-    ("var", Token::Var),
-    ("const", Token::Const),
-    ("true", Token::True),
-    ("false", Token::False),
-    ("if", Token::If),
-    ("else", Token::Else),
-    ("while", Token::While),
-    ("for", Token::For),
-    ("break", Token::Break),
-    ("continue", Token::Continue),
-    ("fn", Token::Fn),
-    ("return", Token::Return),
-    ("struct", Token::Struct),
-    ("null", Token::Null),
-    ("in", Token::In),
-    ("enum", Token::Enum),
-    ("match", Token::Match),
-    ("import", Token::Import),
-    ("export", Token::Export),
-    ("class", Token::Class),
-    ("new", Token::New),
-    ("this", Token::This),
-    ("public", Token::Public),
-    ("private", Token::Private),
-    ("protected", Token::Protected),
-    ("interface", Token::Interface),
-    ("implements", Token::Implements),
-    ("extends", Token::Extends),
-    ("super", Token::Super),
-    ("override", Token::Override),
-    ("readonly", Token::Readonly),
-    ("static", Token::Static),
-    ("abstract", Token::Abstract),
-    ("instanceof", Token::Instanceof),
-];
-
-/// The symbols of Somoni, the two-character ones first so `+=` is found before `+`.
-const SYMBOLS: &[(&str, Token)] = &[
-    ("+=", Token::PlusEqual),
-    ("-=", Token::MinusEqual),
-    ("*=", Token::StarEqual),
-    ("/=", Token::SlashEqual),
-    ("%=", Token::PercentEqual),
-    ("==", Token::EqualEqual),
-    ("=>", Token::FatArrow),
-    ("!=", Token::BangEqual),
-    ("<=", Token::LessEqual),
-    (">=", Token::GreaterEqual),
-    ("&&", Token::AndAnd),
-    ("||", Token::OrOr),
-    ("::", Token::ColonColon),
-    (":", Token::Colon),
-    (",", Token::Comma),
-    (".", Token::Dot),
-    (";", Token::Semicolon),
-    ("+", Token::Plus),
-    ("-", Token::Minus),
-    ("*", Token::Star),
-    ("/", Token::Slash),
-    ("%", Token::Percent),
-    ("(", Token::LParen),
-    (")", Token::RParen),
-    ("{", Token::LBrace),
-    ("}", Token::RBrace),
-    ("[", Token::LBracket),
-    ("]", Token::RBracket),
-    ("=", Token::Equal),
-    ("!", Token::Bang),
-    ("<", Token::Less),
-    (">", Token::Greater),
-    ("?", Token::Question),
-    ("|", Token::Pipe),
-];
-
 /// Turns the source text into tokens, each with its place.
 pub struct Lexer {
     file: usize,
@@ -337,20 +261,20 @@ impl Lexer {
 
     /// Reads a symbol like `+=` or `(`, or returns L001 for a character that is none.
     fn read_symbol(&mut self, c: char) -> Result<Token, SomoniError> {
-        let Some((text, token)) = symbol(c, self.peek_next()) else {
+        let Some((length, token)) = symbol(c, self.peek_next()) else {
             let span = Span::in_line(self.file, self.line, self.col(), 1);
             return Err(SomoniError::at(
                 span,
                 ErrorCode::UnexpectedCharacter { found: c },
             ));
         };
-        self.pos += text.len();
+        self.pos += length;
         Ok(token)
     }
 
     /// Skips a comment `// ...` up to the end of the line.
     fn skip_line_comment(&mut self) {
-        self.read_while(|c| c != '\n');
+        self.skip_while(|c| c != '\n');
     }
 
     /// Skips a comment `/* ... */`, also over several lines.
@@ -372,12 +296,16 @@ impl Lexer {
 
     /// Reads characters as long as `wanted` is true for them and returns them.
     fn read_while(&mut self, wanted: impl Fn(char) -> bool) -> String {
-        let mut text = String::new();
-        while let Some(c) = self.peek().filter(|&c| wanted(c)) {
-            text.push(c);
+        let start = self.pos;
+        self.skip_while(wanted);
+        self.chars[start..self.pos].iter().collect()
+    }
+
+    /// Skips characters as long as `wanted` is true for them.
+    fn skip_while(&mut self, wanted: impl Fn(char) -> bool) {
+        while self.peek().is_some_and(&wanted) {
             self.advance();
         }
-        text
     }
 
     /// Returns the current character, None at the end.
@@ -421,24 +349,92 @@ impl Lexer {
 
 /// Returns the keyword token for `word`, or None if it is a name.
 fn keyword(word: &str) -> Option<Token> {
-    KEYWORDS
-        .iter()
-        .find(|(name, _)| *name == word)
-        .map(|(_, token)| token.clone())
+    let token = match word {
+        "var" => Token::Var,
+        "const" => Token::Const,
+        "true" => Token::True,
+        "false" => Token::False,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "while" => Token::While,
+        "for" => Token::For,
+        "break" => Token::Break,
+        "continue" => Token::Continue,
+        "fn" => Token::Fn,
+        "return" => Token::Return,
+        "struct" => Token::Struct,
+        "null" => Token::Null,
+        "in" => Token::In,
+        "enum" => Token::Enum,
+        "match" => Token::Match,
+        "import" => Token::Import,
+        "export" => Token::Export,
+        "class" => Token::Class,
+        "new" => Token::New,
+        "this" => Token::This,
+        "public" => Token::Public,
+        "private" => Token::Private,
+        "protected" => Token::Protected,
+        "interface" => Token::Interface,
+        "implements" => Token::Implements,
+        "extends" => Token::Extends,
+        "super" => Token::Super,
+        "override" => Token::Override,
+        "readonly" => Token::Readonly,
+        "static" => Token::Static,
+        "abstract" => Token::Abstract,
+        "instanceof" => Token::Instanceof,
+        _ => return None,
+    };
+    Some(token)
 }
 
-/// Returns the symbol that starts with `c` (and maybe `next`) and its token.
-fn symbol(c: char, next: Option<char>) -> Option<(&'static str, Token)> {
-    SYMBOLS
-        .iter()
-        .find(|(text, _)| starts_symbol(text, c, next))
-        .map(|(text, token)| (*text, token.clone()))
-}
-
-/// Returns true if the characters `c` and `next` start with the symbol `text`.
-fn starts_symbol(text: &str, c: char, next: Option<char>) -> bool {
-    let mut chars = text.chars();
-    chars.next() == Some(c) && chars.next().is_none_or(|second| Some(second) == next)
+/// Returns the symbol that starts with `c` (and maybe `next`) and its length, the two-character ones like `+=` before `+`.
+fn symbol(c: char, next: Option<char>) -> Option<(usize, Token)> {
+    let two = match (c, next) {
+        ('+', Some('=')) => Some(Token::PlusEqual),
+        ('-', Some('=')) => Some(Token::MinusEqual),
+        ('*', Some('=')) => Some(Token::StarEqual),
+        ('/', Some('=')) => Some(Token::SlashEqual),
+        ('%', Some('=')) => Some(Token::PercentEqual),
+        ('=', Some('=')) => Some(Token::EqualEqual),
+        ('=', Some('>')) => Some(Token::FatArrow),
+        ('!', Some('=')) => Some(Token::BangEqual),
+        ('<', Some('=')) => Some(Token::LessEqual),
+        ('>', Some('=')) => Some(Token::GreaterEqual),
+        ('&', Some('&')) => Some(Token::AndAnd),
+        ('|', Some('|')) => Some(Token::OrOr),
+        (':', Some(':')) => Some(Token::ColonColon),
+        _ => None,
+    };
+    if let Some(token) = two {
+        return Some((2, token));
+    }
+    let one = match c {
+        ':' => Token::Colon,
+        ',' => Token::Comma,
+        '.' => Token::Dot,
+        ';' => Token::Semicolon,
+        '+' => Token::Plus,
+        '-' => Token::Minus,
+        '*' => Token::Star,
+        '/' => Token::Slash,
+        '%' => Token::Percent,
+        '(' => Token::LParen,
+        ')' => Token::RParen,
+        '{' => Token::LBrace,
+        '}' => Token::RBrace,
+        '[' => Token::LBracket,
+        ']' => Token::RBracket,
+        '=' => Token::Equal,
+        '!' => Token::Bang,
+        '<' => Token::Less,
+        '>' => Token::Greater,
+        '?' => Token::Question,
+        '|' => Token::Pipe,
+        _ => return None,
+    };
+    Some((1, one))
 }
 
 /// Turns the digits of a number into an int or float token, or L004/L005 if they do not fit.
