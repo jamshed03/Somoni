@@ -68,6 +68,21 @@ impl Parser {
         &self.tokens[self.pos].token
     }
 
+    /// Returns the current token and leaves it there with an empty text, so a name or string is moved instead of copied.
+    /// This works because the parser reads every token only once; its kind stays, so `peek` still sees an `Ident`.
+    fn take(&mut self) -> Token {
+        let token = &mut self.tokens[self.pos].token;
+        let emptied = match &*token {
+            Token::Ident(_) => Token::Ident(String::new()),
+            Token::Str(_) => Token::Str(String::new()),
+            Token::StrStart(_) => Token::StrStart(String::new()),
+            Token::StrMiddle(_) => Token::StrMiddle(String::new()),
+            Token::StrEnd(_) => Token::StrEnd(String::new()),
+            other => other.clone(),
+        };
+        std::mem::replace(token, emptied)
+    }
+
     /// Returns the token after the current one.
     fn peek_next(&self) -> &Token {
         let index = (self.pos + 1).min(self.tokens.len() - 1);
@@ -157,13 +172,12 @@ impl Parser {
     /// Reads a name, or returns the error "expected `what`".
     fn expect_ident(&mut self, what: &str) -> Result<(String, Span), SomoniError> {
         let span = self.current_span();
-        match self.peek().clone() {
-            Token::Ident(name) => {
-                self.advance();
-                Ok((name, span))
-            }
-            _ => Err(self.expected(what)),
-        }
+        let Token::Ident(name) = &mut self.tokens[self.pos].token else {
+            return Err(self.expected(what));
+        };
+        let name = std::mem::take(name);
+        self.advance();
+        Ok((name, span))
     }
 
     /// Reads `a: int`, where `what` names it in error messages, e.g. `parameter`.

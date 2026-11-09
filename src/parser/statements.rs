@@ -18,7 +18,7 @@ impl Parser {
     /// Reads one statement inside a block or at the top level.
     pub(super) fn parse_stmt(&mut self) -> Result<Stmt, SomoniError> {
         let start = self.current_span();
-        match self.peek().clone() {
+        match self.peek() {
             Token::Var | Token::Const if *self.peek_next() == Token::LParen => {
                 let mutable = *self.peek() == Token::Var;
                 self.parse_destructure(mutable, start)
@@ -36,7 +36,7 @@ impl Parser {
             Token::Match => self.parse_match(start),
             Token::Return => self.parse_return(start),
             Token::Ident(_) | Token::This | Token::New | Token::Super => self.parse_assign(start),
-            other => Err(SomoniError::at(start, misplaced(other))),
+            other => Err(SomoniError::at(start, misplaced(other.clone()))),
         }
     }
 

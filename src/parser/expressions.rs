@@ -209,7 +209,7 @@ impl Parser {
     /// Reads a value, a name, a call, a literal, `new`, `super`, a lambda or `( ... )`.
     fn parse_primary(&mut self) -> Result<Expr, SomoniError> {
         let span = self.current_span();
-        let kind = match self.peek().clone() {
+        let kind = match self.take() {
             Token::Int(n) => ExprKind::Int(n),
             Token::Float(f) => ExprKind::Float(f),
             Token::Str(s) => ExprKind::Str(Rc::new(Text::new(s))),
