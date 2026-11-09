@@ -13,6 +13,7 @@ use crate::error::{ErrorCode, SomoniError};
 use crate::lexer::Lexer;
 use crate::loader::{MAIN_FILE, SourceFile};
 use crate::parser::Parser;
+use crate::token::{SpannedToken, Token};
 use crate::typechecker::TypeChecker;
 use crate::types::Type;
 use crate::value::Quoted;
@@ -21,14 +22,19 @@ use crate::vm::{self, Session};
 /// The prompt before an input, shown only when a person types into a terminal.
 const PROMPT: &str = "> ";
 
-/// Reads inputs until the input ends (Ctrl+D) and runs each one.
+/// The prompt before another line of an input that is not complete yet.
+const MORE: &str = ". ";
+
+/// Reads inputs until the input ends (Ctrl+D) and runs each one; an input goes on over several lines while it is
+/// not complete, and an empty line sends it anyway.
 pub fn run() {
     let stdin = io::stdin();
     let terminal = stdin.is_terminal();
     let mut repl = Repl::default();
+    let mut input = String::new();
     loop {
         if terminal {
-            print!("{}", PROMPT);
+            print!("{}", if input.is_empty() { PROMPT } else { MORE });
             let _ = io::stdout().flush();
         }
         let mut line = String::new();
@@ -36,12 +42,41 @@ pub fn run() {
             Ok(0) | Err(_) => break,
             Ok(_) => {}
         }
-        if !line.trim().is_empty() {
-            repl.run_input(line);
+        let blank = line.trim().is_empty();
+        if blank && input.is_empty() {
+            continue;
         }
+        input.push_str(&line);
+        if blank || is_complete(&input) {
+            repl.run_input(std::mem::take(&mut input));
+        }
+    }
+    if !input.is_empty() {
+        repl.run_input(input);
     }
     if terminal {
         println!();
+    }
+}
+
+/// Returns false while a bracket, a string or a `/* */` comment in `source` is still open.
+fn is_complete(source: &str) -> bool {
+    match Lexer::new(source, MAIN_FILE).tokenize() {
+        Ok(tokens) => {
+            let depth: i64 = tokens
+                .iter()
+                .map(|spanned| match spanned.token {
+                    Token::LParen | Token::LBrace | Token::LBracket => 1,
+                    Token::RParen | Token::RBrace | Token::RBracket => -1,
+                    _ => 0,
+                })
+                .sum();
+            depth <= 0
+        }
+        Err(error) => !matches!(
+            error.code,
+            ErrorCode::UnterminatedString | ErrorCode::UnterminatedComment
+        ),
     }
 }
 
@@ -103,7 +138,8 @@ impl Repl {
         }
     }
 
-    /// Reads the input as statements or, if that fails, as one expression; `import` is M008 for now.
+    /// Reads the input as statements, else as one expression, else as statements with a `;` at the end, and shows
+    /// the first error if none fits; `import` is M008 for now.
     fn parse(&self, source: &str) -> Result<Input, SomoniError> {
         let tokens = Lexer::new(source, MAIN_FILE)
             .starting_at_line(self.lines + 1)
@@ -111,10 +147,12 @@ impl Repl {
         let stmts = match Parser::new(tokens.clone()).parse_program(false) {
             Ok(stmts) => stmts,
             Err(error) => {
-                return Parser::new(tokens)
-                    .parse_lone_expr()
-                    .map(Input::Expr)
-                    .map_err(|_| error);
+                if let Ok(expr) = Parser::new(tokens.clone()).parse_lone_expr() {
+                    return Ok(Input::Expr(expr));
+                }
+                Parser::new(with_semicolon(tokens))
+                    .parse_program(false)
+                    .map_err(|_| error)?
             }
         };
         if let Some(Stmt::Import(import)) =
@@ -168,6 +206,17 @@ struct Built {
     program: Program,
     stmts: Vec<Stmt>,
     shown: Option<(Type, usize)>,
+}
+
+/// Returns `tokens` with a `;` before the end, for an input like `var x = 5` without it.
+fn with_semicolon(mut tokens: Vec<SpannedToken>) -> Vec<SpannedToken> {
+    let end = tokens.len() - 1;
+    let semicolon = SpannedToken {
+        token: Token::Semicolon,
+        span: tokens[end].span,
+    };
+    tokens.insert(end, semicolon);
+    tokens
 }
 
 /// Returns `var <it line:col> = expr;`, the hidden variable that holds the value of an expression typed alone.

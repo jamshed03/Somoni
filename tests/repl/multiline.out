@@ -1,0 +1,8 @@
+16: int
+5: int
+["Ali", "Bea"]: list<string>
+Parse error [P001]: Line 1: expected ')'
+  1 | print("a"
+    |          ^
+after
+"raw": string

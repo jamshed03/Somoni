@@ -1,0 +1,19 @@
+fn square(n: int): int {
+    return n * n;
+}
+square(4)
+var x = 5
+x
+var names = [
+    "Ali",
+    "Bea"
+]
+names
+print("a"
+oops
+
+print("after");
+var text = """
+    raw
+    """
+text
