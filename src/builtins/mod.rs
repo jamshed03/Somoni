@@ -347,7 +347,8 @@ impl Builtin {
             (Builtin::PadLeft | Builtin::PadRight | Builtin::Repeat, [Type::Str, Type::Int]) => {
                 Ok(Type::Str)
             }
-            (Builtin::Replace | Builtin::Slice, [Type::Str, Type::Str | Type::Int, _]) => Err(2),
+            (Builtin::Replace, [Type::Str, Type::Str, _])
+            | (Builtin::Slice, [Type::Str, Type::Int, _]) => Err(2),
             (
                 Builtin::Split
                 | Builtin::Contains
