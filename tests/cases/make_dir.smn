@@ -1,0 +1,7 @@
+// make_dir makes a folder and the missing folders above it; ok(false) if it is there already.
+// The folder gets the time in its name, so every test run starts without it.
+var dir = "../../target/make_dir_test/{now()}";
+print(make_dir("{dir}/a/b"));
+print(make_dir("{dir}/a/b"));
+print(write_file("{dir}/a/b/x.txt", "x"));
+print(is_err(make_dir("{dir}/a/b/x.txt")));

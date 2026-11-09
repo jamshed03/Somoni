@@ -1,5 +1,5 @@
 //! Talking to the outside of the program: `input()` reads a line that the user types, `read_file`, `write_file`,
-//! `append_file` and `copy_file` work with whole files, `now()` reads the clock. `print` and `write` are written by the VM (`vm/output.rs`).
+//! `append_file` and `copy_file` work with whole files, `make_dir` makes folders, `now()` reads the clock. `print` and `write` are written by the VM (`vm/output.rs`).
 
 use std::io::{BufRead, ErrorKind, Write};
 use std::path::Path;
@@ -56,6 +56,19 @@ pub(super) fn append_file(dir: &str, path: &str, text: &Text) -> Value {
     match appended {
         Ok(()) => Value::Ok(Rc::new(Value::Int(text.char_count() as i64))),
         Err(error) => failed("write", path, error.kind()),
+    }
+}
+
+/// Makes the folder `path` and the folders above it that are missing, as `ok(true)`, `ok(false)` if it was there
+/// already, or `err(reason)`.
+pub(super) fn make_dir(dir: &str, path: &str) -> Value {
+    let full = Path::new(dir).join(path);
+    if full.is_dir() {
+        return Value::Ok(Rc::new(Value::Bool(false)));
+    }
+    match std::fs::create_dir_all(full) {
+        Ok(()) => Value::Ok(Rc::new(Value::Bool(true))),
+        Err(error) => failed("make", path, error.kind()),
     }
 }
 
