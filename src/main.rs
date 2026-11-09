@@ -8,6 +8,7 @@ mod lexer;
 mod loader;
 mod map;
 mod parser;
+mod repl;
 mod scope;
 mod serve;
 mod span;
@@ -42,7 +43,18 @@ enum Command {
     Serve { dir: String, port: u16 },
     /// `somoni --explain T003`: show what an error code means, with an example.
     Explain { code: String },
+    /// `somoni` without a file: read Somoni line by line in the REPL.
+    Repl,
+    /// `somoni --help`: show how to call somoni.
+    Help,
 }
+
+/// How to call somoni, shown by `--help` and after a call it does not understand.
+const USAGE: &str = "Usage: somoni                                  start the REPL
+       somoni [--bytecode] <file.smn> [args...]
+       somoni serve [folder] [--port 8000]
+       somoni --explain <code>
+       somoni --help";
 
 /// Runs what the command line asks for.
 fn main() {
@@ -59,15 +71,18 @@ fn main() {
             Ok(text) => print!("{}", text),
             Err(message) => fail(&message),
         },
+        Command::Repl => repl::run(),
+        Command::Help => println!("{}", USAGE),
     }
 }
 
 /// Reads the command from the arguments after the program name, or stops with the usage.
 fn read_command(args: Vec<String>) -> Command {
-    let usage = "Usage: somoni [--bytecode] <file.smn> [args...]\n       somoni serve [folder] [--port 8000]\n       somoni --explain <code>";
     match args.as_slice() {
+        [] => Command::Repl,
+        [flag] if flag == "--help" => Command::Help,
         [flag, code] if flag == "--explain" => Command::Explain { code: code.clone() },
-        [serve, rest @ ..] if serve == "serve" => read_serve(rest).unwrap_or_else(|| fail(usage)),
+        [serve, rest @ ..] if serve == "serve" => read_serve(rest).unwrap_or_else(|| fail(USAGE)),
         [flag, path, rest @ ..] if flag == "--bytecode" => Command::Run {
             path: path.clone(),
             show_bytecode: true,
@@ -78,7 +93,7 @@ fn read_command(args: Vec<String>) -> Command {
             show_bytecode: false,
             args: rest.to_vec(),
         },
-        _ => fail(usage),
+        _ => fail(USAGE),
     }
 }
 

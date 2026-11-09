@@ -124,6 +124,7 @@ pub enum ErrorCode {
         cycle: String,
     },
     OnlyDeclarations,
+    ImportInRepl,
     ReservedPath {
         path: String,
     },
@@ -561,6 +562,7 @@ impl ErrorCode {
             ErrorCode::NotExported { .. } => "M005",
             ErrorCode::NotInFile { .. } => "M006",
             ErrorCode::ImportConflict { .. } => "M007",
+            ErrorCode::ImportInRepl => "M008",
 
             ErrorCode::UnknownType { .. } => "T001",
             ErrorCode::UnknownVariable { .. } => "T002",
@@ -823,6 +825,10 @@ impl ErrorCode {
 
             ErrorCode::CannotReadFile { name } => format!("cannot read file '{}'", name),
             ErrorCode::ImportCycle { cycle } => format!("files import each other: {}", cycle),
+            ErrorCode::ImportInRepl => {
+                "'import' does not work in the REPL yet; put the program into a file and run it with 'somoni file.smn'"
+                    .to_string()
+            }
             ErrorCode::OnlyDeclarations => {
                 "an imported file may only contain fn, struct, enum, class, interface, const and import"
                     .to_string()

@@ -194,3 +194,7 @@ File geometry.smn:
     export fn square(side: float): float {
         return side * side;
     }
+
+## M008 import in the REPL
+The REPL (`somoni` without a file) cannot import files yet. Put the program into a file, for example `main.smn`
+with the `import` at the top, and run it with `somoni main.smn`.
