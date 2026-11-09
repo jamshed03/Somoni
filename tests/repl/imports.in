@@ -1,0 +1,10 @@
+import { square, Point } from "modules/math.smn";
+square(4)
+Point { x: 1, y: 2 }
+import * as math from "modules/math.smn";
+math.square(3) + math.ORIGIN
+import { missing } from "modules/math.smn";
+import { cube } from "modules/nothing.smn";
+import { broken } from "modules/broken.smn";
+import { broken } from "modules/broken.smn";
+square(5)

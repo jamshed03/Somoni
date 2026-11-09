@@ -4,4 +4,3 @@ var x = 6; print(x * 7);
 print(1 + true);
 print(10 / 0);
 print("still here");
-import { square } from "math.smn";

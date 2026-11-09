@@ -30,7 +30,8 @@ somoni hello.smn
 ## Try it line by line
 
 `somoni` without a file starts the REPL: type Somoni and see the result right away, with its type. Earlier lines
-stay known, an input goes on over several lines while a bracket is open, and Ctrl+D ends it.
+stay known, an input goes on over several lines while a bracket is open, `import` reads files from the current
+folder, and Ctrl+D ends it.
 
 ```text
 > var names = ["Ali", "Bea"];

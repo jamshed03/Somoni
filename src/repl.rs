@@ -9,7 +9,7 @@ use crate::bytecode::Program;
 use crate::compiler;
 use crate::error::{ErrorCode, SomoniError};
 use crate::lexer::Lexer;
-use crate::loader::{MAIN_FILE, SourceFile};
+use crate::loader::{Loader, MAIN_FILE, SourceFile};
 use crate::parser::Parser;
 use crate::token::{SpannedToken, Token};
 use crate::typechecker::TypeChecker;
@@ -27,7 +27,8 @@ const MORE: &str = ". ";
 pub fn run() {
     let stdin = io::stdin();
     let terminal = stdin.is_terminal();
-    let mut repl = Repl::default();
+    let dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut repl = Repl::new(Loader::typed(dir));
     while let Some(input) = read_input(&stdin, terminal) {
         repl.run_input(input);
     }
@@ -92,13 +93,32 @@ struct Repl {
     lines: usize,
     /// The globals that have their values already, whose start values must not run again.
     known_globals: Vec<String>,
+    /// The modules imported with `import * as name`, so `name.square(3)` reads as one name in later inputs.
+    namespaces: Vec<String>,
+    /// The typed main file and the files that inputs imported, not checked yet.
+    loader: Loader,
     session: Session,
 }
 
 impl Repl {
+    /// Starts with no inputs yet; `loader` holds the typed main file.
+    fn new(loader: Loader) -> Repl {
+        Repl {
+            history: Vec::new(),
+            sources: String::new(),
+            lines: 0,
+            known_globals: Vec::new(),
+            namespaces: Vec::new(),
+            loader,
+            session: Session::default(),
+        }
+    }
+
     /// Runs one input, shows its value or its error, and keeps it if it ran without an error.
+    /// It works on a copy of the loader, so a file that failed to load is read again by the next import.
     fn run_input(&mut self, source: String) {
-        let ran = self.build(&source).and_then(|built| {
+        let mut loader = self.loader.clone();
+        let ran = self.build(&source, &mut loader).and_then(|built| {
             vm::run_in(&built.program, &mut self.session)?;
             Ok(built)
         });
@@ -109,26 +129,34 @@ impl Repl {
                 {
                     println!("{}: {}", Quoted(value), ty);
                 }
+                self.namespaces
+                    .extend(built.stmts.iter().filter_map(namespace_of));
                 self.history.extend(built.stmts);
                 self.lines += source.lines().count();
                 self.sources.push_str(&source);
                 self.known_globals = built.program.globals;
+                self.loader = loader;
             }
-            Err(error) => println!("{}", self.render(error, &source)),
+            Err(error) => println!("{}", self.render(error, &source, &loader.files)),
         }
     }
 
-    /// Checks and compiles one input after the earlier ones; an expression alone goes into a hidden variable to show.
-    fn build(&self, source: &str) -> Result<Built, SomoniError> {
+    /// Reads the files one input imports, then checks and compiles it after the earlier ones; an expression alone
+    /// goes into a hidden variable to show.
+    fn build(&self, source: &str, loader: &mut Loader) -> Result<Built, SomoniError> {
         match self.parse(source)? {
-            Input::Stmts(stmts) => self.compile(stmts, None),
+            Input::Stmts(mut stmts) => {
+                let order = loader.load_typed_imports(&mut stmts)?;
+                self.compile(stmts, None, loader, &order)
+            }
             Input::Expr(expr) => {
+                let order = loader.load_typed_imports(&mut [])?;
                 let shown = shown_var(expr.clone());
                 let name = shown.name.clone();
-                match self.compile(vec![Stmt::VarDecl(shown)], Some(&name)) {
+                match self.compile(vec![Stmt::VarDecl(shown)], Some(&name), loader, &order) {
                     Err(error) if matches!(error.code, ErrorCode::VoidVariable) => {
                         let span = expr.span;
-                        self.compile(vec![Stmt::Expr { expr, span }], None)
+                        self.compile(vec![Stmt::Expr { expr, span }], None, loader, &order)
                     }
                     built => built,
                 }
@@ -137,43 +165,42 @@ impl Repl {
     }
 
     /// Reads the input as statements, else as one expression, else as statements with a `;` at the end, and shows
-    /// the first error if none fits; `import` is M008 for now.
+    /// the first error if none fits.
     fn parse(&self, source: &str) -> Result<Input, SomoniError> {
         let tokens = Lexer::new(source, MAIN_FILE)
             .starting_at_line(self.lines + 1)
             .tokenize()?;
-        let stmts = match Parser::new(tokens.clone()).parse_program(false) {
+        let parser = |tokens| Parser::new(tokens).with_namespaces(&self.namespaces);
+        let stmts = match parser(tokens.clone()).parse_program(false) {
             Ok(stmts) => stmts,
             Err(error) => {
-                if let Ok(expr) = Parser::new(tokens.clone()).parse_lone_expr() {
+                if let Ok(expr) = parser(tokens.clone()).parse_lone_expr() {
                     return Ok(Input::Expr(expr));
                 }
-                Parser::new(with_semicolon(tokens))
+                parser(with_semicolon(tokens))
                     .parse_program(false)
                     .map_err(|_| error)?
             }
         };
-        if let Some(Stmt::Import(import)) =
-            stmts.iter().find(|stmt| matches!(stmt, Stmt::Import(_)))
-        {
-            return Err(SomoniError::at(import.span, ErrorCode::ImportInRepl));
-        }
         Ok(Input::Stmts(stmts))
     }
 
-    /// Checks and compiles `stmts` after the earlier inputs; `shown` names the variable whose value the REPL shows.
-    fn compile(&self, stmts: Vec<Stmt>, shown: Option<&str>) -> Result<Built, SomoniError> {
-        let mut files = [main_file(String::new())];
+    /// Checks and compiles `stmts` after the earlier inputs, with the files of `loader` in `order`; `shown` names the
+    /// variable whose value the REPL shows.
+    fn compile(
+        &self,
+        stmts: Vec<Stmt>,
+        shown: Option<&str>,
+        loader: &Loader,
+        order: &[usize],
+    ) -> Result<Built, SomoniError> {
+        let mut files = loader.files.clone();
         files[MAIN_FILE].stmts = self.history.iter().chain(&stmts).cloned().collect();
         let mut checker = TypeChecker::new();
-        checker.check(&mut files, &[MAIN_FILE])?;
+        checker.check(&mut files, order)?;
         let shown = shown.and_then(|name| checker.top_level_var(name));
-        let program = compiler::compile_from(
-            &files,
-            &[MAIN_FILE],
-            self.history.len(),
-            &self.known_globals,
-        )?;
+        let program =
+            compiler::compile_from(&files, order, self.history.len(), &self.known_globals)?;
         Ok(Built {
             program,
             stmts,
@@ -181,8 +208,12 @@ impl Repl {
         })
     }
 
-    /// Returns the error ready to show: its line counted inside the input, or in all inputs if it lies in an earlier one.
-    fn render(&self, mut error: SomoniError, source: &str) -> String {
+    /// Returns the error ready to show: in an imported file like in a program, else with its line counted inside the
+    /// input, or in all inputs if it lies in an earlier one.
+    fn render(&self, mut error: SomoniError, source: &str, files: &[SourceFile]) -> String {
+        if error.span.is_some_and(|span| span.file != MAIN_FILE) {
+            return crate::render(&error, files);
+        }
         let in_input = error.span.is_none_or(|span| span.line > self.lines);
         let text = if in_input {
             if let Some(span) = error.span.as_mut() {
@@ -193,7 +224,11 @@ impl Repl {
         } else {
             format!("{}{}", self.sources, source)
         };
-        crate::render(&error, &[main_file(text)])
+        let main = SourceFile {
+            source: text,
+            ..files[MAIN_FILE].clone()
+        };
+        crate::render(&error, &[main])
     }
 }
 
@@ -208,6 +243,14 @@ struct Built {
     program: Program,
     stmts: Vec<Stmt>,
     shown: Option<(Type, usize)>,
+}
+
+/// Returns the name of the module that `import * as name` brings in, for other statements None.
+fn namespace_of(stmt: &Stmt) -> Option<String> {
+    match stmt {
+        Stmt::Import(import) => import.namespace.as_ref().map(|(name, _)| name.clone()),
+        _ => None,
+    }
 }
 
 /// Returns `tokens` with a `;` before the end, for an input like `var x = 5` without it.
@@ -233,15 +276,5 @@ fn shown_var(expr: Expr) -> VarDecl {
         mutable: true,
         slot: None,
         global: None,
-    }
-}
-
-/// Returns the main file of the REPL with `source` as its text; paths of `read_file` start at the current folder.
-fn main_file(source: String) -> SourceFile {
-    SourceFile {
-        name: "<repl>".to_string(),
-        dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
-        source,
-        stmts: Vec::new(),
     }
 }

@@ -1,0 +1,16 @@
+16: int
+Point { x: 1, y: 2 }: Point
+9: int
+Import error [M006]: Line 1: 'modules/math.smn' has no function, struct or enum 'missing'
+  1 | import { missing } from "modules/math.smn";
+    |          ^^^^^^^
+Import error [M001]: Line 1: cannot read file 'modules/nothing.smn'
+  1 | import { cube } from "modules/nothing.smn";
+    |                      ^^^^^^^^^^^^^^^^^^^^^
+Parse error [P001]: modules/broken.smn: Line 1: expected parameter name
+  1 | export fn broken(: int {
+    |                  ^
+Parse error [P001]: modules/broken.smn: Line 1: expected parameter name
+  1 | export fn broken(: int {
+    |                  ^
+25: int

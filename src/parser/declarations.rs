@@ -45,6 +45,14 @@ impl Parser {
         }))
     }
 
+    /// Reads the tokens as if the modules `namespaces` were imported before, like in an earlier input of the REPL.
+    pub fn with_namespaces(mut self, namespaces: &[String]) -> Parser {
+        for namespace in namespaces {
+            self.merge_namespace(namespace);
+        }
+        self
+    }
+
     /// Turns `namespace . name` in all later tokens into the one name `namespace.name`, which no one can write by hand.
     /// Imports come first in a file, so every use of the module comes after this.
     fn merge_namespace(&mut self, namespace: &str) {

@@ -7,6 +7,3 @@ Runtime error [R001]: Line 1: division by zero
   1 | print(10 / 0);
     |       ^^^^^^
 still here
-Import error [M008]: Line 1: 'import' does not work in the REPL yet; put the program into a file and run it with 'somoni file.smn'
-  1 | import { square } from "math.smn";
-    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

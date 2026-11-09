@@ -1,0 +1,11 @@
+// A small module for the REPL tests.
+export const ORIGIN = 0;
+
+export fn square(x: int): int {
+    return x * x;
+}
+
+export struct Point {
+    x: int,
+    y: int
+}

@@ -12,6 +12,7 @@ use crate::span::Span;
 pub const MAIN_FILE: usize = 0;
 
 /// One file of the program: its name for messages, its folder for `read_file`, its text and its statements.
+#[derive(Clone)]
 pub struct SourceFile {
     pub name: String,
     pub dir: PathBuf,
@@ -20,7 +21,7 @@ pub struct SourceFile {
 }
 
 /// Reads the main file and every file it imports once, and puts each file after its imports.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Loader {
     pub files: Vec<SourceFile>,
     number_by_path: HashMap<PathBuf, usize>,
@@ -36,6 +37,32 @@ impl Loader {
         Ok(std::mem::take(&mut self.check_order))
     }
 
+    /// Starts a program whose main file is typed in, like in the REPL; its imports start at the folder `dir`.
+    pub fn typed(dir: PathBuf) -> Loader {
+        let main = SourceFile {
+            name: "<repl>".to_string(),
+            dir,
+            source: String::new(),
+            stmts: Vec::new(),
+        };
+        Loader {
+            files: vec![main],
+            ..Loader::default()
+        }
+    }
+
+    /// Reads the files that the typed statements `stmts` import and returns the order to check all files, main last.
+    pub fn load_typed_imports(&mut self, stmts: &mut [Stmt]) -> Result<Vec<usize>, SomoniError> {
+        let dir = self.files[MAIN_FILE].dir.clone();
+        self.load_imports(MAIN_FILE, &dir, stmts)?;
+        Ok(self
+            .check_order
+            .iter()
+            .copied()
+            .chain([MAIN_FILE])
+            .collect())
+    }
+
     /// Reads one file and the files it imports, and returns its number.
     fn add_file(
         &mut self,
@@ -45,7 +72,7 @@ impl Loader {
     ) -> Result<usize, SomoniError> {
         let number = self.register(path.clone(), name, source);
         let mut stmts = self.parse(number)?;
-        self.load_imports(number, &path, &mut stmts)?;
+        self.load_imports(number, path.parent().unwrap_or(Path::new("")), &mut stmts)?;
         self.files[number].stmts = stmts;
         self.check_order.push(number);
         Ok(number)
@@ -77,15 +104,14 @@ impl Loader {
         Parser::new(tokens).parse_program(number != MAIN_FILE)
     }
 
-    /// Reads the files that a file imports and writes their numbers into its imports.
+    /// Reads the files that file `number` in the folder `dir` imports and writes their numbers into its imports.
     fn load_imports(
         &mut self,
         number: usize,
-        path: &Path,
+        dir: &Path,
         stmts: &mut [Stmt],
     ) -> Result<(), SomoniError> {
         self.loading_now.push(number);
-        let dir = path.parent().unwrap_or(Path::new(""));
         for stmt in stmts.iter_mut() {
             if let Stmt::Import(import) = stmt {
                 import.file = Some(self.import(dir, number, import)?);
