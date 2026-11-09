@@ -37,6 +37,7 @@ You need [Rust](https://www.rust-lang.org/tools/install). Then:
 This puts `somoni` into `~/.cargo/bin`, which the Rust installer adds to your `PATH`. Run it again with `--force`
 to update, `cargo uninstall somoni` removes it.
 
+    somoni                      # try Somoni line by line in the REPL (Ctrl+D ends it)
     somoni hello.smn            # run a program
     somoni --explain T003       # explain an error code, with an example
     somoni serve my-site        # serve a folder as web pages on http://localhost:8000
