@@ -160,13 +160,13 @@ impl Parser {
             });
         }
         let args = self.parse_args()?;
-        Ok(ExprKind::MethodCall(MethodCall {
+        Ok(ExprKind::MethodCall(Box::new(MethodCall {
             target: Box::new(target),
             name,
             name_span,
             args,
             call: None,
-        }))
+        })))
     }
 
     /// Reads `fn(x: int): int => x * 2` or `fn(x: int): int { ... }`; the short form becomes `{ return x * 2; }`.
@@ -304,7 +304,7 @@ impl Parser {
                 name_span,
                 global: None,
             };
-            return Ok(self.expr_since(ExprKind::StaticAccess(access), class_span));
+            return Ok(self.expr_since(ExprKind::StaticAccess(Box::new(access)), class_span));
         }
         let args = self.parse_args()?;
         let call = StaticCall {
@@ -315,7 +315,7 @@ impl Parser {
             args,
             target: None,
         };
-        Ok(self.expr_since(ExprKind::StaticCall(call), class_span))
+        Ok(self.expr_since(ExprKind::StaticCall(Box::new(call)), class_span))
     }
 
     /// Reads the arguments of a call up to `)`, after the `(`.
@@ -398,7 +398,7 @@ impl Parser {
             class: None,
             target: None,
         };
-        Ok(self.expr_since(ExprKind::New(new), start))
+        Ok(self.expr_since(ExprKind::New(Box::new(new)), start))
     }
 
     /// Reads `super(args)` or `super.name(args)`.

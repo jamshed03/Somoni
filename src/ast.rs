@@ -53,16 +53,16 @@ pub enum ExprKind {
         index: Box<Expr>,
     },
     Call(Call),
-    New(New),
-    MethodCall(MethodCall),
+    New(Box<New>),
+    MethodCall(Box<MethodCall>),
     /// `super(args)` in a constructor, which runs the `init` of the parent class (`target`) on `this`.
     SuperInit {
         args: Vec<Expr>,
         target: Option<usize>,
     },
     SuperCall(SuperCall),
-    StaticCall(StaticCall),
-    StaticAccess(StaticAccess),
+    StaticCall(Box<StaticCall>),
+    StaticAccess(Box<StaticAccess>),
     InstanceOf(InstanceOf),
     /// `Name { field: value, ... }`; `index` is the number of the struct in `structs`.
     StructLiteral {
