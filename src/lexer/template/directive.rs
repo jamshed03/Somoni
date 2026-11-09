@@ -148,7 +148,8 @@ impl Lexer {
     }
 
     /// Reads `@include(card(page))` after its name as the statement `card(page);`, which calls another template;
-    /// it must start like a call (L016), the parser checks the rest.
+    /// it must start like a call (L016), the parser checks the rest. Alone in an indented line it becomes
+    /// `write(capture(fn() => card(page)).indent("    "));`, so what the template writes gets the same indentation.
     fn read_include(
         &mut self,
         start: Span,
@@ -162,8 +163,34 @@ impl Lexer {
         if !starts_call(inner) {
             return Err(SomoniError::at(start, ErrorCode::IncludeNotCall));
         }
+        let Some(indent) = self
+            .indentation(start)
+            .filter(|_| self.blank_rest().is_some())
+        else {
+            tokens.extend_from_slice(inner);
+            push(tokens, [Token::Semicolon], start);
+            return Ok(());
+        };
+        let capture =
+            ["write", "capture"].map(|name| [Token::Ident(name.to_string()), Token::LParen]);
+        push(tokens, capture.into_iter().flatten(), start);
+        push(
+            tokens,
+            [Token::Fn, Token::LParen, Token::RParen, Token::FatArrow],
+            start,
+        );
         tokens.extend_from_slice(inner);
-        push(tokens, [Token::Semicolon], start);
+        let indented = [
+            Token::RParen,
+            Token::Dot,
+            Token::Ident("indent".to_string()),
+            Token::LParen,
+            Token::Str(indent),
+            Token::RParen,
+            Token::RParen,
+            Token::Semicolon,
+        ];
+        push(tokens, indented, start);
         Ok(())
     }
 

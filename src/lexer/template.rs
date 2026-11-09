@@ -228,24 +228,33 @@ impl Lexer {
             .all(|c| matches!(c, ' ' | '\t'))
     }
 
-    /// Skips the rest of the line with its line break if only spaces and tabs are left in it, and returns true if it did.
-    fn skip_blank_line_end(&mut self) -> bool {
+    /// Returns the spaces and tabs before the mark at `start`, if they are all that stands before it in its line.
+    fn indentation(&self, start: Span) -> Option<String> {
+        let mark = self.line_start + start.col as usize - 1;
+        let before = self.chars.get(self.line_start..mark)?;
+        let only_blanks = before.iter().all(|c| matches!(c, ' ' | '\t'));
+        (only_blanks && !before.is_empty()).then(|| before.iter().collect())
+    }
+
+    /// Returns how many spaces and tabs are left in the line if nothing else is, else None.
+    fn blank_rest(&self) -> Option<usize> {
         let rest = self.chars[self.pos..]
             .iter()
             .take_while(|c| matches!(c, ' ' | '\t'))
             .count();
-        match self.chars.get(self.pos + rest) {
-            Some('\n') => {
-                self.pos += rest;
-                self.newline();
-                true
-            }
-            None => {
-                self.pos += rest;
-                true
-            }
-            Some(_) => false,
+        matches!(self.chars.get(self.pos + rest), Some('\n') | None).then_some(rest)
+    }
+
+    /// Skips the rest of the line with its line break if only spaces and tabs are left in it, and returns true if it did.
+    fn skip_blank_line_end(&mut self) -> bool {
+        let Some(rest) = self.blank_rest() else {
+            return false;
+        };
+        self.pos += rest;
+        if self.peek() == Some('\n') {
+            self.newline();
         }
+        true
     }
 
     /// Reads the value of `{{ value }}` or `{!! value !!}` up to `close`, as the tokens of `write("{value}".escape_html());`.
@@ -382,6 +391,32 @@ mod tests {
         assert_eq!(
             template_tokens("{{-- note --}}{!! x !!}"),
             "Ident(\"write\") LParen StrStart(\"\") Ident(\"x\") StrEnd(\"\") RParen Semicolon"
+        );
+    }
+
+    #[test]
+    fn an_indented_include_indents_what_the_template_writes() {
+        assert_eq!(
+            template_tokens("<ul>\n    @include(card(p))\n</ul>\n"),
+            "Ident(\"write\") LParen Str(\"<ul>\\n\") RParen Semicolon \
+             Ident(\"write\") LParen Ident(\"capture\") LParen Fn LParen RParen FatArrow \
+             Ident(\"card\") LParen Ident(\"p\") RParen RParen \
+             Dot Ident(\"indent\") LParen Str(\"    \") RParen RParen Semicolon \
+             Ident(\"write\") LParen Str(\"</ul>\\n\") RParen Semicolon"
+        );
+    }
+
+    #[test]
+    fn an_include_without_indent_or_inside_a_line_is_a_plain_call() {
+        assert_eq!(
+            template_tokens("@include(card(p))\n"),
+            "Ident(\"card\") LParen Ident(\"p\") RParen Semicolon"
+        );
+        assert_eq!(
+            template_tokens("<li>@include(card(p))</li>"),
+            "Ident(\"write\") LParen Str(\"<li>\") RParen Semicolon \
+             Ident(\"card\") LParen Ident(\"p\") RParen Semicolon \
+             Ident(\"write\") LParen Str(\"</li>\") RParen Semicolon"
         );
     }
 
