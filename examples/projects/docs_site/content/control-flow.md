@@ -106,5 +106,17 @@ if (var found = first_positive([-2, -1, 3, 4])) {
 }
 ```
 
+`while (var name = value)` runs as long as the value is not null; the value is computed again before every round.
+`while (var line = input())` reads lines until the input ends.
+
+```smn
+var text = "a,b,c";
+while (var comma = text.index_of(",")) {
+    print(text.slice(0, comma));
+    text = text.slice(comma + 1, len(text));
+}
+print(text);
+```
+
 - `break` and `continue` only work inside a loop
 - `for`-each over a map gives the key and the value: `for (key: string, value: int in m) { ... }`
