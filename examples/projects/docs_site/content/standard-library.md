@@ -12,6 +12,7 @@ var numbers = [5, 2, 9, 1];
 print(numbers.sort());
 print(numbers.filter(fn(n) => n > 2).map(fn(n) => n * 10));
 print(numbers.reduce(0, fn(sum, n) => sum + n));
+print(["ali", "bea"].reduce([], fn(names: list<string>, n) => names + [n.upper()]));
 
 print(min(3, 7));
 print((1.0 / 3.0).format(2));
@@ -19,6 +20,7 @@ print((1.0 / 3.0).format(2));
 
 - Strings: `trim`, `upper`, `lower`, `split`, `contains`, `starts_with`, `ends_with`, `replace`, `slice`, `index_of`, `pad_left`, `pad_right`, `repeat`, `escape_html`
 - Lists: `contains`, `index_of`, `reverse`, `slice`, `sort`, `sort_desc`, `remove`, `join`, and with a lambda: `map`, `filter`, `reduce`, `any`, `all`, `sort_by`, `sort_by_desc`
+- An empty start value of `reduce` like `[]` or `null` takes the type written in the lambda: `fn(names: list<string>, n) => ...`
 - Maps: `values()`, `remove`, `get(k, default)`, plus the functions `len`, `has(m, k)`, `keys(m)`
 - Input and output: `print`, `write` (without a line break), `input()` (one line, `null` at the end), `read_file`, `write_file`, `append_file`, `copy_file` and `make_dir` (with a `result`; `copy_file` copies bytes, so it also works for images), `capture(fn() => ...)` (what a function prints, as a string)
 - Command line: `args()` gives the arguments after the file as a `list<string>`, so `somoni greet.smn Ali 30` gives `["Ali", "30"]`
