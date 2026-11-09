@@ -502,6 +502,7 @@ pub enum ErrorCode {
     InvalidRedirect {
         target: String,
     },
+    FloatOverflow,
     KeyNotFound {
         key: String,
     },
@@ -684,6 +685,7 @@ impl ErrorCode {
             ErrorCode::OutputFailed { .. } => "R012",
             ErrorCode::InvalidStatus { .. } => "R013",
             ErrorCode::InvalidRedirect { .. } => "R014",
+            ErrorCode::FloatOverflow => "R015",
         }
     }
 
@@ -1249,6 +1251,9 @@ impl ErrorCode {
             ),
             ErrorCode::InputFailed { reason } => format!("cannot read the input: {}", reason),
             ErrorCode::OutputFailed { reason } => format!("cannot write the output: {}", reason),
+            ErrorCode::FloatOverflow => {
+                "the result is too large for a float".to_string()
+            }
             ErrorCode::InvalidRedirect { target } => format!(
                 "redirect needs a target without line breaks, like \"/guestbook\", not {:?}",
                 target

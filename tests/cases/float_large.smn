@@ -1,0 +1,8 @@
+// The largest floats still work; only a result too large for a float stops the program.
+var x = 10.0;
+for (var i = 0; i < 300; i++) {
+    x = x * 10.0;
+}
+print(x > 1.0);
+print(-x < 0.0);
+print(x / x);

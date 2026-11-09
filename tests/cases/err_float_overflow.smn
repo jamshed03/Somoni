@@ -1,0 +1,6 @@
+// A float that grows too large is a runtime error like for int, so there is no inf and no NaN.
+var x = 10.0;
+for (var i = 0; i < 400; i++) {
+    x = x * 10.0;
+}
+print(x);

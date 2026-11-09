@@ -165,3 +165,23 @@ Wrong:
 Right:
 
     redirect("/page");
+
+## R015 float too large
+A calculation with floats gave a result too large for a float (more than about 1.8 * 10^308). Somoni stops here like
+it does for an int, so a float is never infinite and never "not a number" (NaN).
+
+Wrong:
+
+    var x = 10.0;
+    for (var i = 0; i < 400; i++) {
+        x = x * 10.0;
+    }
+    print(x);
+
+Right:
+
+    var x = 10.0;
+    for (var i = 0; i < 300; i++) {
+        x = x * 10.0;
+    }
+    print(x > 1.0);

@@ -32,6 +32,7 @@ print(a);
 ```
 
 - `int / int` truncates; use a `float` for a precise result
+- Division by zero and a result too large for an `int` or a `float` stop the program with an error: Somoni has no `inf` and no `NaN`
 - `&&` and `||` short-circuit: the right side only runs if it is needed
 - `+= -= *= /= %=`, and `i++`/`i--` as statements, not expressions
 

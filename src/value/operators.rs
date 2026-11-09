@@ -95,7 +95,8 @@ fn int_or_overflow(result: Option<i64>) -> Result<Value, SomoniError> {
         .ok_or_else(|| ErrorCode::IntegerOverflow.into())
 }
 
-/// Computes `+ - * /` for two floats, or returns R001 for a division by zero.
+/// Computes `+ - * /` for two floats, or returns R001 for a division by zero and R015 for a result too large for a
+/// float, so no float is ever infinite or NaN.
 fn float_arithmetic(op: BinaryOp, a: f64, b: f64) -> Result<Value, SomoniError> {
     let result = match op {
         BinaryOp::Div if b == 0.0 => return Err(ErrorCode::DivisionByZero.into()),
@@ -105,6 +106,9 @@ fn float_arithmetic(op: BinaryOp, a: f64, b: f64) -> Result<Value, SomoniError> 
         BinaryOp::Div => a / b,
         _ => return Err(SomoniError::internal("operator not supported for float")),
     };
+    if !result.is_finite() {
+        return Err(ErrorCode::FloatOverflow.into());
+    }
     Ok(Value::Float(result))
 }
 
