@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast::{BinaryOp, ERR_VARIANT, InstanceTarget, OK_VARIANT, StructDecl};
@@ -70,6 +71,8 @@ pub struct Request {
     pub query: Vec<(String, String)>,
     /// The fields of a form sent with POST.
     pub form: Vec<(String, String)>,
+    /// The real path of the folder that `somoni serve` serves; the file functions may not leave it.
+    pub root: PathBuf,
 }
 
 /// What a program run for a request gives back: what it wrote, the status it set, and how it ended.
@@ -357,6 +360,7 @@ impl<'p> Vm<'p> {
             | Builtin::RequestMethod
             | Builtin::SetStatus
             | Builtin::Redirect => self.server_call(builtin, start)?,
+            _ if builtin.needs_dir() => self.file_call(builtin, start)?,
             _ => builtin.call(&self.stack[start..])?,
         };
         self.stack.truncate(start);
@@ -371,6 +375,18 @@ impl<'p> Vm<'p> {
             .ok_or_else(|| SomoniError::internal("no output for these arguments"))?;
         self.output.write(&text)?;
         Ok(Value::Void)
+    }
+
+    /// Runs a file function with the arguments from `start` on; under `somoni serve` it first checks that its paths
+    /// stay in the served folder and write no `.smn` file, and gives `err(...)` if not.
+    fn file_call(&mut self, builtin: Builtin, start: usize) -> Result<Value, SomoniError> {
+        let args = &self.stack[start..];
+        if let Some(request) = &self.request
+            && let Some(refused) = builtin.refused_under(&request.root, args)
+        {
+            return Ok(refused);
+        }
+        builtin.call(args)
     }
 
     /// Runs `args` or `random`, which need state of the VM, with the arguments from `start` on.

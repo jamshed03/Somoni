@@ -1,5 +1,6 @@
 //! The functions and methods built into Somoni; the methods of strings, the conversions and the input have files of their own.
 
+use std::path::Path;
 use std::rc::Rc;
 
 use crate::error::{ErrorCode, SomoniError};
@@ -197,8 +198,8 @@ impl Builtin {
         }
     }
 
-    /// Returns true for `read_file`, `write_file` and `copy_file`, whose paths start at the folder of the file
-    /// with the call; the type checker puts that folder before the arguments.
+    /// Returns true for the file functions, whose paths start at the folder of the file with the call; the type
+    /// checker puts that folder before the arguments.
     pub fn needs_dir(self) -> bool {
         matches!(
             self,
@@ -208,6 +209,35 @@ impl Builtin {
                 | Builtin::CopyFile
                 | Builtin::MakeDir
         )
+    }
+
+    /// Returns `err(...)` if a path in `args` (after the hidden folder) may not be used under `somoni serve` with the
+    /// served folder `root`. A file function without a rule here is refused, so a new one is closed until it has one.
+    pub fn refused_under(self, root: &Path, args: &[Value]) -> Option<Value> {
+        let paths: &[(usize, io::Access)] = match self {
+            Builtin::ReadFile => &[(1, io::Access::Read)],
+            Builtin::WriteFile | Builtin::AppendFile => &[(1, io::Access::WriteFile)],
+            Builtin::MakeDir => &[(1, io::Access::MakeFolder)],
+            Builtin::CopyFile => &[(1, io::Access::Read), (2, io::Access::WriteFile)],
+            _ if self.needs_dir() => {
+                return Some(io::cannot(
+                    "use",
+                    self.name(),
+                    "not allowed under somoni serve",
+                ));
+            }
+            _ => return None,
+        };
+        let Some(Value::Str(dir)) = args.first() else {
+            return None;
+        };
+        paths.iter().find_map(|&(index, access)| {
+            let Some(Value::Str(path)) = args.get(index) else {
+                return None;
+            };
+            io::refusal(root, dir.as_str(), path.as_str(), access)
+                .map(|reason| io::cannot(access.action(), path.as_str(), reason))
+        })
     }
 
     /// Returns the type the next argument should have after the types `before`, so that `m.get("x", [])` or

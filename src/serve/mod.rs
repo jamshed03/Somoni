@@ -89,6 +89,7 @@ fn respond(root: &Path, request: &Incoming) -> Response {
                 path: url,
                 query,
                 form,
+                root: root.to_path_buf(),
             };
             run_page(&path, data)
         }
