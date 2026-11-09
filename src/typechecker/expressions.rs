@@ -777,12 +777,13 @@ impl TypeChecker {
         }
     }
 
-    /// Returns the type a method `name` is called on: the first part of `Animal & Shape` that has a method (or a field)
-    /// with that name, the class first, or else the type itself.
+    /// Returns the type a method `name` is called on: the first part of `Animal & Shape` that has a method, a static
+    /// method (for T075) or a field with that name, the class first, or else the type itself.
     fn receiver<'a>(&self, target: &'a Type, name: &str) -> &'a Type {
         let has = |part: &Type| match part {
             Type::Class(layout) => self.class_info(layout).is_ok_and(|info| {
                 info.methods.contains_key(name)
+                    || info.statics.contains_key(name)
                     || info.fields.iter().any(|(field, _)| field == name)
             }),
             Type::Interface(layout) => (self.interface_info(layout))
