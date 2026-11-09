@@ -1,3 +1,3 @@
-Type error [T006]: Line 5: cannot use operator on Secret and Secret
+Type error [T006]: Line 5: cannot use operator on Secret (modules/math.smn) and Secret (err_module_same_name_types.smn)
   5 | print(secret() == Secret { value: 42 });
     |                ^^

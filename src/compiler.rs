@@ -197,6 +197,7 @@ fn add_class(
 fn class_code(class: &ClassDecl) -> ClassCode {
     let layout = ClassLayout {
         name: class.layout.name.clone(),
+        file: class.layout.file,
         fields: class.plan.fields.clone(),
     };
     ClassCode {

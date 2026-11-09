@@ -97,6 +97,25 @@ pub struct FunctionType {
 }
 
 impl Type {
+    /// Returns the number of the file that declares the first struct, enum, class or interface in this type.
+    pub fn origin_file(&self) -> Option<usize> {
+        match self {
+            Type::Struct(decl) => Some(decl.name_span.file),
+            Type::Enum(decl) => Some(decl.name_span.file),
+            Type::Class(layout) => Some(layout.file),
+            Type::Interface(layout) => Some(layout.file),
+            Type::List(inner) | Type::Optional(inner) => inner.origin_file(),
+            Type::Map(first, second) | Type::Result(first, second) => {
+                first.origin_file().or_else(|| second.origin_file())
+            }
+            Type::Tuple(elements) => elements.iter().find_map(Type::origin_file),
+            Type::Function(function) => (function.params.iter())
+                .chain([&function.result])
+                .find_map(Type::origin_file),
+            Type::Int | Type::Float | Type::Bool | Type::Str | Type::Void => None,
+        }
+    }
+
     /// Builds the type `fn(params): result`.
     pub fn function(params: Vec<Type>, result: Type) -> Type {
         Type::Function(Rc::new(FunctionType { params, result }))

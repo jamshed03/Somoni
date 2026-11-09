@@ -1,0 +1,3 @@
+Type error [T003]: Line 5: cannot assign Secret (modules/secret_b.smn) to Secret (modules/secret_a.smn)
+  5 | var s: Secret = make();
+    |                 ^^^^^^

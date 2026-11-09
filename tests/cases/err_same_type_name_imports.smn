@@ -1,0 +1,5 @@
+// Two types with the same name from two files: the message names the file of each.
+import { Secret } from "modules/secret_a.smn";
+import { make } from "modules/secret_b.smn";
+
+var s: Secret = make();

@@ -151,7 +151,8 @@ fn render(error: &SomoniError, files: &[SourceFile]) -> String {
     match files.get(number) {
         Some(file) => {
             let name = (number != MAIN_FILE).then_some(file.name.as_str());
-            error.render(name, &file.source)
+            let names: Vec<&str> = files.iter().map(|file| file.name.as_str()).collect();
+            error.render(name, &file.source, &names)
         }
         None => error.to_string(),
     }

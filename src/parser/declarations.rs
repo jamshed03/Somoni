@@ -168,6 +168,7 @@ impl Parser {
         let methods = self.parse_until_brace(open, Self::parse_interface_method)?;
         let layout = InterfaceLayout {
             name,
+            file: name_span.file,
             methods: methods.iter().map(|m| m.name.clone()).collect(),
         };
         Ok(Stmt::InterfaceDecl(InterfaceDecl {

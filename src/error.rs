@@ -708,6 +708,47 @@ impl ErrorCode {
         message
     }
 
+    /// Returns the message; when it compares two types that look the same but are different, each gets the name of its
+    /// file, like `cannot assign Secret (b.smn) to Secret (a.smn)`.
+    pub fn message_in(&self, file_names: &[&str]) -> String {
+        let message = self.message();
+        let Some((first, second)) = self.compared_types() else {
+            return message;
+        };
+        let shown = first.to_string();
+        if first == second || shown != second.to_string() {
+            return message;
+        }
+        let file_of = |ty: &Type| {
+            ty.origin_file()
+                .and_then(|file| file_names.get(file).copied())
+        };
+        match (file_of(first), file_of(second)) {
+            (Some(a), Some(b)) if a != b => name_files(&message, &shown, [a, b]),
+            _ => message,
+        }
+    }
+
+    /// Returns the two types the message compares, in the order it names them; None for other errors.
+    fn compared_types(&self) -> Option<(&Type, &Type)> {
+        match self {
+            ErrorCode::CannotAssign { found, expected }
+            | ErrorCode::TryErrorType { found, expected } => Some((found, expected)),
+            ErrorCode::ReturnType { found, expected }
+            | ErrorCode::ListElementType { expected, found }
+            | ErrorCode::MapEntryType {
+                expected, found, ..
+            }
+            | ErrorCode::MapIndexType { expected, found }
+            | ErrorCode::BoundVarType {
+                expected, found, ..
+            } => Some((expected, found)),
+            ErrorCode::OperandTypesDiffer { left, right } => Some((left, right)),
+            ErrorCode::InstanceofNever { from, to } => Some((from, to)),
+            _ => None,
+        }
+    }
+
     /// Returns true if the error comes from using a value with `?` before checking it for `null`.
     fn unchecked_optional(&self) -> bool {
         match self {
@@ -1263,8 +1304,8 @@ impl SomoniError {
     }
 
     /// Returns the message with the line of `source` it is in and `^^^` under the place.
-    pub fn render(&self, file_name: Option<&str>, source: &str) -> String {
-        let header = self.header(file_name);
+    pub fn render(&self, file_name: Option<&str>, source: &str, file_names: &[&str]) -> String {
+        let header = self.header(file_name, file_names);
         let Some(span) = self.span else {
             return header;
         };
@@ -1286,7 +1327,7 @@ impl SomoniError {
     }
 
     /// The first line of the message, e.g. `Type error [T002]: math.smn: Line 4: unknown variable 'y'`.
-    fn header(&self, file_name: Option<&str>) -> String {
+    fn header(&self, file_name: Option<&str>, file_names: &[&str]) -> String {
         let kind = self.code.kind().label();
         let place = match (file_name, self.span) {
             (Some(name), Some(span)) => format!("{}: Line {}: ", name, span.line),
@@ -1298,9 +1339,26 @@ impl SomoniError {
             kind,
             self.code.code(),
             place,
-            self.code.message()
+            self.code.message_in(file_names)
         )
     }
+}
+
+/// Puts the file names in brackets after the first two places where `shown` stands in `message`.
+fn name_files(message: &str, shown: &str, files: [&str; 2]) -> String {
+    let mut named = String::new();
+    let mut rest = message;
+    for file in files {
+        let Some(at) = rest.find(shown) else {
+            break;
+        };
+        let end = at + shown.len();
+        named.push_str(&rest[..end]);
+        named.push_str(&format!(" ({})", file));
+        rest = &rest[end..];
+    }
+    named.push_str(rest);
+    named
 }
 
 /// Returns the `^^^` under the place in the line `text`, indented with the same tabs as the line.
@@ -1329,6 +1387,6 @@ impl From<ErrorCode> for SomoniError {
 /// The first line of the message, without a file name.
 impl fmt::Display for SomoniError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.header(None))
+        write!(f, "{}", self.header(None, &[]))
     }
 }

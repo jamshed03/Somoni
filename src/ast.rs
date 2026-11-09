@@ -725,6 +725,8 @@ pub struct InterfaceDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InterfaceLayout {
     pub name: String,
+    /// The number of the file that declares the interface, for messages.
+    pub file: usize,
     pub methods: Vec<String>,
 }
 
@@ -798,6 +800,8 @@ pub const CONSTRUCTOR: &str = "constructor";
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClassLayout {
     pub name: String,
+    /// The number of the file that declares the class, for messages.
+    pub file: usize,
     pub fields: Vec<String>,
 }
 
