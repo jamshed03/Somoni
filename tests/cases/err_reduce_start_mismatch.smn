@@ -1,0 +1,1 @@
+print(["a"].reduce([], fn(acc: list<string>, x): list<int> => [1]));

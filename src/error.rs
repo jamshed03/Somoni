@@ -420,6 +420,7 @@ pub enum ErrorCode {
         names: usize,
         found: Type,
     },
+    ReduceStartType,
     ConstTypeLater {
         name: String,
         line: usize,
@@ -669,6 +670,7 @@ impl ErrorCode {
             ErrorCode::LambdaParamCount { .. } => "T104",
             ErrorCode::InterpolationType { .. } => "T105",
             ErrorCode::DestructureShape { .. } => "T106",
+            ErrorCode::ReduceStartType => "T107",
             ErrorCode::ConstTypeLater { .. } => "T102",
 
             ErrorCode::Internal { .. } => "R000",
@@ -1174,6 +1176,9 @@ impl ErrorCode {
                 "the type of parameter '{}' is unknown here; write it (fn({}: type) => ...) or use the lambda where a function type is expected",
                 name, name
             ),
+            ErrorCode::ReduceStartType => "the start value of 'reduce' has no type of its own; write it in the lambda, \
+                like fn(acc: list<string>, x) => ..., or put the start value in a variable with a type"
+                .to_string(),
             ErrorCode::DestructureShape { names, found } => format!(
                 "cannot take {} apart into {} names; that needs a tuple with {} elements",
                 found, names, names

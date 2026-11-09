@@ -704,10 +704,11 @@ impl TypeChecker {
         mut types: Vec<Type>,
         args: &mut [Expr],
     ) -> Result<Vec<Type>, SomoniError> {
+        let mut start = self.reduce_start(builtin, args)?;
         for arg in args.iter_mut() {
             let found = match (&mut arg.kind, builtin.function_hint(&types)) {
                 (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
-                _ => match builtin.expected_arg(&types) {
+                _ => match builtin.expected_arg(&types).or_else(|| start.take()) {
                     Some(expected) => self.check_expr_expecting(arg, &expected)?,
                     None => self.check_expr(arg)?,
                 },
@@ -715,6 +716,37 @@ impl TypeChecker {
             types.push(found);
         }
         Ok(types)
+    }
+
+    /// Returns the type that a start value without a type of its own (`[]`, `{}`, `null`, `ok(...)`) gets in
+    /// `l.reduce(start, f)`: the type of the first parameter written in the lambda `f`, else its written return type,
+    /// or T107 if neither is there. None for every other call, which checks its arguments as before.
+    fn reduce_start(
+        &mut self,
+        builtin: Builtin,
+        args: &[Expr],
+    ) -> Result<Option<Type>, SomoniError> {
+        let (Builtin::Reduce, [start, f]) = (builtin, args) else {
+            return Ok(None);
+        };
+        if !needs_type_hint(start) {
+            return Ok(None);
+        }
+        let written = match &f.kind {
+            ExprKind::Lambda(lambda) => {
+                let function = &lambda.function;
+                let first = function
+                    .params
+                    .first()
+                    .and_then(|param| param.type_name.as_ref());
+                first.or(function.return_type.as_ref())
+            }
+            _ => None,
+        };
+        match written {
+            Some(type_name) => self.resolve_type(type_name, false).map(Some),
+            None => Err(SomoniError::at(start.span, ErrorCode::ReduceStartType)),
+        }
     }
 
     /// Checks `target.name(args)` on an object or an interface.

@@ -1,0 +1,8 @@
+// reduce gives an empty start value the type that is written in its lambda
+var names = ["Ali", "Bea", "Cem"];
+print(names.reduce([], fn(acc: list<string>, name) => acc + [name.upper()]));
+print(names.reduce([], fn(acc, name): list<int> => acc + [len(name)]));
+print(names.reduce(null, fn(found: string?, name) => name));
+print(len(names.reduce({}, fn(seen: map<string, int>, name) => seen)));
+var none: list<string> = [];
+print(none.reduce([], fn(acc: list<string>, name) => acc + [name]));

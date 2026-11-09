@@ -1,0 +1,3 @@
+Type error [T107]: Line 1: the start value of 'reduce' has no type of its own; write it in the lambda, like fn(acc: list<string>, x) => ..., or put the start value in a variable with a type
+  1 | print(["a"].reduce([], fn(acc, x) => acc + [x]));
+    |                    ^^

@@ -1914,3 +1914,17 @@ Right:
 
     var (q, r) = (17, 5);
     print(q + r);
+
+## T107 start value of reduce without a type
+`[]`, `{}`, `null` or `ok(...)` as the start value of `l.reduce(start, f)` take the type that is written in the
+lambda: at its first parameter or as its return type. Without any written type it is unknown what the start is.
+
+Wrong:
+
+    var names = ["Ali", "Bea"];
+    print(names.reduce([], fn(acc, name) => acc + [name.upper()]));
+
+Right:
+
+    var names = ["Ali", "Bea"];
+    print(names.reduce([], fn(acc: list<string>, name) => acc + [name.upper()]));

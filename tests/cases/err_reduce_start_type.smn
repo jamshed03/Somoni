@@ -1,0 +1,1 @@
+print(["a"].reduce([], fn(acc, x) => acc + [x]));
