@@ -150,7 +150,7 @@ fn fail(message: &str) -> ! {
 
 /// Returns the message of an error with its source line, and the file name outside the main file.
 fn render(error: &SomoniError, files: &[SourceFile]) -> String {
-    let number = error.span.map_or(MAIN_FILE, |span| span.file);
+    let number = error.span.map_or(MAIN_FILE, |span| span.file as usize);
     match files.get(number) {
         Some(file) => {
             let name = (number != MAIN_FILE).then_some(file.name.as_str());

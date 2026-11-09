@@ -30,7 +30,7 @@ impl Lexer {
         }
         self.pos += RAW_QUOTES.len();
         shape_raw(&text).map(Token::Str).map_err(|offset| {
-            let line = start.line + offset;
+            let line = start.line as usize + offset;
             let place = Span::in_line(self.file, line, 1, 1);
             SomoniError::at(place, ErrorCode::RawStringIndent)
         })

@@ -1314,7 +1314,7 @@ impl SomoniError {
         let Some(span) = self.span else {
             return header;
         };
-        let Some(text) = source.lines().nth(span.line - 1) else {
+        let Some(text) = source.lines().nth(span.line as usize - 1) else {
             return header;
         };
         let number = span.line.to_string();
@@ -1369,14 +1369,14 @@ fn name_files(message: &str, shown: &str, files: [&str; 2]) -> String {
 /// Returns the `^^^` under the place in the line `text`, indented with the same tabs as the line.
 fn marker(span: Span, text: &str) -> String {
     let end_col = if span.end_line == span.line {
-        span.end_col
+        span.end_col as usize
     } else {
         text.chars().count() + 1
     };
-    let width = end_col.saturating_sub(span.col).max(1);
+    let width = end_col.saturating_sub(span.col as usize).max(1);
     let indent: String = text
         .chars()
-        .take(span.col - 1)
+        .take(span.col as usize - 1)
         .map(|c| if c == '\t' { '\t' } else { ' ' })
         .collect();
     format!("{}{}", indent, "^".repeat(width))

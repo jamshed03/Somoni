@@ -337,13 +337,7 @@ impl Lexer {
 
     /// Returns the place from (line, col) up to the current character.
     fn span_from(&self, line: usize, col: usize) -> Span {
-        Span {
-            file: self.file,
-            line,
-            col,
-            end_line: self.line,
-            end_col: self.col(),
-        }
+        Span::new(self.file, line, col, self.line, self.col())
     }
 }
 
@@ -455,7 +449,7 @@ mod tests {
     use super::*;
 
     /// Returns (line, col, end_line, end_col) of every token, Eof included.
-    fn spans(source: &str) -> Vec<(usize, usize, usize, usize)> {
+    fn spans(source: &str) -> Vec<(u32, u32, u32, u32)> {
         Lexer::new(source, 0)
             .tokenize()
             .unwrap()
@@ -633,7 +627,7 @@ mod tests {
 
     #[test]
     fn lines_can_start_later() {
-        let spans: Vec<usize> = Lexer::new("x\ny", 0)
+        let spans: Vec<u32> = Lexer::new("x\ny", 0)
             .starting_at_line(5)
             .tokenize()
             .unwrap()

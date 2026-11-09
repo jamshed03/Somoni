@@ -269,7 +269,7 @@ fn disassemble_chunk(out: &mut String, chunk: &Chunk, program: &Program) {
 }
 
 /// Shows a line number, or blanks if it is the same as the line before.
-fn show_line(line: usize, last_line: usize) -> String {
+fn show_line(line: u32, last_line: u32) -> String {
     if line == last_line {
         "    ".to_string()
     } else {

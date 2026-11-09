@@ -211,15 +211,12 @@ impl Repl {
     /// Returns the error ready to show: in an imported file like in a program, else with its line counted inside the
     /// input, or in all inputs if it lies in an earlier one.
     fn render(&self, mut error: SomoniError, source: &str, files: &[SourceFile]) -> String {
-        if error.span.is_some_and(|span| span.file != MAIN_FILE) {
+        if error.span.is_some_and(|span| span.file as usize != MAIN_FILE) {
             return crate::render(&error, files);
         }
-        let in_input = error.span.is_none_or(|span| span.line > self.lines);
+        let in_input = error.span.is_none_or(|span| span.line as usize > self.lines);
         let text = if in_input {
-            if let Some(span) = error.span.as_mut() {
-                span.line -= self.lines;
-                span.end_line -= self.lines;
-            }
+            error.span = error.span.map(|span| span.up(self.lines));
             source.to_string()
         } else {
             format!("{}{}", self.sources, source)

@@ -39,7 +39,7 @@ impl TypeChecker {
             decl.global = Some(self.global_count);
             let constant = Constant {
                 ty,
-                line: decl.span.line,
+                line: decl.span.line as usize,
                 global: self.global_count,
                 own: true,
             };

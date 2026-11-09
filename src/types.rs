@@ -100,8 +100,8 @@ impl Type {
     /// Returns the number of the file that declares the first struct, enum, class or interface in this type.
     pub fn origin_file(&self) -> Option<usize> {
         match self {
-            Type::Struct(decl) => Some(decl.name_span.file),
-            Type::Enum(decl) => Some(decl.name_span.file),
+            Type::Struct(decl) => Some(decl.name_span.file as usize),
+            Type::Enum(decl) => Some(decl.name_span.file as usize),
             Type::Class(layout) => Some(layout.file),
             Type::Interface(layout) => Some(layout.file),
             Type::List(inner) | Type::Optional(inner) => inner.origin_file(),

@@ -83,7 +83,7 @@ impl Parser {
         let body = self.parse_class_body(is_abstract)?;
         let layout = ClassLayout {
             name,
-            file: name_span.file,
+            file: name_span.file as usize,
             fields: body.fields.iter().map(|f| f.field.name.clone()).collect(),
         };
         Ok(Stmt::ClassDecl(ClassDecl {

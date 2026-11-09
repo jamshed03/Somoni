@@ -221,7 +221,7 @@ fn check_open(
         Some((open, open_span)) => ErrorCode::DirectiveWrongEnd {
             found: directive.shown(),
             open: open.shown(),
-            line: open_span.line,
+            line: open_span.line as usize,
             close: open.closer().shown(),
         },
         None => ErrorCode::DirectiveWithoutOpen {
