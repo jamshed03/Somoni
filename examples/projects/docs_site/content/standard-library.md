@@ -18,7 +18,7 @@ print(min(3, 7));
 print((1.0 / 3.0).format(2));
 ```
 
-- Strings: `trim`, `upper`, `lower`, `split`, `contains`, `starts_with`, `ends_with`, `replace`, `slice`, `index_of`, `pad_left`, `pad_right`, `repeat`, `escape_html`
+- Strings: `trim`, `upper`, `lower`, `split`, `contains`, `starts_with`, `ends_with`, `replace`, `slice`, `index_of`, `pad_left`, `pad_right`, `repeat`, `indent` (a prefix before every line with content), `escape_html`
 - Lists: `contains`, `index_of`, `reverse`, `slice`, `sort`, `sort_desc`, `remove`, `join`, and with a lambda: `map`, `filter`, `reduce`, `any`, `all`, `sort_by`, `sort_by_desc`
 - An empty start value of `reduce` like `[]` or `null` takes the type written in the lambda: `fn(names: list<string>, n) => ...`
 - Maps: `values()`, `remove`, `get(k, default)`, plus the functions `len`, `has(m, k)`, `keys(m)`

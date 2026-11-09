@@ -96,6 +96,22 @@ pub(super) fn repeat(s: &str, times: i64) -> Result<Value, SomoniError> {
     Ok(string_value(s.repeat(times)))
 }
 
+/// Returns `s` with `prefix` before every line that has more than spaces, like `textwrap.indent` in Python; the same
+/// string without a copy if the prefix is empty.
+pub(super) fn indent(s: &Rc<Text>, prefix: &str) -> Value {
+    if prefix.is_empty() {
+        return Value::Str(Rc::clone(s));
+    }
+    let mut indented = String::with_capacity(s.as_str().len());
+    for line in s.as_str().split_inclusive('\n') {
+        if !line.trim().is_empty() {
+            indented.push_str(prefix);
+        }
+        indented.push_str(line);
+    }
+    string_value(indented)
+}
+
 /// Returns `s` safe for HTML, the same string without a copy if nothing has to change (see `html_safe`).
 pub(super) fn escape_html(s: &Rc<Text>) -> Value {
     match html_safe(s.as_str()) {

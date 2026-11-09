@@ -10,7 +10,8 @@ use crate::value::{Order, Value, map_key};
 
 use convert::{conversion_result, float_to_int, parse_float, parse_int};
 use strings::{
-    Side, escape_html, format_float, index_of, join, pad, repeat, replace, slice_text, split,
+    Side, escape_html, format_float, indent, index_of, join, pad, repeat, replace, slice_text,
+    split,
 };
 
 pub(crate) use random::Random;
@@ -141,6 +142,7 @@ builtins! {
     PadLeft       => "pad_left",       2, Method;
     PadRight      => "pad_right",      2, Method;
     Repeat        => "repeat",         2, Method;
+    Indent        => "indent",         2, Method;
     EscapeHtml    => "escape_html",    1, Method;
 }
 
@@ -340,6 +342,7 @@ impl Builtin {
             ) => Ok(Type::Bool),
             (Builtin::IndexOf, [Type::Str, Type::Str]) => Ok(Type::Optional(Box::new(Type::Int))),
             (Builtin::Replace, [Type::Str, Type::Str, Type::Str]) => Ok(Type::Str),
+            (Builtin::Indent, [Type::Str, Type::Str]) => Ok(Type::Str),
             (Builtin::Slice, [Type::Str, Type::Int, Type::Int]) => Ok(Type::Str),
             (Builtin::PadLeft | Builtin::PadRight | Builtin::Repeat, [Type::Str, Type::Int]) => {
                 Ok(Type::Str)
@@ -355,7 +358,8 @@ impl Builtin {
                 | Builtin::Slice
                 | Builtin::PadLeft
                 | Builtin::PadRight
-                | Builtin::Repeat,
+                | Builtin::Repeat
+                | Builtin::Indent,
                 [Type::Str, ..],
             ) => Err(1),
             (Builtin::Format, [Type::Float, Type::Int]) => Ok(Type::Str),
@@ -512,6 +516,9 @@ impl Builtin {
                 Ok(pad(s, *width, Side::Right))
             }
             (Builtin::Repeat, [Value::Str(s), Value::Int(times)]) => repeat(s.as_str(), *times),
+            (Builtin::Indent, [Value::Str(s), Value::Str(prefix)]) => {
+                Ok(indent(s, prefix.as_str()))
+            }
             (Builtin::Abs, [Value::Int(n)]) => math::abs_int(*n),
             (Builtin::Abs, [Value::Float(f)]) => Ok(Value::Float(f.abs())),
             (Builtin::Min, [Value::Int(a), Value::Int(b)]) => Ok(Value::Int(*a.min(b))),

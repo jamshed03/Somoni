@@ -1,0 +1,6 @@
+// indent puts a prefix before every line with content, like textwrap.indent in Python
+print("[" + "a\nb".indent("  ") + "]");
+print("[" + "a\n\nb\n".indent("> ") + "]");
+print("[" + "  \nx".indent("-") + "]");
+print("[" + "".indent("x") + "]");
+print("[" + "one".indent("") + "]");
