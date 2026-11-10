@@ -50,6 +50,7 @@ The [documentation](examples/projects/docs_site/content/) starts with
 [Getting started](examples/projects/docs_site/content/getting-started.md) and covers types, collections, control
 flow, functions, errors as values, classes, modules, the standard library, templates, the web server and best
 practices. The site itself is built with Somoni: `cargo run -- examples/projects/docs_site/main.smn`.
+More programs, from classic algorithms to a small website, are in [examples/](examples/).
 
 ## Contributing
 
