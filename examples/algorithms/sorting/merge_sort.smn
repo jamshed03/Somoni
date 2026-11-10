@@ -1,14 +1,5 @@
 // Merge sort: splits the list in halves, sorts them and merges them back together.
 
-// Returns the elements from start (inclusive) to end (exclusive).
-fn slice(items: list<int>, start: int, end: int): list<int> {
-    var result: list<int> = [];
-    for (var i: int = start; i < end; i += 1) {
-        result += [items[i]];
-    }
-    return result;
-}
-
 // Returns one sorted list from two sorted lists.
 fn merge(left: list<int>, right: list<int>): list<int> {
     var result: list<int> = [];
@@ -23,7 +14,7 @@ fn merge(left: list<int>, right: list<int>): list<int> {
             j += 1;
         }
     }
-    return result + slice(left, i, len(left)) + slice(right, j, len(right));
+    return result + left.slice(i, len(left)) + right.slice(j, len(right));
 }
 
 // Returns a sorted copy of the list.
@@ -32,7 +23,7 @@ fn merge_sort(items: list<int>): list<int> {
         return items;
     }
     const middle: int = len(items) / 2;
-    return merge(merge_sort(slice(items, 0, middle)), merge_sort(slice(items, middle, len(items))));
+    return merge(merge_sort(items.slice(0, middle)), merge_sort(items.slice(middle, len(items))));
 }
 
 print(merge_sort([38, 27, 43, 3, 9, 82, 10]));

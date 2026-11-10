@@ -1,10 +1,10 @@
 // Check palindrome with a message: compares the text with its reverse.
 
-import { lower, reverse, trim } from "../lib/text.smn";
+import { reverse } from "../lib/text.smn";
 
 // Returns a sentence that says if the text is a palindrome, or an error for an empty text.
 fn check_palindrome_string(text: string): result<string, string> {
-    const cleaned: string = lower(trim(text));
+    const cleaned: string = text.trim().lower();
     if (cleaned == "") {
         return err("you are given an empty string, please give a non-empty string value");
     }

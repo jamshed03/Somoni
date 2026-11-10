@@ -1,7 +1,5 @@
 // Trie: a tree of characters, every path from the root spells a word prefix.
 
-import { chars } from "../lib/text.smn";
-
 // One node of the trie: one child per next character, and a mark if a word ends here.
 class TrieNode {
     children: map<string, TrieNode> = {};
@@ -92,7 +90,7 @@ class Trie {
         if (!this.search(word)) {
             return false;
         }
-        delete_from(this.root, chars(word), 0);
+        delete_from(this.root, word.split(""), 0);
         return true;
     }
 

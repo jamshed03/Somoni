@@ -1,7 +1,5 @@
 // Rail fence cipher: writes the text in a zigzag over several rails and reads it row by row.
 
-import { chars, join } from "../lib/text.smn";
-
 // Returns the rail of every position in the zigzag, e.g. 3 rails: 0, 1, 2, 1, 0, 1, ...
 fn rail_pattern(length: int, rails: int): list<int> {
     const cycle: int = rails * 2 - 2;
@@ -40,7 +38,7 @@ fn reading_order(length: int, rails: int): list<int> {
 
 // Encrypts the text with the given number of rails.
 fn rail_encode(text: string, rails: int): string {
-    const letters: list<string> = chars(text);
+    const letters: list<string> = text.split("");
     var result: string = "";
     for (position: int in reading_order(len(letters), rails)) {
         result += letters[position];
@@ -50,12 +48,12 @@ fn rail_encode(text: string, rails: int): string {
 
 // Decrypts the text by putting every character back at its zigzag position.
 fn rail_decode(text: string, rails: int): string {
-    const letters: list<string> = chars(text);
+    const letters: list<string> = text.split("");
     var plain: list<string> = letters;
     for (i: int, position: int in reading_order(len(letters), rails)) {
         plain[position] = letters[i];
     }
-    return join(plain, "");
+    return plain.join("");
 }
 
 const secret: string = rail_encode("WEAREDISCOVEREDFLEEATONCE", 3);

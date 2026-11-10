@@ -1,15 +1,13 @@
 // Reverse words: the words in the opposite order.
 
-import { join, split, trim } from "../lib/text.smn";
-
 // Returns the words of the trimmed text in reverse order.
 fn reverse_words(text: string): string {
-    const words: list<string> = split(trim(text), " ");
+    const words: list<string> = text.trim().split(" ");
     var reversed: list<string> = [];
     for (var i: int = len(words) - 1; i >= 0; i -= 1) {
         reversed += [words[i]];
     }
-    return join(reversed, " ");
+    return reversed.join(" ");
 }
 
 print(reverse_words("Hello World"));

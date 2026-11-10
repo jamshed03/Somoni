@@ -1,7 +1,5 @@
 // Max character: the character that appears most often.
 
-import { lower } from "../lib/text.smn";
-
 // Returns how often every character appears in the text.
 fn count_chars(text: string): map<string, int> {
     var counts: map<string, int> = {};
@@ -22,7 +20,7 @@ fn max_character(text: string): result<string, string> {
     }
     var best: string = "";
     var best_count: int = 0;
-    for (c: string, count: int in count_chars(lower(text))) {
+    for (c: string, count: int in count_chars(text.lower())) {
         if (count > best_count) {
             best = c;
             best_count = count;

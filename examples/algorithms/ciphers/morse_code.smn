@@ -1,7 +1,5 @@
 // Morse code: letters become dots and dashes, words are separated by "/".
 
-import { split, upper } from "../lib/text.smn";
-
 // Returns the Morse code table for letters and digits.
 fn morse_table(): map<string, string> {
     return {
@@ -28,7 +26,7 @@ fn reverse_table(): map<string, string> {
 fn encode(text: string): string {
     const table: map<string, string> = morse_table();
     var result: string = "";
-    for (c: string in upper(text)) {
+    for (c: string in text.upper()) {
         if (has(table, c)) {
             if (result != "") {
                 result += " ";
@@ -43,7 +41,7 @@ fn encode(text: string): string {
 fn decode(code: string): string {
     const table: map<string, string> = reverse_table();
     var result: string = "";
-    for (part: string in split(code, " ")) {
+    for (part: string in code.split(" ")) {
         if (has(table, part)) {
             result += table[part];
         }

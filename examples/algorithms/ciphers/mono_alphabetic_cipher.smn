@@ -1,18 +1,18 @@
 // Mono-alphabetic cipher: every letter of the alphabet has a fixed partner in the key.
 
-import { chars, index_of, is_digit, is_upper, lower_char, upper_char } from "../lib/text.smn";
+import { index_of, is_digit, is_upper } from "../lib/text.smn";
 
 // Returns the partner of one character in the key, keeps spaces and drops digits.
 fn substitute(c: string, from: list<string>, to: list<string>): string {
     if (is_digit(c)) {
         return "";
     }
-    const position: int = index_of(from, lower_char(c));
+    const position: int = index_of(from, c.lower());
     if (position < 0) {
         return c;
     }
     if (is_upper(c)) {
-        return upper_char(to[position]);
+        return to[position].upper();
     }
     return to[position];
 }
@@ -22,8 +22,8 @@ fn mono_alphabetic(key: string, alphabet: string, text: string): string? {
     if (len(key) != len(alphabet)) {
         return null;
     }
-    const from: list<string> = chars(alphabet);
-    const to: list<string> = chars(key);
+    const from: list<string> = alphabet.split("");
+    const to: list<string> = key.split("");
     var result: string = "";
     for (c: string in text) {
         result += substitute(c, from, to);

@@ -1,10 +1,10 @@
 // Count sentences: counts the endings ".", "!" and "?" that close a sentence.
 
-import { chars, index_of, is_digit, is_letter, trim } from "../lib/text.smn";
+import { index_of, is_digit, is_letter } from "../lib/text.smn";
 
 // Returns true if the character ends a sentence.
 fn is_end_mark(c: string): bool {
-    return index_of(chars(".!?"), c) >= 0;
+    return index_of(".!?".split(""), c) >= 0;
 }
 
 // Returns true if the mark at the index closes a sentence: a word before it and no word right after it.
@@ -25,7 +25,7 @@ fn closes_sentence(letters: list<string>, index: int): bool {
 
 // Returns how many sentences the text has.
 fn count_sentences(text: string): int {
-    const letters: list<string> = chars(trim(text));
+    const letters: list<string> = text.trim().split("");
     var count: int = 0;
     for (var i: int = 0; i < len(letters); i += 1) {
         if (closes_sentence(letters, i)) {

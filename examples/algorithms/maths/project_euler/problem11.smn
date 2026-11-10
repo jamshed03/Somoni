@@ -1,7 +1,5 @@
 // Project Euler 11: the largest product of four adjacent numbers in a 20x20 grid.
 
-import { split } from "../../lib/text.smn";
-
 // Returns the rows of the grid as text.
 fn grid_rows(): list<string> {
     return [
@@ -43,7 +41,7 @@ struct Cell {
 // Returns the numbers of one row; text that is not a number becomes 0.
 fn parse_row(row: string): list<int> {
     var result: list<int> = [];
-    for (part: string in split(row, " ")) {
+    for (part: string in row.split(" ")) {
         match (int(part)) {
             ok(n: int) => {
                 result += [n];

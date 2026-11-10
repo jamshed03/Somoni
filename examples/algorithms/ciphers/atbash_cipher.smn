@@ -1,17 +1,17 @@
 // Atbash cipher: replaces a with z, b with y and so on.
 
-import { chars, index_of, is_upper, lower_char, upper_char, lowercase_letters } from "../lib/text.smn";
+import { index_of, is_upper, lowercase_letters } from "../lib/text.smn";
 
 // Returns the mirrored letter for one character, other characters stay the same.
 fn atbash_char(c: string): string {
-    const letters: list<string> = chars(lowercase_letters());
-    const position: int = index_of(letters, lower_char(c));
+    const letters: list<string> = lowercase_letters().split("");
+    const position: int = index_of(letters, c.lower());
     if (position < 0) {
         return c;
     }
     const mirrored: string = letters[25 - position];
     if (is_upper(c)) {
-        return upper_char(mirrored);
+        return mirrored.upper();
     }
     return mirrored;
 }
