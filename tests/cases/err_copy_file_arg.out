@@ -1,3 +1,3 @@
-Type error [T014]: Line 1: cannot use int as argument of 'copy_file'
+Type error [T014]: Line 1: cannot use int as argument of 'copy_file', it expects string
   1 | print(copy_file("x", 42));
     |                      ^^

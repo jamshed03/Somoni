@@ -255,15 +255,45 @@ impl Builtin {
         }
     }
 
-    /// Returns what the next argument after the types `before` should be, for a message: a function type for a lambda
-    /// or the one type that fits; None where several types fit, like for `len`.
-    pub fn expected_text(self, before: &[Type]) -> Option<String> {
+    /// Returns what argument `bad` of `args` should be, for a message: a function type for a lambda, the type from
+    /// `expected_arg`, or the simple types that would fit there (`int or float`).
+    pub fn expected_text(self, args: &[Type], bad: usize) -> Option<String> {
+        let before = &args[..bad];
         match (self, self.function_hint(before)) {
             (Builtin::SortBy | Builtin::SortByDesc, Some(hint)) => {
                 Some(format!("fn({}): int, float or string", hint.params[0]))
             }
             (_, Some(hint)) => Some(hint.to_string()),
-            (_, None) => self.expected_arg(before).map(|ty| ty.to_string()),
+            (_, None) => (self.expected_arg(before).map(|ty| ty.to_string()))
+                .or_else(|| self.simple_types_at(args, bad)),
+        }
+    }
+
+    /// Returns the simple types that argument `at` could have instead, like `int or float`, found by asking
+    /// `result_type`; None if none fits or a list or map would fit too (like for `len`), where the list would be wrong.
+    fn simple_types_at(self, args: &[Type], at: usize) -> Option<String> {
+        let fits = |candidate: Type| {
+            let mut tried = args.to_vec();
+            tried[at] = candidate;
+            match self.result_type(&tried) {
+                Ok(_) => true,
+                Err(wrong) => wrong > at,
+            }
+        };
+        let list = Type::List(Box::new(Type::Int));
+        let map = Type::Map(Box::new(Type::Str), Box::new(Type::Int));
+        if fits(list) || fits(map) {
+            return None;
+        }
+        let simple = [Type::Int, Type::Float, Type::Str, Type::Bool];
+        let names: Vec<String> = (simple.into_iter())
+            .filter(|candidate| fits(candidate.clone()))
+            .map(|candidate| candidate.to_string())
+            .collect();
+        match names.split_last() {
+            None => None,
+            Some((last, [])) => Some(last.clone()),
+            Some((last, rest)) => Some(format!("{} or {}", rest.join(", "), last)),
         }
     }
 

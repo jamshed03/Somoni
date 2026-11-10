@@ -1,3 +1,3 @@
-Type error [T014]: Line 1: cannot use float as argument of 'max'
+Type error [T014]: Line 1: cannot use float as argument of 'max', it expects int
   1 | print(max(1, 2.5));
     |              ^^^

@@ -1,3 +1,3 @@
-Type error [T014]: Line 1: cannot use float as argument of 'random'
+Type error [T014]: Line 1: cannot use float as argument of 'random', it expects int
   1 | print(random(1, 2.5));
     |                 ^^^

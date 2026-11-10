@@ -1,3 +1,3 @@
-Type error [T014]: Line 2: cannot use int as argument of 'remove'
+Type error [T014]: Line 2: cannot use int as argument of 'remove', it expects string
   2 | print(m.remove(1));
     |                ^

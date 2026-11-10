@@ -1,3 +1,3 @@
-Type error [T014]: Line 1: cannot use int as argument of 'contains'
+Type error [T014]: Line 1: cannot use int as argument of 'contains', it expects string
   1 | print("abc".contains(1));
     |                      ^
