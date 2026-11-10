@@ -38,13 +38,9 @@ export fn reverse(text: string): string {
     return text.split("").reverse().join("");
 }
 
-// Returns the value of a digit up to base 36, e.g. "7" -> 7, "f" -> 15, or -1 for other characters.
-export fn digit_value(c: string): int {
-    const position = DIGITS.split("").index_of(c.lower());
-    if (position == null) {
-        return -1;
-    }
-    return position;
+// Returns the value of a digit up to base 36, e.g. "7" -> 7, "f" -> 15, or null for other characters.
+export fn digit_value(c: string): int? {
+    return DIGITS.split("").index_of(c.lower());
 }
 
 // Returns the digit for a value from 0 to 35, e.g. 11 -> "b".

@@ -47,14 +47,14 @@ class Stack {
         this.items = [];
     }
 
-    // Returns the position of the value from the bottom, or -1 if it is missing.
-    search(value: int): int {
+    // Returns the position of the value from the bottom, or null if it is missing.
+    search(value: int): int? {
         for (i: int, item: int in this.items) {
             if (item == value) {
                 return i;
             }
         }
-        return -1;
+        return null;
     }
 
     // Turns the stack upside down.

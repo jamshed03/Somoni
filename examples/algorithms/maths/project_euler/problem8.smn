@@ -30,7 +30,9 @@ fn the_number(): string {
 fn to_digits(text: string): list<int> {
     var result: list<int> = [];
     for (c: string in text) {
-        result += [digit_value(c)];
+        if (var digit = digit_value(c)) {
+            result += [digit];
+        }
     }
     return result;
 }

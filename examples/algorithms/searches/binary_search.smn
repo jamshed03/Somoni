@@ -1,7 +1,7 @@
 // Binary search: halves a sorted list until the value is found, with a loop and with recursion.
 
-// Returns the index of the target in the sorted list, or -1 if it is missing.
-fn binary_search(items: list<int>, target: int): int {
+// Returns the index of the target in the sorted list, or null if it is missing.
+fn binary_search(items: list<int>, target: int): int? {
     var low: int = 0;
     var high: int = len(items) - 1;
     while (low <= high) {
@@ -14,13 +14,13 @@ fn binary_search(items: list<int>, target: int): int {
             high = mid - 1;
         }
     }
-    return -1;
+    return null;
 }
 
-// Returns the index of the target between low and high, or -1, by calling itself on one half.
-fn binary_search_recursive(items: list<int>, target: int, low: int, high: int): int {
+// Returns the index of the target between low and high, or null, by calling itself on one half.
+fn binary_search_recursive(items: list<int>, target: int, low: int, high: int): int? {
     if (low > high) {
-        return -1;
+        return null;
     }
     const mid: int = low + (high - low) / 2;
     if (items[mid] == target) {
@@ -32,8 +32,17 @@ fn binary_search_recursive(items: list<int>, target: int, low: int, high: int): 
     return binary_search_recursive(items, target, low, mid - 1);
 }
 
+// Returns the index as text, or "not found" for null.
+fn shown(index: int?): string {
+    if (var found = index) {
+        return string(found);
+    }
+    return "not found";
+}
+
 const sorted: list<int> = [5, 10, 15, 20, 25, 30, 35, 40];
 for (target: int in [5, 25, 40, 12]) {
-    print(string(target) + ": " + string(binary_search(sorted, target)) + " / "
-        + string(binary_search_recursive(sorted, target, 0, len(sorted) - 1)));
+    const looped = shown(binary_search(sorted, target));
+    const recursive = shown(binary_search_recursive(sorted, target, 0, len(sorted) - 1));
+    print("{target}: {looped} / {recursive}");
 }

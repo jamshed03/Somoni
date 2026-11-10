@@ -1,9 +1,9 @@
 // Ternary search: splits the sorted list into three parts instead of two.
 
-// Returns the index of the target between low and high, or -1 if it is missing.
-fn ternary_search(items: list<int>, target: int, low: int, high: int): int {
+// Returns the index of the target between low and high, or null if it is missing.
+fn ternary_search(items: list<int>, target: int, low: int, high: int): int? {
     if (low > high) {
-        return -1;
+        return null;
     }
     const third: int = (high - low) / 3;
     const mid1: int = low + third;
@@ -25,5 +25,9 @@ fn ternary_search(items: list<int>, target: int, low: int, high: int): int {
 
 const sorted: list<int> = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 for (target: int in [1, 5, 8, 10, 11]) {
-    print(string(target) + ": " + string(ternary_search(sorted, target, 0, len(sorted) - 1)));
+    if (var index = ternary_search(sorted, target, 0, len(sorted) - 1)) {
+        print("{target}: {index}");
+    } else {
+        print("{target}: not found");
+    }
 }

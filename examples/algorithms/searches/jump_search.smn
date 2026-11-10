@@ -2,11 +2,11 @@
 
 import { isqrt } from "../lib/math.smn";
 
-// Returns the index of the target in the sorted list, or -1 if it is missing.
-fn jump_search(items: list<int>, target: int): int {
+// Returns the index of the target in the sorted list, or null if it is missing.
+fn jump_search(items: list<int>, target: int): int? {
     const n: int = len(items);
     if (n == 0) {
-        return -1;
+        return null;
     }
     const step: int = isqrt(n);
     var block_start: int = 0;
@@ -20,10 +20,14 @@ fn jump_search(items: list<int>, target: int): int {
             return i;
         }
     }
-    return -1;
+    return null;
 }
 
 const sorted: list<int> = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
 for (target: int in [55, 0, 610, 4]) {
-    print(string(target) + ": " + string(jump_search(sorted, target)));
+    if (var index = jump_search(sorted, target)) {
+        print("{target}: {index}");
+    } else {
+        print("{target}: not found");
+    }
 }

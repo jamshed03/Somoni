@@ -6,8 +6,8 @@ import { digit_value } from "../lib/text.smn";
 fn octal_to_decimal(octal: string): result<int, string> {
     var value: int = 0;
     for (c: string in octal) {
-        const digit: int = digit_value(c);
-        if (digit < 0 || digit > 7) {
+        const digit = digit_value(c);
+        if (digit == null || digit > 7) {
             return err("'" + octal + "' is not an octal number");
         }
         value = value * 8 + digit;

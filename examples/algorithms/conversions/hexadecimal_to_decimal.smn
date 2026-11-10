@@ -6,8 +6,8 @@ import { digit_value } from "../lib/text.smn";
 fn hex_to_decimal(hex: string): result<int, string> {
     var value: int = 0;
     for (c: string in hex) {
-        const digit: int = digit_value(c);
-        if (digit < 0 || digit > 15) {
+        const digit = digit_value(c);
+        if (digit == null || digit > 15) {
             return err("'" + hex + "' is not a hexadecimal number");
         }
         value = value * 16 + digit;

@@ -6,8 +6,8 @@ import { digit_value } from "../lib/text.smn";
 fn binary_to_decimal(binary: string): result<int, string> {
     var value: int = 0;
     for (c: string in binary) {
-        const digit: int = digit_value(c);
-        if (digit < 0 || digit > 1) {
+        const digit = digit_value(c);
+        if (digit == null || digit > 1) {
             return err("'" + binary + "' is not a binary number");
         }
         value = value * 2 + digit;

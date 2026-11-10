@@ -1,7 +1,7 @@
 // Fibonacci search: splits the sorted list at Fibonacci numbers instead of the middle.
 
-// Returns the index of the target in the sorted list, or -1 if it is missing.
-fn fibonacci_search(items: list<int>, target: int): int {
+// Returns the index of the target in the sorted list, or null if it is missing.
+fn fibonacci_search(items: list<int>, target: int): int? {
     const n: int = len(items);
     var fib2: int = 0;
     var fib1: int = 1;
@@ -30,10 +30,14 @@ fn fibonacci_search(items: list<int>, target: int): int {
     if (fib1 == 1 && offset + 1 < n && items[offset + 1] == target) {
         return offset + 1;
     }
-    return -1;
+    return null;
 }
 
 const sorted: list<int> = [10, 22, 35, 40, 45, 50, 80, 82, 85, 90, 100];
 for (target: int in [10, 45, 85, 100, 33]) {
-    print(string(target) + ": " + string(fibonacci_search(sorted, target)));
+    if (var index = fibonacci_search(sorted, target)) {
+        print("{target}: {index}");
+    } else {
+        print("{target}: not found");
+    }
 }

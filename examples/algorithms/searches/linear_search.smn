@@ -1,16 +1,20 @@
 // Linear search: checks every element from the start.
 
-// Returns the index of the first element equal to the target, or -1 if it is missing.
-fn linear_search(items: list<int>, target: int): int {
+// Returns the index of the first element equal to the target, or null if it is missing.
+fn linear_search(items: list<int>, target: int): int? {
     for (i: int, item: int in items) {
         if (item == target) {
             return i;
         }
     }
-    return -1;
+    return null;
 }
 
 const numbers: list<int> = [5, 7, 8, 11, 12, 15, 17, 18, 20];
 for (target: int in [15, 5, 20, 1]) {
-    print(string(target) + ": " + string(linear_search(numbers, target)));
+    if (var index = linear_search(numbers, target)) {
+        print("{target}: {index}");
+    } else {
+        print("{target}: not found");
+    }
 }
