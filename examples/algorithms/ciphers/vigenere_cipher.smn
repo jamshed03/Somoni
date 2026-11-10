@@ -1,11 +1,14 @@
 // Vigenère cipher: every letter is moved by the matching letter of a repeating key.
 
-import { index_of, is_upper, lowercase_letters } from "../lib/text.smn";
+import { is_upper, lowercase_letters } from "../lib/text.smn";
 
 // Returns the letter moved by shift places, keeping upper or lower case.
 fn shift_letter(c: string, shift: int): string {
     const letters: list<string> = lowercase_letters().split("");
-    const position: int = index_of(letters, c.lower());
+    const position = letters.index_of(c.lower());
+    if (position == null) {
+        return c;
+    }
     const moved: string = letters[((position + shift) % 26 + 26) % 26];
     if (is_upper(c)) {
         return moved.upper();
@@ -20,10 +23,10 @@ fn vigenere(text: string, key: string, direction: int): string {
     var result: string = "";
     var key_index: int = 0;
     for (c: string in text) {
-        if (index_of(letters, c.lower()) < 0) {
+        const shift = letters.index_of(key_chars[key_index % len(key_chars)].lower());
+        if (!letters.contains(c.lower()) || shift == null) {
             result += c;
         } else {
-            const shift: int = index_of(letters, key_chars[key_index % len(key_chars)].lower());
             result += shift_letter(c, shift * direction);
             key_index += 1;
         }

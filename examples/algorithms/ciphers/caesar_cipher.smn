@@ -1,12 +1,12 @@
 // Caesar cipher: moves every letter a fixed number of places.
 
-import { index_of, is_upper, lowercase_letters } from "../lib/text.smn";
+import { is_upper, lowercase_letters } from "../lib/text.smn";
 
 // Returns one character moved by shift places in the alphabet, other characters stay the same.
 fn shift_char(c: string, shift: int): string {
     const letters: list<string> = lowercase_letters().split("");
-    const position: int = index_of(letters, c.lower());
-    if (position < 0) {
+    const position = letters.index_of(c.lower());
+    if (position == null) {
         return c;
     }
     const moved: string = letters[((position + shift) % 26 + 26) % 26];

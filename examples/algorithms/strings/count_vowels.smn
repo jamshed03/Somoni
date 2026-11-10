@@ -1,13 +1,11 @@
 // Count vowels: how many of a, e, i, o, u the text has.
 
-import { index_of } from "../lib/text.smn";
-
 // Returns how many vowels the text has, ignoring upper and lower case.
 fn count_vowels(text: string): int {
     const vowels: list<string> = "aeiou".split("");
     var count: int = 0;
     for (c: string in text) {
-        if (index_of(vowels, c.lower()) >= 0) {
+        if (vowels.contains(c.lower())) {
             count += 1;
         }
     }
