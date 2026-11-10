@@ -1,40 +1,37 @@
-# Builds the documentation site with Somoni itself and publishes it on GitHub Pages, on every push to main or by hand.
 name: Docs
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+    workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+    contents: read
+    pages: write
+    id-token: write
 
 # Only one publish at a time; a newer push replaces one that is still waiting.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+    group: pages
+    cancel-in-progress: true
 
 jobs:
-  build:
-    name: build the site
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: rustup update stable && rustup default stable
-      - run: cargo run --release -- examples/projects/docs_site/main.smn
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: examples/projects/docs_site/site
+    build:
+        name: build the site
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - run: rustup update stable && rustup default stable
+            - run: cargo run --release -- examples/projects/docs_site/main.smn
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                  path: examples/projects/docs_site/site
 
-  deploy:
-    name: publish on GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+    deploy:
+        name: publish on GitHub Pages
+        needs: build
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - id: deployment
+              uses: actions/deploy-pages@v4
