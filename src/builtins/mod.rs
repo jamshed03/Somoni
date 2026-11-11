@@ -14,7 +14,7 @@ use strings::{
     split,
 };
 
-pub(crate) use db::Database;
+pub(crate) use db::{Database, Row};
 pub(crate) use random::Random;
 pub(crate) use strings::html_safe;
 
@@ -147,6 +147,12 @@ builtins! {
     Indent        => "indent",         2, Method;
     DbOpen        => "db_open",        1, Function;
     Execute       => "execute",        3, Method;
+    Fetch         => "fetch",          3, Method;
+    GetInt        => "get_int",        2, Method;
+    GetFloat      => "get_float",      2, Method;
+    GetString     => "get_string",     2, Method;
+    GetBool       => "get_bool",       2, Method;
+    IsNull        => "is_null",        2, Method;
     EscapeHtml    => "escape_html",    1, Method;
 }
 
@@ -257,7 +263,7 @@ impl Builtin {
             (Builtin::Contains | Builtin::IndexOf, [Type::List(element)]) => {
                 Some((**element).clone())
             }
-            (Builtin::Execute, [Type::Database, Type::Str]) => {
+            (Builtin::Execute | Builtin::Fetch, [Type::Database, Type::Str]) => {
                 Some(Type::List(Box::new(Type::Str)))
             }
             _ => None,
@@ -268,7 +274,7 @@ impl Builtin {
     /// `expected_arg`, or the simple types that would fit there (`int or float`).
     pub fn expected_text(self, args: &[Type], bad: usize) -> Option<String> {
         let before = &args[..bad];
-        if self == Builtin::Execute && bad == 2 {
+        if matches!(self, Builtin::Execute | Builtin::Fetch) && bad == 2 {
             return Some("a list or tuple of int, float, string or bool".to_string());
         }
         match (self, self.function_hint(before)) {
@@ -339,8 +345,26 @@ impl Builtin {
             (Builtin::Execute, [Type::Database, Type::Str, params]) if is_sql_params(params) => {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
-            (Builtin::Execute, [Type::Database, Type::Str, _]) => Err(2),
-            (Builtin::Execute, [Type::Database, _, _]) => Err(1),
+            (Builtin::Fetch, [Type::Database, Type::Str, params]) if is_sql_params(params) => {
+                let rows = Type::List(Box::new(Type::Row));
+                Ok(Type::Result(Box::new(rows), Box::new(Type::Str)))
+            }
+            (Builtin::Execute | Builtin::Fetch, [Type::Database, Type::Str, _]) => Err(2),
+            (Builtin::Execute | Builtin::Fetch, [Type::Database, _, _]) => Err(1),
+            (Builtin::GetInt, [Type::Row, Type::Str]) => Ok(column_result(Type::Int)),
+            (Builtin::GetFloat, [Type::Row, Type::Str]) => Ok(column_result(Type::Float)),
+            (Builtin::GetString, [Type::Row, Type::Str]) => Ok(column_result(Type::Str)),
+            (Builtin::GetBool | Builtin::IsNull, [Type::Row, Type::Str]) => {
+                Ok(column_result(Type::Bool))
+            }
+            (
+                Builtin::GetInt
+                | Builtin::GetFloat
+                | Builtin::GetString
+                | Builtin::GetBool
+                | Builtin::IsNull,
+                [Type::Row, _],
+            ) => Err(1),
             (Builtin::WriteFile, [Type::Str, Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
@@ -507,6 +531,24 @@ impl Builtin {
             (Builtin::Execute, [Value::Database(database), Value::Str(sql), params]) => {
                 Ok(db::execute(database, sql.as_str(), params))
             }
+            (Builtin::Fetch, [Value::Database(database), Value::Str(sql), params]) => {
+                Ok(db::fetch(database, sql.as_str(), params))
+            }
+            (Builtin::GetInt, [Value::Row(row), Value::Str(column)]) => {
+                Ok(db::get(row, column.as_str(), db::Wanted::Int))
+            }
+            (Builtin::GetFloat, [Value::Row(row), Value::Str(column)]) => {
+                Ok(db::get(row, column.as_str(), db::Wanted::Float))
+            }
+            (Builtin::GetString, [Value::Row(row), Value::Str(column)]) => {
+                Ok(db::get(row, column.as_str(), db::Wanted::Str))
+            }
+            (Builtin::GetBool, [Value::Row(row), Value::Str(column)]) => {
+                Ok(db::get(row, column.as_str(), db::Wanted::Bool))
+            }
+            (Builtin::IsNull, [Value::Row(row), Value::Str(column)]) => {
+                Ok(db::is_null(row, column.as_str()))
+            }
             (Builtin::ReadFile, [Value::Str(dir), Value::Str(path)]) => {
                 Ok(io::read_file(dir.as_str(), path.as_str()))
             }
@@ -633,6 +675,11 @@ pub(super) fn slice_range(
         (Some(from), Some(to)) if from <= to => Ok((from, to)),
         _ => Err(ErrorCode::SliceOutOfRange { start, end, length }.into()),
     }
+}
+
+/// Returns `result<ty, string>`, what a getter of a row gives.
+fn column_result(ty: Type) -> Type {
+    Type::Result(Box::new(ty), Box::new(Type::Str))
 }
 
 /// Returns true for the parameters of an SQL statement: a list or a tuple of simple values, also with `?`.

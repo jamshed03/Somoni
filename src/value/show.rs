@@ -63,6 +63,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             Value::Err(inner) => self.show_wrapped("err", inner),
             Value::Function(_) | Value::Closure(_) => write!(self.f, "fn"),
             Value::Database(database) => write!(self.f, "<database {}>", database.name()),
+            Value::Row(row) => self.show_fields("row", row.names(), &row.shown_values()),
             Value::Null => write!(self.f, "null"),
             Value::Void => write!(self.f, "void"),
         }

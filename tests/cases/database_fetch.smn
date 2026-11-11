@@ -1,0 +1,48 @@
+// fetch gives rows, and typed getters turn a row into a struct (a DTO), with errors as values
+struct Score {
+    name: string,
+    points: int
+}
+
+fn setup(db: database): result<int, string> {
+    db.execute("CREATE TABLE scores (name TEXT, points INTEGER, ratio REAL, done INTEGER)", [])?;
+    db.execute("INSERT INTO scores VALUES (?, ?, ?, ?)", ("Ali", 120, 0.5, true))?;
+    db.execute("INSERT INTO scores VALUES (?, ?, ?, ?)", ("Bea", 95, 0.25, false))?;
+    var nobody: string? = null;
+    return db.execute("INSERT INTO scores VALUES (?, ?, ?, ?)", (nobody, 10, 1.0, false));
+}
+
+// Turns the rows into Score values: the one place where the types from the database are checked.
+fn scores(db: database): result<list<Score>, string> {
+    var found: list<Score> = [];
+    for (row in db.fetch("SELECT name, points FROM scores WHERE name IS NOT NULL ORDER BY points DESC", [])?) {
+        found += [Score { name: row.get_string("name")?, points: row.get_int("points")? }];
+    }
+    return ok(found);
+}
+
+match (db_open(":memory:")) {
+    ok(db: database) => {
+        print(setup(db));
+        print(scores(db));
+        match (db.fetch("SELECT * FROM scores WHERE points < ?", [50])) {
+            ok(rows: list<row>) => {
+                var row = rows[0];
+                print(row);
+                print(row.is_null("name"));
+                print(row.get_string("name"));
+                print(row.get_float("ratio"));
+                print(row.get_bool("done"));
+                print(row.get_int("ratio"));
+                print(row.get_int("missing"));
+            }
+            err(reason: string) => {
+                print(reason);
+            }
+        }
+        print(db.fetch("SELECT * FROM missing", []));
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}

@@ -1,0 +1,3 @@
+fn show(r: row): void {
+    print(r.get_int(1));
+}

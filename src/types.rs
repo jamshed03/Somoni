@@ -73,6 +73,8 @@ pub enum Type {
     Intersection(Rc<[Type]>),
     /// An open SQLite database from `db_open`.
     Database,
+    /// One row of `db.fetch`, read with `get_int` and the other getters.
+    Row,
 }
 
 /// What the place of a lambda tells about its type, e.g. the parameter type that `l.map(...)` gives it.
@@ -119,7 +121,13 @@ impl Type {
             Type::Function(function) => (function.params.iter())
                 .chain([&function.result])
                 .find_map(Type::origin_file),
-            Type::Int | Type::Float | Type::Bool | Type::Str | Type::Void | Type::Database => None,
+            Type::Int
+            | Type::Float
+            | Type::Bool
+            | Type::Str
+            | Type::Void
+            | Type::Database
+            | Type::Row => None,
         }
     }
 
@@ -159,6 +167,7 @@ impl Type {
             "bool" => Some(Type::Bool),
             "string" => Some(Type::Str),
             "database" => Some(Type::Database),
+            "row" => Some(Type::Row),
             _ => None,
         }
     }
@@ -223,6 +232,7 @@ impl fmt::Display for Type {
             ),
             Type::Intersection(parts) => write!(f, "{}", Type::joined(parts, " & ")),
             Type::Database => write!(f, "database"),
+            Type::Row => write!(f, "row"),
         }
     }
 }

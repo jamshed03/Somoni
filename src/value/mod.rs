@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast::{ClassLayout, EnumDecl, StructDecl};
-use crate::builtins::Database;
+use crate::builtins::{Database, Row};
 use crate::error::SomoniError;
 use crate::map::{Key, MapValue};
 use crate::text::Text;
@@ -41,6 +41,8 @@ pub enum Value {
     Closure(Rc<Closure>),
     /// An open SQLite database, shared like an object.
     Database(Rc<Database>),
+    /// One row of a query, with typed getters.
+    Row(Rc<Row>),
     Null,
     Void,
 }

@@ -1,0 +1,10 @@
+ok(1)
+ok([Score { name: "Ali", points: 120 }, Score { name: "Bea", points: 95 }])
+row { name: null, points: 10, ratio: 1.0, done: 0 }
+ok(true)
+err("column 'name' is NULL")
+ok(1.0)
+ok(false)
+err("column 'ratio' is float, not int")
+err("no column 'missing'")
+err("no such table: missing")
