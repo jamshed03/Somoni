@@ -1,0 +1,59 @@
+// The one entry point to a game for every controller (terminal, browser): commands in, a game to look at out.
+
+import { Game } from "../domain/game.smn";
+import { PieceSource } from "piece_source.smn";
+
+// What a player can do; a controller turns its input (a key, a request) into one of these.
+export enum Command {
+    Left,
+    Right,
+    Rotate,
+    Down,
+    Drop
+}
+
+// Runs the commands on a game and gives it a new shape from its source whenever it needs one.
+export class GameService {
+    private running: Game;
+    private source: PieceSource;
+
+    constructor(running: Game, source: PieceSource) {
+        this.running = running;
+        this.source = source;
+        this.refill();
+    }
+
+    // Returns the game, for a view to show it.
+    game(): Game {
+        return this.running;
+    }
+
+    // Runs one command of the player, then starts the next piece if the last one landed.
+    apply(command: Command): void {
+        match (command) {
+            Command.Left => {
+                this.running.move(-1);
+            }
+            Command.Right => {
+                this.running.move(1);
+            }
+            Command.Rotate => {
+                this.running.rotate();
+            }
+            Command.Down => {
+                this.running.step();
+            }
+            Command.Drop => {
+                this.running.drop();
+            }
+        }
+        this.refill();
+    }
+
+    // Starts the next piece from the source if the game waits for one.
+    private refill(): void {
+        if (this.running.needs_piece()) {
+            this.running.spawn(this.source.next());
+        }
+    }
+}

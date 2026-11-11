@@ -1,0 +1,42 @@
+// Checks the game service: commands in, and the next shape from a fixed source whenever a piece landed.
+
+import { Shape, shape_letter } from "lib/domain/shape.smn";
+import { Board } from "lib/domain/board.smn";
+import { PieceFactory } from "lib/domain/piece_factory.smn";
+import { Game } from "lib/domain/game.smn";
+import { Command, GameService } from "lib/ports/game_service.smn";
+import { FixedPieces } from "lib/adapters/fixed_pieces.smn";
+
+// Prints the score and the shape and place of the falling piece.
+fn report(service: GameService): void {
+    var game = service.game();
+    if (var piece = game.piece()) {
+        print("{game.score()} points, {shape_letter(piece.shape)} at {piece.row} {piece.col}");
+    } else {
+        print("{game.score()} points, no piece");
+    }
+}
+
+var game = new Game(Board::empty(4, 6), new PieceFactory(4));
+var service = new GameService(game, new FixedPieces([Shape.I, Shape.O, Shape.O, Shape.T]));
+report(service);
+
+service.apply(Command.Drop);
+report(service);
+
+service.apply(Command.Left);
+service.apply(Command.Drop);
+report(service);
+
+service.apply(Command.Right);
+service.apply(Command.Right);
+service.apply(Command.Drop);
+report(service);
+
+service.apply(Command.Rotate);
+service.apply(Command.Down);
+service.apply(Command.Down);
+report(service);
+
+service.apply(Command.Drop);
+report(service);

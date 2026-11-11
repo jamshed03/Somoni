@@ -1,0 +1,21 @@
+// Shapes in a fixed order, for tests and demos: the same game every time.
+
+import { Shape } from "../domain/shape.smn";
+import { PieceSource } from "../ports/piece_source.smn";
+
+// Gives the shapes of a list one after another, and starts again at the end.
+export class FixedPieces implements PieceSource {
+    private shapes: list<Shape>;
+    private position: int;
+
+    constructor(shapes: list<Shape>) {
+        this.shapes = shapes;
+        this.position = 0;
+    }
+
+    next(): Shape {
+        var shape = this.shapes[this.position % len(this.shapes)];
+        this.position += 1;
+        return shape;
+    }
+}

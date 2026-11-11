@@ -1,6 +1,6 @@
 // Checks the shapes from the factory: where they start, how they turn and move.
 
-import { Shape } from "lib/domain/shape.smn";
+import { Shape, shape_from_letter, shape_letter } from "lib/domain/shape.smn";
 import { Cell } from "lib/domain/piece.smn";
 import { PieceFactory } from "lib/domain/piece_factory.smn";
 
@@ -41,3 +41,8 @@ print(o.rotated().cells() == o.cells());
 
 print("I moved to the left wall");
 draw(factory.create(Shape.I).moved(0, -3).cells());
+
+print("letters of shapes");
+print(shape_letter(Shape.Z));
+print(shape_from_letter("L"));
+print(shape_from_letter("x"));

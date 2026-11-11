@@ -8,3 +8,40 @@ export enum Shape {
     J,
     L
 }
+
+// Returns the letter of a shape, like "T", for views and for saving a game.
+export fn shape_letter(shape: Shape): string {
+    match (shape) {
+        Shape.I => {
+            return "I";
+        }
+        Shape.O => {
+            return "O";
+        }
+        Shape.T => {
+            return "T";
+        }
+        Shape.S => {
+            return "S";
+        }
+        Shape.Z => {
+            return "Z";
+        }
+        Shape.J => {
+            return "J";
+        }
+        Shape.L => {
+            return "L";
+        }
+    }
+}
+
+// Returns the shape for its letter, or null for any other text.
+export fn shape_from_letter(letter: string): Shape? {
+    for (shape in [Shape.I, Shape.O, Shape.T, Shape.S, Shape.Z, Shape.J, Shape.L]) {
+        if (shape_letter(shape) == letter) {
+            return shape;
+        }
+    }
+    return null;
+}

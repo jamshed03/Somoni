@@ -1,0 +1,8 @@
+// The port for shapes: the game needs a next shape, and an adapter decides which one.
+
+import { Shape } from "../domain/shape.smn";
+
+// Gives the shape of the next piece.
+export interface PieceSource {
+    next(): Shape;
+}
