@@ -16,8 +16,9 @@ fn best_scores(): result<list<ScoreDto>, string> {
     return new SqliteScores(db).best(10);
 }
 
-// Answers with the best scores, or 500 with the reason as JSON.
+// Answers with the best scores, or 500 with the reason, both as JSON.
 fn handle(): void {
+    set_header("Content-Type", "application/json");
     match (best_scores()) {
         ok(scores: list<ScoreDto>) => {
             print(scores_json(scores));

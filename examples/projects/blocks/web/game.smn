@@ -71,8 +71,9 @@ fn answer(db: database, name: string?): result<string, string> {
     return ok(new JsonView().show(service.game()));
 }
 
-// Answers one request: 400 for an unknown command, 500 if the database fails, else the state of the game.
+// Answers one request as JSON: 400 for an unknown command, 500 if the database fails, else the state of the game.
 fn handle(): void {
+    set_header("Content-Type", "application/json");
     var name = form("command");
     if (var text = name) {
         if (text != "new" && command_for(text) == null) {
