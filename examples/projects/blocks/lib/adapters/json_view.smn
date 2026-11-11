@@ -65,6 +65,6 @@ fn json(state: GameStateDto): string {
 }
 
 // Returns the text as a JSON string, with quotes around it and \ and " inside escaped.
-fn json_string(text: string): string {
+export fn json_string(text: string): string {
     return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
 }

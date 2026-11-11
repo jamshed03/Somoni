@@ -90,6 +90,8 @@ This project is also there to find the gaps. Each one is worked around here and 
 -   **Paths start at the file with the call:** an adapter in `lib/` cannot use a file path of the program, since
     `read_file("data/game.txt")` would start at `lib/adapters/`. So games are kept in SQLite: the page opens the
     database and hands it to `SqliteGames`.
+-   **No headers of its own:** `somoni serve` sends every page as `text/html`, also the JSON of `web/game.smn`;
+    `fetch(...).json()` in the browser does not mind.
 
 ## Status
 
@@ -98,13 +100,15 @@ The project grows in steps, each one working on its own:
 1. [x] this README: the architecture and the rules
 2. [x] the domain with tests: shapes, pieces, the board, the game, its events
 3. [x] `GameService`, `PieceSource` with `FixedPieces` and `RandomPieces`, `TextView`, and `terminal.smn` to play in the terminal
-4. [ ] `GameStore` in SQLite (done), `JsonView` (done), and `web/game.smn` for `somoni serve`
+4. [x] `GameStore` in SQLite, `JsonView`, and `web/game.smn` for `somoni serve`
 5. [ ] the browser: `index.html`, `game.js`, `style.css`
 6. [ ] high scores in SQLite with `ScoreDto`
 
 ## Running
 
-The terminal works now (`demo` as an argument plays a fixed order of shapes); the browser comes with step 5.
+The terminal works now (`demo` as an argument plays a fixed order of shapes). `web/game.smn` answers `GET /game`
+and `POST /game` with `command=left` (or `right`, `rotate`, `down`, `drop`, `new`) as JSON; the page to play
+it in the browser comes with step 5.
 
 
 ```
