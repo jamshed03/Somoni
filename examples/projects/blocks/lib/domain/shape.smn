@@ -1,0 +1,10 @@
+// The seven shapes of four cells, named after the letters they look like.
+export enum Shape {
+    I,
+    O,
+    T,
+    S,
+    Z,
+    J,
+    L
+}

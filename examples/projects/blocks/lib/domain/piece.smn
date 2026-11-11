@@ -1,0 +1,43 @@
+// A piece: a shape at a place in the well, made of four cells around its pivot.
+
+import { Shape } from "shape.smn";
+
+// One cell of the well, counted from the top left corner.
+export struct Cell {
+    row: int,
+    col: int
+}
+
+// A piece that never changes: moving or rotating it gives a new piece, so the game can try a move and drop it.
+export class Piece {
+    readonly shape: Shape;
+    readonly row: int;
+    readonly col: int;
+    private offsets: list<Cell>;
+
+    constructor(shape: Shape, row: int, col: int, offsets: list<Cell>) {
+        this.shape = shape;
+        this.row = row;
+        this.col = col;
+        this.offsets = offsets;
+    }
+
+    // Returns the four cells the piece covers in the well.
+    cells(): list<Cell> {
+        return this.offsets.map(fn(offset) => Cell { row: this.row + offset.row, col: this.col + offset.col });
+    }
+
+    // Returns the same piece moved by `rows` down and `cols` to the right.
+    moved(rows: int, cols: int): Piece {
+        return new Piece(this.shape, this.row + rows, this.col + cols, this.offsets);
+    }
+
+    // Returns the piece turned a quarter clockwise around its pivot; a square stays as it is.
+    rotated(): Piece {
+        if (this.shape == Shape.O) {
+            return this;
+        }
+        var turned = this.offsets.map(fn(offset) => Cell { row: offset.col, col: -offset.row });
+        return new Piece(this.shape, this.row, this.col, turned);
+    }
+}

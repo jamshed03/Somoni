@@ -1,0 +1,45 @@
+// The factory for pieces: the one place that knows which cells make up each shape.
+
+import { Shape } from "shape.smn";
+import { Cell, Piece } from "piece.smn";
+
+// Makes new pieces at the top in the middle of a well that is `width` cells wide.
+export class PieceFactory {
+    private width: int;
+
+    constructor(width: int) {
+        this.width = width;
+    }
+
+    // Returns a new piece of `shape` where pieces start.
+    create(shape: Shape): Piece {
+        return new Piece(shape, 0, this.width / 2 - 1, offsets_of(shape));
+    }
+}
+
+// Returns the cells of a shape around its pivot at row 0, column 0.
+fn offsets_of(shape: Shape): list<Cell> {
+    match (shape) {
+        Shape.I => {
+            return [Cell { row: 0, col: -1 }, Cell { row: 0, col: 0 }, Cell { row: 0, col: 1 }, Cell { row: 0, col: 2 }];
+        }
+        Shape.O => {
+            return [Cell { row: 0, col: 0 }, Cell { row: 0, col: 1 }, Cell { row: 1, col: 0 }, Cell { row: 1, col: 1 }];
+        }
+        Shape.T => {
+            return [Cell { row: 0, col: -1 }, Cell { row: 0, col: 0 }, Cell { row: 0, col: 1 }, Cell { row: 1, col: 0 }];
+        }
+        Shape.S => {
+            return [Cell { row: 0, col: 0 }, Cell { row: 0, col: 1 }, Cell { row: 1, col: -1 }, Cell { row: 1, col: 0 }];
+        }
+        Shape.Z => {
+            return [Cell { row: 0, col: -1 }, Cell { row: 0, col: 0 }, Cell { row: 1, col: 0 }, Cell { row: 1, col: 1 }];
+        }
+        Shape.J => {
+            return [Cell { row: 0, col: -1 }, Cell { row: 0, col: 0 }, Cell { row: 0, col: 1 }, Cell { row: 1, col: 1 }];
+        }
+        Shape.L => {
+            return [Cell { row: 0, col: -1 }, Cell { row: 0, col: 0 }, Cell { row: 0, col: 1 }, Cell { row: 1, col: -1 }];
+        }
+    }
+}

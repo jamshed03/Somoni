@@ -1,0 +1,43 @@
+// Checks the shapes from the factory: where they start, how they turn and move.
+
+import { Shape } from "lib/domain/shape.smn";
+import { Cell } from "lib/domain/piece.smn";
+import { PieceFactory } from "lib/domain/piece_factory.smn";
+
+// Prints the rows the cells cover, ten columns wide: # for a cell, . for an empty one.
+fn draw(cells: list<Cell>): void {
+    var top = cells[0].row;
+    var bottom = top;
+    for (cell in cells) {
+        top = min(top, cell.row);
+        bottom = max(bottom, cell.row);
+    }
+    for (var row = top; row <= bottom; row += 1) {
+        var line = "";
+        for (var col = 0; col < 10; col += 1) {
+            if (cells.contains(Cell { row: row, col: col })) {
+                line += "#";
+            } else {
+                line += ".";
+            }
+        }
+        print(line);
+    }
+}
+
+var factory = new PieceFactory(10);
+for (shape in [Shape.I, Shape.O, Shape.T, Shape.S, Shape.Z, Shape.J, Shape.L]) {
+    print(shape);
+    draw(factory.create(shape).cells());
+}
+
+print("T one row down, turned");
+draw(factory.create(Shape.T).moved(1, 0).rotated().cells());
+
+var t = factory.create(Shape.T);
+print(t.rotated().rotated().rotated().rotated().cells() == t.cells());
+var o = factory.create(Shape.O);
+print(o.rotated().cells() == o.cells());
+
+print("I moved to the left wall");
+draw(factory.create(Shape.I).moved(0, -3).cells());
