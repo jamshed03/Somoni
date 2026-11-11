@@ -1,0 +1,18 @@
+// Color::cases() lists all variants in order, Color::from_name(text) finds one by its name or gives null
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+print(Color::cases());
+print(Color::cases().map(fn(c) => string(c)));
+print(len(Color::cases()));
+print(Color::from_name("Blue"));
+print(Color::from_name("blue"));
+if (var c = Color::from_name("Green")) {
+    print("found {c}");
+}
+for (c in Color::cases()) {
+    print(Color::from_name(string(c)) == c);
+}

@@ -153,6 +153,7 @@ builtins! {
     GetString     => "get_string",     2, Method;
     GetBool       => "get_bool",       2, Method;
     IsNull        => "is_null",        2, Method;
+    EnumFromName  => "<from_name>",    2, Function;
     EscapeHtml    => "escape_html",    1, Method;
 }
 
@@ -351,6 +352,10 @@ impl Builtin {
             }
             (Builtin::Execute | Builtin::Fetch, [Type::Database, Type::Str, _]) => Err(2),
             (Builtin::Execute | Builtin::Fetch, [Type::Database, _, _]) => Err(1),
+            (Builtin::EnumFromName, [Type::List(variant), Type::Str]) => {
+                Ok(Type::Optional(variant.clone()))
+            }
+            (Builtin::EnumFromName, [Type::List(_), _]) => Err(1),
             (Builtin::GetInt, [Type::Row, Type::Str]) => Ok(column_result(Type::Int)),
             (Builtin::GetFloat, [Type::Row, Type::Str]) => Ok(column_result(Type::Float)),
             (Builtin::GetString, [Type::Row, Type::Str]) => Ok(column_result(Type::Str)),
@@ -525,6 +530,11 @@ impl Builtin {
             (Builtin::FormatDate, [Value::Int(millis), Value::Str(pattern)]) => {
                 Ok(string_value(date::format_date(*millis, pattern.as_str())))
             }
+            (Builtin::EnumFromName, [Value::List(variants), Value::Str(name)]) => Ok(variants
+                .iter()
+                .find(|variant| matches!(variant, Value::Enum(value) if value.name() == name.as_str()))
+                .cloned()
+                .unwrap_or(Value::Null)),
             (Builtin::DbOpen, [Value::Str(dir), Value::Str(path)]) => {
                 Ok(db::open(dir.as_str(), path.as_str()))
             }

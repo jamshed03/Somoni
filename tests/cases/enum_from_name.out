@@ -1,0 +1,9 @@
+[Color.Red, Color.Green, Color.Blue]
+["Red", "Green", "Blue"]
+3
+Color.Blue
+null
+found Green
+true
+true
+true

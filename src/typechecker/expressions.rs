@@ -260,6 +260,9 @@ impl TypeChecker {
             expr.kind = ExprKind::EnumValue { decl, variant };
             return Ok(ty);
         }
+        if let Some(ty) = self.check_enum_static(expr)? {
+            return Ok(ty);
+        }
         if let Some((name, constant)) = self.global_constant(expr) {
             let ty = constant.known_type(&name, expr.span)?;
             expr.kind = ExprKind::Constant {
@@ -1008,6 +1011,55 @@ impl TypeChecker {
         call.target = Some(method.signature.index);
         self.check_args(&call.name, &method.signature.params, &mut call.args, span)?;
         Ok(method.signature.return_type)
+    }
+
+    /// Checks `Color::cases()` or `Color::from_name(text)` on an enum and turns it into what already exists: the list of
+    /// its variants, or a call of the hidden built-in that looks a name up in that list. None for any other expression.
+    fn check_enum_static(&mut self, expr: &mut Expr) -> Result<Option<Type>, SomoniError> {
+        let span = expr.span;
+        let ExprKind::StaticCall(call) = &mut expr.kind else {
+            return Ok(None);
+        };
+        let Some(decl) = self.names.enums.get(&call.class_name).cloned() else {
+            return Ok(None);
+        };
+        let variants: Vec<Expr> = (0..decl.variants.len())
+            .map(|variant| Expr {
+                kind: ExprKind::EnumValue {
+                    decl: Rc::clone(&decl.0),
+                    variant,
+                },
+                span: call.class_span,
+            })
+            .collect();
+        let kind = match call.name.as_str() {
+            "cases" => {
+                check_arg_count("cases", 0, &call.args, span)?;
+                ExprKind::List(variants)
+            }
+            "from_name" => {
+                check_arg_count("from_name", 1, &call.args, span)?;
+                let all = Expr {
+                    kind: ExprKind::List(variants),
+                    span: call.class_span,
+                };
+                let mut lookup = Call {
+                    name: call.name.clone(),
+                    name_span: call.name_span,
+                    args: [all]
+                        .into_iter()
+                        .chain(std::mem::take(&mut call.args))
+                        .collect(),
+                    target: None,
+                };
+                let ty = self.check_builtin_call(Builtin::EnumFromName, &mut lookup, span)?;
+                expr.kind = ExprKind::Call(lookup);
+                return Ok(Some(ty));
+            }
+            _ => return Err(unknown_method(&decl.name, &call.name, call.name_span)),
+        };
+        expr.kind = kind;
+        self.check_expr(expr).map(Some)
     }
 
     /// Checks `value instanceof Name`, which is a bool, or returns T079 or T080.
