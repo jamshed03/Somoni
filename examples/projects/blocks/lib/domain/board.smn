@@ -1,0 +1,74 @@
+// The well: which cells are taken, whether a piece fits, and taking away full rows.
+
+import { Shape } from "shape.smn";
+import { Piece } from "piece.smn";
+
+// A well that never changes: placing a piece or clearing rows gives a new board.
+export class Board {
+    readonly width: int;
+    readonly height: int;
+    private rows: list<list<Shape?>>;
+
+    constructor(width: int, height: int, rows: list<list<Shape?>>) {
+        this.width = width;
+        this.height = height;
+        this.rows = rows;
+    }
+
+    // Returns an empty well of `width` × `height` cells.
+    static empty(width: int, height: int): Board {
+        var rows: list<list<Shape?>> = [];
+        for (var i = 0; i < height; i += 1) {
+            rows += [empty_row(width)];
+        }
+        return new Board(width, height, rows);
+    }
+
+    // Returns the shape that took the cell, or null for an empty cell or one outside the well.
+    shape_at(row: int, col: int): Shape? {
+        if (row < 0 || row >= this.height || col < 0 || col >= this.width) {
+            return null;
+        }
+        return this.rows[row][col];
+    }
+
+    // Returns true if every cell of the piece lies inside the well and is empty.
+    fits(piece: Piece): bool {
+        for (cell in piece.cells()) {
+            var inside = cell.row >= 0 && cell.row < this.height && cell.col >= 0 && cell.col < this.width;
+            if (!inside || this.rows[cell.row][cell.col] != null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Returns the board with the cells of the piece taken by its shape.
+    placed(piece: Piece): Board {
+        var rows = this.rows;
+        for (cell in piece.cells()) {
+            rows[cell.row][cell.col] = piece.shape;
+        }
+        return new Board(this.width, this.height, rows);
+    }
+
+    // Returns the board without its full rows, the rows above moved down, and how many rows went away.
+    cleared(): (Board, int) {
+        var kept = this.rows.filter(fn(row) => !row.all(fn(cell) => cell != null));
+        var removed = this.height - len(kept);
+        var rows: list<list<Shape?>> = [];
+        for (var i = 0; i < removed; i += 1) {
+            rows += [empty_row(this.width)];
+        }
+        return (new Board(this.width, this.height, rows + kept), removed);
+    }
+}
+
+// Returns a row of `width` empty cells.
+fn empty_row(width: int): list<Shape?> {
+    var row: list<Shape?> = [];
+    for (var i = 0; i < width; i += 1) {
+        row += [null];
+    }
+    return row;
+}
