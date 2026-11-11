@@ -90,8 +90,10 @@ This project is also there to find the gaps. Each one is worked around here and 
 -   **Paths start at the file with the call:** an adapter in `lib/` cannot use a file path of the program, since
     `read_file("data/game.txt")` would start at `lib/adapters/`. So games are kept in SQLite: the page opens the
     database and hands it to `SqliteGames`.
--   **No headers of its own:** `somoni serve` sends every page as `text/html`, also the JSON of `web/game.smn`;
-    `fetch(...).json()` in the browser does not mind.
+
+Closed since the project started, by changing Somoni itself: enum values as text (`string(shape)`,
+`Shape::from_name`, `Shape::cases()`), headers of a page's own (`set_header`), and `somoni serve` no longer waiting
+for a connection that sends nothing.
 
 ## Status
 
