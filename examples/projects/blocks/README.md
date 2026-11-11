@@ -20,7 +20,7 @@ import anything from `ports/` or `adapters/`. Everything it needs from outside c
                   │      ┌──────────────────────────────┐      │
    web/game.smn ──┼────► │ ports        domain          │ ────►├── SqliteScores
    (controller)   │      │ GameService  Game, Board,    │      │
-                  │      │              Piece, events   │      └── FileGames, SqliteGames
+                  │      │              Piece, events   │      └── SqliteGames
                   └───── │                              │
                          └──────────────────────────────┘
 ```
@@ -36,7 +36,7 @@ places that create adapters and hand them to the game.
 | --------------- | ----------------------------------------------------------------------------------------- |
 | `lib/domain/`   | the rules: `Shape`, `Piece`, `Board`, `Game`, the events of a game; no input or output      |
 | `lib/ports/`    | the interfaces between the domain and the outside, and `GameService`, the one entry point  |
-| `lib/adapters/` | the implementations: pieces, storage in a file or in SQLite, the JSON view                 |
+| `lib/adapters/` | the implementations: pieces, storage in SQLite, the text and JSON views                   |
 | `web/`          | the browser: `index.html`, `game.js`, `style.css`, and `game.smn` for `somoni serve`        |
 | top level       | `terminal.smn` to play in the terminal, and the test programs, each with its `.out`        |
 
@@ -48,7 +48,7 @@ Modules live under `lib/`, because `cargo test` runs every other `.smn` in `exam
 | ------------- | --------- | --------------------------------------------------------------- | -------------------------------- |
 | `GameService` | driving   | the commands of a player: move, rotate, drop, let time pass      | used by `terminal.smn`, `game.smn` |
 | `PieceSource` | driven    | gives the next shape                                            | `RandomPieces`, `FixedPieces`    |
-| `GameStore`   | driven    | keeps a game between two requests                               | `FileGames`, `SqliteGames`       |
+| `GameStore`   | driven    | keeps a game between two requests                               | `SqliteGames`                    |
 | `ScoreStore`  | driven    | saves and lists the high scores                                 | `SqliteScores`                   |
 | `GameView`    | driven    | turns a game into what a player sees                            | `TextView`, `JsonView`           |
 
@@ -67,6 +67,8 @@ Modules live under `lib/`, because `cargo test` runs every other `.smn` in `exam
     database types meet Somoni types.
 -   **Dependency injection:** an adapter gets what it needs in its constructor, like `new SqliteScores(db)`; nothing
     creates its own database or reads a global.
+-   **Memento:** `game.snapshot()` gives a `GameSnapshot` with everything that makes up the game, and
+    `Game::restore(snapshot, factory)` goes on from it; the fields of `Game` stay private.
 
 ## Rules of the game
 
@@ -84,6 +86,10 @@ This project is also there to find the gaps. Each one is worked around here and 
 -   **No state between requests:** `somoni serve` starts fresh for every request, so the game is saved after each
     command through `GameStore` and loaded before the next.
 -   **No JSON:** `JsonView` builds the text by hand.
+-   **No enum as text:** `string(shape)` does not work yet, so `shape_letter` and `shape_from_letter` do it.
+-   **Paths start at the file with the call:** an adapter in `lib/` cannot use a file path of the program, since
+    `read_file("data/game.txt")` would start at `lib/adapters/`. So games are kept in SQLite: the page opens the
+    database and hands it to `SqliteGames`.
 
 ## Status
 
@@ -92,7 +98,7 @@ The project grows in steps, each one working on its own:
 1. [x] this README: the architecture and the rules
 2. [x] the domain with tests: shapes, pieces, the board, the game, its events
 3. [x] `GameService`, `PieceSource` with `FixedPieces` and `RandomPieces`, `TextView`, and `terminal.smn` to play in the terminal
-4. [ ] `GameStore` in a file, `JsonView`, and `web/game.smn` for `somoni serve`
+4. [ ] `GameStore` in SQLite (done), `JsonView`, and `web/game.smn` for `somoni serve`
 5. [ ] the browser: `index.html`, `game.js`, `style.css`
 6. [ ] high scores in SQLite with `ScoreDto`
 

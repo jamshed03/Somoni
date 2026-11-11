@@ -13,23 +13,28 @@ export class Piece {
     readonly shape: Shape;
     readonly row: int;
     readonly col: int;
-    private offsets: list<Cell>;
+    private around: list<Cell>;
 
-    constructor(shape: Shape, row: int, col: int, offsets: list<Cell>) {
+    constructor(shape: Shape, row: int, col: int, around: list<Cell>) {
         this.shape = shape;
         this.row = row;
         this.col = col;
-        this.offsets = offsets;
+        this.around = around;
+    }
+
+    // Returns the four cells around the pivot, which also tell how the piece is turned.
+    offsets(): list<Cell> {
+        return this.around;
     }
 
     // Returns the four cells the piece covers in the well.
     cells(): list<Cell> {
-        return this.offsets.map(fn(offset) => Cell { row: this.row + offset.row, col: this.col + offset.col });
+        return this.around.map(fn(offset) => Cell { row: this.row + offset.row, col: this.col + offset.col });
     }
 
     // Returns the same piece moved by `rows` down and `cols` to the right.
     moved(rows: int, cols: int): Piece {
-        return new Piece(this.shape, this.row + rows, this.col + cols, this.offsets);
+        return new Piece(this.shape, this.row + rows, this.col + cols, this.around);
     }
 
     // Returns the piece turned a quarter clockwise around its pivot; a square stays as it is.
@@ -37,7 +42,7 @@ export class Piece {
         if (this.shape == Shape.O) {
             return this;
         }
-        var turned = this.offsets.map(fn(offset) => Cell { row: offset.col, col: -offset.row });
+        var turned = this.around.map(fn(offset) => Cell { row: offset.col, col: -offset.row });
         return new Piece(this.shape, this.row, this.col, turned);
     }
 }

@@ -1,0 +1,12 @@
+// Everything that makes up a game at one moment, to save it and go on later (the memento pattern).
+
+import { Piece } from "piece.smn";
+import { Board } from "board.smn";
+
+// The state of a game without its listeners, which the program connects again each time.
+export struct GameSnapshot {
+    board: Board,
+    piece: Piece?,
+    score: int,
+    over: bool
+}

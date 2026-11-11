@@ -1,0 +1,12 @@
+// The port for keeping a game between two requests, since `somoni serve` forgets everything after each one.
+
+import { GameSnapshot } from "../domain/snapshot.smn";
+
+// Saves the one running game and loads it again.
+export interface GameStore {
+    // Returns the saved game, null if there is none, or an error if it cannot be read.
+    load(): result<GameSnapshot?, string>;
+
+    // Saves the game, replacing the one saved before.
+    save(snapshot: GameSnapshot): result<int, string>;
+}

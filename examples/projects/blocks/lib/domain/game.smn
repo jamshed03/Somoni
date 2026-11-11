@@ -5,6 +5,7 @@ import { Piece } from "piece.smn";
 import { PieceFactory } from "piece_factory.smn";
 import { Board } from "board.smn";
 import { EventKind, GameEvent, GameListener } from "events.smn";
+import { GameSnapshot } from "snapshot.smn";
 
 // The game itself; it does not know where its shapes come from, it asks for one with needs_piece().
 export class Game {
@@ -22,6 +23,20 @@ export class Game {
         this.points = 0;
         this.finished = false;
         this.listeners = [];
+    }
+
+    // Returns a game that goes on from `snapshot`, with no listeners yet.
+    static restore(snapshot: GameSnapshot, factory: PieceFactory): Game {
+        var game = new Game(snapshot.board, factory);
+        game.falling = snapshot.piece;
+        game.points = snapshot.score;
+        game.finished = snapshot.over;
+        return game;
+    }
+
+    // Returns the state of the game now, to save it and restore it later.
+    snapshot(): GameSnapshot {
+        return GameSnapshot { board: this.well, piece: this.falling, score: this.points, over: this.finished };
     }
 
     // Returns the board with the pieces that landed.

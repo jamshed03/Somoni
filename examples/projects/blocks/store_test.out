@@ -1,0 +1,24 @@
+ok(null)
+ok(1)
+true
+|.@..|
+|@@..|
+|.@..|
+|....|
+|##..|
+|##..|
++----+
+score 100
+|@@@@|
+|.#..|
+|##..|
+|.#..|
+|##..|
+|##..|
++----+
+score 100
+ok(1)
+ok(1)
+err("unknown shape 'X' in the saved board")
+err("the saved piece 'T 2' does not have four parts")
+ok(0)
