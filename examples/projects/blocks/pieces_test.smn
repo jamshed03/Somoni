@@ -1,6 +1,6 @@
 // Checks the shapes from the factory: where they start, how they turn and move.
 
-import { Shape, shape_from_letter, shape_letter } from "lib/domain/shape.smn";
+import { Shape } from "lib/domain/shape.smn";
 import { Cell } from "lib/domain/piece.smn";
 import { PieceFactory } from "lib/domain/piece_factory.smn";
 
@@ -26,7 +26,7 @@ fn draw(cells: list<Cell>): void {
 }
 
 var factory = new PieceFactory(10);
-for (shape in [Shape.I, Shape.O, Shape.T, Shape.S, Shape.Z, Shape.J, Shape.L]) {
+for (shape in Shape::cases()) {
     print(shape);
     draw(factory.create(shape).cells());
 }
@@ -43,6 +43,6 @@ print("I moved to the left wall");
 draw(factory.create(Shape.I).moved(0, -3).cells());
 
 print("letters of shapes");
-print(shape_letter(Shape.Z));
-print(shape_from_letter("L"));
-print(shape_from_letter("x"));
+print(string(Shape.Z));
+print(Shape::from_name("L"));
+print(Shape::from_name("x"));

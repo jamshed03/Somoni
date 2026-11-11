@@ -87,7 +87,6 @@ This project is also there to find the gaps. Each one is worked around here and 
 -   **No state between requests:** `somoni serve` starts fresh for every request, so the game is saved after each
     command through `GameStore` and loaded before the next.
 -   **No JSON:** `JsonView` builds the text by hand.
--   **No enum as text:** `string(shape)` does not work yet, so `shape_letter` and `shape_from_letter` do it.
 -   **Paths start at the file with the call:** an adapter in `lib/` cannot use a file path of the program, since
     `read_file("data/game.txt")` would start at `lib/adapters/`. So games are kept in SQLite: the page opens the
     database and hands it to `SqliteGames`.

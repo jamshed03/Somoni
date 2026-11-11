@@ -18,7 +18,7 @@ const HEIGHT = 20;
 // Returns the source of shapes: a fixed order with the argument `demo`, else chance.
 fn pieces(): PieceSource {
     if (args().contains("demo")) {
-        return new FixedPieces([Shape.I, Shape.O, Shape.T, Shape.S, Shape.Z, Shape.J, Shape.L]);
+        return new FixedPieces(Shape::cases());
     }
     return new RandomPieces();
 }

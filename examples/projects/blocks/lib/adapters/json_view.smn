@@ -1,6 +1,5 @@
 // A game as JSON for the browser: first a plain struct (the DTO), then text, since Somoni has no JSON yet.
 
-import { shape_letter } from "../domain/shape.smn";
 import { Cell } from "../domain/piece.smn";
 import { Game } from "../domain/game.smn";
 import { GameView } from "../ports/game_view.smn";
@@ -32,7 +31,7 @@ export fn game_state(game: Game): GameStateDto {
     var letter = "";
     if (var piece = game.piece()) {
         falling = piece.cells();
-        letter = shape_letter(piece.shape).lower();
+        letter = string(piece.shape).lower();
     }
     var rows: list<string> = [];
     for (var row = 0; row < board.height; row += 1) {
@@ -41,7 +40,7 @@ export fn game_state(game: Game): GameStateDto {
             if (falling.contains(Cell { row: row, col: col })) {
                 line += letter;
             } else if (var shape = board.shape_at(row, col)) {
-                line += shape_letter(shape);
+                line += string(shape);
             } else {
                 line += ".";
             }

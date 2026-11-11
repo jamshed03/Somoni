@@ -1,6 +1,6 @@
 // Keeps the running game in SQLite, one row with a column for each part; reading a row back is the DTO mapping.
 
-import { Shape, shape_from_letter, shape_letter } from "../domain/shape.smn";
+import { Shape } from "../domain/shape.smn";
 import { Cell, Piece } from "../domain/piece.smn";
 import { Board } from "../domain/board.smn";
 import { GameSnapshot } from "../domain/snapshot.smn";
@@ -54,7 +54,7 @@ fn board_text(board: Board): string {
         var line = "";
         for (var col = 0; col < board.width; col += 1) {
             if (var shape = board.shape_at(row, col)) {
-                line += shape_letter(shape);
+                line += string(shape);
             } else {
                 line += ".";
             }
@@ -77,7 +77,7 @@ fn parse_board(text: string): result<Board, string> {
         for (letter in line) {
             if (letter == ".") {
                 row += [null];
-            } else if (var shape = shape_from_letter(letter)) {
+            } else if (var shape = Shape::from_name(letter)) {
                 row += [shape];
             } else {
                 return err("unknown shape '{letter}' in the saved board");
@@ -91,7 +91,7 @@ fn parse_board(text: string): result<Board, string> {
 // Returns the piece as text: its letter, row, column and the four offsets that also tell how it is turned.
 fn piece_text(piece: Piece): string {
     var offsets = piece.offsets().map(fn(cell) => "{cell.row},{cell.col}");
-    return "{shape_letter(piece.shape)} {piece.row} {piece.col} {offsets.join(";")}";
+    return "{piece.shape} {piece.row} {piece.col} {offsets.join(";")}";
 }
 
 // Returns the piece from its text, or an error if a part is missing or not a number.
@@ -100,7 +100,7 @@ fn parse_piece(text: string): result<Piece, string> {
     if (len(parts) != 4) {
         return err("the saved piece '{text}' does not have four parts");
     }
-    var shape = shape_from_letter(parts[0]);
+    var shape = Shape::from_name(parts[0]);
     if (shape == null) {
         return err("unknown shape '{parts[0]}' in the saved piece");
     }

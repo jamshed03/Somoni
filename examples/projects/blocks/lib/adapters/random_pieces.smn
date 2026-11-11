@@ -9,7 +9,7 @@ export class RandomPieces implements PieceSource {
     }
 
     next(): Shape {
-        var shapes = [Shape.I, Shape.O, Shape.T, Shape.S, Shape.Z, Shape.J, Shape.L];
+        var shapes = Shape::cases();
         return shapes[random(0, len(shapes) - 1)];
     }
 }
