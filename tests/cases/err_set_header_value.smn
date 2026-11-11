@@ -1,0 +1,1 @@
+set_header("X-Name", "a\r\nSet-Cookie: x=1");

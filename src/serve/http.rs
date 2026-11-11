@@ -11,6 +11,8 @@ pub(super) struct Response {
     pub(super) content_type: &'static str,
     /// The header `Location` of a redirect, like `/guestbook`.
     pub(super) location: Option<String>,
+    /// The headers a page set with `set_header`; a `Content-Type` among them replaces `content_type`.
+    pub(super) headers: Vec<(String, String)>,
     pub(super) body: Vec<u8>,
 }
 
@@ -79,6 +81,7 @@ pub(super) fn page(status: u16, message: &str) -> Response {
         status,
         content_type: "text/html; charset=utf-8",
         location: None,
+        headers: Vec::new(),
         body: html.into_bytes(),
     }
 }
@@ -147,11 +150,22 @@ pub(super) fn write_response(out: &mut impl Write, response: &Response) -> io::R
         .as_ref()
         .map(|location| format!("Location: {}\r\n", location))
         .unwrap_or_default();
+    let own_type =
+        (response.headers.iter()).any(|(name, _)| name.eq_ignore_ascii_case("content-type"));
+    let content_type = if own_type {
+        String::new()
+    } else {
+        format!("Content-Type: {}\r\n", response.content_type)
+    };
+    let headers: String = (response.headers.iter())
+        .map(|(name, value)| format!("{}: {}\r\n", name, value))
+        .collect();
     let head = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}Connection: close\r\n\r\n",
+        "HTTP/1.1 {} {}\r\n{}{}Content-Length: {}\r\n{}Connection: close\r\n\r\n",
         response.status,
         reason(response.status),
-        response.content_type,
+        content_type,
+        headers,
         response.body.len(),
         location
     );
@@ -199,6 +213,7 @@ mod tests {
             status: 303,
             content_type: "text/html; charset=utf-8",
             location: Some("/guestbook".to_string()),
+            headers: Vec::new(),
             body: b"x".to_vec(),
         };
         let mut written = Vec::new();

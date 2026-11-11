@@ -1,0 +1,3 @@
+Runtime error [R016]: Line 1: cannot set the header 'Location': use redirect for this header
+  1 | set_header("Location", "/other");
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,3 @@
+Runtime error [R016]: Line 1: cannot set the header 'content-length': the server sets this header itself
+  1 | set_header("content-length", "5");
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

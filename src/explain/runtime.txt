@@ -166,6 +166,19 @@ Right:
 
     redirect("/page");
 
+## R016 header that cannot be set
+`set_header(name, value)` adds a header to the answer of `somoni serve`. The name may only have letters, digits and
+`-`, and the value no line break, which could add headers of its own. `Content-Length`, `Connection` and
+`Transfer-Encoding` come from the server itself, and `Location` from `redirect`. The checks also run outside the server.
+
+Wrong:
+
+    set_header("Content-Type", "text/plain\nSet-Cookie: x=1");
+
+Right:
+
+    set_header("Content-Type", "application/json");
+
 ## R015 float too large
 A calculation with floats gave a result too large for a float (more than about 1.8 * 10^308). Somoni stops here like
 it does for an int, so a float is never infinite and never "not a number" (NaN).

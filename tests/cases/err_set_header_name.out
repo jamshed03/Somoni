@@ -1,0 +1,3 @@
+Runtime error [R016]: Line 1: cannot set the header 'X Name': a header name has only letters, digits and -
+  1 | set_header("X Name", "1");
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^

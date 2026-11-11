@@ -23,6 +23,7 @@ Saved as `search.smn`, this page answers `GET /search?q=lambda`; outside `somoni
 - `query("q")` reads `?q=...` from the address, `form("name")` an `<input name="name">` of a `POST` form
 - `request_path()` and `request_method()` read the rest of the request
 - `set_status(404)` changes the response code, `redirect("/")` sends the browser elsewhere
+- `set_header("Content-Type", "application/json")` sets a header of the answer, for example for JSON; a line break in it or a header the server sets itself (`Content-Length`, `Location`) is R016
 - `somoni serve folder --port 8080` uses another port than 8000
 - A `name.template.smn` file works the same way: its result is the page
 

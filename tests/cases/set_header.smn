@@ -1,0 +1,5 @@
+// set_header only has an effect under somoni serve, but its checks always run
+set_header("Content-Type", "application/json");
+set_header("X-Count", "3");
+set_header("x-count", "4");
+print("headers only reach a browser under somoni serve");

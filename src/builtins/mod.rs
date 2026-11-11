@@ -154,6 +154,7 @@ builtins! {
     GetBool       => "get_bool",       2, Method;
     IsNull        => "is_null",        2, Method;
     EnumFromName  => "<from_name>",    2, Function;
+    SetHeader     => "set_header",     2, Function;
     EscapeHtml    => "escape_html",    1, Method;
 }
 
@@ -340,6 +341,8 @@ impl Builtin {
             (Builtin::ReadFile, [Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)))
             }
+            (Builtin::SetHeader, [Type::Str, Type::Str]) => Ok(Type::Void),
+            (Builtin::SetHeader, [Type::Str, _]) => Err(1),
             (Builtin::DbOpen, [Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Database), Box::new(Type::Str)))
             }

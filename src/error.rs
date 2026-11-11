@@ -503,6 +503,10 @@ pub enum ErrorCode {
     InvalidRedirect {
         target: String,
     },
+    InvalidHeader {
+        name: String,
+        reason: &'static str,
+    },
     FloatOverflow,
     KeyNotFound {
         key: String,
@@ -687,6 +691,7 @@ impl ErrorCode {
             ErrorCode::OutputFailed { .. } => "R012",
             ErrorCode::InvalidStatus { .. } => "R013",
             ErrorCode::InvalidRedirect { .. } => "R014",
+            ErrorCode::InvalidHeader { .. } => "R016",
             ErrorCode::FloatOverflow => "R015",
         }
     }
@@ -1258,6 +1263,9 @@ impl ErrorCode {
             ErrorCode::OutputFailed { reason } => format!("cannot write the output: {}", reason),
             ErrorCode::FloatOverflow => {
                 "the result is too large for a float".to_string()
+            }
+            ErrorCode::InvalidHeader { name, reason } => {
+                format!("cannot set the header '{}': {}", name, reason)
             }
             ErrorCode::InvalidRedirect { target } => format!(
                 "redirect needs a target without line breaks, like \"/guestbook\", not {:?}",

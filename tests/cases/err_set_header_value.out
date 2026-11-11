@@ -1,0 +1,3 @@
+Runtime error [R016]: Line 1: cannot set the header 'X-Name': the value has a line break
+  1 | set_header("X-Name", "a\r\nSet-Cookie: x=1");
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

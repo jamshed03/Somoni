@@ -121,6 +121,7 @@ fn respond(root: &Path, request: &Incoming) -> Response {
                 status: 200,
                 content_type: content_type(&path),
                 location: None,
+                headers: Vec::new(),
                 body,
             },
             Err(err) => page(500, &format!("Cannot read {}: {}", url, err)),
@@ -193,17 +194,17 @@ fn inside(root: &Path, path: &Path) -> bool {
 fn run_page(path: &Path, request: Request) -> Response {
     let built = build(&path.to_string_lossy());
     let output = built.and_then(|(program, files)| {
-        let ran = vm::run_captured(&program, request);
-        ran.ended
-            .map(|()| (ran.status, ran.location, ran.output))
-            .map_err(|error| render(&error, &files))
+        let mut ran = vm::run_captured(&program, request);
+        let ended = std::mem::replace(&mut ran.ended, Ok(()));
+        ended.map(|()| ran).map_err(|error| render(&error, &files))
     });
     match output {
-        Ok((status, location, html)) => Response {
-            status,
+        Ok(ran) => Response {
+            status: ran.status,
             content_type: "text/html; charset=utf-8",
-            location,
-            body: html.into_bytes(),
+            location: ran.location,
+            headers: ran.headers,
+            body: ran.output.into_bytes(),
         },
         Err(message) => page(500, &message),
     }
@@ -389,5 +390,31 @@ mod tests {
             read,
             answer
         );
+    }
+
+    #[test]
+    fn a_page_sets_its_own_headers() {
+        let root = site("headers");
+        page_file(
+            &root,
+            "api.smn",
+            "set_header(\"Content-Type\", \"application/json\");\nset_header(\"X-Count\", \"1\");\nset_header(\"x-count\", \"2\");\nwrite(\"[]\");\n",
+        );
+        let response = send(&root, "GET /api HTTP/1.1\r\n\r\n");
+        let mut written = Vec::new();
+        write_response(&mut written, &response).unwrap();
+        let text = String::from_utf8(written).unwrap();
+        assert_eq!(text.matches("Content-Type:").count(), 1, "{}", text);
+        assert!(
+            text.contains("Content-Type: application/json\r\n"),
+            "{}",
+            text
+        );
+        assert!(
+            text.contains("x-count: 2\r\n") && !text.contains("X-Count: 1"),
+            "{}",
+            text
+        );
+        assert!(text.ends_with("\r\n\r\n[]"), "{}", text);
     }
 }

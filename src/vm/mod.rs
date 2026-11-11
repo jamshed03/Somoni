@@ -81,6 +81,8 @@ pub struct Page {
     pub status: u16,
     /// Where `redirect` sends the browser, for the header `Location`.
     pub location: Option<String>,
+    /// The headers that `set_header` added, like `Content-Type: application/json`.
+    pub headers: Vec<(String, String)>,
     pub ended: Result<(), SomoniError>,
 }
 
@@ -102,7 +104,26 @@ pub fn run_captured(program: &Program, request: Request) -> Page {
         output: vm.output.end_capture(),
         status: vm.status.unwrap_or(STATUS_OK),
         location: vm.location,
+        headers: vm.headers,
         ended,
+    }
+}
+
+/// Returns why a header may not be set: a name with other characters than letters, digits and -, a value with a line
+/// break (it could add headers of its own), or a header the server sets itself; None if it may.
+fn header_problem(name: &str, value: &str) -> Option<&'static str> {
+    if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Some("a header name has only letters, digits and -");
+    }
+    if value.contains(['\r', '\n']) {
+        return Some("the value has a line break");
+    }
+    match name.to_ascii_lowercase().as_str() {
+        "content-length" | "connection" | "transfer-encoding" => {
+            Some("the server sets this header itself")
+        }
+        "location" => Some("use redirect for this header"),
+        _ => None,
     }
 }
 
@@ -153,6 +174,8 @@ struct Vm<'p> {
     status: Option<u16>,
     /// Where `redirect` sends the browser.
     location: Option<String>,
+    /// The headers that `set_header` added, each name once.
+    headers: Vec<(String, String)>,
     /// The arguments after the file on the command line, which `args()` gives; empty under `somoni serve`.
     args: Vec<String>,
     /// The generator behind `random(min, max)`, started from the clock.
@@ -359,6 +382,7 @@ impl<'p> Vm<'p> {
             | Builtin::RequestPath
             | Builtin::RequestMethod
             | Builtin::SetStatus
+            | Builtin::SetHeader
             | Builtin::Redirect => self.server_call(builtin, start)?,
             _ if builtin.needs_dir() => self.file_call(builtin, start)?,
             _ => builtin.call(&self.stack[start..])?,
@@ -403,8 +427,9 @@ impl<'p> Vm<'p> {
         }
     }
 
-    /// Runs `query`, `form`, `request_path`, `request_method`, `set_status` or `redirect` with the arguments from `start`
-    /// on; without a request, `query` and `form` give null and the others an empty string or nothing.
+    /// Runs `query`, `form`, `request_path`, `request_method`, `set_status`, `set_header` or `redirect` with the
+    /// arguments from `start` on; without a request, `query` and `form` give null and the others an empty string or
+    /// nothing.
     fn server_call(&mut self, builtin: Builtin, start: usize) -> Result<Value, SomoniError> {
         let text = |text: &str| string_value(text.to_string());
         let request = self.request.as_ref();
@@ -432,6 +457,10 @@ impl<'p> Vm<'p> {
                 let target = target.as_str().to_string();
                 return self.redirect(target);
             }
+            (Builtin::SetHeader, [Value::Str(name), Value::Str(value)]) => {
+                let header = (name.as_str().to_string(), value.as_str().to_string());
+                return self.set_header(header);
+            }
             _ => return Err(SomoniError::internal("no server call for these arguments")),
         };
         Ok(value)
@@ -445,6 +474,17 @@ impl<'p> Vm<'p> {
         }
         self.status = Some(STATUS_SEE_OTHER);
         self.location = Some(target);
+        Ok(Value::Void)
+    }
+
+    /// Adds a header to the answer, replacing one with the same name in any case, or returns R016 if it is not allowed.
+    fn set_header(&mut self, (name, value): (String, String)) -> Result<Value, SomoniError> {
+        if let Some(reason) = header_problem(&name, &value) {
+            return Err(ErrorCode::InvalidHeader { name, reason }.into());
+        }
+        self.headers
+            .retain(|(old, _)| !old.eq_ignore_ascii_case(&name));
+        self.headers.push((name, value));
         Ok(Value::Void)
     }
 
