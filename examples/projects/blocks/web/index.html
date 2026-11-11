@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Blocks</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css">
+    <script src="game.js" defer></script>
+</head>
+<body>
+    <main class="game">
+        <div class="well" id="board" role="img" aria-label="The well with the pieces"></div>
+        <aside class="side">
+            <h1>Blocks</h1>
+            <p class="score">Score <strong id="score">0</strong></p>
+            <p class="over" id="over" hidden>Game over</p>
+            <button type="button" id="new">New game</button>
+            <dl class="keys">
+                <dt>← →</dt><dd>move</dd>
+                <dt>↑</dt><dd>turn</dd>
+                <dt>↓</dt><dd>down</dd>
+                <dt>space</dt><dd>drop</dd>
+            </dl>
+            <p class="note">The rules run in Somoni on the server; this page only draws and sends keys.</p>
+        </aside>
+        <div class="pad" aria-label="Buttons to play">
+            <button type="button" data-command="left" aria-label="Move left">←</button>
+            <button type="button" data-command="rotate" aria-label="Turn">↻</button>
+            <button type="button" data-command="right" aria-label="Move right">→</button>
+            <button type="button" data-command="drop" aria-label="Drop">⤓</button>
+        </div>
+    </main>
+</body>
+</html>

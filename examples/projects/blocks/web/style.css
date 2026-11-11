@@ -1,0 +1,150 @@
+/* The look of Blocks: a dark well, one colour for each shape, the falling piece a little lighter. */
+
+:root {
+    --bg: #14161c;
+    --panel: #1d2029;
+    --line: #2b2f3b;
+    --text: #e7e9ee;
+    --muted: #9aa0ad;
+    --accent: #f0b429;
+    --cell: 28px;
+    --shape-I: #4cc9f0;
+    --shape-O: #f9c74f;
+    --shape-T: #b388eb;
+    --shape-S: #80ed99;
+    --shape-Z: #f28482;
+    --shape-J: #5e81f4;
+    --shape-L: #f8961e;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, sans-serif;
+    display: grid;
+    place-items: center;
+}
+
+.game {
+    display: grid;
+    grid-template-columns: auto 14rem;
+    grid-template-areas: "well side" "pad side";
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+.well {
+    grid-area: well;
+    display: grid;
+    grid-template-columns: repeat(10, var(--cell));
+    grid-template-rows: repeat(20, var(--cell));
+    gap: 2px;
+    padding: 6px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.cell {
+    border-radius: 4px;
+    background: var(--line);
+}
+
+.shape-I { background: var(--shape-I); }
+.shape-O { background: var(--shape-O); }
+.shape-T { background: var(--shape-T); }
+.shape-S { background: var(--shape-S); }
+.shape-Z { background: var(--shape-Z); }
+.shape-J { background: var(--shape-J); }
+.shape-L { background: var(--shape-L); }
+
+.falling {
+    filter: brightness(1.15);
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
+}
+
+.side {
+    grid-area: side;
+}
+
+h1 {
+    margin: 0 0 0.5rem;
+    font-size: 1.8rem;
+    letter-spacing: 0.04em;
+}
+
+.score strong {
+    font-size: 1.6rem;
+    color: var(--accent);
+}
+
+.over {
+    color: var(--shape-Z);
+    font-weight: 600;
+}
+
+button {
+    font: inherit;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+    border-color: var(--accent);
+}
+
+.keys {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.75rem;
+    margin: 1.25rem 0;
+    color: var(--muted);
+}
+
+.keys dt {
+    color: var(--text);
+}
+
+.keys dd {
+    margin: 0;
+}
+
+.note {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.pad {
+    grid-area: pad;
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.pad button {
+    font-size: 1.3rem;
+    width: 3.2rem;
+}
+
+@media (max-width: 640px) {
+    :root {
+        --cell: min(7vw, 26px);
+    }
+
+    .game {
+        grid-template-columns: auto;
+        grid-template-areas: "side" "well" "pad";
+        padding: 1rem;
+    }
+}
