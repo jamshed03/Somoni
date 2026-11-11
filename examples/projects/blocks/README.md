@@ -101,14 +101,14 @@ The project grows in steps, each one working on its own:
 2. [x] the domain with tests: shapes, pieces, the board, the game, its events
 3. [x] `GameService`, `PieceSource` with `FixedPieces` and `RandomPieces`, `TextView`, and `terminal.smn` to play in the terminal
 4. [x] `GameStore` in SQLite, `JsonView`, and `web/game.smn` for `somoni serve`
-5. [ ] the browser: `index.html`, `game.js`, `style.css`
+5. [x] the browser: `index.html`, `game.js`, `style.css`
 6. [ ] high scores in SQLite with `ScoreDto`
 
 ## Running
 
-The terminal works now (`demo` as an argument plays a fixed order of shapes). `web/game.smn` answers `GET /game`
-and `POST /game` with `command=left` (or `right`, `rotate`, `down`, `drop`, `new`) as JSON; the page to play
-it in the browser comes with step 5.
+In the terminal, `demo` as an argument plays a fixed order of shapes. In the browser, `web/game.js` sends the keys to
+`web/game.smn` (`POST /game` with `command=left`, `right`, `rotate`, `down`, `drop` or `new`) and draws the JSON it
+gets back; a tick sends `down` every 700 ms.
 
 
 ```

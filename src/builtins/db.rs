@@ -5,6 +5,7 @@
 use std::fmt;
 use std::path::Path;
 use std::rc::Rc;
+use std::time::Duration;
 
 use rusqlite::Connection;
 use rusqlite::types::Value as SqlValue;
@@ -15,6 +16,9 @@ use super::string_value;
 
 /// The name of a database that lives only in memory, as SQLite calls it.
 const IN_MEMORY: &str = ":memory:";
+
+/// How long a statement waits for another one that writes to the same file, like two requests at once.
+const BUSY_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// An open database, with the path it was opened with for `print`.
 pub struct Database {
@@ -51,7 +55,11 @@ pub(super) fn open(dir: &str, path: &str) -> Value {
     } else {
         Connection::open(Path::new(dir).join(path))
     };
-    match opened {
+    let ready = opened.and_then(|connection| {
+        connection.busy_timeout(BUSY_TIMEOUT)?;
+        Ok(connection)
+    });
+    match ready {
         Ok(connection) => {
             let name = path.to_string();
             Value::Ok(Rc::new(Value::Database(Rc::new(Database {

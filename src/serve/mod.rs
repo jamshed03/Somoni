@@ -2,9 +2,11 @@
 //! A Somoni program runs and what it writes is the page; any other file is sent as it is.
 
 use std::fs;
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, ErrorKind};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Duration;
 
 use crate::vm::{self, Request};
 use crate::{build, render};
@@ -14,6 +16,9 @@ use url::{decode, parse_query, split_target};
 
 mod http;
 mod url;
+
+/// How long a connection may take to send its request before the server closes it.
+const READ_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The endings that make a file a program, tried in this order for a path like `/about`.
 const PROGRAM_ENDINGS: &[&str] = &[".smn", ".template.smn"];
@@ -41,17 +46,34 @@ pub fn serve(dir: &str, port: u16) -> Result<(), String> {
         root.display(),
         port
     );
+    listen(listener, &root);
+    Ok(())
+}
+
+/// Answers the connections that come in on `listener` with the files of `root`, each in a thread of its own, so a
+/// connection that sends nothing (a browser opens such ones ahead) does not keep the others waiting.
+fn listen(listener: TcpListener, root: &Path) {
     for stream in listener.incoming() {
-        let answered = stream.and_then(|stream| answer(stream, &root));
+        let root = root.to_path_buf();
+        let answered = stream.map(|stream| thread::spawn(move || answer_logged(stream, &root)));
         if let Err(err) = answered {
-            eprintln!("request failed: {}", err);
+            eprintln!("connection failed: {}", err);
         }
     }
-    Ok(())
+}
+
+/// Answers one connection and logs a failure; a connection that sent nothing in time is closed quietly.
+fn answer_logged(stream: TcpStream, root: &Path) {
+    match answer(stream, root) {
+        Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {}
+        Err(err) => eprintln!("request failed: {}", err),
+        Ok(()) => {}
+    }
 }
 
 /// Reads one request from `stream`, writes the answer and logs it, like `GET /about 200`.
 fn answer(mut stream: TcpStream, root: &Path) -> io::Result<()> {
+    stream.set_read_timeout(Some(READ_TIMEOUT))?;
     let (line, response) = match read_request(&mut BufReader::new(&stream))? {
         Some(request) => (request.line.clone(), respond(root, &request)),
         None => (
@@ -341,5 +363,31 @@ mod tests {
         let (_, inside) = get(&root, "/db?path=docs/app.db");
         assert_eq!(inside, "ok(<database docs/app.db>)\n");
         assert!(root.join("docs/app.db").exists());
+    }
+
+    #[test]
+    fn a_connection_that_sends_nothing_does_not_block_the_others() {
+        use std::io::{Read, Write};
+        use std::time::Duration;
+        let root = site("idle");
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        std::thread::spawn(move || listen(listener, &root));
+        let _idle = TcpStream::connect(address).unwrap();
+        let mut client = TcpStream::connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        client
+            .write_all(b"GET /style.css HTTP/1.1\r\n\r\n")
+            .unwrap();
+        let mut answer = String::new();
+        let read = client.read_to_string(&mut answer);
+        assert!(
+            read.is_ok() && answer.starts_with("HTTP/1.1 200"),
+            "{:?} {:?}",
+            read,
+            answer
+        );
     }
 }
