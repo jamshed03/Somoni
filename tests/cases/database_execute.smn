@@ -1,0 +1,21 @@
+// db_open and execute: a database in memory, statements with parameters, and errors as values
+fn fill(db: database): result<int, string> {
+    db.execute("CREATE TABLE scores (name TEXT, points INTEGER)", [])?;
+    var first = db.execute("INSERT INTO scores (name, points) VALUES (?, ?)", ("Ali", 120))?;
+    var second = db.execute("INSERT INTO scores (name, points) VALUES (?, ?)", ("Bea", 95))?;
+    var raised = db.execute("UPDATE scores SET points = points + ? WHERE points > ?", [10, 100])?;
+    return ok(first + second + raised);
+}
+
+match (db_open(":memory:")) {
+    ok(db: database) => {
+        print(db);
+        print(fill(db));
+        var nobody: string? = null;
+        print(db.execute("INSERT INTO scores (name, points) VALUES (?, ?)", (nobody, 0)));
+        print(db.execute("INSERT INTO missing VALUES (1)", []));
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}

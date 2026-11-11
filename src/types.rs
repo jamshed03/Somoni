@@ -71,6 +71,8 @@ pub enum Type {
     /// `Animal & Shape`: an object that has all these types, which only narrowing with `instanceof` makes;
     /// at least two parts, the class (if any) first.
     Intersection(Rc<[Type]>),
+    /// An open SQLite database from `db_open`.
+    Database,
 }
 
 /// What the place of a lambda tells about its type, e.g. the parameter type that `l.map(...)` gives it.
@@ -117,7 +119,7 @@ impl Type {
             Type::Function(function) => (function.params.iter())
                 .chain([&function.result])
                 .find_map(Type::origin_file),
-            Type::Int | Type::Float | Type::Bool | Type::Str | Type::Void => None,
+            Type::Int | Type::Float | Type::Bool | Type::Str | Type::Void | Type::Database => None,
         }
     }
 
@@ -156,6 +158,7 @@ impl Type {
             "float" => Some(Type::Float),
             "bool" => Some(Type::Bool),
             "string" => Some(Type::Str),
+            "database" => Some(Type::Database),
             _ => None,
         }
     }
@@ -219,6 +222,7 @@ impl fmt::Display for Type {
                 function.result
             ),
             Type::Intersection(parts) => write!(f, "{}", Type::joined(parts, " & ")),
+            Type::Database => write!(f, "database"),
         }
     }
 }

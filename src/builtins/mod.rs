@@ -14,12 +14,14 @@ use strings::{
     split,
 };
 
+pub(crate) use db::Database;
 pub(crate) use random::Random;
 pub(crate) use strings::html_safe;
 
 mod collections;
 mod convert;
 mod date;
+mod db;
 mod io;
 mod math;
 mod random;
@@ -143,6 +145,8 @@ builtins! {
     PadRight      => "pad_right",      2, Method;
     Repeat        => "repeat",         2, Method;
     Indent        => "indent",         2, Method;
+    DbOpen        => "db_open",        1, Function;
+    Execute       => "execute",        3, Method;
     EscapeHtml    => "escape_html",    1, Method;
 }
 
@@ -210,6 +214,7 @@ impl Builtin {
                 | Builtin::AppendFile
                 | Builtin::CopyFile
                 | Builtin::MakeDir
+                | Builtin::DbOpen
         )
     }
 
@@ -218,6 +223,7 @@ impl Builtin {
     pub fn refused_under(self, root: &Path, args: &[Value]) -> Option<Value> {
         let paths: &[(usize, io::Access)] = match self {
             Builtin::ReadFile => &[(1, io::Access::Read)],
+            Builtin::DbOpen => &[(1, io::Access::WriteFile)],
             Builtin::WriteFile | Builtin::AppendFile => &[(1, io::Access::WriteFile)],
             Builtin::MakeDir => &[(1, io::Access::MakeFolder)],
             Builtin::CopyFile => &[(1, io::Access::Read), (2, io::Access::WriteFile)],
@@ -251,6 +257,9 @@ impl Builtin {
             (Builtin::Contains | Builtin::IndexOf, [Type::List(element)]) => {
                 Some((**element).clone())
             }
+            (Builtin::Execute, [Type::Database, Type::Str]) => {
+                Some(Type::List(Box::new(Type::Str)))
+            }
             _ => None,
         }
     }
@@ -259,6 +268,9 @@ impl Builtin {
     /// `expected_arg`, or the simple types that would fit there (`int or float`).
     pub fn expected_text(self, args: &[Type], bad: usize) -> Option<String> {
         let before = &args[..bad];
+        if self == Builtin::Execute && bad == 2 {
+            return Some("a list or tuple of int, float, string or bool".to_string());
+        }
         match (self, self.function_hint(before)) {
             (Builtin::SortBy | Builtin::SortByDesc, Some(hint)) => {
                 Some(format!("fn({}): int, float or string", hint.params[0]))
@@ -321,6 +333,14 @@ impl Builtin {
             (Builtin::ReadFile, [Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)))
             }
+            (Builtin::DbOpen, [Type::Str]) => {
+                Ok(Type::Result(Box::new(Type::Database), Box::new(Type::Str)))
+            }
+            (Builtin::Execute, [Type::Database, Type::Str, params]) if is_sql_params(params) => {
+                Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
+            }
+            (Builtin::Execute, [Type::Database, Type::Str, _]) => Err(2),
+            (Builtin::Execute, [Type::Database, _, _]) => Err(1),
             (Builtin::WriteFile, [Type::Str, Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Int), Box::new(Type::Str)))
             }
@@ -481,6 +501,12 @@ impl Builtin {
             (Builtin::FormatDate, [Value::Int(millis), Value::Str(pattern)]) => {
                 Ok(string_value(date::format_date(*millis, pattern.as_str())))
             }
+            (Builtin::DbOpen, [Value::Str(dir), Value::Str(path)]) => {
+                Ok(db::open(dir.as_str(), path.as_str()))
+            }
+            (Builtin::Execute, [Value::Database(database), Value::Str(sql), params]) => {
+                Ok(db::execute(database, sql.as_str(), params))
+            }
             (Builtin::ReadFile, [Value::Str(dir), Value::Str(path)]) => {
                 Ok(io::read_file(dir.as_str(), path.as_str()))
             }
@@ -606,5 +632,23 @@ pub(super) fn slice_range(
     match (from, to) {
         (Some(from), Some(to)) if from <= to => Ok((from, to)),
         _ => Err(ErrorCode::SliceOutOfRange { start, end, length }.into()),
+    }
+}
+
+/// Returns true for the parameters of an SQL statement: a list or a tuple of simple values, also with `?`.
+fn is_sql_params(ty: &Type) -> bool {
+    match ty {
+        Type::List(element) => is_sql_value(element),
+        Type::Tuple(elements) => elements.iter().all(is_sql_value),
+        _ => false,
+    }
+}
+
+/// Returns true for a type that SQLite can store: `int`, `float`, `string`, `bool`, or one of them with `?`.
+fn is_sql_value(ty: &Type) -> bool {
+    match ty {
+        Type::Optional(inner) => is_sql_value(inner),
+        Type::Int | Type::Float | Type::Str | Type::Bool => true,
+        _ => false,
     }
 }

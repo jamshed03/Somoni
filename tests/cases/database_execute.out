@@ -1,0 +1,4 @@
+<database :memory:>
+ok(3)
+ok(1)
+err("no such table: missing")

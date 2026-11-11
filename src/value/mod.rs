@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast::{ClassLayout, EnumDecl, StructDecl};
+use crate::builtins::Database;
 use crate::error::SomoniError;
 use crate::map::{Key, MapValue};
 use crate::text::Text;
@@ -38,6 +39,8 @@ pub enum Value {
     Function(usize),
     /// A lambda as a value, with the copies of the variables it uses.
     Closure(Rc<Closure>),
+    /// An open SQLite database, shared like an object.
+    Database(Rc<Database>),
     Null,
     Void,
 }

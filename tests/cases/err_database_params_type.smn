@@ -1,0 +1,8 @@
+match (db_open(":memory:")) {
+    ok(db: database) => {
+        print(db.execute("SELECT ?", [[1]]));
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}

@@ -8,6 +8,7 @@ repository = "https://github.com/jamshed03/Somoni"
 include = ["/src/**", "/README.md", "/LICENSE", "/somoni-logo.svg"]
 
 [dependencies]
+rusqlite = { version = "0.42.0", features = ["bundled"] }
 
 # Lightly optimized debug builds, so that cargo test runs the examples in seconds instead of tens of seconds.
 [profile.dev]

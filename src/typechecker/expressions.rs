@@ -708,7 +708,7 @@ impl TypeChecker {
         for arg in args.iter_mut() {
             let found = match (&mut arg.kind, builtin.function_hint(&types)) {
                 (ExprKind::Lambda(lambda), Some(hint)) => self.check_lambda(lambda, Some(hint))?,
-                _ => match builtin.expected_arg(&types).or_else(|| start.take()) {
+                _ => match self.expected_for(builtin, &types, arg, &mut start) {
                     Some(expected) => self.check_expr_expecting(arg, &expected)?,
                     None => self.check_expr(arg)?,
                 },
@@ -716,6 +716,21 @@ impl TypeChecker {
             types.push(found);
         }
         Ok(types)
+    }
+
+    /// Returns the type an argument without a type of its own (`[]`, `null`, ...) gets from its place: what the built-in
+    /// expects there, or the start value of `reduce`; None for an argument with its own type, which keeps it.
+    fn expected_for(
+        &self,
+        builtin: Builtin,
+        types: &[Type],
+        arg: &Expr,
+        start: &mut Option<Type>,
+    ) -> Option<Type> {
+        if !needs_type_hint(arg) {
+            return None;
+        }
+        builtin.expected_arg(types).or_else(|| start.take())
     }
 
     /// Returns the type that a start value without a type of its own (`[]`, `{}`, `null`, `ok(...)`) gets in
@@ -767,7 +782,7 @@ impl TypeChecker {
             Type::Struct(_) if self.has_field(&target_type, &call.name) => {
                 self.check_field_call(&target_type, call, span)
             }
-            Type::Str | Type::Float | Type::List(_) | Type::Map(_, _) => {
+            Type::Str | Type::Float | Type::List(_) | Type::Map(_, _) | Type::Database => {
                 self.check_builtin_method(target_type, call, span)
             }
             _ => Err(SomoniError::at(
