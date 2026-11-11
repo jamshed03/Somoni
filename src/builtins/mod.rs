@@ -88,6 +88,7 @@ builtins! {
     CopyFile      => "copy_file",      2, Function;
     AppendFile    => "append_file",    2, Function;
     MakeDir       => "make_dir",       1, Function;
+    ProgramDir    => "program_dir",    0, Function;
     Args          => "args",           0, Function;
     Now           => "now",            0, Function;
     FormatDate    => "format_date",    2, Function;
@@ -338,6 +339,7 @@ impl Builtin {
                 Ok(Type::Str)
             }
             (Builtin::Input, []) => Ok(Type::Optional(Box::new(Type::Str))),
+            (Builtin::ProgramDir, []) => Ok(Type::Str),
             (Builtin::ReadFile, [Type::Str]) => {
                 Ok(Type::Result(Box::new(Type::Str), Box::new(Type::Str)))
             }
@@ -530,6 +532,7 @@ impl Builtin {
         match (self, args) {
             (Builtin::Input, []) => io::read_line(),
             (Builtin::Now, []) => Ok(Value::Int(io::now_millis())),
+            (Builtin::ProgramDir, [path @ Value::Str(_)]) => Ok(path.clone()),
             (Builtin::FormatDate, [Value::Int(millis), Value::Str(pattern)]) => {
                 Ok(string_value(date::format_date(*millis, pattern.as_str())))
             }

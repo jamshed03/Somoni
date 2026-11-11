@@ -695,11 +695,23 @@ impl TypeChecker {
                 call.args[bad].span,
             )
         })?;
-        if builtin.needs_dir() {
-            let dir = ExprKind::Str(Rc::new(Text::new(self.current_dir.clone())));
+        if let Some(dir) = self.hidden_dir(builtin) {
+            let dir = ExprKind::Str(Rc::new(Text::new(dir)));
             call.args.insert(0, Expr { kind: dir, span });
         }
         Ok(result)
+    }
+
+    /// Returns the folder that a built-in gets as a hidden first argument: the folder of this file for the file
+    /// functions, the path from here to the main file's folder for `program_dir()`.
+    fn hidden_dir(&self, builtin: Builtin) -> Option<String> {
+        if builtin.needs_dir() {
+            Some(self.current_dir.clone())
+        } else if builtin == Builtin::ProgramDir {
+            Some(self.to_program_dir.clone())
+        } else {
+            None
+        }
     }
 
     /// Checks the arguments of a built-in function or method after the types `before` (the value of a method) and returns

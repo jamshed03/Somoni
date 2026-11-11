@@ -23,6 +23,15 @@ print((1.0 / 3.0).format(2));
 - An empty start value of `reduce` like `[]` or `null` takes the type written in the lambda: `fn(names: list<string>, n) => ...`
 - Maps: `values()`, `remove`, `get(k, default)`, plus the functions `len`, `has(m, k)`, `keys(m)`
 - Input and output: `print`, `write` (without a line break), `input()` (one line, `null` at the end), `read_file`, `write_file`, `append_file`, `copy_file` and `make_dir` (with a `result`; `copy_file` copies bytes, so it also works for images), `capture(fn() => ...)` (what a function prints, as a string)
+- Paths: a file path starts at the folder of the file with the call, like `import`. `program_dir()` leads from there to the folder of the main program, so a library can open the program's files:
+
+```smn
+// in lib/scores.smn, used by main.smn
+fn load_scores(): result<string, string> {
+    return read_file(program_dir() + "data/scores.txt"); // program_dir() is "../" here
+}
+```
+
 - Database: `db_open`, `db.execute` and `db.fetch` for SQLite, see the Database page
 - Command line: `args()` gives the arguments after the file as a `list<string>`, so `somoni greet.smn Ali 30` gives `["Ali", "30"]`
 - Time: `now()` gives the milliseconds since 1970 as an `int`, like `Date.now()` in JavaScript; `now() - start` measures how long something took; `format_date(now(), "YYYY-MM-DD hh:mm")` shows a moment in UTC

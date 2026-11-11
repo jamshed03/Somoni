@@ -1,0 +1,7 @@
+export fn dir_from_module(): string {
+    return program_dir();
+}
+
+export fn read_program_file(path: string): result<string, string> {
+    return read_file(program_dir() + path);
+}

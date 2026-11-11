@@ -1,0 +1,15 @@
+// program_dir() leads from the file with the call to the folder of the main program
+import { dir_from_module, read_program_file } from "modules/program_files.smn";
+import { dir_from_deep_module } from "modules/text/program_files_deep.smn";
+
+print("[" + program_dir() + "]");
+print(dir_from_module());
+print(dir_from_deep_module());
+match (read_program_file("files/hello.txt")) {
+    ok(text: string) => {
+        print(text.split("\n")[0]);
+    }
+    err(reason: string) => {
+        print(reason);
+    }
+}

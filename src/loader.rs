@@ -215,9 +215,44 @@ fn tidy(path: &Path) -> String {
         .join("/")
 }
 
+/// Returns the relative path from the folder `from` to the folder `to`, like `"../../"`, with `/` at the end and `""`
+/// for the same folder; both must be canonical. Without a shared start (another drive on Windows) it is `to` itself.
+pub fn relative_dir(from: &Path, to: &Path) -> String {
+    let from_parts: Vec<Component> = from.components().collect();
+    let to_parts: Vec<Component> = to.components().collect();
+    let shared = from_parts
+        .iter()
+        .zip(&to_parts)
+        .take_while(|(a, b)| a == b)
+        .count();
+    if shared == 0 {
+        return format!("{}/", to.to_string_lossy());
+    }
+    let ups = (shared..from_parts.len()).map(|_| "../".to_string());
+    let downs = to_parts[shared..]
+        .iter()
+        .map(|part| format!("{}/", part.as_os_str().to_string_lossy()));
+    ups.chain(downs).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn relative_dir_goes_up_and_down() {
+        let dir = |text: &str| PathBuf::from(text);
+        assert_eq!(relative_dir(&dir("/app"), &dir("/app")), "");
+        assert_eq!(
+            relative_dir(&dir("/app/lib/adapters"), &dir("/app")),
+            "../../"
+        );
+        assert_eq!(
+            relative_dir(&dir("/shared/lib"), &dir("/app/web")),
+            "../../app/web/"
+        );
+        assert_eq!(relative_dir(&dir("/app"), &dir("/app/web")), "web/");
+    }
 
     #[test]
     fn tidy_removes_dots_and_joins_with_slashes() {

@@ -7,7 +7,7 @@ use crate::ast::{
     TypeName, VTable, Visibility,
 };
 use crate::error::{ErrorCode, SomoniError};
-use crate::loader::{MAIN_FILE, SourceFile};
+use crate::loader::{MAIN_FILE, SourceFile, relative_dir};
 use crate::scope::Scopes;
 use crate::span::Span;
 use crate::types::{Decl, Type};
@@ -310,6 +310,9 @@ pub struct TypeChecker {
     scopes: Scopes<VarInfo>,
     /// The folder of the file being checked, which `read_file` and `write_file` get as a hidden first argument.
     current_dir: String,
+    /// The path from the folder of the file being checked to the folder of the main file, which `program_dir()` gets
+    /// as a hidden argument.
+    to_program_dir: String,
     loop_depth: usize,
     names: Names,
     exports_by_file: HashMap<usize, Exports>,
@@ -347,6 +350,7 @@ impl TypeChecker {
             in_constructor: false,
             super_init_allowed: false,
             current_dir: String::new(),
+            to_program_dir: String::new(),
             function_count: 0,
             lambda_count: 0,
             lambda_scopes: Vec::new(),
@@ -362,6 +366,7 @@ impl TypeChecker {
     pub fn check(&mut self, files: &mut [SourceFile], order: &[usize]) -> Result<(), SomoniError> {
         for &number in order {
             self.current_dir = files[number].dir.to_string_lossy().into_owned();
+            self.to_program_dir = relative_dir(&files[number].dir, &files[MAIN_FILE].dir);
             let stmts = &mut files[number].stmts;
             self.names = Names::default();
             self.scopes = Scopes::new();
