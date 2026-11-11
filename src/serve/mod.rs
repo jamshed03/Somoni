@@ -324,4 +324,22 @@ mod tests {
         assert!(read.contains("outside the served folder"), "{}", read);
         assert!(!read.contains("secret\""), "{}", read);
     }
+
+    #[test]
+    fn a_page_opens_databases_only_inside_its_folder() {
+        let root = site("database");
+        page_file(
+            &root,
+            "db.smn",
+            "if (var path = query(\"path\")) {\n    print(db_open(path));\n}\n",
+        );
+        let (_, outside) = get(&root, "/db?path=../outside.db");
+        assert!(outside.contains("outside the served folder"), "{}", outside);
+        assert!(!root.parent().unwrap().join("outside.db").exists());
+        let (_, source) = get(&root, "/db?path=hack.smn");
+        assert!(source.contains("does not write .smn files"), "{}", source);
+        let (_, inside) = get(&root, "/db?path=docs/app.db");
+        assert_eq!(inside, "ok(<database docs/app.db>)\n");
+        assert!(root.join("docs/app.db").exists());
+    }
 }
