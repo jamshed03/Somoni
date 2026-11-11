@@ -7,10 +7,11 @@ export enum EventKind {
     Over
 }
 
-// One event; `rows` is the number of rows that went away, 0 for the other kinds.
+// One event; `rows` is the number of rows that went away (0 for the other kinds), `score` the points at that moment.
 export struct GameEvent {
     kind: EventKind,
-    rows: int
+    rows: int,
+    score: int
 }
 
 // Something that wants to hear about the events of a game, like a high score list or a sound.

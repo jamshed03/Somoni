@@ -1,0 +1,7 @@
+ok([])
+ok([ScoreDto { points: 800, at: 2000 }, ScoreDto { points: 300, at: 500 }, ScoreDto { points: 300, at: 1000 }])
+ok(0)
+true
+null
+[100]
+ok(0)

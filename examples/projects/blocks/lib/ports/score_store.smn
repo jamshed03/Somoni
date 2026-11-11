@@ -1,0 +1,16 @@
+// The port for high scores, and the DTO in which a score crosses it.
+
+// One saved score: its points and when the game ended, in milliseconds since 1970 like now().
+export struct ScoreDto {
+    points: int,
+    at: int
+}
+
+// Saves scores and lists the best ones.
+export interface ScoreStore {
+    // Saves the points of a game that ended at `at`.
+    add(points: int, at: int): result<int, string>;
+
+    // Returns the best `count` scores, the highest first; with equal points the earlier one first.
+    best(count: int): result<list<ScoreDto>, string>;
+}

@@ -14,6 +14,7 @@ const KEYS = {
 const board = document.getElementById("board");
 const score = document.getElementById("score");
 const over = document.getElementById("over");
+const best = document.getElementById("scores");
 const cells = [];
 let finished = false;
 let waiting = 0;
@@ -45,7 +46,20 @@ function draw(state) {
     });
     score.textContent = state.score;
     over.hidden = !state.over;
+    if (state.over && !finished) {
+        loadScores();
+    }
     finished = state.over;
+}
+
+// Shows the best scores from web/scores.smn.
+async function loadScores() {
+    const scores = await (await fetch("scores")).json();
+    best.replaceChildren(...scores.map((entry) => {
+        const item = document.createElement("li");
+        item.textContent = `${entry.points} · ${entry.date}`;
+        return item;
+    }));
 }
 
 // Asks the server for the state, after running `command` if there is one.
@@ -99,3 +113,4 @@ setInterval(() => {
 
 makeCells();
 send(null);
+loadScores();

@@ -140,7 +140,7 @@ export class Game {
 
     // Tells every listener about an event.
     private tell(kind: EventKind, rows: int): void {
-        var event = GameEvent { kind: kind, rows: rows };
+        var event = GameEvent { kind: kind, rows: rows, score: this.points };
         for (listener in this.listeners) {
             listener.notify(event);
         }

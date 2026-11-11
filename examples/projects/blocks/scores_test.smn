@@ -1,0 +1,49 @@
+// Checks the high scores in SQLite, and the listener that saves the score when a game ends, in databases in memory.
+
+import { Shape } from "lib/domain/shape.smn";
+import { Board } from "lib/domain/board.smn";
+import { PieceFactory } from "lib/domain/piece_factory.smn";
+import { Game } from "lib/domain/game.smn";
+import { Command, GameService } from "lib/ports/game_service.smn";
+import { HighscoreRecorder } from "lib/ports/highscore_recorder.smn";
+import { FixedPieces } from "lib/adapters/fixed_pieces.smn";
+import { SqliteScores } from "lib/adapters/sqlite_scores.smn";
+
+// Saves four scores and lists the best three: the highest first, with equal points the earlier one first.
+fn check_order(db: database): result<int, string> {
+    var scores = new SqliteScores(db);
+    print(scores.best(3));
+    scores.add(300, 1000)?;
+    scores.add(800, 2000)?;
+    scores.add(300, 500)?;
+    scores.add(100, 3000)?;
+    print(scores.best(3));
+    return ok(0);
+}
+
+// Plays a small game to its end and checks that the listener saved its score without the game knowing about it.
+fn check_recorder(db: database): result<int, string> {
+    var scores = new SqliteScores(db);
+    var recorder = new HighscoreRecorder(scores);
+    var game = new Game(Board::empty(4, 4), new PieceFactory(4));
+    game.subscribe(recorder);
+    var service = new GameService(game, new FixedPieces([Shape.I, Shape.O, Shape.O, Shape.O]));
+    for (command in [Command.Drop, Command.Drop, Command.Drop]) {
+        service.apply(command);
+    }
+    print(game.is_over());
+    print(recorder.error());
+    print(scores.best(5)?.map(fn(score) => score.points));
+    return ok(0);
+}
+
+for (check in [check_order, check_recorder]) {
+    match (db_open(":memory:")) {
+        ok(db: database) => {
+            print(check(db));
+        }
+        err(reason: string) => {
+            print(reason);
+        }
+    }
+}

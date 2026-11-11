@@ -1,0 +1,33 @@
+// Keeps the high scores in SQLite; reading the rows back into ScoreDto values is the DTO mapping.
+
+import { ScoreDto, ScoreStore } from "../ports/score_store.smn";
+
+// Saves scores in the table `scores` of a database it gets from outside.
+export class SqliteScores implements ScoreStore {
+    private db: database;
+
+    constructor(db: database) {
+        this.db = db;
+    }
+
+    add(points: int, at: int): result<int, string> {
+        this.make_table()?;
+        return this.db.execute("INSERT INTO scores (points, at) VALUES (?, ?)", [points, at]);
+    }
+
+    best(count: int): result<list<ScoreDto>, string> {
+        this.make_table()?;
+        var rows = this.db.fetch("SELECT points, at FROM scores ORDER BY points DESC, at ASC LIMIT ?", [count])?;
+        var found: list<ScoreDto> = [];
+        for (row in rows) {
+            found += [ScoreDto { points: row.get_int("points")?, at: row.get_int("at")? }];
+        }
+        return ok(found);
+    }
+
+    // Makes the table on first use.
+    private make_table(): result<int, string> {
+        var sql = "CREATE TABLE IF NOT EXISTS scores (id INTEGER PRIMARY KEY, points INTEGER NOT NULL, at INTEGER NOT NULL)";
+        return this.db.execute(sql, []);
+    }
+}

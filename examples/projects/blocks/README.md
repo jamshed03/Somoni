@@ -32,13 +32,13 @@ places that create adapters and hand them to the game.
 
 ## Folders
 
-| Folder          | Holds                                                                                     |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| `lib/domain/`   | the rules: `Shape`, `Piece`, `Board`, `Game`, the events of a game; no input or output      |
-| `lib/ports/`    | the interfaces between the domain and the outside, and `GameService`, the one entry point  |
-| `lib/adapters/` | the implementations: pieces, storage in SQLite, the text and JSON views                   |
-| `web/`          | the browser: `index.html`, `game.js`, `style.css`, and `game.smn` for `somoni serve`        |
-| top level       | `terminal.smn` to play in the terminal, and the test programs, each with its `.out`        |
+| Folder          | Holds                                                                                          |
+|-----------------|------------------------------------------------------------------------------------------------|
+| `lib/domain/`   | the rules: `Shape`, `Piece`, `Board`, `Game`, the events of a game; no input or output         |
+| `lib/ports/`    | the interfaces to the outside, `GameService` (the one entry point) and `HighscoreRecorder`     |
+| `lib/adapters/` | the implementations: pieces, storage in SQLite, the text and JSON views                        |
+| `web/`          | the browser: `index.html`, `game.js`, `style.css`, and `game.smn`, `scores.smn` as controllers |
+| top level       | `terminal.smn` to play in the terminal, and the test programs, each with its `.out`            |
 
 Modules live under `lib/`, because `cargo test` runs every other `.smn` in `examples/` as a program.
 
@@ -59,12 +59,13 @@ Modules live under `lib/`, because `cargo test` runs every other `.smn` in `exam
 -   **Factory:** `PieceFactory` makes a `Piece` from a `Shape`, the only place that knows the cells of each shape.
 -   **Observer:** the `Game` tells its listeners (`GameListener`) about events: a piece landed, rows cleared, the
     game is over. The score is a rule of the game, so the `Game` counts it itself; listeners do what the game should
-    not know about, like `HighscoreRecorder` saving a score at the end or the terminal printing a message.
+    not know about, like `HighscoreRecorder` saving a score at the end. It needs the `ScoreStore` port, so it lives in
+    `ports/` next to `GameService`, not in the domain; `web/game.smn` connects it before the first piece.
 -   **MVC** in the browser: the model is the `Game`, the view is `JsonView` with `game.js` drawing it, the controller
     is `web/game.smn`, which turns a request into a command of the `GameService`.
 -   **DTO:** data crosses a border only as a plain struct. `GameStateDto` goes from the game to the view and becomes
-    JSON; `ScoreDto` comes from a database row through the typed getters (`row.get_int(...)`), the only place where
-    database types meet Somoni types.
+    JSON; `ScoreDto` crosses the `ScoreStore` port and comes from a database row through the typed getters
+    (`row.get_int(...)`), the only place where database types meet Somoni types.
 -   **Dependency injection:** an adapter gets what it needs in its constructor, like `new SqliteScores(db)`; nothing
     creates its own database or reads a global.
 -   **Memento:** `game.snapshot()` gives a `GameSnapshot` with everything that makes up the game, and
@@ -102,7 +103,7 @@ The project grows in steps, each one working on its own:
 3. [x] `GameService`, `PieceSource` with `FixedPieces` and `RandomPieces`, `TextView`, and `terminal.smn` to play in the terminal
 4. [x] `GameStore` in SQLite, `JsonView`, and `web/game.smn` for `somoni serve`
 5. [x] the browser: `index.html`, `game.js`, `style.css`
-6. [ ] high scores in SQLite with `ScoreDto`
+6. [x] high scores in SQLite with `ScoreDto`, saved by `HighscoreRecorder` and shown by `web/scores.smn`
 
 ## Running
 

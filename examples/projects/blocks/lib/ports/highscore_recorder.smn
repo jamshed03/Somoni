@@ -1,0 +1,33 @@
+// The listener that saves the score when a game ends (the observer pattern); the game does not know it exists.
+
+import { EventKind, GameEvent, GameListener } from "../domain/events.smn";
+import { ScoreStore } from "score_store.smn";
+
+// Saves the points into a score store at the end of a game, and keeps the problem if saving failed.
+export class HighscoreRecorder implements GameListener {
+    private store: ScoreStore;
+    private problem: string?;
+
+    constructor(store: ScoreStore) {
+        this.store = store;
+        this.problem = null;
+    }
+
+    notify(event: GameEvent): void {
+        if (event.kind != EventKind.Over) {
+            return;
+        }
+        match (this.store.add(event.score, now())) {
+            ok(_) => {
+            }
+            err(reason: string) => {
+                this.problem = reason;
+            }
+        }
+    }
+
+    // Returns why saving the last score failed, or null.
+    error(): string? {
+        return this.problem;
+    }
+}

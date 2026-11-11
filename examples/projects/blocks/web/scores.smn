@@ -1,0 +1,36 @@
+// The controller for the high scores: GET /scores gives the ten best as JSON, the highest first.
+
+import { ScoreDto } from "../lib/ports/score_store.smn";
+import { SqliteScores } from "../lib/adapters/sqlite_scores.smn";
+import { json_string } from "../lib/adapters/json_view.smn";
+
+// Returns the scores as a JSON list, each with its points and the date the game ended (UTC).
+fn scores_json(scores: list<ScoreDto>): string {
+    var items = scores.map(fn(score) => "\{\"points\":{score.points},\"date\":{json_string(format_date(score.at, "YYYY-MM-DD hh:mm"))}\}");
+    return "[{items.join(",")}]";
+}
+
+// Returns the ten best scores from the database next to this page.
+fn best_scores(): result<list<ScoreDto>, string> {
+    var db = db_open("data/blocks.db")?;
+    return new SqliteScores(db).best(10);
+}
+
+// Answers with the best scores, or 500 with the reason as JSON.
+fn handle(): void {
+    match (best_scores()) {
+        ok(scores: list<ScoreDto>) => {
+            print(scores_json(scores));
+        }
+        err(reason: string) => {
+            set_status(500);
+            print("\{\"error\":{json_string(reason)}\}");
+        }
+    }
+}
+
+if (request_method() == "") {
+    print("This page answers the browser; start it with: somoni serve examples/projects/blocks/web");
+} else {
+    handle();
+}
