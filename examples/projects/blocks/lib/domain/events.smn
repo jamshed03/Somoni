@@ -1,0 +1,19 @@
+// What happens in a game, for the listeners that want to know (the observer pattern).
+
+// The kinds of events: a piece landed, rows went away, or the game is over.
+export enum EventKind {
+    Landed,
+    Cleared,
+    Over
+}
+
+// One event; `rows` is the number of rows that went away, 0 for the other kinds.
+export struct GameEvent {
+    kind: EventKind,
+    rows: int
+}
+
+// Something that wants to hear about the events of a game, like a high score list or a sound.
+export interface GameListener {
+    notify(event: GameEvent): void;
+}

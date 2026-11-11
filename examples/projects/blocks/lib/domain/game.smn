@@ -1,0 +1,151 @@
+// A running game: the board, the falling piece, the score, and the listeners that hear about what happens.
+
+import { Shape } from "shape.smn";
+import { Piece } from "piece.smn";
+import { PieceFactory } from "piece_factory.smn";
+import { Board } from "board.smn";
+import { EventKind, GameEvent, GameListener } from "events.smn";
+
+// The game itself; it does not know where its shapes come from, it asks for one with needs_piece().
+export class Game {
+    private well: Board;
+    private factory: PieceFactory;
+    private falling: Piece?;
+    private points: int;
+    private finished: bool;
+    private listeners: list<GameListener>;
+
+    constructor(well: Board, factory: PieceFactory) {
+        this.well = well;
+        this.factory = factory;
+        this.falling = null;
+        this.points = 0;
+        this.finished = false;
+        this.listeners = [];
+    }
+
+    // Returns the board with the pieces that landed.
+    board(): Board {
+        return this.well;
+    }
+
+    // Returns the falling piece, or null between two pieces.
+    piece(): Piece? {
+        return this.falling;
+    }
+
+    // Returns the points so far.
+    score(): int {
+        return this.points;
+    }
+
+    // Returns true once a new piece found no room.
+    is_over(): bool {
+        return this.finished;
+    }
+
+    // Returns true if the game waits for the next shape.
+    needs_piece(): bool {
+        return this.falling == null && !this.finished;
+    }
+
+    // Lets `listener` hear about every event from now on.
+    subscribe(listener: GameListener): void {
+        this.listeners += [listener];
+    }
+
+    // Starts the next piece of `shape` at the top, or ends the game if it has no room.
+    spawn(shape: Shape): void {
+        if (!this.needs_piece()) {
+            return;
+        }
+        var piece = this.factory.create(shape);
+        if (!this.well.fits(piece)) {
+            this.finished = true;
+            this.tell(EventKind.Over, 0);
+            return;
+        }
+        this.falling = piece;
+    }
+
+    // Moves the piece `cols` to the side, if it fits there.
+    move(cols: int): void {
+        if (var piece = this.falling) {
+            this.try_place(piece.moved(0, cols));
+        }
+    }
+
+    // Turns the piece a quarter clockwise, if it fits that way.
+    rotate(): void {
+        if (var piece = this.falling) {
+            this.try_place(piece.rotated());
+        }
+    }
+
+    // Lets the piece fall one row, or lands it if it cannot fall any further.
+    step(): void {
+        if (var piece = this.falling) {
+            if (!this.try_place(piece.moved(1, 0))) {
+                this.land(piece);
+            }
+        }
+    }
+
+    // Lets the piece fall as far as it can and lands it.
+    drop(): void {
+        if (var piece = this.falling) {
+            var lowest = piece;
+            while (this.well.fits(lowest.moved(1, 0))) {
+                lowest = lowest.moved(1, 0);
+            }
+            this.land(lowest);
+        }
+    }
+
+    // Takes `next` as the falling piece if it fits, and returns whether it did.
+    private try_place(next: Piece): bool {
+        if (!this.well.fits(next)) {
+            return false;
+        }
+        this.falling = next;
+        return true;
+    }
+
+    // Puts the piece into the board, takes away full rows and counts their points.
+    private land(piece: Piece): void {
+        var (well, rows) = this.well.placed(piece).cleared();
+        this.well = well;
+        this.falling = null;
+        this.tell(EventKind.Landed, 0);
+        if (rows > 0) {
+            this.points += points_for(rows);
+            this.tell(EventKind.Cleared, rows);
+        }
+    }
+
+    // Tells every listener about an event.
+    private tell(kind: EventKind, rows: int): void {
+        var event = GameEvent { kind: kind, rows: rows };
+        for (listener in this.listeners) {
+            listener.notify(event);
+        }
+    }
+}
+
+// Returns the points for rows cleared at once: 1 row 100, 2 rows 300, 3 rows 500, 4 rows 800.
+fn points_for(rows: int): int {
+    match (rows) {
+        1 => {
+            return 100;
+        }
+        2 => {
+            return 300;
+        }
+        3 => {
+            return 500;
+        }
+        _ => {
+            return 800;
+        }
+    }
+}

@@ -1,0 +1,48 @@
+true
+a bar falls to the floor and clears a row
+event: landed
+event: cleared 1
+100
+true
+two squares side by side clear two rows
+event: landed
+....
+....
+....
+....
+##..
+##..
+--
+event: landed
+event: cleared 2
+400
+....
+....
+....
+....
+....
+....
+--
+a T cannot turn at the top, but after two steps
+0 1
+event: landed
+....
+....
+....
+.#..
+##..
+.#..
+--
+the well fills up until a piece has no room
+event: landed
+event: over
+true
+false
+400
+....
+.##.
+.##.
+.#..
+##..
+.#..
+--

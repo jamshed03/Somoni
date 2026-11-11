@@ -1,0 +1,87 @@
+// Checks a game on a small well of 4 × 6: moves, turns, landing, points, the end, and its events.
+
+import { Shape } from "lib/domain/shape.smn";
+import { Board } from "lib/domain/board.smn";
+import { PieceFactory } from "lib/domain/piece_factory.smn";
+import { EventKind, GameEvent, GameListener } from "lib/domain/events.smn";
+import { Game } from "lib/domain/game.smn";
+
+// A listener that prints every event at the moment it happens.
+class Printer implements GameListener {
+    constructor() {
+    }
+
+    notify(event: GameEvent): void {
+        match (event.kind) {
+            EventKind.Landed => {
+                print("event: landed");
+            }
+            EventKind.Cleared => {
+                print("event: cleared {event.rows}");
+            }
+            EventKind.Over => {
+                print("event: over");
+            }
+        }
+    }
+}
+
+// Prints the board: # for a taken cell, . for an empty one, and a line after it.
+fn draw(board: Board): void {
+    for (var row = 0; row < board.height; row += 1) {
+        var line = "";
+        for (var col = 0; col < board.width; col += 1) {
+            if (board.shape_at(row, col) != null) {
+                line += "#";
+            } else {
+                line += ".";
+            }
+        }
+        print(line);
+    }
+    print("--");
+}
+
+var game = new Game(Board::empty(4, 6), new PieceFactory(4));
+game.subscribe(new Printer());
+print(game.needs_piece());
+
+print("a bar falls to the floor and clears a row");
+game.spawn(Shape.I);
+game.drop();
+print(game.score());
+print(game.needs_piece());
+
+print("two squares side by side clear two rows");
+game.spawn(Shape.O);
+game.move(-1);
+game.drop();
+draw(game.board());
+game.spawn(Shape.O);
+game.move(1);
+game.move(1);
+game.drop();
+print(game.score());
+draw(game.board());
+
+print("a T cannot turn at the top, but after two steps");
+game.spawn(Shape.T);
+game.rotate();
+if (var piece = game.piece()) {
+    print("{piece.row} {piece.col}");
+}
+game.step();
+game.step();
+game.rotate();
+game.drop();
+draw(game.board());
+
+print("the well fills up until a piece has no room");
+game.spawn(Shape.O);
+game.drop();
+game.spawn(Shape.O);
+print(game.is_over());
+print(game.needs_piece());
+game.spawn(Shape.I);
+print(game.score());
+draw(game.board());

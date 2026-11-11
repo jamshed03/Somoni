@@ -26,7 +26,8 @@ import anything from `ports/` or `adapters/`. Everything it needs from outside c
 ```
 
 Imports only point inwards: `adapters/` may import `ports/` and `domain/`, `ports/` may import `domain/`, `domain/`
-imports only `domain/`. The programs at the top (`terminal.smn`, `web/game.smn`) are the composition roots: the only
+imports only `domain/`. So the `Game` does not know where its shapes come from: it says `needs_piece()`, and
+`GameService` (in `ports/`) gives it the next shape from a `PieceSource`. The programs at the top (`terminal.smn`, `web/game.smn`) are the composition roots: the only
 places that create adapters and hand them to the game.
 
 ## Folders
@@ -56,8 +57,9 @@ Modules live under `lib/`, because `cargo test` runs every other `.smn` in `exam
 ## Patterns
 
 -   **Factory:** `PieceFactory` makes a `Piece` from a `Shape`, the only place that knows the cells of each shape.
--   **Observer:** the `Game` tells its listeners about events (a piece landed, rows cleared, the game is over);
-    `ScoreKeeper` counts points and `HighscoreRecorder` saves a score at the end, without the `Game` knowing them.
+-   **Observer:** the `Game` tells its listeners (`GameListener`) about events: a piece landed, rows cleared, the
+    game is over. The score is a rule of the game, so the `Game` counts it itself; listeners do what the game should
+    not know about, like `HighscoreRecorder` saving a score at the end or the terminal printing a message.
 -   **MVC** in the browser: the model is the `Game`, the view is `JsonView` with `game.js` drawing it, the controller
     is `web/game.smn`, which turns a request into a command of the `GameService`.
 -   **DTO:** data crosses a border only as a plain struct. `GameStateDto` goes from the game to the view and becomes
@@ -88,8 +90,8 @@ This project is also there to find the gaps. Each one is worked around here and 
 The project grows in steps, each one working on its own:
 
 1. [x] this README: the architecture and the rules
-2. [ ] the domain with tests: shapes, pieces, the board, the game, its events
-3. [ ] `terminal.smn`: playable in the terminal
+2. [x] the domain with tests: shapes, pieces, the board, the game, its events
+3. [ ] `GameService`, `PieceSource` with `FixedPieces` and `RandomPieces`, and `terminal.smn` to play in the terminal
 4. [ ] `GameStore` in a file, `JsonView`, and `web/game.smn` for `somoni serve`
 5. [ ] the browser: `index.html`, `game.js`, `style.css`
 6. [ ] high scores in SQLite with `ScoreDto`
