@@ -1889,7 +1889,8 @@ Right:
     print(f(1));
 
 ## T105 value that cannot stand in a string
-In `"... {value} ..."` and in `{{ }}` of a template stand ints, floats, bools and strings. A list or an object needs
+In `"... {value} ..."` and in `{{ }}` of a template stand ints, floats, bools, strings and enum values (as the name
+of their variant). A list or an object needs
 to be turned into text first; a value with `?` needs a null check first.
 
 Wrong:

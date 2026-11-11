@@ -480,7 +480,10 @@ impl TypeChecker {
     fn check_interpolation(&mut self, parts: &mut [Expr]) -> Result<Type, SomoniError> {
         for part in parts {
             let found = self.check_expr(part)?;
-            if !matches!(found, Type::Int | Type::Float | Type::Bool | Type::Str) {
+            if !matches!(
+                found,
+                Type::Int | Type::Float | Type::Bool | Type::Str | Type::Enum(_)
+            ) {
                 let code = ErrorCode::InterpolationType { found };
                 return Err(SomoniError::at(part.span, code));
             }

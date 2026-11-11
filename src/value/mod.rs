@@ -75,6 +75,13 @@ pub struct EnumValue {
     pub variant: usize,
 }
 
+impl EnumValue {
+    /// Returns the name of the variant, like `Red`; `string(c)` and `"{c}"` give it.
+    pub fn name(&self) -> &str {
+        &self.decl.variants[self.variant].0
+    }
+}
+
 /// Two variants are equal if they belong to the same enum and are the same variant.
 impl PartialEq for EnumValue {
     fn eq(&self, other: &EnumValue) -> bool {

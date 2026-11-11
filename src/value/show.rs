@@ -55,10 +55,7 @@ impl<'a, 'b> Writer<'a, 'b> {
             }
             Value::Object(object) => self.show_object(object),
             Value::Map(map) => self.show_map(map),
-            Value::Enum(value) => {
-                let variant = &value.decl.variants[value.variant].0;
-                write!(self.f, "{}.{}", value.decl.name, variant)
-            }
+            Value::Enum(value) => write!(self.f, "{}.{}", value.decl.name, value.name()),
             Value::Ok(inner) => self.show_wrapped("ok", inner),
             Value::Err(inner) => self.show_wrapped("err", inner),
             Value::Function(_) | Value::Closure(_) => write!(self.f, "fn"),

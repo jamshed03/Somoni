@@ -1184,7 +1184,7 @@ impl ErrorCode {
                 found, names, names
             ),
             ErrorCode::InterpolationType { found } => format!(
-                "cannot put {} into a string; only int, float, bool and string can stand in '{{...}}' (a value with '?' first needs a null check)",
+                "cannot put {} into a string; only int, float, bool, string and enum values can stand in '{{...}}' (a value with '?' first needs a null check)",
                 found
             ),
             ErrorCode::LambdaParamCount { expected, found } => format!(

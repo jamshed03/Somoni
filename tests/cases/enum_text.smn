@@ -1,0 +1,13 @@
+// An enum value as text is the name of its variant; print still shows the enum too
+enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+var c = Color.Green;
+print(string(c));
+print("color: {c}");
+print(c);
+print([Color.Red, Color.Blue].map(fn(x) => string(x)));
+print("x" + string(Color.Red));
