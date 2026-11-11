@@ -98,7 +98,7 @@ The project grows in steps, each one working on its own:
 1. [x] this README: the architecture and the rules
 2. [x] the domain with tests: shapes, pieces, the board, the game, its events
 3. [x] `GameService`, `PieceSource` with `FixedPieces` and `RandomPieces`, `TextView`, and `terminal.smn` to play in the terminal
-4. [ ] `GameStore` in SQLite (done), `JsonView`, and `web/game.smn` for `somoni serve`
+4. [ ] `GameStore` in SQLite (done), `JsonView` (done), and `web/game.smn` for `somoni serve`
 5. [ ] the browser: `index.html`, `game.js`, `style.css`
 6. [ ] high scores in SQLite with `ScoreDto`
 

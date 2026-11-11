@@ -1,0 +1,70 @@
+// A game as JSON for the browser: first a plain struct (the DTO), then text, since Somoni has no JSON yet.
+
+import { shape_letter } from "../domain/shape.smn";
+import { Cell } from "../domain/piece.smn";
+import { Game } from "../domain/game.smn";
+import { GameView } from "../ports/game_view.smn";
+
+// What the browser needs to draw a game: in `rows`, . is empty, a capital letter a landed cell, a small one the
+// falling piece.
+export struct GameStateDto {
+    width: int,
+    height: int,
+    score: int,
+    over: bool,
+    rows: list<string>
+}
+
+// Shows a game as JSON.
+export class JsonView implements GameView {
+    constructor() {
+    }
+
+    show(game: Game): string {
+        return json(game_state(game));
+    }
+}
+
+// Returns the state of the game as a DTO, with the falling piece drawn into the rows.
+export fn game_state(game: Game): GameStateDto {
+    var board = game.board();
+    var falling: list<Cell> = [];
+    var letter = "";
+    if (var piece = game.piece()) {
+        falling = piece.cells();
+        letter = shape_letter(piece.shape).lower();
+    }
+    var rows: list<string> = [];
+    for (var row = 0; row < board.height; row += 1) {
+        var line = "";
+        for (var col = 0; col < board.width; col += 1) {
+            if (falling.contains(Cell { row: row, col: col })) {
+                line += letter;
+            } else if (var shape = board.shape_at(row, col)) {
+                line += shape_letter(shape);
+            } else {
+                line += ".";
+            }
+        }
+        rows += [line];
+    }
+    return GameStateDto {
+        width: board.width,
+        height: board.height,
+        score: game.score(),
+        over: game.is_over(),
+        rows: rows
+    };
+}
+
+// Returns the DTO as one line of JSON.
+fn json(state: GameStateDto): string {
+    var rows = state.rows.map(json_string).join(",");
+    return "\{\"width\":{state.width},\"height\":{state.height},\"score\":{state.score},"
+        + "\"over\":{state.over},\"rows\":[{rows}]\}";
+}
+
+// Returns the text as a JSON string, with quotes around it and \ and " inside escaped.
+fn json_string(text: string): string {
+    return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+}

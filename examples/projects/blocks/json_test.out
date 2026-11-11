@@ -1,0 +1,3 @@
+GameStateDto { width: 4, height: 6, score: 0, over: false, rows: ["....", "ttt.", ".t..", "....", "....", "...."] }
+{"width":4,"height":6,"score":0,"over":false,"rows":["....","ttt.",".t..","....","....","...."]}
+{"width":4,"height":6,"score":0,"over":false,"rows":["ttt.",".t..","....","....","TTT.",".T.."]}
