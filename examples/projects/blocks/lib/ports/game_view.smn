@@ -1,0 +1,8 @@
+// The port for showing a game: an adapter decides how it looks, as text or as JSON.
+
+import { Game } from "../domain/game.smn";
+
+// Turns a game into what a player sees.
+export interface GameView {
+    show(game: Game): string;
+}

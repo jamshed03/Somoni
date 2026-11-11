@@ -26,6 +26,7 @@ Larger programs with several files, each showing a different side of Somoni.
 | ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `guessing_game/` | Guess a number from 1 to 100, with a hint after every try      | `input()`, `while (var ...)`, `random`, `args()`, `int(...)` with a `result`   |
 | `web/`           | A small site: a template page, a normal program, a search page | `somoni serve examples/projects/web`, templates, `query("q")`                  |
+| `blocks/`        | A falling blocks game for the terminal, later the browser      | hexagonal architecture, interfaces, factory, observer, dependency injection    |
 | `docs_site/`     | The documentation of Somoni, built with Somoni                 | modules, templates with `@props` and `@foreach`, Markdown in Somoni, files     |
 
 `docs_site/` writes one HTML file per page into `docs_site/site/`:

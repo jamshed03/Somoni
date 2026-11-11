@@ -1,0 +1,15 @@
+// Shapes by chance, for a real game.
+
+import { Shape } from "../domain/shape.smn";
+import { PieceSource } from "../ports/piece_source.smn";
+
+// Gives a shape picked by chance from all seven.
+export class RandomPieces implements PieceSource {
+    constructor() {
+    }
+
+    next(): Shape {
+        var shapes = [Shape.I, Shape.O, Shape.T, Shape.S, Shape.Z, Shape.J, Shape.L];
+        return shapes[random(0, len(shapes) - 1)];
+    }
+}

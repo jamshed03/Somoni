@@ -6,43 +6,48 @@ event: cleared 1
 true
 two squares side by side clear two rows
 event: landed
-....
-....
-....
-....
-##..
-##..
---
+|....|
+|....|
+|....|
+|....|
+|##..|
+|##..|
++----+
+score 100
 event: landed
 event: cleared 2
 400
-....
-....
-....
-....
-....
-....
---
+|....|
+|....|
+|....|
+|....|
+|....|
+|....|
++----+
+score 400
 a T cannot turn at the top, but after two steps
 0 1
 event: landed
-....
-....
-....
-.#..
-##..
-.#..
---
+|....|
+|....|
+|....|
+|.#..|
+|##..|
+|.#..|
++----+
+score 400
 the well fills up until a piece has no room
 event: landed
 event: over
 true
 false
 400
-....
-.##.
-.##.
-.#..
-##..
-.#..
---
+|....|
+|.##.|
+|.##.|
+|.#..|
+|##..|
+|.#..|
++----+
+score 400
+game over

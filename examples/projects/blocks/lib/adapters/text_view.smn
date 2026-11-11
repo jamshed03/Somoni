@@ -1,0 +1,38 @@
+// A game as text for the terminal: # for a landed cell, @ for the falling piece, then the score.
+
+import { Cell } from "../domain/piece.smn";
+import { Game } from "../domain/game.smn";
+import { GameView } from "../ports/game_view.smn";
+
+// Draws the well with walls, the falling piece in it, and the score below.
+export class TextView implements GameView {
+    constructor() {
+    }
+
+    show(game: Game): string {
+        var board = game.board();
+        var falling: list<Cell> = [];
+        if (var piece = game.piece()) {
+            falling = piece.cells();
+        }
+        var lines: list<string> = [];
+        for (var row = 0; row < board.height; row += 1) {
+            var line = "|";
+            for (var col = 0; col < board.width; col += 1) {
+                if (falling.contains(Cell { row: row, col: col })) {
+                    line += "@";
+                } else if (board.shape_at(row, col) != null) {
+                    line += "#";
+                } else {
+                    line += ".";
+                }
+            }
+            lines += [line + "|"];
+        }
+        lines += ["+" + "-".repeat(board.width) + "+", "score {game.score()}"];
+        if (game.is_over()) {
+            lines += ["game over"];
+        }
+        return lines.join("\n");
+    }
+}

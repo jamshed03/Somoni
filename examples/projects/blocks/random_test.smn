@@ -1,0 +1,14 @@
+// Checks the random source by a property, since its order changes every time: all seven shapes come up.
+
+import { Shape } from "lib/domain/shape.smn";
+import { RandomPieces } from "lib/adapters/random_pieces.smn";
+
+var source = new RandomPieces();
+var seen: list<Shape> = [];
+for (var i = 0; i < 300; i += 1) {
+    var shape = source.next();
+    if (!seen.contains(shape)) {
+        seen += [shape];
+    }
+}
+print(len(seen));
